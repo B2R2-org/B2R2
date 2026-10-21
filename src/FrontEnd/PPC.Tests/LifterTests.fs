@@ -288,16 +288,11 @@ type LifterTests() =
   /// The 64-bit processors, in both byte orders.
   let ppc64s = [ ppc64; ppc64le ]
 
-  /// Whether one word traps on the processor an ISA names, over the
-  /// registers given. The runner refuses every side effect, so a run that
-  /// reaches the trap's interrupt fails on it and one that does not
-  /// completes.
+  /// Whether one word records the architectural trap on the processor an
+  /// ISA names, over the registers given.
   let traps isa hex given =
-    try
-      run isa hex given |> ignore
-      false
-    with e when e.Message.EndsWith "!!Int0" ->
-      true
+    let result = IRRunner.exec (lifted isa hex) (inputsOf isa given) []
+    List.contains 0 result.Interrupts
 
   /// Asserts whether one word trapped, naming the case.
   let expectTrap (trapped: bool) isa hex given =
@@ -79393,3 +79388,20710 @@ type PrefixedLifterTests() =
 
       |
       """
+
+/// Original instruction value tests use independently captured QEMU states.
+/// VSX FP exception flags retain the existing lifter scope; all supplied
+/// registers and memory bytes within the represented scope are checked.
+[<TestClass>]
+type BackfillLifterTests() =
+  let pairs (text: string) =
+    text.Split([| ' '; '\n'; '\r'; '\t' |],
+               StringSplitOptions.RemoveEmptyEntries)
+    |> Array.map (fun field ->
+      let parts = field.Split '='
+      parts[0], Convert.ToUInt64(parts[1], 16))
+
+  let registers text =
+    pairs text
+    |> Array.collect (fun (name, value) ->
+      if name = "CR" then
+        Array.init 32 (fun i ->
+          let id = Register.CR0_0 |> int |> fun n -> n + i
+          enum<Register> id, (value >>> (31 - i)) &&& 1UL)
+      else
+        [| Enum.Parse<Register> name, value |])
+
+  let oracle hex endian size (cases: string) =
+    let isa = ISA(Architecture.PPC, endian, size)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let variable r = regs.GetRegVar(Register.toRegID r)
+    let bytes = ByteArray.ofHexString hex
+    let parser = Parser(isa, BinReader.Init endian) :> IInstructionParsable
+    let ins = parser.Parse(bytes, 0x20100000UL)
+    let bld = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    let stmts = ins.Translate bld
+    let cases =
+      cases.Split '|' |> Array.filter (String.IsNullOrWhiteSpace >> not)
+    for case in cases do
+      let cols = case.Split ';'
+      let given =
+        registers cols[0] |> Array.toList
+        |> List.map (fun (r, v) ->
+          let expr = variable r
+          expr, BitVector(v, Expr.typeOf expr))
+      let memory =
+        pairs cols[2] |> Array.toList |> List.map (fun (addr, value) ->
+          let address = Convert.ToUInt64(addr, 16)
+          let bytes = Array.init 8 (fun i -> byte (value >>> (56 - 8 * i)))
+          address, bytes)
+      let result = IRRunner.exec stmts given memory
+      for r, value in registers cols[1] do
+        let actual = (result.Read(variable r)).ToUInt64()
+        Assert.AreEqual(box value, box actual, $"{hex} {r} {endian}")
+      for addr, value in pairs cols[3] do
+        let address = Convert.ToUInt64(addr, 16)
+        let mutable actual = 0UL
+        for i in 0UL .. 7UL do
+          actual <- (actual <<< 8) ||| uint64 result.Memory[address + i]
+        Assert.AreEqual(box value, box actual, $"{hex} {addr} {endian}")
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDC. original values``() =
+    oracle "7ca63815" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63815" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1538a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDCO original values``() =
+    oracle "7ca63c14" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63c14" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "143ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDCO. original values``() =
+    oracle "7ca63c15" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63c15" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "153ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADD. original values``() =
+    oracle "7ca63a15" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63a15" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "153aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDE original values``() =
+    oracle "7ca63914" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63914" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1439a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDE. original values``() =
+    oracle "7ca63915" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63915" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1539a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDEO original values``() =
+    oracle "7ca63d14" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63d14" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "143da67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDEO. original values``() =
+    oracle "7ca63d15" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63d15" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "153da67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDI original values``() =
+    oracle "38a6000c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "38a6000c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a638" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDIC original values``() =
+    oracle "30a6000c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "30a6000c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a630" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDIC. original values``() =
+    oracle "34a6000c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "34a6000c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a634" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDIS original values``() =
+    oracle "3ca6000c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=c0003 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3ca6000c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=c0003 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a63c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=c0003 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDME original values``() =
+    oracle "7ca601d4" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca601d4" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d401a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDME. original values``() =
+    oracle "7ca601d5" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca601d5" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d501a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDMEO original values``() =
+    oracle "7ca605d4" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca605d4" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d405a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDMEO. original values``() =
+    oracle "7ca605d5" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca605d5" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d505a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDO original values``() =
+    oracle "7ca63e14" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63e14" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "143ea67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDO. original values``() =
+    oracle "7ca63e15" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63e15" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "153ea67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=8 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZE original values``() =
+    oracle "7ca60194" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60194" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9401a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZE. original values``() =
+    oracle "7ca60195" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60195" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9501a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZEO original values``() =
+    oracle "7ca60594" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60594" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9405a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZEO. original values``() =
+    oracle "7ca60595" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60595" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9505a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=3 R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDC original values``() =
+    oracle "7d063878" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=2 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063878" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=2 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7838067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=2 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDC. original values``() =
+    oracle "7d063879" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=2 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063879" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=2 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7938067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=2 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDI. original values``() =
+    oracle "71060055" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=1 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "71060055" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=1 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "55000671" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=1 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDIS. original values``() =
+    oracle "75060055" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "75060055" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "55000675" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] B original values``() =
+    oracle "48000004" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "48000004" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "04000048" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BC original values``() =
+    oracle "42890004" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "42890004" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "04008942" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BCCTR original values``() =
+    oracle "4e890420" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4e890420" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2004894e" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100080
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BCL original values``() =
+    oracle "42890005" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100004 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "42890005" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100004 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05008942" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100004 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BCLR original values``() =
+    oracle "4e890020" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100040
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4e890020" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100040
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2000894e" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100040
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BL original values``() =
+    oracle "48000005" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100004 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "48000005" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100004 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000048" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      LR=20100004 CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BPERMD original values``() =
+    oracle "7d0639f8" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f839067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMP original values``() =
+    oracle "7d063800" Endian.Big WordSize.Bit32 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063800" Endian.Big WordSize.Bit64 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0038067d" Endian.Little WordSize.Bit64 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPI original values``() =
+    oracle "2d06000c" Endian.Big WordSize.Bit32 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2d06000c" Endian.Big WordSize.Bit64 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00062d" Endian.Little WordSize.Bit64 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPL original values``() =
+    oracle "7d063840" Endian.Big WordSize.Bit32 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063840" Endian.Big WordSize.Bit64 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4038067d" Endian.Little WordSize.Bit64 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLI original values``() =
+    oracle "29060055" Endian.Big WordSize.Bit32 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "29060055" Endian.Big WordSize.Bit64 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "55000629" Endian.Little WordSize.Bit64 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=800000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZD original values``() =
+    oracle "7d060074" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3e R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7400067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3e R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZD. original values``() =
+    oracle "7d060075" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3e R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7500067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3e R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZW original values``() =
+    oracle "7d060034" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=1e R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d060034" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=1e R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3400067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=1e R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZW. original values``() =
+    oracle "7d060035" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=1e R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d060035" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=1e R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3500067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=1e R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRAND original values``() =
+    oracle "4d2a5a02" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5a02" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "025a2a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRANDC original values``() =
+    oracle "4d2a5902" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5902" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "02592a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CREQV original values``() =
+    oracle "4d2a5a42" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5a42" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "425a2a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRNAND original values``() =
+    oracle "4d2a59c2" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a59c2" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c2592a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRNOR original values``() =
+    oracle "4d2a5842" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5842" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "42582a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CROR original values``() =
+    oracle "4d2a5b82" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5b82" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "825b2a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRORC original values``() =
+    oracle "4d2a5b42" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5b42" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "425b2a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=400000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRXOR original values``() =
+    oracle "4d2a5982" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d2a5982" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "82592a4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DCBST original values``() =
+    oracle "7c06386c" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ef4246c4e651e488 0x20200068=ed40a36acc85b75f
+      0x20200070=c403831fbfff7395 0x20200078=814aa0b1611bfd96
+      0x20200080=6fe81cf32d60dc14 0x20200088=128919ad82627850
+      0x20200090=1762fe2f67c6a59e 0x20200098=4940e2a0ed489116
+      0x202000a0=32894d76331f2a87 0x202000a8=5e1087064a0a1b02
+      0x202000b0=c4e7bdc1d4a7b7cb 0x202000b8=dd66e303e43ee941
+      ;
+      0x20200060=ef4246c4e651e488 0x20200068=ed40a36acc85b75f
+      0x20200070=c403831fbfff7395 0x20200078=814aa0b1611bfd96
+      0x20200080=6fe81cf32d60dc14 0x20200088=128919ad82627850
+      0x20200090=1762fe2f67c6a59e 0x20200098=4940e2a0ed489116
+      0x202000a0=32894d76331f2a87 0x202000a8=5e1087064a0a1b02
+      0x202000b0=c4e7bdc1d4a7b7cb 0x202000b8=dd66e303e43ee941
+      |
+      """
+    oracle "7c06386c" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ef4246c4e651e488 0x20200068=ed40a36acc85b75f
+      0x20200070=c403831fbfff7395 0x20200078=814aa0b1611bfd96
+      0x20200080=6fe81cf32d60dc14 0x20200088=128919ad82627850
+      0x20200090=1762fe2f67c6a59e 0x20200098=4940e2a0ed489116
+      0x202000a0=32894d76331f2a87 0x202000a8=5e1087064a0a1b02
+      0x202000b0=c4e7bdc1d4a7b7cb 0x202000b8=dd66e303e43ee941
+      ;
+      0x20200060=ef4246c4e651e488 0x20200068=ed40a36acc85b75f
+      0x20200070=c403831fbfff7395 0x20200078=814aa0b1611bfd96
+      0x20200080=6fe81cf32d60dc14 0x20200088=128919ad82627850
+      0x20200090=1762fe2f67c6a59e 0x20200098=4940e2a0ed489116
+      0x202000a0=32894d76331f2a87 0x202000a8=5e1087064a0a1b02
+      0x202000b0=c4e7bdc1d4a7b7cb 0x202000b8=dd66e303e43ee941
+      |
+      """
+    oracle "6c38067c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ef4246c4e651e488 0x20200068=ed40a36acc85b75f
+      0x20200070=c403831fbfff7395 0x20200078=814aa0b1611bfd96
+      0x20200080=6fe81cf32d60dc14 0x20200088=128919ad82627850
+      0x20200090=1762fe2f67c6a59e 0x20200098=4940e2a0ed489116
+      0x202000a0=32894d76331f2a87 0x202000a8=5e1087064a0a1b02
+      0x202000b0=c4e7bdc1d4a7b7cb 0x202000b8=dd66e303e43ee941
+      ;
+      0x20200060=ef4246c4e651e488 0x20200068=ed40a36acc85b75f
+      0x20200070=c403831fbfff7395 0x20200078=814aa0b1611bfd96
+      0x20200080=6fe81cf32d60dc14 0x20200088=128919ad82627850
+      0x20200090=1762fe2f67c6a59e 0x20200098=4940e2a0ed489116
+      0x202000a0=32894d76331f2a87 0x202000a8=5e1087064a0a1b02
+      0x202000b0=c4e7bdc1d4a7b7cb 0x202000b8=dd66e303e43ee941
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DCBZ original values``() =
+    oracle "7c063fec" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=43854294c54e954e 0x20200068=1e18cdfebdf937df
+      0x20200070=8aeffc2d773ac5d0 0x20200078=40dd6914f450c43f
+      0x20200080=88c356f2bbbf23b7 0x20200088=8eee43c58f5e1b22
+      0x20200090=cfd066bcd050e041 0x20200098=ea040d66ed9093ff
+      0x202000a0=f5e1f3bcbf25a8f6 0x202000a8=8e8db899490f6f09
+      0x202000b0=3991b67f28aa2896 0x202000b8=33a049c447ee50a9
+      ;
+      0x20200060=43854294c54e954e 0x20200068=1e18cdfebdf937df
+      0x20200070=8aeffc2d773ac5d0 0x20200078=40dd6914f450c43f 0x20200080=0
+      0x20200088=0 0x20200090=0 0x20200098=0 0x202000a0=0 0x202000a8=0
+      0x202000b0=0 0x202000b8=0
+      |
+      """
+    oracle "7c063fec" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=43854294c54e954e 0x20200068=1e18cdfebdf937df
+      0x20200070=8aeffc2d773ac5d0 0x20200078=40dd6914f450c43f
+      0x20200080=88c356f2bbbf23b7 0x20200088=8eee43c58f5e1b22
+      0x20200090=cfd066bcd050e041 0x20200098=ea040d66ed9093ff
+      0x202000a0=f5e1f3bcbf25a8f6 0x202000a8=8e8db899490f6f09
+      0x202000b0=3991b67f28aa2896 0x202000b8=33a049c447ee50a9
+      0x202000c0=f311f2aa694eafc2 0x202000c8=9e49025ed88189c1
+      0x202000d0=cc5a4d4fb23149d1 0x202000d8=1c80097503f01244
+      0x202000e0=77dba553f83c78bf 0x202000e8=dbd39cacf73ee786
+      0x202000f0=fdd6b6cfdf9d2476 0x202000f8=96137d2ba970282d
+      ;
+      0x20200060=43854294c54e954e 0x20200068=1e18cdfebdf937df
+      0x20200070=8aeffc2d773ac5d0 0x20200078=40dd6914f450c43f 0x20200080=0
+      0x20200088=0 0x20200090=0 0x20200098=0 0x202000a0=0 0x202000a8=0
+      0x202000b0=0 0x202000b8=0 0x202000c0=0 0x202000c8=0 0x202000d0=0
+      0x202000d8=0 0x202000e0=0 0x202000e8=0 0x202000f0=0 0x202000f8=0
+      |
+      """
+    oracle "ec3f067c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=43854294c54e954e 0x20200068=1e18cdfebdf937df
+      0x20200070=8aeffc2d773ac5d0 0x20200078=40dd6914f450c43f
+      0x20200080=88c356f2bbbf23b7 0x20200088=8eee43c58f5e1b22
+      0x20200090=cfd066bcd050e041 0x20200098=ea040d66ed9093ff
+      0x202000a0=f5e1f3bcbf25a8f6 0x202000a8=8e8db899490f6f09
+      0x202000b0=3991b67f28aa2896 0x202000b8=33a049c447ee50a9
+      0x202000c0=f311f2aa694eafc2 0x202000c8=9e49025ed88189c1
+      0x202000d0=cc5a4d4fb23149d1 0x202000d8=1c80097503f01244
+      0x202000e0=77dba553f83c78bf 0x202000e8=dbd39cacf73ee786
+      0x202000f0=fdd6b6cfdf9d2476 0x202000f8=96137d2ba970282d
+      ;
+      0x20200060=43854294c54e954e 0x20200068=1e18cdfebdf937df
+      0x20200070=8aeffc2d773ac5d0 0x20200078=40dd6914f450c43f 0x20200080=0
+      0x20200088=0 0x20200090=0 0x20200098=0 0x202000a0=0 0x202000a8=0
+      0x202000b0=0 0x202000b8=0 0x202000c0=0 0x202000c8=0 0x202000d0=0
+      0x202000d8=0 0x202000e0=0 0x202000e8=0 0x202000f0=0 0x202000f8=0
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVD original values``() =
+    oracle "7ca63bd2" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d23ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVD. original values``() =
+    oracle "7ca63bd3" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d33ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVDU original values``() =
+    oracle "7ca63b92" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "923ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVDU. original values``() =
+    oracle "7ca63b93" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "933ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVW original values``() =
+    oracle "7ca63bd6" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63bd6" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d63ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVW. original values``() =
+    oracle "7ca63bd7" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63bd7" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d73ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWO original values``() =
+    oracle "7ca63fd6" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63fd6" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d63fa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWO. original values``() =
+    oracle "7ca63fd7" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63fd7" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d73fa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWU original values``() =
+    oracle "7ca63b96" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63b96" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "963ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWU. original values``() =
+    oracle "7ca63b97" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63b97" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "973ba67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWUO original values``() =
+    oracle "7ca63f96" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63f96" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "963fa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWUO. original values``() =
+    oracle "7ca63f97" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63f97" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "973fa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EIEIO original values``() =
+    oracle "7c0006ac" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7c0006ac" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ac06007c" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EQV original values``() =
+    oracle "7d063a38" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=fffffff9 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063a38" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=fffffffffffffff9 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "383a067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=fffffffffffffff9 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EQV. original values``() =
+    oracle "7d063a39" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffff9 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063a39" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffff9 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "393a067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffff9 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSB original values``() =
+    oracle "7d060774" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d060774" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7407067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSB. original values``() =
+    oracle "7d060775" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d060775" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7507067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSH original values``() =
+    oracle "7d060734" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d060734" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3407067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSH. original values``() =
+    oracle "7d060735" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d060735" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3507067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSW original values``() =
+    oracle "7d0607b4" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "b407067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSW. original values``() =
+    oracle "7d0607b5" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "b507067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=3 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FABS original values``() =
+    oracle "fc201a10" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201a10" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "101a20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FABS. original values``() =
+    oracle "fc201a11" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201a11" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "111a20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FADD. original values``() =
+    oracle "fc22182b" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22182b" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2b1822fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FADDS. original values``() =
+    oracle "ec22182b" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec22182b" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2b1822ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFID original values``() =
+    oracle "fc201e9c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9c1e20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFID. original values``() =
+    oracle "fc201e9d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9d1e20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDS. original values``() =
+    oracle "ec201e9d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9d1e20ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDU original values``() =
+    oracle "fc201f9c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9c1f20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDU. original values``() =
+    oracle "fc201f9d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9d1f20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDUS original values``() =
+    oracle "ec201f9c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9c1f20ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDUS. original values``() =
+    oracle "ec201f9d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9d1f20ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCMPU original values``() =
+    oracle "fd021800" Endian.Big WordSize.Bit32 """
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=800000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fd021800" Endian.Big WordSize.Bit64 """
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=800000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001802fd" Endian.Little WordSize.Bit64 """
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=800000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCPSGN original values``() =
+    oracle "fc221810" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "101822fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTID original values``() =
+    oracle "fc201e5c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5c1e20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTID. original values``() =
+    oracle "fc201e5d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5d1e20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDU. original values``() =
+    oracle "fc201f5d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5d1f20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDUZ original values``() =
+    oracle "fc201f5e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5e1f20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDUZ. original values``() =
+    oracle "fc201f5f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5f1f20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDZ original values``() =
+    oracle "fc201e5e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5e1e20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDZ. original values``() =
+    oracle "fc201e5f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5f1e20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIW. original values``() =
+    oracle "fc20181d" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc20181d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1d1820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWU original values``() =
+    oracle "fc20191c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1c1920fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWU. original values``() =
+    oracle "fc20191d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1d1920fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=2 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82060000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWUZ original values``() =
+    oracle "fc20191e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1e1920fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWUZ. original values``() =
+    oracle "fc20191f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1f1920fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWZ. original values``() =
+    oracle "fc20181f" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc20181f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1f1820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      CR=8000000 FPSCR=82020000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIV. original values``() =
+    oracle "fc221825" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=8000000 FPSCR=82024000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc221825" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=8000000 FPSCR=82024000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "251822fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=8000000 FPSCR=82024000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIVS original values``() =
+    oracle "ec221824" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec221824" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "241822ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIVS. original values``() =
+    oracle "ec221825" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec221825" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "251822ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMADD. original values``() =
+    oracle "fc22193b" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22193b" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3b1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMADDS. original values``() =
+    oracle "ec22193b" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec22193b" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3b1922ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMR original values``() =
+    oracle "fc201890" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201890" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMR. original values``() =
+    oracle "fc201891" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201891" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "911820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUB original values``() =
+    oracle "fc221938" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc221938" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "381922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUB. original values``() =
+    oracle "fc221939" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc221939" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "391922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUBS original values``() =
+    oracle "ec221938" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec221938" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "381922ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUBS. original values``() =
+    oracle "ec221939" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec221939" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "391922ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMUL. original values``() =
+    oracle "fc220133" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc220133" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "330122fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FMULS. original values``() =
+    oracle "ec220133" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec220133" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "330122ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F4=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNABS original values``() =
+    oracle "fc201910" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201910" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "101920fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNABS. original values``() =
+    oracle "fc201911" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201911" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "111920fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNEG original values``() =
+    oracle "fc201850" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201850" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "501820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNEG. original values``() =
+    oracle "fc201851" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201851" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "511820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADD original values``() =
+    oracle "fc22193e" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22193e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3e1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADD. original values``() =
+    oracle "fc22193f" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22193f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3f1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADDS original values``() =
+    oracle "ec22193e" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec22193e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3e1922ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADDS. original values``() =
+    oracle "ec22193f" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec22193f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3f1922ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c005000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUB original values``() =
+    oracle "fc22193c" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22193c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3c1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUB. original values``() =
+    oracle "fc22193d" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22193d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3d1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUBS. original values``() =
+    oracle "ec22193d" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec22193d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3d1922ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c010800000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRES. original values``() =
+    oracle "ec201831" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555560000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec201831" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555560000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "311820ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fe5555560000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIM original values``() =
+    oracle "fc201bd0" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d01b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIM. original values``() =
+    oracle "fc201bd1" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d11b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIN. original values``() =
+    oracle "fc201b11" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "111b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIP original values``() =
+    oracle "fc201b90" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIP. original values``() =
+    oracle "fc201b91" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "911b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIZ original values``() =
+    oracle "fc201b50" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "501b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIZ. original values``() =
+    oracle "fc201b51" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "511b20fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRSP. original values``() =
+    oracle "fc201819" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201819" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "191820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRSQRTE original values``() =
+    oracle "fc201834" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3fea20bd700c2c3f F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201834" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3fea20bd700c2c3f F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "341820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3fea20bd700c2c3f F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FRSQRTE. original values``() =
+    oracle "fc201835" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fea20bd700c2c3f F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc201835" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fea20bd700c2c3f F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "351820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3fea20bd700c2c3f F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSEL original values``() =
+    oracle "fc22192e" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22192e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2e1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSEL. original values``() =
+    oracle "fc22192f" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc22192f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2f1922fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=bfe8000000000000
+      F4=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRT. original values``() =
+    oracle "fc20182d" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3ff3988e1409212e F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82024000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc20182d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3ff3988e1409212e F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82024000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2d1820fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3ff3988e1409212e F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82024000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRTS original values``() =
+    oracle "ec20182c" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec20182c" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2c1820ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRTS. original values``() =
+    oracle "ec20182d" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec20182d" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2d1820ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=8000000 FPSCR=82064000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUB original values``() =
+    oracle "fc221828" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc221828" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "281822fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUB. original values``() =
+    oracle "fc221829" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc221829" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "291822fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUBS original values``() =
+    oracle "ec221828" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec221828" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "281822ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUBS. original values``() =
+    oracle "ec221829" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ec221829" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "291822ec" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ICBI original values``() =
+    oracle "7c063fac" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f403049e8bf08a77 0x20200068=28b91c7962938bdc
+      0x20200070=277011524478535d 0x20200078=2f5da4f6b225a0a7
+      0x20200080=e361aaea6b41edf5 0x20200088=5e2ea31fc038244a
+      0x20200090=dfd2ddacedc85d5b 0x20200098=27d58337f7c70c65
+      0x202000a0=d3b77d8e5a181aab 0x202000a8=b9c013b574760ee
+      0x202000b0=cd00b657682eae1 0x202000b8=9b7f806b68e7e005
+      ;
+      0x20200060=f403049e8bf08a77 0x20200068=28b91c7962938bdc
+      0x20200070=277011524478535d 0x20200078=2f5da4f6b225a0a7
+      0x20200080=e361aaea6b41edf5 0x20200088=5e2ea31fc038244a
+      0x20200090=dfd2ddacedc85d5b 0x20200098=27d58337f7c70c65
+      0x202000a0=d3b77d8e5a181aab 0x202000a8=b9c013b574760ee
+      0x202000b0=cd00b657682eae1 0x202000b8=9b7f806b68e7e005
+      |
+      """
+    oracle "7c063fac" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f403049e8bf08a77 0x20200068=28b91c7962938bdc
+      0x20200070=277011524478535d 0x20200078=2f5da4f6b225a0a7
+      0x20200080=e361aaea6b41edf5 0x20200088=5e2ea31fc038244a
+      0x20200090=dfd2ddacedc85d5b 0x20200098=27d58337f7c70c65
+      0x202000a0=d3b77d8e5a181aab 0x202000a8=b9c013b574760ee
+      0x202000b0=cd00b657682eae1 0x202000b8=9b7f806b68e7e005
+      ;
+      0x20200060=f403049e8bf08a77 0x20200068=28b91c7962938bdc
+      0x20200070=277011524478535d 0x20200078=2f5da4f6b225a0a7
+      0x20200080=e361aaea6b41edf5 0x20200088=5e2ea31fc038244a
+      0x20200090=dfd2ddacedc85d5b 0x20200098=27d58337f7c70c65
+      0x202000a0=d3b77d8e5a181aab 0x202000a8=b9c013b574760ee
+      0x202000b0=cd00b657682eae1 0x202000b8=9b7f806b68e7e005
+      |
+      """
+    oracle "ac3f067c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f403049e8bf08a77 0x20200068=28b91c7962938bdc
+      0x20200070=277011524478535d 0x20200078=2f5da4f6b225a0a7
+      0x20200080=e361aaea6b41edf5 0x20200088=5e2ea31fc038244a
+      0x20200090=dfd2ddacedc85d5b 0x20200098=27d58337f7c70c65
+      0x202000a0=d3b77d8e5a181aab 0x202000a8=b9c013b574760ee
+      0x202000b0=cd00b657682eae1 0x202000b8=9b7f806b68e7e005
+      ;
+      0x20200060=f403049e8bf08a77 0x20200068=28b91c7962938bdc
+      0x20200070=277011524478535d 0x20200078=2f5da4f6b225a0a7
+      0x20200080=e361aaea6b41edf5 0x20200088=5e2ea31fc038244a
+      0x20200090=dfd2ddacedc85d5b 0x20200098=27d58337f7c70c65
+      0x202000a0=d3b77d8e5a181aab 0x202000a8=b9c013b574760ee
+      0x202000b0=cd00b657682eae1 0x202000b8=9b7f806b68e7e005
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ISEL original values``() =
+    oracle "7ca63a5e" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=5 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5e3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=5 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZ original values``() =
+    oracle "88a60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=52 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=bbacca452536e7e9 0x20200068=eb7b2ecebcdcf94a
+      0x20200070=b4f45e868989a323 0x20200078=ca8843445b5fa228
+      0x20200080=5282b465b639f4da 0x20200088=a1deae63bfa61e81
+      0x20200090=ec12fec7699667b4 0x20200098=519e639037f08d0c
+      0x202000a0=846665f02d8a478a 0x202000a8=13e66faedb2ab4a
+      0x202000b0=7c43273d3030f441 0x202000b8=739dc0ad0efcff59
+      ;
+      0x20200060=bbacca452536e7e9 0x20200068=eb7b2ecebcdcf94a
+      0x20200070=b4f45e868989a323 0x20200078=ca8843445b5fa228
+      0x20200080=5282b465b639f4da 0x20200088=a1deae63bfa61e81
+      0x20200090=ec12fec7699667b4 0x20200098=519e639037f08d0c
+      0x202000a0=846665f02d8a478a 0x202000a8=13e66faedb2ab4a
+      0x202000b0=7c43273d3030f441 0x202000b8=739dc0ad0efcff59
+      |
+      """
+    oracle "88a60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=52 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=bbacca452536e7e9 0x20200068=eb7b2ecebcdcf94a
+      0x20200070=b4f45e868989a323 0x20200078=ca8843445b5fa228
+      0x20200080=5282b465b639f4da 0x20200088=a1deae63bfa61e81
+      0x20200090=ec12fec7699667b4 0x20200098=519e639037f08d0c
+      0x202000a0=846665f02d8a478a 0x202000a8=13e66faedb2ab4a
+      0x202000b0=7c43273d3030f441 0x202000b8=739dc0ad0efcff59
+      ;
+      0x20200060=bbacca452536e7e9 0x20200068=eb7b2ecebcdcf94a
+      0x20200070=b4f45e868989a323 0x20200078=ca8843445b5fa228
+      0x20200080=5282b465b639f4da 0x20200088=a1deae63bfa61e81
+      0x20200090=ec12fec7699667b4 0x20200098=519e639037f08d0c
+      0x202000a0=846665f02d8a478a 0x202000a8=13e66faedb2ab4a
+      0x202000b0=7c43273d3030f441 0x202000b8=739dc0ad0efcff59
+      |
+      """
+    oracle "0800a688" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=52 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=bbacca452536e7e9 0x20200068=eb7b2ecebcdcf94a
+      0x20200070=b4f45e868989a323 0x20200078=ca8843445b5fa228
+      0x20200080=5282b465b639f4da 0x20200088=a1deae63bfa61e81
+      0x20200090=ec12fec7699667b4 0x20200098=519e639037f08d0c
+      0x202000a0=846665f02d8a478a 0x202000a8=13e66faedb2ab4a
+      0x202000b0=7c43273d3030f441 0x202000b8=739dc0ad0efcff59
+      ;
+      0x20200060=bbacca452536e7e9 0x20200068=eb7b2ecebcdcf94a
+      0x20200070=b4f45e868989a323 0x20200078=ca8843445b5fa228
+      0x20200080=5282b465b639f4da 0x20200088=a1deae63bfa61e81
+      0x20200090=ec12fec7699667b4 0x20200098=519e639037f08d0c
+      0x202000a0=846665f02d8a478a 0x202000a8=13e66faedb2ab4a
+      0x202000b0=7c43273d3030f441 0x202000b8=739dc0ad0efcff59
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZU original values``() =
+    oracle "8ca60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=be R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8088f5c44fd0c0dc 0x20200068=9270452dff6139ec
+      0x20200070=b767088b77cbc2fc 0x20200078=66bd07924e695a93
+      0x20200080=be14115fab61cf3d 0x20200088=41c0075d1f91b22b
+      0x20200090=684c5ee8bba7bdc4 0x20200098=77793c0b2a192337
+      0x202000a0=b38a1e6d59526258 0x202000a8=9eea3d1f45592bbf
+      0x202000b0=7a2ad0b362061a1 0x202000b8=3e5ae0c5f9f4983a
+      ;
+      0x20200060=8088f5c44fd0c0dc 0x20200068=9270452dff6139ec
+      0x20200070=b767088b77cbc2fc 0x20200078=66bd07924e695a93
+      0x20200080=be14115fab61cf3d 0x20200088=41c0075d1f91b22b
+      0x20200090=684c5ee8bba7bdc4 0x20200098=77793c0b2a192337
+      0x202000a0=b38a1e6d59526258 0x202000a8=9eea3d1f45592bbf
+      0x202000b0=7a2ad0b362061a1 0x202000b8=3e5ae0c5f9f4983a
+      |
+      """
+    oracle "8ca60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=be R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8088f5c44fd0c0dc 0x20200068=9270452dff6139ec
+      0x20200070=b767088b77cbc2fc 0x20200078=66bd07924e695a93
+      0x20200080=be14115fab61cf3d 0x20200088=41c0075d1f91b22b
+      0x20200090=684c5ee8bba7bdc4 0x20200098=77793c0b2a192337
+      0x202000a0=b38a1e6d59526258 0x202000a8=9eea3d1f45592bbf
+      0x202000b0=7a2ad0b362061a1 0x202000b8=3e5ae0c5f9f4983a
+      ;
+      0x20200060=8088f5c44fd0c0dc 0x20200068=9270452dff6139ec
+      0x20200070=b767088b77cbc2fc 0x20200078=66bd07924e695a93
+      0x20200080=be14115fab61cf3d 0x20200088=41c0075d1f91b22b
+      0x20200090=684c5ee8bba7bdc4 0x20200098=77793c0b2a192337
+      0x202000a0=b38a1e6d59526258 0x202000a8=9eea3d1f45592bbf
+      0x202000b0=7a2ad0b362061a1 0x202000b8=3e5ae0c5f9f4983a
+      |
+      """
+    oracle "0800a68c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=be R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8088f5c44fd0c0dc 0x20200068=9270452dff6139ec
+      0x20200070=b767088b77cbc2fc 0x20200078=66bd07924e695a93
+      0x20200080=be14115fab61cf3d 0x20200088=41c0075d1f91b22b
+      0x20200090=684c5ee8bba7bdc4 0x20200098=77793c0b2a192337
+      0x202000a0=b38a1e6d59526258 0x202000a8=9eea3d1f45592bbf
+      0x202000b0=7a2ad0b362061a1 0x202000b8=3e5ae0c5f9f4983a
+      ;
+      0x20200060=8088f5c44fd0c0dc 0x20200068=9270452dff6139ec
+      0x20200070=b767088b77cbc2fc 0x20200078=66bd07924e695a93
+      0x20200080=be14115fab61cf3d 0x20200088=41c0075d1f91b22b
+      0x20200090=684c5ee8bba7bdc4 0x20200098=77793c0b2a192337
+      0x202000a0=b38a1e6d59526258 0x202000a8=9eea3d1f45592bbf
+      0x202000b0=7a2ad0b362061a1 0x202000b8=3e5ae0c5f9f4983a
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZUX original values``() =
+    oracle "7ca638ee" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=12 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4676229ec42d234f 0x20200068=9888ac903fcc8609
+      0x20200070=d9681cd66722d810 0x20200078=61c2238e78ae472
+      0x20200080=126a8ef49a16b9e4 0x20200088=74836f86cc4df247
+      0x20200090=b5f47a0ffa8a624e 0x20200098=f6ea32aa3dde1963
+      0x202000a0=7bb13de5880da3a4 0x202000a8=86d3b4a22e01f36d
+      0x202000b0=a46b71bf1a5e5e6f 0x202000b8=ca0ab81e7539bba9
+      ;
+      0x20200060=4676229ec42d234f 0x20200068=9888ac903fcc8609
+      0x20200070=d9681cd66722d810 0x20200078=61c2238e78ae472
+      0x20200080=126a8ef49a16b9e4 0x20200088=74836f86cc4df247
+      0x20200090=b5f47a0ffa8a624e 0x20200098=f6ea32aa3dde1963
+      0x202000a0=7bb13de5880da3a4 0x202000a8=86d3b4a22e01f36d
+      0x202000b0=a46b71bf1a5e5e6f 0x202000b8=ca0ab81e7539bba9
+      |
+      """
+    oracle "7ca638ee" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=12 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4676229ec42d234f 0x20200068=9888ac903fcc8609
+      0x20200070=d9681cd66722d810 0x20200078=61c2238e78ae472
+      0x20200080=126a8ef49a16b9e4 0x20200088=74836f86cc4df247
+      0x20200090=b5f47a0ffa8a624e 0x20200098=f6ea32aa3dde1963
+      0x202000a0=7bb13de5880da3a4 0x202000a8=86d3b4a22e01f36d
+      0x202000b0=a46b71bf1a5e5e6f 0x202000b8=ca0ab81e7539bba9
+      ;
+      0x20200060=4676229ec42d234f 0x20200068=9888ac903fcc8609
+      0x20200070=d9681cd66722d810 0x20200078=61c2238e78ae472
+      0x20200080=126a8ef49a16b9e4 0x20200088=74836f86cc4df247
+      0x20200090=b5f47a0ffa8a624e 0x20200098=f6ea32aa3dde1963
+      0x202000a0=7bb13de5880da3a4 0x202000a8=86d3b4a22e01f36d
+      0x202000b0=a46b71bf1a5e5e6f 0x202000b8=ca0ab81e7539bba9
+      |
+      """
+    oracle "ee38a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=12 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4676229ec42d234f 0x20200068=9888ac903fcc8609
+      0x20200070=d9681cd66722d810 0x20200078=61c2238e78ae472
+      0x20200080=126a8ef49a16b9e4 0x20200088=74836f86cc4df247
+      0x20200090=b5f47a0ffa8a624e 0x20200098=f6ea32aa3dde1963
+      0x202000a0=7bb13de5880da3a4 0x202000a8=86d3b4a22e01f36d
+      0x202000b0=a46b71bf1a5e5e6f 0x202000b8=ca0ab81e7539bba9
+      ;
+      0x20200060=4676229ec42d234f 0x20200068=9888ac903fcc8609
+      0x20200070=d9681cd66722d810 0x20200078=61c2238e78ae472
+      0x20200080=126a8ef49a16b9e4 0x20200088=74836f86cc4df247
+      0x20200090=b5f47a0ffa8a624e 0x20200098=f6ea32aa3dde1963
+      0x202000a0=7bb13de5880da3a4 0x202000a8=86d3b4a22e01f36d
+      0x202000b0=a46b71bf1a5e5e6f 0x202000b8=ca0ab81e7539bba9
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZX original values``() =
+    oracle "7ca638ae" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=85 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e2ac503886f516d5 0x20200068=bd2465b5cf3f755a
+      0x20200070=397ee2e452e595ce 0x20200078=813882a682875bbb
+      0x20200080=856d21ca7d08e1e1 0x20200088=752bbe576f6cc297
+      0x20200090=814d14f6ba0d288e 0x20200098=1c79432d41de8f0c
+      0x202000a0=c095b2a1d3e67d3d 0x202000a8=43a644c52a2f37a9
+      0x202000b0=5056c0e85c37d1ed 0x202000b8=c20d89ae96136208
+      ;
+      0x20200060=e2ac503886f516d5 0x20200068=bd2465b5cf3f755a
+      0x20200070=397ee2e452e595ce 0x20200078=813882a682875bbb
+      0x20200080=856d21ca7d08e1e1 0x20200088=752bbe576f6cc297
+      0x20200090=814d14f6ba0d288e 0x20200098=1c79432d41de8f0c
+      0x202000a0=c095b2a1d3e67d3d 0x202000a8=43a644c52a2f37a9
+      0x202000b0=5056c0e85c37d1ed 0x202000b8=c20d89ae96136208
+      |
+      """
+    oracle "7ca638ae" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=85 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e2ac503886f516d5 0x20200068=bd2465b5cf3f755a
+      0x20200070=397ee2e452e595ce 0x20200078=813882a682875bbb
+      0x20200080=856d21ca7d08e1e1 0x20200088=752bbe576f6cc297
+      0x20200090=814d14f6ba0d288e 0x20200098=1c79432d41de8f0c
+      0x202000a0=c095b2a1d3e67d3d 0x202000a8=43a644c52a2f37a9
+      0x202000b0=5056c0e85c37d1ed 0x202000b8=c20d89ae96136208
+      ;
+      0x20200060=e2ac503886f516d5 0x20200068=bd2465b5cf3f755a
+      0x20200070=397ee2e452e595ce 0x20200078=813882a682875bbb
+      0x20200080=856d21ca7d08e1e1 0x20200088=752bbe576f6cc297
+      0x20200090=814d14f6ba0d288e 0x20200098=1c79432d41de8f0c
+      0x202000a0=c095b2a1d3e67d3d 0x202000a8=43a644c52a2f37a9
+      0x202000b0=5056c0e85c37d1ed 0x202000b8=c20d89ae96136208
+      |
+      """
+    oracle "ae38a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=85 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e2ac503886f516d5 0x20200068=bd2465b5cf3f755a
+      0x20200070=397ee2e452e595ce 0x20200078=813882a682875bbb
+      0x20200080=856d21ca7d08e1e1 0x20200088=752bbe576f6cc297
+      0x20200090=814d14f6ba0d288e 0x20200098=1c79432d41de8f0c
+      0x202000a0=c095b2a1d3e67d3d 0x202000a8=43a644c52a2f37a9
+      0x202000b0=5056c0e85c37d1ed 0x202000b8=c20d89ae96136208
+      ;
+      0x20200060=e2ac503886f516d5 0x20200068=bd2465b5cf3f755a
+      0x20200070=397ee2e452e595ce 0x20200078=813882a682875bbb
+      0x20200080=856d21ca7d08e1e1 0x20200088=752bbe576f6cc297
+      0x20200090=814d14f6ba0d288e 0x20200098=1c79432d41de8f0c
+      0x202000a0=c095b2a1d3e67d3d 0x202000a8=43a644c52a2f37a9
+      0x202000b0=5056c0e85c37d1ed 0x202000b8=c20d89ae96136208
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LD original values``() =
+    oracle "e8a60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f58ae59c7e7d267a R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=81c8d1d884b3fd33 0x20200068=d4db4c14714061e0
+      0x20200070=b8ebe3506d263db3 0x20200078=b01b1ae0e4c68840
+      0x20200080=f58ae59c7e7d267a 0x20200088=5953982e3cc85b6b
+      0x20200090=2e812d3a2cfcfd6e 0x20200098=2c71f0fe65fc26c
+      0x202000a0=cdb33ce4b40495ff 0x202000a8=4d4250514d0614ee
+      0x202000b0=1331302dd9d77058 0x202000b8=df33220f42701a73
+      ;
+      0x20200060=81c8d1d884b3fd33 0x20200068=d4db4c14714061e0
+      0x20200070=b8ebe3506d263db3 0x20200078=b01b1ae0e4c68840
+      0x20200080=f58ae59c7e7d267a 0x20200088=5953982e3cc85b6b
+      0x20200090=2e812d3a2cfcfd6e 0x20200098=2c71f0fe65fc26c
+      0x202000a0=cdb33ce4b40495ff 0x202000a8=4d4250514d0614ee
+      0x202000b0=1331302dd9d77058 0x202000b8=df33220f42701a73
+      |
+      """
+    oracle "0800a6e8" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=7a267d7e9ce58af5 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=81c8d1d884b3fd33 0x20200068=d4db4c14714061e0
+      0x20200070=b8ebe3506d263db3 0x20200078=b01b1ae0e4c68840
+      0x20200080=f58ae59c7e7d267a 0x20200088=5953982e3cc85b6b
+      0x20200090=2e812d3a2cfcfd6e 0x20200098=2c71f0fe65fc26c
+      0x202000a0=cdb33ce4b40495ff 0x202000a8=4d4250514d0614ee
+      0x202000b0=1331302dd9d77058 0x202000b8=df33220f42701a73
+      ;
+      0x20200060=81c8d1d884b3fd33 0x20200068=d4db4c14714061e0
+      0x20200070=b8ebe3506d263db3 0x20200078=b01b1ae0e4c68840
+      0x20200080=f58ae59c7e7d267a 0x20200088=5953982e3cc85b6b
+      0x20200090=2e812d3a2cfcfd6e 0x20200098=2c71f0fe65fc26c
+      0x202000a0=cdb33ce4b40495ff 0x202000a8=4d4250514d0614ee
+      0x202000b0=1331302dd9d77058 0x202000b8=df33220f42701a73
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LDARX original values``() =
+    oracle "7ca638a8" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=3161253fd82208b8 R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5d563f2c752beebe 0x20200068=7eafc08774daaeda
+      0x20200070=69260a4ebf2aad41 0x20200078=29589b4abd05f24a
+      0x20200080=3161253fd82208b8 0x20200088=3bc07efae9c909bd
+      0x20200090=3355424f80fd3d59 0x20200098=6ab746a3b4e124ff
+      0x202000a0=25b761ababf73fb 0x202000a8=14aace3f3450dcc8
+      0x202000b0=dab9514d413091e7 0x202000b8=eb85a2ed3f4da698
+      ;
+      0x20200060=5d563f2c752beebe 0x20200068=7eafc08774daaeda
+      0x20200070=69260a4ebf2aad41 0x20200078=29589b4abd05f24a
+      0x20200080=3161253fd82208b8 0x20200088=3bc07efae9c909bd
+      0x20200090=3355424f80fd3d59 0x20200098=6ab746a3b4e124ff
+      0x202000a0=25b761ababf73fb 0x202000a8=14aace3f3450dcc8
+      0x202000b0=dab9514d413091e7 0x202000b8=eb85a2ed3f4da698
+      |
+      """
+    oracle "a838a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=b80822d83f256131 R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5d563f2c752beebe 0x20200068=7eafc08774daaeda
+      0x20200070=69260a4ebf2aad41 0x20200078=29589b4abd05f24a
+      0x20200080=3161253fd82208b8 0x20200088=3bc07efae9c909bd
+      0x20200090=3355424f80fd3d59 0x20200098=6ab746a3b4e124ff
+      0x202000a0=25b761ababf73fb 0x202000a8=14aace3f3450dcc8
+      0x202000b0=dab9514d413091e7 0x202000b8=eb85a2ed3f4da698
+      ;
+      0x20200060=5d563f2c752beebe 0x20200068=7eafc08774daaeda
+      0x20200070=69260a4ebf2aad41 0x20200078=29589b4abd05f24a
+      0x20200080=3161253fd82208b8 0x20200088=3bc07efae9c909bd
+      0x20200090=3355424f80fd3d59 0x20200098=6ab746a3b4e124ff
+      0x202000a0=25b761ababf73fb 0x202000a8=14aace3f3450dcc8
+      0x202000b0=dab9514d413091e7 0x202000b8=eb85a2ed3f4da698
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LDBRX original values``() =
+    oracle "7ca63c28" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=ee02f86dae8081c8 R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=d61b5a94502e96cf 0x20200068=abd13fb8c13a38f4
+      0x20200070=402f2276cd3b27e 0x20200078=362f75dc0368cf62
+      0x20200080=c88180ae6df802ee 0x20200088=7b263a2c09537dd3
+      0x20200090=776b070e24e0df26 0x20200098=7ba7fab9fd09781
+      0x202000a0=aafe9c50add83614 0x202000a8=af65a91cfc5a148b
+      0x202000b0=7aef23cf328b3570 0x202000b8=b0019c029b0fb2e8
+      ;
+      0x20200060=d61b5a94502e96cf 0x20200068=abd13fb8c13a38f4
+      0x20200070=402f2276cd3b27e 0x20200078=362f75dc0368cf62
+      0x20200080=c88180ae6df802ee 0x20200088=7b263a2c09537dd3
+      0x20200090=776b070e24e0df26 0x20200098=7ba7fab9fd09781
+      0x202000a0=aafe9c50add83614 0x202000a8=af65a91cfc5a148b
+      0x202000b0=7aef23cf328b3570 0x202000b8=b0019c029b0fb2e8
+      |
+      """
+    oracle "283ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=c88180ae6df802ee R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=d61b5a94502e96cf 0x20200068=abd13fb8c13a38f4
+      0x20200070=402f2276cd3b27e 0x20200078=362f75dc0368cf62
+      0x20200080=c88180ae6df802ee 0x20200088=7b263a2c09537dd3
+      0x20200090=776b070e24e0df26 0x20200098=7ba7fab9fd09781
+      0x202000a0=aafe9c50add83614 0x202000a8=af65a91cfc5a148b
+      0x202000b0=7aef23cf328b3570 0x202000b8=b0019c029b0fb2e8
+      ;
+      0x20200060=d61b5a94502e96cf 0x20200068=abd13fb8c13a38f4
+      0x20200070=402f2276cd3b27e 0x20200078=362f75dc0368cf62
+      0x20200080=c88180ae6df802ee 0x20200088=7b263a2c09537dd3
+      0x20200090=776b070e24e0df26 0x20200098=7ba7fab9fd09781
+      0x202000a0=aafe9c50add83614 0x202000a8=af65a91cfc5a148b
+      0x202000b0=7aef23cf328b3570 0x202000b8=b0019c029b0fb2e8
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LDU original values``() =
+    oracle "e8a60009" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=962e426d1f86316d R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=682b20591aed6685 0x20200068=666071755091dbfb
+      0x20200070=7a3a8e16205ed9dd 0x20200078=7d4341e3a3fe598b
+      0x20200080=962e426d1f86316d 0x20200088=7fc40db85a04174a
+      0x20200090=29e9557f58b0e989 0x20200098=652831c4d975e583
+      0x202000a0=cb013e1282e341de 0x202000a8=925756f0458a6fce
+      0x202000b0=b22a3938e16c13ef 0x202000b8=80d078a1a39723d2
+      ;
+      0x20200060=682b20591aed6685 0x20200068=666071755091dbfb
+      0x20200070=7a3a8e16205ed9dd 0x20200078=7d4341e3a3fe598b
+      0x20200080=962e426d1f86316d 0x20200088=7fc40db85a04174a
+      0x20200090=29e9557f58b0e989 0x20200098=652831c4d975e583
+      0x202000a0=cb013e1282e341de 0x202000a8=925756f0458a6fce
+      0x202000b0=b22a3938e16c13ef 0x202000b8=80d078a1a39723d2
+      |
+      """
+    oracle "0900a6e8" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=6d31861f6d422e96 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=682b20591aed6685 0x20200068=666071755091dbfb
+      0x20200070=7a3a8e16205ed9dd 0x20200078=7d4341e3a3fe598b
+      0x20200080=962e426d1f86316d 0x20200088=7fc40db85a04174a
+      0x20200090=29e9557f58b0e989 0x20200098=652831c4d975e583
+      0x202000a0=cb013e1282e341de 0x202000a8=925756f0458a6fce
+      0x202000b0=b22a3938e16c13ef 0x202000b8=80d078a1a39723d2
+      ;
+      0x20200060=682b20591aed6685 0x20200068=666071755091dbfb
+      0x20200070=7a3a8e16205ed9dd 0x20200078=7d4341e3a3fe598b
+      0x20200080=962e426d1f86316d 0x20200088=7fc40db85a04174a
+      0x20200090=29e9557f58b0e989 0x20200098=652831c4d975e583
+      0x202000a0=cb013e1282e341de 0x202000a8=925756f0458a6fce
+      0x202000b0=b22a3938e16c13ef 0x202000b8=80d078a1a39723d2
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LDUX original values``() =
+    oracle "7ca6386a" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=537b47cb447ab067 R6=20200080 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=35918e7b90f57498 0x20200068=2121bf03e9c7bc34
+      0x20200070=1ed543f3fcae6620 0x20200078=a9286a8a3e84a5f3
+      0x20200080=537b47cb447ab067 0x20200088=e13851b0ed1082f5
+      0x20200090=9d00563e5b9856a 0x20200098=fa90569c58ffbc12
+      0x202000a0=c498f8d25b5b4b03 0x202000a8=4449769037801576
+      0x202000b0=e2f6d05b95c11a35 0x202000b8=65b9ad29c356ab21
+      ;
+      0x20200060=35918e7b90f57498 0x20200068=2121bf03e9c7bc34
+      0x20200070=1ed543f3fcae6620 0x20200078=a9286a8a3e84a5f3
+      0x20200080=537b47cb447ab067 0x20200088=e13851b0ed1082f5
+      0x20200090=9d00563e5b9856a 0x20200098=fa90569c58ffbc12
+      0x202000a0=c498f8d25b5b4b03 0x202000a8=4449769037801576
+      0x202000b0=e2f6d05b95c11a35 0x202000b8=65b9ad29c356ab21
+      |
+      """
+    oracle "6a38a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=67b07a44cb477b53 R6=20200080 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=35918e7b90f57498 0x20200068=2121bf03e9c7bc34
+      0x20200070=1ed543f3fcae6620 0x20200078=a9286a8a3e84a5f3
+      0x20200080=537b47cb447ab067 0x20200088=e13851b0ed1082f5
+      0x20200090=9d00563e5b9856a 0x20200098=fa90569c58ffbc12
+      0x202000a0=c498f8d25b5b4b03 0x202000a8=4449769037801576
+      0x202000b0=e2f6d05b95c11a35 0x202000b8=65b9ad29c356ab21
+      ;
+      0x20200060=35918e7b90f57498 0x20200068=2121bf03e9c7bc34
+      0x20200070=1ed543f3fcae6620 0x20200078=a9286a8a3e84a5f3
+      0x20200080=537b47cb447ab067 0x20200088=e13851b0ed1082f5
+      0x20200090=9d00563e5b9856a 0x20200098=fa90569c58ffbc12
+      0x202000a0=c498f8d25b5b4b03 0x202000a8=4449769037801576
+      0x202000b0=e2f6d05b95c11a35 0x202000b8=65b9ad29c356ab21
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LDX original values``() =
+    oracle "7ca6382a" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=97358e8b6a1a98bf R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5a4f8c09241866e3 0x20200068=86c34cf6bc3be561
+      0x20200070=fa343bb330323577 0x20200078=4f78b3ee8f0ff040
+      0x20200080=97358e8b6a1a98bf 0x20200088=76bb1e240356b980
+      0x20200090=aaecd17d3024c349 0x20200098=31f6b41fd3504c20
+      0x202000a0=a728cba9c0840510 0x202000a8=6aa608ed2c8d0e3e
+      0x202000b0=e058147219cc74d9 0x202000b8=76b97e7aa92381b1
+      ;
+      0x20200060=5a4f8c09241866e3 0x20200068=86c34cf6bc3be561
+      0x20200070=fa343bb330323577 0x20200078=4f78b3ee8f0ff040
+      0x20200080=97358e8b6a1a98bf 0x20200088=76bb1e240356b980
+      0x20200090=aaecd17d3024c349 0x20200098=31f6b41fd3504c20
+      0x202000a0=a728cba9c0840510 0x202000a8=6aa608ed2c8d0e3e
+      0x202000b0=e058147219cc74d9 0x202000b8=76b97e7aa92381b1
+      |
+      """
+    oracle "2a38a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=bf981a6a8b8e3597 R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5a4f8c09241866e3 0x20200068=86c34cf6bc3be561
+      0x20200070=fa343bb330323577 0x20200078=4f78b3ee8f0ff040
+      0x20200080=97358e8b6a1a98bf 0x20200088=76bb1e240356b980
+      0x20200090=aaecd17d3024c349 0x20200098=31f6b41fd3504c20
+      0x202000a0=a728cba9c0840510 0x202000a8=6aa608ed2c8d0e3e
+      0x202000b0=e058147219cc74d9 0x202000b8=76b97e7aa92381b1
+      ;
+      0x20200060=5a4f8c09241866e3 0x20200068=86c34cf6bc3be561
+      0x20200070=fa343bb330323577 0x20200078=4f78b3ee8f0ff040
+      0x20200080=97358e8b6a1a98bf 0x20200088=76bb1e240356b980
+      0x20200090=aaecd17d3024c349 0x20200098=31f6b41fd3504c20
+      0x202000a0=a728cba9c0840510 0x202000a8=6aa608ed2c8d0e3e
+      0x202000b0=e058147219cc74d9 0x202000b8=76b97e7aa92381b1
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFD original values``() =
+    oracle "c8260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3980a5d09916fa90 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=5fa9cb02d22c96fb 0x20200068=3458bd25f12e634b
+      0x20200070=1934039748635a14 0x20200078=4798bc1015ea4c8a
+      0x20200080=3980a5d09916fa90 0x20200088=75cd52f194bc727d
+      0x20200090=e698049ab9e7b13d 0x20200098=43519c284a601923
+      0x202000a0=b5074f1fb0c7275c 0x202000a8=b2d8e5dbee092ff0
+      0x202000b0=8fb03d4d517492cd 0x202000b8=9bd7a1b4d235746e
+      ;
+      0x20200060=5fa9cb02d22c96fb 0x20200068=3458bd25f12e634b
+      0x20200070=1934039748635a14 0x20200078=4798bc1015ea4c8a
+      0x20200080=3980a5d09916fa90 0x20200088=75cd52f194bc727d
+      0x20200090=e698049ab9e7b13d 0x20200098=43519c284a601923
+      0x202000a0=b5074f1fb0c7275c 0x202000a8=b2d8e5dbee092ff0
+      0x202000b0=8fb03d4d517492cd 0x202000b8=9bd7a1b4d235746e
+      |
+      """
+    oracle "c8260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3980a5d09916fa90 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=5fa9cb02d22c96fb 0x20200068=3458bd25f12e634b
+      0x20200070=1934039748635a14 0x20200078=4798bc1015ea4c8a
+      0x20200080=3980a5d09916fa90 0x20200088=75cd52f194bc727d
+      0x20200090=e698049ab9e7b13d 0x20200098=43519c284a601923
+      0x202000a0=b5074f1fb0c7275c 0x202000a8=b2d8e5dbee092ff0
+      0x202000b0=8fb03d4d517492cd 0x202000b8=9bd7a1b4d235746e
+      ;
+      0x20200060=5fa9cb02d22c96fb 0x20200068=3458bd25f12e634b
+      0x20200070=1934039748635a14 0x20200078=4798bc1015ea4c8a
+      0x20200080=3980a5d09916fa90 0x20200088=75cd52f194bc727d
+      0x20200090=e698049ab9e7b13d 0x20200098=43519c284a601923
+      0x202000a0=b5074f1fb0c7275c 0x202000a8=b2d8e5dbee092ff0
+      0x202000b0=8fb03d4d517492cd 0x202000b8=9bd7a1b4d235746e
+      |
+      """
+    oracle "080026c8" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=90fa1699d0a58039 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=5fa9cb02d22c96fb 0x20200068=3458bd25f12e634b
+      0x20200070=1934039748635a14 0x20200078=4798bc1015ea4c8a
+      0x20200080=3980a5d09916fa90 0x20200088=75cd52f194bc727d
+      0x20200090=e698049ab9e7b13d 0x20200098=43519c284a601923
+      0x202000a0=b5074f1fb0c7275c 0x202000a8=b2d8e5dbee092ff0
+      0x202000b0=8fb03d4d517492cd 0x202000b8=9bd7a1b4d235746e
+      ;
+      0x20200060=5fa9cb02d22c96fb 0x20200068=3458bd25f12e634b
+      0x20200070=1934039748635a14 0x20200078=4798bc1015ea4c8a
+      0x20200080=3980a5d09916fa90 0x20200088=75cd52f194bc727d
+      0x20200090=e698049ab9e7b13d 0x20200098=43519c284a601923
+      0x202000a0=b5074f1fb0c7275c 0x202000a8=b2d8e5dbee092ff0
+      0x202000b0=8fb03d4d517492cd 0x202000b8=9bd7a1b4d235746e
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFDU original values``() =
+    oracle "cc260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=9ceee0ca6e206137 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=d3262953b8925465 0x20200068=a49c48ff19d6c123
+      0x20200070=292b550c0ea3ab0 0x20200078=3c20a26cff039969
+      0x20200080=9ceee0ca6e206137 0x20200088=79ab8d4f8de8662b
+      0x20200090=1b3b7b4c86de90cb 0x20200098=2a78fe436a43cf89
+      0x202000a0=8ab2be305ce78fc2 0x202000a8=aeda99356cc0d9f5
+      0x202000b0=954dcf3315a8cd7d 0x202000b8=a3641a944d6c211
+      ;
+      0x20200060=d3262953b8925465 0x20200068=a49c48ff19d6c123
+      0x20200070=292b550c0ea3ab0 0x20200078=3c20a26cff039969
+      0x20200080=9ceee0ca6e206137 0x20200088=79ab8d4f8de8662b
+      0x20200090=1b3b7b4c86de90cb 0x20200098=2a78fe436a43cf89
+      0x202000a0=8ab2be305ce78fc2 0x202000a8=aeda99356cc0d9f5
+      0x202000b0=954dcf3315a8cd7d 0x202000b8=a3641a944d6c211
+      |
+      """
+    oracle "cc260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=9ceee0ca6e206137 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=d3262953b8925465 0x20200068=a49c48ff19d6c123
+      0x20200070=292b550c0ea3ab0 0x20200078=3c20a26cff039969
+      0x20200080=9ceee0ca6e206137 0x20200088=79ab8d4f8de8662b
+      0x20200090=1b3b7b4c86de90cb 0x20200098=2a78fe436a43cf89
+      0x202000a0=8ab2be305ce78fc2 0x202000a8=aeda99356cc0d9f5
+      0x202000b0=954dcf3315a8cd7d 0x202000b8=a3641a944d6c211
+      ;
+      0x20200060=d3262953b8925465 0x20200068=a49c48ff19d6c123
+      0x20200070=292b550c0ea3ab0 0x20200078=3c20a26cff039969
+      0x20200080=9ceee0ca6e206137 0x20200088=79ab8d4f8de8662b
+      0x20200090=1b3b7b4c86de90cb 0x20200098=2a78fe436a43cf89
+      0x202000a0=8ab2be305ce78fc2 0x202000a8=aeda99356cc0d9f5
+      0x202000b0=954dcf3315a8cd7d 0x202000b8=a3641a944d6c211
+      |
+      """
+    oracle "080026cc" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3761206ecae0ee9c LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=d3262953b8925465 0x20200068=a49c48ff19d6c123
+      0x20200070=292b550c0ea3ab0 0x20200078=3c20a26cff039969
+      0x20200080=9ceee0ca6e206137 0x20200088=79ab8d4f8de8662b
+      0x20200090=1b3b7b4c86de90cb 0x20200098=2a78fe436a43cf89
+      0x202000a0=8ab2be305ce78fc2 0x202000a8=aeda99356cc0d9f5
+      0x202000b0=954dcf3315a8cd7d 0x202000b8=a3641a944d6c211
+      ;
+      0x20200060=d3262953b8925465 0x20200068=a49c48ff19d6c123
+      0x20200070=292b550c0ea3ab0 0x20200078=3c20a26cff039969
+      0x20200080=9ceee0ca6e206137 0x20200088=79ab8d4f8de8662b
+      0x20200090=1b3b7b4c86de90cb 0x20200098=2a78fe436a43cf89
+      0x202000a0=8ab2be305ce78fc2 0x202000a8=aeda99356cc0d9f5
+      0x202000b0=954dcf3315a8cd7d 0x202000b8=a3641a944d6c211
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFDUX original values``() =
+    oracle "7c263cee" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=f8e46b820b9272e6 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=27bd887272fc4dd9 0x20200068=2b98de41bca5acce
+      0x20200070=a22730b11f4fa2e6 0x20200078=922510543e6b5407
+      0x20200080=f8e46b820b9272e6 0x20200088=8ec937833c939893
+      0x20200090=253ca6c0568ae6d6 0x20200098=1e1082e06f42aa51
+      0x202000a0=d5b33c0b0e4350a6 0x202000a8=a4ec174bd212a99
+      0x202000b0=281a84247005bd18 0x202000b8=ef1695d44140e645
+      ;
+      0x20200060=27bd887272fc4dd9 0x20200068=2b98de41bca5acce
+      0x20200070=a22730b11f4fa2e6 0x20200078=922510543e6b5407
+      0x20200080=f8e46b820b9272e6 0x20200088=8ec937833c939893
+      0x20200090=253ca6c0568ae6d6 0x20200098=1e1082e06f42aa51
+      0x202000a0=d5b33c0b0e4350a6 0x202000a8=a4ec174bd212a99
+      0x202000b0=281a84247005bd18 0x202000b8=ef1695d44140e645
+      |
+      """
+    oracle "7c263cee" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=f8e46b820b9272e6 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=27bd887272fc4dd9 0x20200068=2b98de41bca5acce
+      0x20200070=a22730b11f4fa2e6 0x20200078=922510543e6b5407
+      0x20200080=f8e46b820b9272e6 0x20200088=8ec937833c939893
+      0x20200090=253ca6c0568ae6d6 0x20200098=1e1082e06f42aa51
+      0x202000a0=d5b33c0b0e4350a6 0x202000a8=a4ec174bd212a99
+      0x202000b0=281a84247005bd18 0x202000b8=ef1695d44140e645
+      ;
+      0x20200060=27bd887272fc4dd9 0x20200068=2b98de41bca5acce
+      0x20200070=a22730b11f4fa2e6 0x20200078=922510543e6b5407
+      0x20200080=f8e46b820b9272e6 0x20200088=8ec937833c939893
+      0x20200090=253ca6c0568ae6d6 0x20200098=1e1082e06f42aa51
+      0x202000a0=d5b33c0b0e4350a6 0x202000a8=a4ec174bd212a99
+      0x202000b0=281a84247005bd18 0x202000b8=ef1695d44140e645
+      |
+      """
+    oracle "ee3c267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=e672920b826be4f8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=27bd887272fc4dd9 0x20200068=2b98de41bca5acce
+      0x20200070=a22730b11f4fa2e6 0x20200078=922510543e6b5407
+      0x20200080=f8e46b820b9272e6 0x20200088=8ec937833c939893
+      0x20200090=253ca6c0568ae6d6 0x20200098=1e1082e06f42aa51
+      0x202000a0=d5b33c0b0e4350a6 0x202000a8=a4ec174bd212a99
+      0x202000b0=281a84247005bd18 0x202000b8=ef1695d44140e645
+      ;
+      0x20200060=27bd887272fc4dd9 0x20200068=2b98de41bca5acce
+      0x20200070=a22730b11f4fa2e6 0x20200078=922510543e6b5407
+      0x20200080=f8e46b820b9272e6 0x20200088=8ec937833c939893
+      0x20200090=253ca6c0568ae6d6 0x20200098=1e1082e06f42aa51
+      0x202000a0=d5b33c0b0e4350a6 0x202000a8=a4ec174bd212a99
+      0x202000b0=281a84247005bd18 0x202000b8=ef1695d44140e645
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFDX original values``() =
+    oracle "7c263cae" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=80e14138d5c7a6e7 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=56f3a440221f7187 0x20200068=5269e6436296bf83
+      0x20200070=f902aea479c43abf 0x20200078=f1161244db262c0b
+      0x20200080=80e14138d5c7a6e7 0x20200088=f1fadc18798f544c
+      0x20200090=639083bd87fc889b 0x20200098=94fc026f5571bc74
+      0x202000a0=4baf736f50971be4 0x202000a8=b81ca1a9c6e73cc6
+      0x202000b0=5f7a355371bee57a 0x202000b8=3f1bc0fa89be2d19
+      ;
+      0x20200060=56f3a440221f7187 0x20200068=5269e6436296bf83
+      0x20200070=f902aea479c43abf 0x20200078=f1161244db262c0b
+      0x20200080=80e14138d5c7a6e7 0x20200088=f1fadc18798f544c
+      0x20200090=639083bd87fc889b 0x20200098=94fc026f5571bc74
+      0x202000a0=4baf736f50971be4 0x202000a8=b81ca1a9c6e73cc6
+      0x202000b0=5f7a355371bee57a 0x202000b8=3f1bc0fa89be2d19
+      |
+      """
+    oracle "7c263cae" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=80e14138d5c7a6e7 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=56f3a440221f7187 0x20200068=5269e6436296bf83
+      0x20200070=f902aea479c43abf 0x20200078=f1161244db262c0b
+      0x20200080=80e14138d5c7a6e7 0x20200088=f1fadc18798f544c
+      0x20200090=639083bd87fc889b 0x20200098=94fc026f5571bc74
+      0x202000a0=4baf736f50971be4 0x202000a8=b81ca1a9c6e73cc6
+      0x202000b0=5f7a355371bee57a 0x202000b8=3f1bc0fa89be2d19
+      ;
+      0x20200060=56f3a440221f7187 0x20200068=5269e6436296bf83
+      0x20200070=f902aea479c43abf 0x20200078=f1161244db262c0b
+      0x20200080=80e14138d5c7a6e7 0x20200088=f1fadc18798f544c
+      0x20200090=639083bd87fc889b 0x20200098=94fc026f5571bc74
+      0x202000a0=4baf736f50971be4 0x202000a8=b81ca1a9c6e73cc6
+      0x202000b0=5f7a355371bee57a 0x202000b8=3f1bc0fa89be2d19
+      |
+      """
+    oracle "ae3c267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=e7a6c7d53841e180 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=56f3a440221f7187 0x20200068=5269e6436296bf83
+      0x20200070=f902aea479c43abf 0x20200078=f1161244db262c0b
+      0x20200080=80e14138d5c7a6e7 0x20200088=f1fadc18798f544c
+      0x20200090=639083bd87fc889b 0x20200098=94fc026f5571bc74
+      0x202000a0=4baf736f50971be4 0x202000a8=b81ca1a9c6e73cc6
+      0x202000b0=5f7a355371bee57a 0x202000b8=3f1bc0fa89be2d19
+      ;
+      0x20200060=56f3a440221f7187 0x20200068=5269e6436296bf83
+      0x20200070=f902aea479c43abf 0x20200078=f1161244db262c0b
+      0x20200080=80e14138d5c7a6e7 0x20200088=f1fadc18798f544c
+      0x20200090=639083bd87fc889b 0x20200098=94fc026f5571bc74
+      0x202000a0=4baf736f50971be4 0x202000a8=b81ca1a9c6e73cc6
+      0x202000b0=5f7a355371bee57a 0x202000b8=3f1bc0fa89be2d19
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFIWAX original values``() =
+    oracle "7c263eae" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3beec360 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=aaba5111ba915657 0x20200068=2e71e3120dcd61f3
+      0x20200070=f59b5fc79bfbd39 0x20200078=f368e53be4b0b63
+      0x20200080=3beec360463604a2 0x20200088=f776dda21dae9a97
+      0x20200090=2d1eec1ad77196e1 0x20200098=b185e9ddb92fa445
+      0x202000a0=9ccc8183a3875be 0x202000a8=642540fea9bdf8b5
+      0x202000b0=4ec40e8f1e6cdde 0x202000b8=b8931295f879d034
+      ;
+      0x20200060=aaba5111ba915657 0x20200068=2e71e3120dcd61f3
+      0x20200070=f59b5fc79bfbd39 0x20200078=f368e53be4b0b63
+      0x20200080=3beec360463604a2 0x20200088=f776dda21dae9a97
+      0x20200090=2d1eec1ad77196e1 0x20200098=b185e9ddb92fa445
+      0x202000a0=9ccc8183a3875be 0x202000a8=642540fea9bdf8b5
+      0x202000b0=4ec40e8f1e6cdde 0x202000b8=b8931295f879d034
+      |
+      """
+    oracle "ae3e267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=60c3ee3b LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=aaba5111ba915657 0x20200068=2e71e3120dcd61f3
+      0x20200070=f59b5fc79bfbd39 0x20200078=f368e53be4b0b63
+      0x20200080=3beec360463604a2 0x20200088=f776dda21dae9a97
+      0x20200090=2d1eec1ad77196e1 0x20200098=b185e9ddb92fa445
+      0x202000a0=9ccc8183a3875be 0x202000a8=642540fea9bdf8b5
+      0x202000b0=4ec40e8f1e6cdde 0x202000b8=b8931295f879d034
+      ;
+      0x20200060=aaba5111ba915657 0x20200068=2e71e3120dcd61f3
+      0x20200070=f59b5fc79bfbd39 0x20200078=f368e53be4b0b63
+      0x20200080=3beec360463604a2 0x20200088=f776dda21dae9a97
+      0x20200090=2d1eec1ad77196e1 0x20200098=b185e9ddb92fa445
+      0x202000a0=9ccc8183a3875be 0x202000a8=642540fea9bdf8b5
+      0x202000b0=4ec40e8f1e6cdde 0x202000b8=b8931295f879d034
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFIWZX original values``() =
+    oracle "7c263eee" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=f2148bba LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b046233dda842302 0x20200068=c8b87cd6633da17d
+      0x20200070=e39303507cd022ad 0x20200078=7f221e3a7c6bf433
+      0x20200080=f2148bbae29740c5 0x20200088=6194d2da3fbc497b
+      0x20200090=6c366856cfe5944c 0x20200098=91cff0e787b63a9a
+      0x202000a0=60e3e38099f818f 0x202000a8=317a500c591bb175
+      0x202000b0=7b77aeba608df43c 0x202000b8=c43a5012fed48afb
+      ;
+      0x20200060=b046233dda842302 0x20200068=c8b87cd6633da17d
+      0x20200070=e39303507cd022ad 0x20200078=7f221e3a7c6bf433
+      0x20200080=f2148bbae29740c5 0x20200088=6194d2da3fbc497b
+      0x20200090=6c366856cfe5944c 0x20200098=91cff0e787b63a9a
+      0x202000a0=60e3e38099f818f 0x202000a8=317a500c591bb175
+      0x202000b0=7b77aeba608df43c 0x202000b8=c43a5012fed48afb
+      |
+      """
+    oracle "ee3e267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=ba8b14f2 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b046233dda842302 0x20200068=c8b87cd6633da17d
+      0x20200070=e39303507cd022ad 0x20200078=7f221e3a7c6bf433
+      0x20200080=f2148bbae29740c5 0x20200088=6194d2da3fbc497b
+      0x20200090=6c366856cfe5944c 0x20200098=91cff0e787b63a9a
+      0x202000a0=60e3e38099f818f 0x202000a8=317a500c591bb175
+      0x202000b0=7b77aeba608df43c 0x202000b8=c43a5012fed48afb
+      ;
+      0x20200060=b046233dda842302 0x20200068=c8b87cd6633da17d
+      0x20200070=e39303507cd022ad 0x20200078=7f221e3a7c6bf433
+      0x20200080=f2148bbae29740c5 0x20200088=6194d2da3fbc497b
+      0x20200090=6c366856cfe5944c 0x20200098=91cff0e787b63a9a
+      0x202000a0=60e3e38099f818f 0x202000a8=317a500c591bb175
+      0x202000b0=7b77aeba608df43c 0x202000b8=c43a5012fed48afb
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFS original values``() =
+    oracle "c0260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=baaabf0a00000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b0d09ef563bf520a 0x20200068=b31b85963510e14a
+      0x20200070=18054872510dca55 0x20200078=bf1030cb317082e9
+      0x20200080=9555f850ee82b3af 0x20200088=73444c1aa41db4b5
+      0x20200090=2c28f25e20aed647 0x20200098=e32e4174850207c8
+      0x202000a0=54a1f6c1b182c435 0x202000a8=ac6a2c9906e305ec
+      0x202000b0=ce6f14fe8956f8c1 0x202000b8=bc2e2e3f54a1456
+      ;
+      0x20200060=b0d09ef563bf520a 0x20200068=b31b85963510e14a
+      0x20200070=18054872510dca55 0x20200078=bf1030cb317082e9
+      0x20200080=9555f850ee82b3af 0x20200088=73444c1aa41db4b5
+      0x20200090=2c28f25e20aed647 0x20200098=e32e4174850207c8
+      0x202000a0=54a1f6c1b182c435 0x202000a8=ac6a2c9906e305ec
+      0x202000b0=ce6f14fe8956f8c1 0x202000b8=bc2e2e3f54a1456
+      |
+      """
+    oracle "c0260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=baaabf0a00000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b0d09ef563bf520a 0x20200068=b31b85963510e14a
+      0x20200070=18054872510dca55 0x20200078=bf1030cb317082e9
+      0x20200080=9555f850ee82b3af 0x20200088=73444c1aa41db4b5
+      0x20200090=2c28f25e20aed647 0x20200098=e32e4174850207c8
+      0x202000a0=54a1f6c1b182c435 0x202000a8=ac6a2c9906e305ec
+      0x202000b0=ce6f14fe8956f8c1 0x202000b8=bc2e2e3f54a1456
+      ;
+      0x20200060=b0d09ef563bf520a 0x20200068=b31b85963510e14a
+      0x20200070=18054872510dca55 0x20200078=bf1030cb317082e9
+      0x20200080=9555f850ee82b3af 0x20200088=73444c1aa41db4b5
+      0x20200090=2c28f25e20aed647 0x20200098=e32e4174850207c8
+      0x202000a0=54a1f6c1b182c435 0x202000a8=ac6a2c9906e305ec
+      0x202000b0=ce6f14fe8956f8c1 0x202000b8=bc2e2e3f54a1456
+      |
+      """
+    oracle "080026c0" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=421f0ab2a0000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b0d09ef563bf520a 0x20200068=b31b85963510e14a
+      0x20200070=18054872510dca55 0x20200078=bf1030cb317082e9
+      0x20200080=9555f850ee82b3af 0x20200088=73444c1aa41db4b5
+      0x20200090=2c28f25e20aed647 0x20200098=e32e4174850207c8
+      0x202000a0=54a1f6c1b182c435 0x202000a8=ac6a2c9906e305ec
+      0x202000b0=ce6f14fe8956f8c1 0x202000b8=bc2e2e3f54a1456
+      ;
+      0x20200060=b0d09ef563bf520a 0x20200068=b31b85963510e14a
+      0x20200070=18054872510dca55 0x20200078=bf1030cb317082e9
+      0x20200080=9555f850ee82b3af 0x20200088=73444c1aa41db4b5
+      0x20200090=2c28f25e20aed647 0x20200098=e32e4174850207c8
+      0x202000a0=54a1f6c1b182c435 0x202000a8=ac6a2c9906e305ec
+      0x202000b0=ce6f14fe8956f8c1 0x202000b8=bc2e2e3f54a1456
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFSU original values``() =
+    oracle "c4260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=c61a051060000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ded2b0cb53ed06da 0x20200068=85ec42b49247d8a7
+      0x20200070=36ca7250c03b2208 0x20200078=b4615a9b73017af1
+      0x20200080=f0d028836f0a52f6 0x20200088=d5061e427c67cfbc
+      0x20200090=5f77a9d0d94cb27c 0x20200098=bbc9431fc738b187
+      0x202000a0=1715a1afae79eb5 0x202000a8=3b6a5c072f1bab77
+      0x202000b0=131a87d32d969adb 0x202000b8=9f3535c5a425a9a6
+      ;
+      0x20200060=ded2b0cb53ed06da 0x20200068=85ec42b49247d8a7
+      0x20200070=36ca7250c03b2208 0x20200078=b4615a9b73017af1
+      0x20200080=f0d028836f0a52f6 0x20200088=d5061e427c67cfbc
+      0x20200090=5f77a9d0d94cb27c 0x20200098=bbc9431fc738b187
+      0x202000a0=1715a1afae79eb5 0x202000a8=3b6a5c072f1bab77
+      0x202000b0=131a87d32d969adb 0x202000b8=9f3535c5a425a9a6
+      |
+      """
+    oracle "c4260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=c61a051060000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ded2b0cb53ed06da 0x20200068=85ec42b49247d8a7
+      0x20200070=36ca7250c03b2208 0x20200078=b4615a9b73017af1
+      0x20200080=f0d028836f0a52f6 0x20200088=d5061e427c67cfbc
+      0x20200090=5f77a9d0d94cb27c 0x20200098=bbc9431fc738b187
+      0x202000a0=1715a1afae79eb5 0x202000a8=3b6a5c072f1bab77
+      0x202000b0=131a87d32d969adb 0x202000b8=9f3535c5a425a9a6
+      ;
+      0x20200060=ded2b0cb53ed06da 0x20200068=85ec42b49247d8a7
+      0x20200070=36ca7250c03b2208 0x20200078=b4615a9b73017af1
+      0x20200080=f0d028836f0a52f6 0x20200088=d5061e427c67cfbc
+      0x20200090=5f77a9d0d94cb27c 0x20200098=bbc9431fc738b187
+      0x202000a0=1715a1afae79eb5 0x202000a8=3b6a5c072f1bab77
+      0x202000b0=131a87d32d969adb 0x202000b8=9f3535c5a425a9a6
+      |
+      """
+    oracle "080026c4" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=b8651a1e00000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ded2b0cb53ed06da 0x20200068=85ec42b49247d8a7
+      0x20200070=36ca7250c03b2208 0x20200078=b4615a9b73017af1
+      0x20200080=f0d028836f0a52f6 0x20200088=d5061e427c67cfbc
+      0x20200090=5f77a9d0d94cb27c 0x20200098=bbc9431fc738b187
+      0x202000a0=1715a1afae79eb5 0x202000a8=3b6a5c072f1bab77
+      0x202000b0=131a87d32d969adb 0x202000b8=9f3535c5a425a9a6
+      ;
+      0x20200060=ded2b0cb53ed06da 0x20200068=85ec42b49247d8a7
+      0x20200070=36ca7250c03b2208 0x20200078=b4615a9b73017af1
+      0x20200080=f0d028836f0a52f6 0x20200088=d5061e427c67cfbc
+      0x20200090=5f77a9d0d94cb27c 0x20200098=bbc9431fc738b187
+      0x202000a0=1715a1afae79eb5 0x202000a8=3b6a5c072f1bab77
+      0x202000b0=131a87d32d969adb 0x202000b8=9f3535c5a425a9a6
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFSUX original values``() =
+    oracle "7c263c6e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=43c55dbee0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=df4572305d43fdf6 0x20200068=7f9c8f34dcd8e0b4
+      0x20200070=286c4b457e9e1eba 0x20200078=4427c47201720738
+      0x20200080=5e2aedf7e48008df 0x20200088=2e55ace349e32b1e
+      0x20200090=f88cfbc67b3afa63 0x20200098=42d5df6f3ad0fa71
+      0x202000a0=5fdce6a04f929a25 0x202000a8=ab6f58a7ad0c990a
+      0x202000b0=c5d5b77dfbc22609 0x202000b8=db843faced33b67c
+      ;
+      0x20200060=df4572305d43fdf6 0x20200068=7f9c8f34dcd8e0b4
+      0x20200070=286c4b457e9e1eba 0x20200078=4427c47201720738
+      0x20200080=5e2aedf7e48008df 0x20200088=2e55ace349e32b1e
+      0x20200090=f88cfbc67b3afa63 0x20200098=42d5df6f3ad0fa71
+      0x202000a0=5fdce6a04f929a25 0x202000a8=ab6f58a7ad0c990a
+      0x202000b0=c5d5b77dfbc22609 0x202000b8=db843faced33b67c
+      |
+      """
+    oracle "7c263c6e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=43c55dbee0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=df4572305d43fdf6 0x20200068=7f9c8f34dcd8e0b4
+      0x20200070=286c4b457e9e1eba 0x20200078=4427c47201720738
+      0x20200080=5e2aedf7e48008df 0x20200088=2e55ace349e32b1e
+      0x20200090=f88cfbc67b3afa63 0x20200098=42d5df6f3ad0fa71
+      0x202000a0=5fdce6a04f929a25 0x202000a8=ab6f58a7ad0c990a
+      0x202000b0=c5d5b77dfbc22609 0x202000b8=db843faced33b67c
+      ;
+      0x20200060=df4572305d43fdf6 0x20200068=7f9c8f34dcd8e0b4
+      0x20200070=286c4b457e9e1eba 0x20200078=4427c47201720738
+      0x20200080=5e2aedf7e48008df 0x20200088=2e55ace349e32b1e
+      0x20200090=f88cfbc67b3afa63 0x20200098=42d5df6f3ad0fa71
+      0x202000a0=5fdce6a04f929a25 0x202000a8=ab6f58a7ad0c990a
+      0x202000b0=c5d5b77dfbc22609 0x202000b8=db843faced33b67c
+      |
+      """
+    oracle "6e3c267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=c6fda54bc0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=df4572305d43fdf6 0x20200068=7f9c8f34dcd8e0b4
+      0x20200070=286c4b457e9e1eba 0x20200078=4427c47201720738
+      0x20200080=5e2aedf7e48008df 0x20200088=2e55ace349e32b1e
+      0x20200090=f88cfbc67b3afa63 0x20200098=42d5df6f3ad0fa71
+      0x202000a0=5fdce6a04f929a25 0x202000a8=ab6f58a7ad0c990a
+      0x202000b0=c5d5b77dfbc22609 0x202000b8=db843faced33b67c
+      ;
+      0x20200060=df4572305d43fdf6 0x20200068=7f9c8f34dcd8e0b4
+      0x20200070=286c4b457e9e1eba 0x20200078=4427c47201720738
+      0x20200080=5e2aedf7e48008df 0x20200088=2e55ace349e32b1e
+      0x20200090=f88cfbc67b3afa63 0x20200098=42d5df6f3ad0fa71
+      0x202000a0=5fdce6a04f929a25 0x202000a8=ab6f58a7ad0c990a
+      0x202000b0=c5d5b77dfbc22609 0x202000b8=db843faced33b67c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LFSX original values``() =
+    oracle "7c263c2e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3873666de0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=2a5d3ce2ccaabbf7 0x20200068=45c5d7e1ef18c8dd
+      0x20200070=eb742ed66d598e89 0x20200078=1c4dadb53737c539
+      0x20200080=39b336f5966af7b 0x20200088=6c312f3b5dfef49b
+      0x20200090=97c8202b80fb5b84 0x20200098=15d4f20cfa9570b3
+      0x202000a0=5f5e2bfca897cd98 0x202000a8=d1a00c76e879cfdc
+      0x202000b0=c86309c573fc4c2d 0x202000b8=be265cf2d23f68f5
+      ;
+      0x20200060=2a5d3ce2ccaabbf7 0x20200068=45c5d7e1ef18c8dd
+      0x20200070=eb742ed66d598e89 0x20200078=1c4dadb53737c539
+      0x20200080=39b336f5966af7b 0x20200088=6c312f3b5dfef49b
+      0x20200090=97c8202b80fb5b84 0x20200098=15d4f20cfa9570b3
+      0x202000a0=5f5e2bfca897cd98 0x202000a8=d1a00c76e879cfdc
+      0x202000b0=c86309c573fc4c2d 0x202000b8=be265cf2d23f68f5
+      |
+      """
+    oracle "7c263c2e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3873666de0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=2a5d3ce2ccaabbf7 0x20200068=45c5d7e1ef18c8dd
+      0x20200070=eb742ed66d598e89 0x20200078=1c4dadb53737c539
+      0x20200080=39b336f5966af7b 0x20200088=6c312f3b5dfef49b
+      0x20200090=97c8202b80fb5b84 0x20200098=15d4f20cfa9570b3
+      0x202000a0=5f5e2bfca897cd98 0x202000a8=d1a00c76e879cfdc
+      0x202000b0=c86309c573fc4c2d 0x202000b8=be265cf2d23f68f5
+      ;
+      0x20200060=2a5d3ce2ccaabbf7 0x20200068=45c5d7e1ef18c8dd
+      0x20200070=eb742ed66d598e89 0x20200078=1c4dadb53737c539
+      0x20200080=39b336f5966af7b 0x20200088=6c312f3b5dfef49b
+      0x20200090=97c8202b80fb5b84 0x20200098=15d4f20cfa9570b3
+      0x202000a0=5f5e2bfca897cd98 0x202000a8=d1a00c76e879cfdc
+      0x202000b0=c86309c573fc4c2d 0x202000b8=be265cf2d23f68f5
+      |
+      """
+    oracle "2e3c267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=4045000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=45e6736060000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=2a5d3ce2ccaabbf7 0x20200068=45c5d7e1ef18c8dd
+      0x20200070=eb742ed66d598e89 0x20200078=1c4dadb53737c539
+      0x20200080=39b336f5966af7b 0x20200088=6c312f3b5dfef49b
+      0x20200090=97c8202b80fb5b84 0x20200098=15d4f20cfa9570b3
+      0x202000a0=5f5e2bfca897cd98 0x202000a8=d1a00c76e879cfdc
+      0x202000b0=c86309c573fc4c2d 0x202000b8=be265cf2d23f68f5
+      ;
+      0x20200060=2a5d3ce2ccaabbf7 0x20200068=45c5d7e1ef18c8dd
+      0x20200070=eb742ed66d598e89 0x20200078=1c4dadb53737c539
+      0x20200080=39b336f5966af7b 0x20200088=6c312f3b5dfef49b
+      0x20200090=97c8202b80fb5b84 0x20200098=15d4f20cfa9570b3
+      0x202000a0=5f5e2bfca897cd98 0x202000a8=d1a00c76e879cfdc
+      0x202000b0=c86309c573fc4c2d 0x202000b8=be265cf2d23f68f5
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHA original values``() =
+    oracle "a8a60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3c47 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=488fe310eaa6fa2d 0x20200068=f99166f10ba2b49b
+      0x20200070=cec5dde7dc8c0df3 0x20200078=b7dde4bc02bc9b3f
+      0x20200080=3c47b57e355ebb2c 0x20200088=cdae54fd748ea12d
+      0x20200090=4486b7c1323c84a3 0x20200098=1111fcd77a2f2609
+      0x202000a0=666b03eac4c0011f 0x202000a8=70c93cee44cd64b
+      0x202000b0=6f2cad0dfc8c92b5 0x202000b8=e7e0035b45269d53
+      ;
+      0x20200060=488fe310eaa6fa2d 0x20200068=f99166f10ba2b49b
+      0x20200070=cec5dde7dc8c0df3 0x20200078=b7dde4bc02bc9b3f
+      0x20200080=3c47b57e355ebb2c 0x20200088=cdae54fd748ea12d
+      0x20200090=4486b7c1323c84a3 0x20200098=1111fcd77a2f2609
+      0x202000a0=666b03eac4c0011f 0x202000a8=70c93cee44cd64b
+      0x202000b0=6f2cad0dfc8c92b5 0x202000b8=e7e0035b45269d53
+      |
+      """
+    oracle "a8a60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3c47 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=488fe310eaa6fa2d 0x20200068=f99166f10ba2b49b
+      0x20200070=cec5dde7dc8c0df3 0x20200078=b7dde4bc02bc9b3f
+      0x20200080=3c47b57e355ebb2c 0x20200088=cdae54fd748ea12d
+      0x20200090=4486b7c1323c84a3 0x20200098=1111fcd77a2f2609
+      0x202000a0=666b03eac4c0011f 0x202000a8=70c93cee44cd64b
+      0x202000b0=6f2cad0dfc8c92b5 0x202000b8=e7e0035b45269d53
+      ;
+      0x20200060=488fe310eaa6fa2d 0x20200068=f99166f10ba2b49b
+      0x20200070=cec5dde7dc8c0df3 0x20200078=b7dde4bc02bc9b3f
+      0x20200080=3c47b57e355ebb2c 0x20200088=cdae54fd748ea12d
+      0x20200090=4486b7c1323c84a3 0x20200098=1111fcd77a2f2609
+      0x202000a0=666b03eac4c0011f 0x202000a8=70c93cee44cd64b
+      0x202000b0=6f2cad0dfc8c92b5 0x202000b8=e7e0035b45269d53
+      |
+      """
+    oracle "0800a6a8" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=473c R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=488fe310eaa6fa2d 0x20200068=f99166f10ba2b49b
+      0x20200070=cec5dde7dc8c0df3 0x20200078=b7dde4bc02bc9b3f
+      0x20200080=3c47b57e355ebb2c 0x20200088=cdae54fd748ea12d
+      0x20200090=4486b7c1323c84a3 0x20200098=1111fcd77a2f2609
+      0x202000a0=666b03eac4c0011f 0x202000a8=70c93cee44cd64b
+      0x202000b0=6f2cad0dfc8c92b5 0x202000b8=e7e0035b45269d53
+      ;
+      0x20200060=488fe310eaa6fa2d 0x20200068=f99166f10ba2b49b
+      0x20200070=cec5dde7dc8c0df3 0x20200078=b7dde4bc02bc9b3f
+      0x20200080=3c47b57e355ebb2c 0x20200088=cdae54fd748ea12d
+      0x20200090=4486b7c1323c84a3 0x20200098=1111fcd77a2f2609
+      0x202000a0=666b03eac4c0011f 0x202000a8=70c93cee44cd64b
+      0x202000b0=6f2cad0dfc8c92b5 0x202000b8=e7e0035b45269d53
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHAU original values``() =
+    oracle "aca60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=ffffb13d R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=154d55df17e9e1fd 0x20200068=b7839f7ea8f05c73
+      0x20200070=1280d1b2e857f430 0x20200078=6716441d024f9b28
+      0x20200080=b13d90ae76226d21 0x20200088=1e0b034a0cb0e9cf
+      0x20200090=2ceb3b1fb37a8cad 0x20200098=fc85397fec3797f1
+      0x202000a0=5b2fc3d260bb9fe2 0x202000a8=5c2b20b326fe8cb8
+      0x202000b0=a38a65e8acb4b96e 0x202000b8=5049362cf27e49fc
+      ;
+      0x20200060=154d55df17e9e1fd 0x20200068=b7839f7ea8f05c73
+      0x20200070=1280d1b2e857f430 0x20200078=6716441d024f9b28
+      0x20200080=b13d90ae76226d21 0x20200088=1e0b034a0cb0e9cf
+      0x20200090=2ceb3b1fb37a8cad 0x20200098=fc85397fec3797f1
+      0x202000a0=5b2fc3d260bb9fe2 0x202000a8=5c2b20b326fe8cb8
+      0x202000b0=a38a65e8acb4b96e 0x202000b8=5049362cf27e49fc
+      |
+      """
+    oracle "aca60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=ffffffffffffb13d R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=154d55df17e9e1fd 0x20200068=b7839f7ea8f05c73
+      0x20200070=1280d1b2e857f430 0x20200078=6716441d024f9b28
+      0x20200080=b13d90ae76226d21 0x20200088=1e0b034a0cb0e9cf
+      0x20200090=2ceb3b1fb37a8cad 0x20200098=fc85397fec3797f1
+      0x202000a0=5b2fc3d260bb9fe2 0x202000a8=5c2b20b326fe8cb8
+      0x202000b0=a38a65e8acb4b96e 0x202000b8=5049362cf27e49fc
+      ;
+      0x20200060=154d55df17e9e1fd 0x20200068=b7839f7ea8f05c73
+      0x20200070=1280d1b2e857f430 0x20200078=6716441d024f9b28
+      0x20200080=b13d90ae76226d21 0x20200088=1e0b034a0cb0e9cf
+      0x20200090=2ceb3b1fb37a8cad 0x20200098=fc85397fec3797f1
+      0x202000a0=5b2fc3d260bb9fe2 0x202000a8=5c2b20b326fe8cb8
+      0x202000b0=a38a65e8acb4b96e 0x202000b8=5049362cf27e49fc
+      |
+      """
+    oracle "0800a6ac" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3db1 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=154d55df17e9e1fd 0x20200068=b7839f7ea8f05c73
+      0x20200070=1280d1b2e857f430 0x20200078=6716441d024f9b28
+      0x20200080=b13d90ae76226d21 0x20200088=1e0b034a0cb0e9cf
+      0x20200090=2ceb3b1fb37a8cad 0x20200098=fc85397fec3797f1
+      0x202000a0=5b2fc3d260bb9fe2 0x202000a8=5c2b20b326fe8cb8
+      0x202000b0=a38a65e8acb4b96e 0x202000b8=5049362cf27e49fc
+      ;
+      0x20200060=154d55df17e9e1fd 0x20200068=b7839f7ea8f05c73
+      0x20200070=1280d1b2e857f430 0x20200078=6716441d024f9b28
+      0x20200080=b13d90ae76226d21 0x20200088=1e0b034a0cb0e9cf
+      0x20200090=2ceb3b1fb37a8cad 0x20200098=fc85397fec3797f1
+      0x202000a0=5b2fc3d260bb9fe2 0x202000a8=5c2b20b326fe8cb8
+      0x202000b0=a38a65e8acb4b96e 0x202000b8=5049362cf27e49fc
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHAUX original values``() =
+    oracle "7ca63aee" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=ffff8f9b R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=72b4ca9c289e33cd 0x20200068=b56a03d536b07833
+      0x20200070=bd40ca12f1f6ca1a 0x20200078=7910ec7685a82f0e
+      0x20200080=8f9b9be0e086d8d5 0x20200088=903a93f0cbb133b6
+      0x20200090=e7c310b64f041bee 0x20200098=56ff2be39b330972
+      0x202000a0=eab43bfe28b85a9c 0x202000a8=cc656f47e023a41f
+      0x202000b0=8f1e06e6630c9e0c 0x202000b8=f85a3ca1249fec31
+      ;
+      0x20200060=72b4ca9c289e33cd 0x20200068=b56a03d536b07833
+      0x20200070=bd40ca12f1f6ca1a 0x20200078=7910ec7685a82f0e
+      0x20200080=8f9b9be0e086d8d5 0x20200088=903a93f0cbb133b6
+      0x20200090=e7c310b64f041bee 0x20200098=56ff2be39b330972
+      0x202000a0=eab43bfe28b85a9c 0x202000a8=cc656f47e023a41f
+      0x202000b0=8f1e06e6630c9e0c 0x202000b8=f85a3ca1249fec31
+      |
+      """
+    oracle "7ca63aee" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=ffffffffffff8f9b R6=20200080 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=72b4ca9c289e33cd 0x20200068=b56a03d536b07833
+      0x20200070=bd40ca12f1f6ca1a 0x20200078=7910ec7685a82f0e
+      0x20200080=8f9b9be0e086d8d5 0x20200088=903a93f0cbb133b6
+      0x20200090=e7c310b64f041bee 0x20200098=56ff2be39b330972
+      0x202000a0=eab43bfe28b85a9c 0x202000a8=cc656f47e023a41f
+      0x202000b0=8f1e06e6630c9e0c 0x202000b8=f85a3ca1249fec31
+      ;
+      0x20200060=72b4ca9c289e33cd 0x20200068=b56a03d536b07833
+      0x20200070=bd40ca12f1f6ca1a 0x20200078=7910ec7685a82f0e
+      0x20200080=8f9b9be0e086d8d5 0x20200088=903a93f0cbb133b6
+      0x20200090=e7c310b64f041bee 0x20200098=56ff2be39b330972
+      0x202000a0=eab43bfe28b85a9c 0x202000a8=cc656f47e023a41f
+      0x202000b0=8f1e06e6630c9e0c 0x202000b8=f85a3ca1249fec31
+      |
+      """
+    oracle "ee3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=ffffffffffff9b8f R6=20200080 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=72b4ca9c289e33cd 0x20200068=b56a03d536b07833
+      0x20200070=bd40ca12f1f6ca1a 0x20200078=7910ec7685a82f0e
+      0x20200080=8f9b9be0e086d8d5 0x20200088=903a93f0cbb133b6
+      0x20200090=e7c310b64f041bee 0x20200098=56ff2be39b330972
+      0x202000a0=eab43bfe28b85a9c 0x202000a8=cc656f47e023a41f
+      0x202000b0=8f1e06e6630c9e0c 0x202000b8=f85a3ca1249fec31
+      ;
+      0x20200060=72b4ca9c289e33cd 0x20200068=b56a03d536b07833
+      0x20200070=bd40ca12f1f6ca1a 0x20200078=7910ec7685a82f0e
+      0x20200080=8f9b9be0e086d8d5 0x20200088=903a93f0cbb133b6
+      0x20200090=e7c310b64f041bee 0x20200098=56ff2be39b330972
+      0x202000a0=eab43bfe28b85a9c 0x202000a8=cc656f47e023a41f
+      0x202000b0=8f1e06e6630c9e0c 0x202000b8=f85a3ca1249fec31
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHAX original values``() =
+    oracle "7ca63aae" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffff626 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=545c5e963eb7c38b 0x20200068=79790b32738e87d3
+      0x20200070=444bb6c676162ec4 0x20200078=e8043e41202c9a1b
+      0x20200080=f626a4c16b6451ad 0x20200088=58af4b5e68d47a6d
+      0x20200090=2f74acf55830be93 0x20200098=374a00b06835aaa
+      0x202000a0=49705a30a3e5f436 0x202000a8=22d7dc41cd9eef83
+      0x202000b0=ccc66093666d610b 0x202000b8=a6885aaab3b27e10
+      ;
+      0x20200060=545c5e963eb7c38b 0x20200068=79790b32738e87d3
+      0x20200070=444bb6c676162ec4 0x20200078=e8043e41202c9a1b
+      0x20200080=f626a4c16b6451ad 0x20200088=58af4b5e68d47a6d
+      0x20200090=2f74acf55830be93 0x20200098=374a00b06835aaa
+      0x202000a0=49705a30a3e5f436 0x202000a8=22d7dc41cd9eef83
+      0x202000b0=ccc66093666d610b 0x202000b8=a6885aaab3b27e10
+      |
+      """
+    oracle "7ca63aae" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=fffffffffffff626 R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=545c5e963eb7c38b 0x20200068=79790b32738e87d3
+      0x20200070=444bb6c676162ec4 0x20200078=e8043e41202c9a1b
+      0x20200080=f626a4c16b6451ad 0x20200088=58af4b5e68d47a6d
+      0x20200090=2f74acf55830be93 0x20200098=374a00b06835aaa
+      0x202000a0=49705a30a3e5f436 0x202000a8=22d7dc41cd9eef83
+      0x202000b0=ccc66093666d610b 0x202000b8=a6885aaab3b27e10
+      ;
+      0x20200060=545c5e963eb7c38b 0x20200068=79790b32738e87d3
+      0x20200070=444bb6c676162ec4 0x20200078=e8043e41202c9a1b
+      0x20200080=f626a4c16b6451ad 0x20200088=58af4b5e68d47a6d
+      0x20200090=2f74acf55830be93 0x20200098=374a00b06835aaa
+      0x202000a0=49705a30a3e5f436 0x202000a8=22d7dc41cd9eef83
+      0x202000b0=ccc66093666d610b 0x202000b8=a6885aaab3b27e10
+      |
+      """
+    oracle "ae3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=26f6 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=545c5e963eb7c38b 0x20200068=79790b32738e87d3
+      0x20200070=444bb6c676162ec4 0x20200078=e8043e41202c9a1b
+      0x20200080=f626a4c16b6451ad 0x20200088=58af4b5e68d47a6d
+      0x20200090=2f74acf55830be93 0x20200098=374a00b06835aaa
+      0x202000a0=49705a30a3e5f436 0x202000a8=22d7dc41cd9eef83
+      0x202000b0=ccc66093666d610b 0x202000b8=a6885aaab3b27e10
+      ;
+      0x20200060=545c5e963eb7c38b 0x20200068=79790b32738e87d3
+      0x20200070=444bb6c676162ec4 0x20200078=e8043e41202c9a1b
+      0x20200080=f626a4c16b6451ad 0x20200088=58af4b5e68d47a6d
+      0x20200090=2f74acf55830be93 0x20200098=374a00b06835aaa
+      0x202000a0=49705a30a3e5f436 0x202000a8=22d7dc41cd9eef83
+      0x202000b0=ccc66093666d610b 0x202000b8=a6885aaab3b27e10
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHBRX original values``() =
+    oracle "7ca63e2c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=3b56 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f480f1856a25a101 0x20200068=a236a87add1ba585
+      0x20200070=274ae531b02841c7 0x20200078=5ecca461b48358bc
+      0x20200080=563b1ea0ad4b45c7 0x20200088=b3d0db2999e9f95e
+      0x20200090=e37dce0198e0202e 0x20200098=9aff153c6749f79d
+      0x202000a0=a8fd9165c3ce5d5 0x202000a8=b34f65d0f9440dee
+      0x202000b0=b2bd1560b03196f1 0x202000b8=1d4c5b77b7b02212
+      ;
+      0x20200060=f480f1856a25a101 0x20200068=a236a87add1ba585
+      0x20200070=274ae531b02841c7 0x20200078=5ecca461b48358bc
+      0x20200080=563b1ea0ad4b45c7 0x20200088=b3d0db2999e9f95e
+      0x20200090=e37dce0198e0202e 0x20200098=9aff153c6749f79d
+      0x202000a0=a8fd9165c3ce5d5 0x202000a8=b34f65d0f9440dee
+      0x202000b0=b2bd1560b03196f1 0x202000b8=1d4c5b77b7b02212
+      |
+      """
+    oracle "7ca63e2c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=3b56 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f480f1856a25a101 0x20200068=a236a87add1ba585
+      0x20200070=274ae531b02841c7 0x20200078=5ecca461b48358bc
+      0x20200080=563b1ea0ad4b45c7 0x20200088=b3d0db2999e9f95e
+      0x20200090=e37dce0198e0202e 0x20200098=9aff153c6749f79d
+      0x202000a0=a8fd9165c3ce5d5 0x202000a8=b34f65d0f9440dee
+      0x202000b0=b2bd1560b03196f1 0x202000b8=1d4c5b77b7b02212
+      ;
+      0x20200060=f480f1856a25a101 0x20200068=a236a87add1ba585
+      0x20200070=274ae531b02841c7 0x20200078=5ecca461b48358bc
+      0x20200080=563b1ea0ad4b45c7 0x20200088=b3d0db2999e9f95e
+      0x20200090=e37dce0198e0202e 0x20200098=9aff153c6749f79d
+      0x202000a0=a8fd9165c3ce5d5 0x202000a8=b34f65d0f9440dee
+      0x202000b0=b2bd1560b03196f1 0x202000b8=1d4c5b77b7b02212
+      |
+      """
+    oracle "2c3ea67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=563b R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f480f1856a25a101 0x20200068=a236a87add1ba585
+      0x20200070=274ae531b02841c7 0x20200078=5ecca461b48358bc
+      0x20200080=563b1ea0ad4b45c7 0x20200088=b3d0db2999e9f95e
+      0x20200090=e37dce0198e0202e 0x20200098=9aff153c6749f79d
+      0x202000a0=a8fd9165c3ce5d5 0x202000a8=b34f65d0f9440dee
+      0x202000b0=b2bd1560b03196f1 0x202000b8=1d4c5b77b7b02212
+      ;
+      0x20200060=f480f1856a25a101 0x20200068=a236a87add1ba585
+      0x20200070=274ae531b02841c7 0x20200078=5ecca461b48358bc
+      0x20200080=563b1ea0ad4b45c7 0x20200088=b3d0db2999e9f95e
+      0x20200090=e37dce0198e0202e 0x20200098=9aff153c6749f79d
+      0x202000a0=a8fd9165c3ce5d5 0x202000a8=b34f65d0f9440dee
+      0x202000b0=b2bd1560b03196f1 0x202000b8=1d4c5b77b7b02212
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZ original values``() =
+    oracle "a0a60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=72f9 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2c03cc351df70921 0x20200068=4a8456a36f833613
+      0x20200070=7c38a348fd3aa73f 0x20200078=30032d37a27c20d8
+      0x20200080=72f9090ea6342db7 0x20200088=f5f004b7037c6015
+      0x20200090=7e5b8938b9e4019e 0x20200098=7b89c8e62b258d66
+      0x202000a0=ee02b04205c4382d 0x202000a8=576c6a197f25fac4
+      0x202000b0=7d393d3c6abba8b0 0x202000b8=dd13e1a8232f739c
+      ;
+      0x20200060=2c03cc351df70921 0x20200068=4a8456a36f833613
+      0x20200070=7c38a348fd3aa73f 0x20200078=30032d37a27c20d8
+      0x20200080=72f9090ea6342db7 0x20200088=f5f004b7037c6015
+      0x20200090=7e5b8938b9e4019e 0x20200098=7b89c8e62b258d66
+      0x202000a0=ee02b04205c4382d 0x202000a8=576c6a197f25fac4
+      0x202000b0=7d393d3c6abba8b0 0x202000b8=dd13e1a8232f739c
+      |
+      """
+    oracle "a0a60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=72f9 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2c03cc351df70921 0x20200068=4a8456a36f833613
+      0x20200070=7c38a348fd3aa73f 0x20200078=30032d37a27c20d8
+      0x20200080=72f9090ea6342db7 0x20200088=f5f004b7037c6015
+      0x20200090=7e5b8938b9e4019e 0x20200098=7b89c8e62b258d66
+      0x202000a0=ee02b04205c4382d 0x202000a8=576c6a197f25fac4
+      0x202000b0=7d393d3c6abba8b0 0x202000b8=dd13e1a8232f739c
+      ;
+      0x20200060=2c03cc351df70921 0x20200068=4a8456a36f833613
+      0x20200070=7c38a348fd3aa73f 0x20200078=30032d37a27c20d8
+      0x20200080=72f9090ea6342db7 0x20200088=f5f004b7037c6015
+      0x20200090=7e5b8938b9e4019e 0x20200098=7b89c8e62b258d66
+      0x202000a0=ee02b04205c4382d 0x202000a8=576c6a197f25fac4
+      0x202000b0=7d393d3c6abba8b0 0x202000b8=dd13e1a8232f739c
+      |
+      """
+    oracle "0800a6a0" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f972 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2c03cc351df70921 0x20200068=4a8456a36f833613
+      0x20200070=7c38a348fd3aa73f 0x20200078=30032d37a27c20d8
+      0x20200080=72f9090ea6342db7 0x20200088=f5f004b7037c6015
+      0x20200090=7e5b8938b9e4019e 0x20200098=7b89c8e62b258d66
+      0x202000a0=ee02b04205c4382d 0x202000a8=576c6a197f25fac4
+      0x202000b0=7d393d3c6abba8b0 0x202000b8=dd13e1a8232f739c
+      ;
+      0x20200060=2c03cc351df70921 0x20200068=4a8456a36f833613
+      0x20200070=7c38a348fd3aa73f 0x20200078=30032d37a27c20d8
+      0x20200080=72f9090ea6342db7 0x20200088=f5f004b7037c6015
+      0x20200090=7e5b8938b9e4019e 0x20200098=7b89c8e62b258d66
+      0x202000a0=ee02b04205c4382d 0x202000a8=576c6a197f25fac4
+      0x202000b0=7d393d3c6abba8b0 0x202000b8=dd13e1a8232f739c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZU original values``() =
+    oracle "a4a60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=d660 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=86a5306988c3bb12 0x20200068=643d8435af8230ab
+      0x20200070=76d058de45b9e842 0x20200078=1d2425b5cf4e16b5
+      0x20200080=d6606e8540bab46d 0x20200088=eba5a5c0841743d0
+      0x20200090=488a71ec632d16bf 0x20200098=cc53c9842f6df03b
+      0x202000a0=74fc379692a97e2c 0x202000a8=cf1e0525e6ea78c1
+      0x202000b0=f410c22622b92c6f 0x202000b8=aef8a9abaa388b95
+      ;
+      0x20200060=86a5306988c3bb12 0x20200068=643d8435af8230ab
+      0x20200070=76d058de45b9e842 0x20200078=1d2425b5cf4e16b5
+      0x20200080=d6606e8540bab46d 0x20200088=eba5a5c0841743d0
+      0x20200090=488a71ec632d16bf 0x20200098=cc53c9842f6df03b
+      0x202000a0=74fc379692a97e2c 0x202000a8=cf1e0525e6ea78c1
+      0x202000b0=f410c22622b92c6f 0x202000b8=aef8a9abaa388b95
+      |
+      """
+    oracle "a4a60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=d660 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=86a5306988c3bb12 0x20200068=643d8435af8230ab
+      0x20200070=76d058de45b9e842 0x20200078=1d2425b5cf4e16b5
+      0x20200080=d6606e8540bab46d 0x20200088=eba5a5c0841743d0
+      0x20200090=488a71ec632d16bf 0x20200098=cc53c9842f6df03b
+      0x202000a0=74fc379692a97e2c 0x202000a8=cf1e0525e6ea78c1
+      0x202000b0=f410c22622b92c6f 0x202000b8=aef8a9abaa388b95
+      ;
+      0x20200060=86a5306988c3bb12 0x20200068=643d8435af8230ab
+      0x20200070=76d058de45b9e842 0x20200078=1d2425b5cf4e16b5
+      0x20200080=d6606e8540bab46d 0x20200088=eba5a5c0841743d0
+      0x20200090=488a71ec632d16bf 0x20200098=cc53c9842f6df03b
+      0x202000a0=74fc379692a97e2c 0x202000a8=cf1e0525e6ea78c1
+      0x202000b0=f410c22622b92c6f 0x202000b8=aef8a9abaa388b95
+      |
+      """
+    oracle "0800a6a4" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=60d6 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=86a5306988c3bb12 0x20200068=643d8435af8230ab
+      0x20200070=76d058de45b9e842 0x20200078=1d2425b5cf4e16b5
+      0x20200080=d6606e8540bab46d 0x20200088=eba5a5c0841743d0
+      0x20200090=488a71ec632d16bf 0x20200098=cc53c9842f6df03b
+      0x202000a0=74fc379692a97e2c 0x202000a8=cf1e0525e6ea78c1
+      0x202000b0=f410c22622b92c6f 0x202000b8=aef8a9abaa388b95
+      ;
+      0x20200060=86a5306988c3bb12 0x20200068=643d8435af8230ab
+      0x20200070=76d058de45b9e842 0x20200078=1d2425b5cf4e16b5
+      0x20200080=d6606e8540bab46d 0x20200088=eba5a5c0841743d0
+      0x20200090=488a71ec632d16bf 0x20200098=cc53c9842f6df03b
+      0x202000a0=74fc379692a97e2c 0x202000a8=cf1e0525e6ea78c1
+      0x202000b0=f410c22622b92c6f 0x202000b8=aef8a9abaa388b95
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZUX original values``() =
+    oracle "7ca63a6e" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=2376 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=af73fbaf6b2a22c0 0x20200068=47be4aefa0f9a50f
+      0x20200070=e1de3e1eb7156c81 0x20200078=970c10e7e1e656e6
+      0x20200080=237688ea6aff45c0 0x20200088=746698523313da1d
+      0x20200090=13f9a66c2ffe66d6 0x20200098=25f13391c94cd817
+      0x202000a0=1f306a6b45e5d84e 0x202000a8=356308f3f2f20edf
+      0x202000b0=f35e2591de99153f 0x202000b8=cdb4b4428ab0bf2c
+      ;
+      0x20200060=af73fbaf6b2a22c0 0x20200068=47be4aefa0f9a50f
+      0x20200070=e1de3e1eb7156c81 0x20200078=970c10e7e1e656e6
+      0x20200080=237688ea6aff45c0 0x20200088=746698523313da1d
+      0x20200090=13f9a66c2ffe66d6 0x20200098=25f13391c94cd817
+      0x202000a0=1f306a6b45e5d84e 0x202000a8=356308f3f2f20edf
+      0x202000b0=f35e2591de99153f 0x202000b8=cdb4b4428ab0bf2c
+      |
+      """
+    oracle "7ca63a6e" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=2376 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=af73fbaf6b2a22c0 0x20200068=47be4aefa0f9a50f
+      0x20200070=e1de3e1eb7156c81 0x20200078=970c10e7e1e656e6
+      0x20200080=237688ea6aff45c0 0x20200088=746698523313da1d
+      0x20200090=13f9a66c2ffe66d6 0x20200098=25f13391c94cd817
+      0x202000a0=1f306a6b45e5d84e 0x202000a8=356308f3f2f20edf
+      0x202000b0=f35e2591de99153f 0x202000b8=cdb4b4428ab0bf2c
+      ;
+      0x20200060=af73fbaf6b2a22c0 0x20200068=47be4aefa0f9a50f
+      0x20200070=e1de3e1eb7156c81 0x20200078=970c10e7e1e656e6
+      0x20200080=237688ea6aff45c0 0x20200088=746698523313da1d
+      0x20200090=13f9a66c2ffe66d6 0x20200098=25f13391c94cd817
+      0x202000a0=1f306a6b45e5d84e 0x202000a8=356308f3f2f20edf
+      0x202000b0=f35e2591de99153f 0x202000b8=cdb4b4428ab0bf2c
+      |
+      """
+    oracle "6e3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=7623 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=af73fbaf6b2a22c0 0x20200068=47be4aefa0f9a50f
+      0x20200070=e1de3e1eb7156c81 0x20200078=970c10e7e1e656e6
+      0x20200080=237688ea6aff45c0 0x20200088=746698523313da1d
+      0x20200090=13f9a66c2ffe66d6 0x20200098=25f13391c94cd817
+      0x202000a0=1f306a6b45e5d84e 0x202000a8=356308f3f2f20edf
+      0x202000b0=f35e2591de99153f 0x202000b8=cdb4b4428ab0bf2c
+      ;
+      0x20200060=af73fbaf6b2a22c0 0x20200068=47be4aefa0f9a50f
+      0x20200070=e1de3e1eb7156c81 0x20200078=970c10e7e1e656e6
+      0x20200080=237688ea6aff45c0 0x20200088=746698523313da1d
+      0x20200090=13f9a66c2ffe66d6 0x20200098=25f13391c94cd817
+      0x202000a0=1f306a6b45e5d84e 0x202000a8=356308f3f2f20edf
+      0x202000b0=f35e2591de99153f 0x202000b8=cdb4b4428ab0bf2c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZX original values``() =
+    oracle "7ca63a2e" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=117 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=30817cc6501b39c0 0x20200068=1b3785bd6660113b
+      0x20200070=fb3a08cebfa464b5 0x20200078=427195a6aee51041
+      0x20200080=11743a36ebda7d6 0x20200088=1702b8d1539d6bb2
+      0x20200090=bd269c621f4260f4 0x20200098=df32c8a9d2ec53c7
+      0x202000a0=1a40f27f6bcbacb4 0x202000a8=fc2fb0acbdfb60f
+      0x202000b0=594a256118b4b512 0x202000b8=27c09d20637b0a0e
+      ;
+      0x20200060=30817cc6501b39c0 0x20200068=1b3785bd6660113b
+      0x20200070=fb3a08cebfa464b5 0x20200078=427195a6aee51041
+      0x20200080=11743a36ebda7d6 0x20200088=1702b8d1539d6bb2
+      0x20200090=bd269c621f4260f4 0x20200098=df32c8a9d2ec53c7
+      0x202000a0=1a40f27f6bcbacb4 0x202000a8=fc2fb0acbdfb60f
+      0x202000b0=594a256118b4b512 0x202000b8=27c09d20637b0a0e
+      |
+      """
+    oracle "7ca63a2e" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=117 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=30817cc6501b39c0 0x20200068=1b3785bd6660113b
+      0x20200070=fb3a08cebfa464b5 0x20200078=427195a6aee51041
+      0x20200080=11743a36ebda7d6 0x20200088=1702b8d1539d6bb2
+      0x20200090=bd269c621f4260f4 0x20200098=df32c8a9d2ec53c7
+      0x202000a0=1a40f27f6bcbacb4 0x202000a8=fc2fb0acbdfb60f
+      0x202000b0=594a256118b4b512 0x202000b8=27c09d20637b0a0e
+      ;
+      0x20200060=30817cc6501b39c0 0x20200068=1b3785bd6660113b
+      0x20200070=fb3a08cebfa464b5 0x20200078=427195a6aee51041
+      0x20200080=11743a36ebda7d6 0x20200088=1702b8d1539d6bb2
+      0x20200090=bd269c621f4260f4 0x20200098=df32c8a9d2ec53c7
+      0x202000a0=1a40f27f6bcbacb4 0x202000a8=fc2fb0acbdfb60f
+      0x202000b0=594a256118b4b512 0x202000b8=27c09d20637b0a0e
+      |
+      """
+    oracle "2e3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=1701 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=30817cc6501b39c0 0x20200068=1b3785bd6660113b
+      0x20200070=fb3a08cebfa464b5 0x20200078=427195a6aee51041
+      0x20200080=11743a36ebda7d6 0x20200088=1702b8d1539d6bb2
+      0x20200090=bd269c621f4260f4 0x20200098=df32c8a9d2ec53c7
+      0x202000a0=1a40f27f6bcbacb4 0x202000a8=fc2fb0acbdfb60f
+      0x202000b0=594a256118b4b512 0x202000b8=27c09d20637b0a0e
+      ;
+      0x20200060=30817cc6501b39c0 0x20200068=1b3785bd6660113b
+      0x20200070=fb3a08cebfa464b5 0x20200078=427195a6aee51041
+      0x20200080=11743a36ebda7d6 0x20200088=1702b8d1539d6bb2
+      0x20200090=bd269c621f4260f4 0x20200098=df32c8a9d2ec53c7
+      0x202000a0=1a40f27f6bcbacb4 0x202000a8=fc2fb0acbdfb60f
+      0x202000b0=594a256118b4b512 0x202000b8=27c09d20637b0a0e
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LMW original values``() =
+    oracle "bba60008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R29=bad0bad LR=20100040 CTR=20100080 VSCR=10000 R30=0
+      R31=0
+      ;
+      R6=20200078 R29=a0ebb3b6 LR=20100040 CTR=20100080 VSCR=10000
+      R30=e92ed150 R31=b00f61c2
+      ;
+      0x20200060=d2ca05be60256ff3 0x20200068=c76dee0a95869675
+      0x20200070=30faf6673f018ca 0x20200078=f1bf843f33ff41ed
+      0x20200080=a0ebb3b6e92ed150 0x20200088=b00f61c2b3950833
+      0x20200090=609cb5d562eb12fa 0x20200098=c7b21017f8289bee
+      0x202000a0=5ce73ad1349f3a1f 0x202000a8=e3eeb931c95bb2e6
+      0x202000b0=352ab364548f5a84 0x202000b8=b0f21eeee5301cc4
+      ;
+      0x20200060=d2ca05be60256ff3 0x20200068=c76dee0a95869675
+      0x20200070=30faf6673f018ca 0x20200078=f1bf843f33ff41ed
+      0x20200080=a0ebb3b6e92ed150 0x20200088=b00f61c2b3950833
+      0x20200090=609cb5d562eb12fa 0x20200098=c7b21017f8289bee
+      0x202000a0=5ce73ad1349f3a1f 0x202000a8=e3eeb931c95bb2e6
+      0x202000b0=352ab364548f5a84 0x202000b8=b0f21eeee5301cc4
+      |
+      """
+    oracle "bba60008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R29=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      R30=0 R31=0
+      ;
+      R6=20200078 R29=a0ebb3b6 LR=20100040 CTR=20100080 VSCR=10000
+      R30=e92ed150 R31=b00f61c2
+      ;
+      0x20200060=d2ca05be60256ff3 0x20200068=c76dee0a95869675
+      0x20200070=30faf6673f018ca 0x20200078=f1bf843f33ff41ed
+      0x20200080=a0ebb3b6e92ed150 0x20200088=b00f61c2b3950833
+      0x20200090=609cb5d562eb12fa 0x20200098=c7b21017f8289bee
+      0x202000a0=5ce73ad1349f3a1f 0x202000a8=e3eeb931c95bb2e6
+      0x202000b0=352ab364548f5a84 0x202000b8=b0f21eeee5301cc4
+      ;
+      0x20200060=d2ca05be60256ff3 0x20200068=c76dee0a95869675
+      0x20200070=30faf6673f018ca 0x20200078=f1bf843f33ff41ed
+      0x20200080=a0ebb3b6e92ed150 0x20200088=b00f61c2b3950833
+      0x20200090=609cb5d562eb12fa 0x20200098=c7b21017f8289bee
+      0x202000a0=5ce73ad1349f3a1f 0x202000a8=e3eeb931c95bb2e6
+      0x202000b0=352ab364548f5a84 0x202000b8=b0f21eeee5301cc4
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LSWI original values``() =
+    oracle "7ca624aa" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=4af42aa0 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=134d0835f0e1e257 0x20200068=ce90608bc8320e78
+      0x20200070=ca53284d95947a76 0x20200078=ad09e1a3a138a1f2
+      0x20200080=4af42aa0ed2ab4d5 0x20200088=4d96324ddd49709a
+      0x20200090=7b3e19ccb8d064c1 0x20200098=7d7939d98f8f925
+      0x202000a0=e0e2bb19f54c80de 0x202000a8=93144cff9a7aab4d
+      0x202000b0=28c1bf4e0de8c0ec 0x202000b8=2b1e827273f7ad2b
+      ;
+      0x20200060=134d0835f0e1e257 0x20200068=ce90608bc8320e78
+      0x20200070=ca53284d95947a76 0x20200078=ad09e1a3a138a1f2
+      0x20200080=4af42aa0ed2ab4d5 0x20200088=4d96324ddd49709a
+      0x20200090=7b3e19ccb8d064c1 0x20200098=7d7939d98f8f925
+      0x202000a0=e0e2bb19f54c80de 0x202000a8=93144cff9a7aab4d
+      0x202000b0=28c1bf4e0de8c0ec 0x202000b8=2b1e827273f7ad2b
+      |
+      """
+    oracle "7ca624aa" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=4af42aa0 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=134d0835f0e1e257 0x20200068=ce90608bc8320e78
+      0x20200070=ca53284d95947a76 0x20200078=ad09e1a3a138a1f2
+      0x20200080=4af42aa0ed2ab4d5 0x20200088=4d96324ddd49709a
+      0x20200090=7b3e19ccb8d064c1 0x20200098=7d7939d98f8f925
+      0x202000a0=e0e2bb19f54c80de 0x202000a8=93144cff9a7aab4d
+      0x202000b0=28c1bf4e0de8c0ec 0x202000b8=2b1e827273f7ad2b
+      ;
+      0x20200060=134d0835f0e1e257 0x20200068=ce90608bc8320e78
+      0x20200070=ca53284d95947a76 0x20200078=ad09e1a3a138a1f2
+      0x20200080=4af42aa0ed2ab4d5 0x20200088=4d96324ddd49709a
+      0x20200090=7b3e19ccb8d064c1 0x20200098=7d7939d98f8f925
+      0x202000a0=e0e2bb19f54c80de 0x202000a8=93144cff9a7aab4d
+      0x202000b0=28c1bf4e0de8c0ec 0x202000b8=2b1e827273f7ad2b
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LSWX original values``() =
+    oracle "7ca63c2a" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=152efd56 R6=20200078 R7=8 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=602d15c770f6ed4d 0x20200068=79a54cc2770ef3b3
+      0x20200070=5973b675202280fa 0x20200078=e6e222bc92de403e
+      0x20200080=152efd56dc101b15 0x20200088=e2af0356ffe629af
+      0x20200090=87f5bfc09ddc384f 0x20200098=b8825b4b6b47bdd4
+      0x202000a0=b9a379dcea00bc6 0x202000a8=4c849ffc4ca65054
+      0x202000b0=d4b369049f457715 0x202000b8=270e10ea7039cd5
+      ;
+      0x20200060=602d15c770f6ed4d 0x20200068=79a54cc2770ef3b3
+      0x20200070=5973b675202280fa 0x20200078=e6e222bc92de403e
+      0x20200080=152efd56dc101b15 0x20200088=e2af0356ffe629af
+      0x20200090=87f5bfc09ddc384f 0x20200098=b8825b4b6b47bdd4
+      0x202000a0=b9a379dcea00bc6 0x202000a8=4c849ffc4ca65054
+      0x202000b0=d4b369049f457715 0x202000b8=270e10ea7039cd5
+      |
+      """
+    oracle "7ca63c2a" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 XER=4 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=152efd56 R6=20200078 R7=8 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=602d15c770f6ed4d 0x20200068=79a54cc2770ef3b3
+      0x20200070=5973b675202280fa 0x20200078=e6e222bc92de403e
+      0x20200080=152efd56dc101b15 0x20200088=e2af0356ffe629af
+      0x20200090=87f5bfc09ddc384f 0x20200098=b8825b4b6b47bdd4
+      0x202000a0=b9a379dcea00bc6 0x202000a8=4c849ffc4ca65054
+      0x202000b0=d4b369049f457715 0x202000b8=270e10ea7039cd5
+      ;
+      0x20200060=602d15c770f6ed4d 0x20200068=79a54cc2770ef3b3
+      0x20200070=5973b675202280fa 0x20200078=e6e222bc92de403e
+      0x20200080=152efd56dc101b15 0x20200088=e2af0356ffe629af
+      0x20200090=87f5bfc09ddc384f 0x20200098=b8825b4b6b47bdd4
+      0x202000a0=b9a379dcea00bc6 0x202000a8=4c849ffc4ca65054
+      0x202000b0=d4b369049f457715 0x202000b8=270e10ea7039cd5
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LVSL original values``() =
+    oracle "7c26380c" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b285a2fe191d6393 0x20200068=2a0a1fc17a178594
+      0x20200070=fdf780c501182b40 0x20200078=996f30d69e1671b1
+      0x20200080=68fc24f2868f17d0 0x20200088=eed12ffb0704b8f2
+      0x20200090=c6d83c9a4555ba1f 0x20200098=6838ae5124c85115
+      0x202000a0=f1710e82a6c7a260 0x202000a8=c578ca43705abc4e
+      0x202000b0=238fb7dc43b24abf 0x202000b8=175aeb537470410e
+      ;
+      0x20200060=b285a2fe191d6393 0x20200068=2a0a1fc17a178594
+      0x20200070=fdf780c501182b40 0x20200078=996f30d69e1671b1
+      0x20200080=68fc24f2868f17d0 0x20200088=eed12ffb0704b8f2
+      0x20200090=c6d83c9a4555ba1f 0x20200098=6838ae5124c85115
+      0x202000a0=f1710e82a6c7a260 0x202000a8=c578ca43705abc4e
+      0x202000b0=238fb7dc43b24abf 0x202000b8=175aeb537470410e
+      |
+      """
+    oracle "7c26380c" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b285a2fe191d6393 0x20200068=2a0a1fc17a178594
+      0x20200070=fdf780c501182b40 0x20200078=996f30d69e1671b1
+      0x20200080=68fc24f2868f17d0 0x20200088=eed12ffb0704b8f2
+      0x20200090=c6d83c9a4555ba1f 0x20200098=6838ae5124c85115
+      0x202000a0=f1710e82a6c7a260 0x202000a8=c578ca43705abc4e
+      0x202000b0=238fb7dc43b24abf 0x202000b8=175aeb537470410e
+      ;
+      0x20200060=b285a2fe191d6393 0x20200068=2a0a1fc17a178594
+      0x20200070=fdf780c501182b40 0x20200078=996f30d69e1671b1
+      0x20200080=68fc24f2868f17d0 0x20200088=eed12ffb0704b8f2
+      0x20200090=c6d83c9a4555ba1f 0x20200098=6838ae5124c85115
+      0x202000a0=f1710e82a6c7a260 0x202000a8=c578ca43705abc4e
+      0x202000b0=238fb7dc43b24abf 0x202000b8=175aeb537470410e
+      |
+      """
+    oracle "0c38267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b285a2fe191d6393 0x20200068=2a0a1fc17a178594
+      0x20200070=fdf780c501182b40 0x20200078=996f30d69e1671b1
+      0x20200080=68fc24f2868f17d0 0x20200088=eed12ffb0704b8f2
+      0x20200090=c6d83c9a4555ba1f 0x20200098=6838ae5124c85115
+      0x202000a0=f1710e82a6c7a260 0x202000a8=c578ca43705abc4e
+      0x202000b0=238fb7dc43b24abf 0x202000b8=175aeb537470410e
+      ;
+      0x20200060=b285a2fe191d6393 0x20200068=2a0a1fc17a178594
+      0x20200070=fdf780c501182b40 0x20200078=996f30d69e1671b1
+      0x20200080=68fc24f2868f17d0 0x20200088=eed12ffb0704b8f2
+      0x20200090=c6d83c9a4555ba1f 0x20200098=6838ae5124c85115
+      0x202000a0=f1710e82a6c7a260 0x202000a8=c578ca43705abc4e
+      0x202000b0=238fb7dc43b24abf 0x202000b8=175aeb537470410e
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LVSR original values``() =
+    oracle "7c26384c" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1011121314151617 V1B=18191a1b1c1d1e1f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=553a18baea628ee6 0x20200068=44aa68e2862ac29d
+      0x20200070=6e5de43c0eb9c35c 0x20200078=19b1fc46017955bb
+      0x20200080=42d6ee04e2f5e6a0 0x20200088=61eeadf3b5119a71
+      0x20200090=293963d201a0f98b 0x20200098=22fd83108de29775
+      0x202000a0=568417401760871 0x202000a8=d4512c6ede07cd98
+      0x202000b0=6b4d71fcc32db2c6 0x202000b8=cee4b073fb2a1174
+      ;
+      0x20200060=553a18baea628ee6 0x20200068=44aa68e2862ac29d
+      0x20200070=6e5de43c0eb9c35c 0x20200078=19b1fc46017955bb
+      0x20200080=42d6ee04e2f5e6a0 0x20200088=61eeadf3b5119a71
+      0x20200090=293963d201a0f98b 0x20200098=22fd83108de29775
+      0x202000a0=568417401760871 0x202000a8=d4512c6ede07cd98
+      0x202000b0=6b4d71fcc32db2c6 0x202000b8=cee4b073fb2a1174
+      |
+      """
+    oracle "7c26384c" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1011121314151617 V1B=18191a1b1c1d1e1f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=553a18baea628ee6 0x20200068=44aa68e2862ac29d
+      0x20200070=6e5de43c0eb9c35c 0x20200078=19b1fc46017955bb
+      0x20200080=42d6ee04e2f5e6a0 0x20200088=61eeadf3b5119a71
+      0x20200090=293963d201a0f98b 0x20200098=22fd83108de29775
+      0x202000a0=568417401760871 0x202000a8=d4512c6ede07cd98
+      0x202000b0=6b4d71fcc32db2c6 0x202000b8=cee4b073fb2a1174
+      ;
+      0x20200060=553a18baea628ee6 0x20200068=44aa68e2862ac29d
+      0x20200070=6e5de43c0eb9c35c 0x20200078=19b1fc46017955bb
+      0x20200080=42d6ee04e2f5e6a0 0x20200088=61eeadf3b5119a71
+      0x20200090=293963d201a0f98b 0x20200098=22fd83108de29775
+      0x202000a0=568417401760871 0x202000a8=d4512c6ede07cd98
+      0x202000b0=6b4d71fcc32db2c6 0x202000b8=cee4b073fb2a1174
+      |
+      """
+    oracle "4c38267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1011121314151617 V1B=18191a1b1c1d1e1f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=553a18baea628ee6 0x20200068=44aa68e2862ac29d
+      0x20200070=6e5de43c0eb9c35c 0x20200078=19b1fc46017955bb
+      0x20200080=42d6ee04e2f5e6a0 0x20200088=61eeadf3b5119a71
+      0x20200090=293963d201a0f98b 0x20200098=22fd83108de29775
+      0x202000a0=568417401760871 0x202000a8=d4512c6ede07cd98
+      0x202000b0=6b4d71fcc32db2c6 0x202000b8=cee4b073fb2a1174
+      ;
+      0x20200060=553a18baea628ee6 0x20200068=44aa68e2862ac29d
+      0x20200070=6e5de43c0eb9c35c 0x20200078=19b1fc46017955bb
+      0x20200080=42d6ee04e2f5e6a0 0x20200088=61eeadf3b5119a71
+      0x20200090=293963d201a0f98b 0x20200098=22fd83108de29775
+      0x202000a0=568417401760871 0x202000a8=d4512c6ede07cd98
+      0x202000b0=6b4d71fcc32db2c6 0x202000b8=cee4b073fb2a1174
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LVX original values``() =
+    oracle "7c2638ce" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1be1f57a02dabbfc V1B=355ea8099872623c LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=87600e9ca73ea134 0x20200068=a47ed6af953ed962
+      0x20200070=f237b3b657f235b8 0x20200078=10c4f507f64539ca
+      0x20200080=1be1f57a02dabbfc 0x20200088=355ea8099872623c
+      0x20200090=25a8ac43909de8ba 0x20200098=65724bee0a9e75f6
+      0x202000a0=28d3a23b98ed9e83 0x202000a8=e51a5b4567ec7bc8
+      0x202000b0=81507810b85ab11c 0x202000b8=3954a7b10dfbfb09
+      ;
+      0x20200060=87600e9ca73ea134 0x20200068=a47ed6af953ed962
+      0x20200070=f237b3b657f235b8 0x20200078=10c4f507f64539ca
+      0x20200080=1be1f57a02dabbfc 0x20200088=355ea8099872623c
+      0x20200090=25a8ac43909de8ba 0x20200098=65724bee0a9e75f6
+      0x202000a0=28d3a23b98ed9e83 0x202000a8=e51a5b4567ec7bc8
+      0x202000b0=81507810b85ab11c 0x202000b8=3954a7b10dfbfb09
+      |
+      """
+    oracle "7c2638ce" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1be1f57a02dabbfc V1B=355ea8099872623c LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=87600e9ca73ea134 0x20200068=a47ed6af953ed962
+      0x20200070=f237b3b657f235b8 0x20200078=10c4f507f64539ca
+      0x20200080=1be1f57a02dabbfc 0x20200088=355ea8099872623c
+      0x20200090=25a8ac43909de8ba 0x20200098=65724bee0a9e75f6
+      0x202000a0=28d3a23b98ed9e83 0x202000a8=e51a5b4567ec7bc8
+      0x202000b0=81507810b85ab11c 0x202000b8=3954a7b10dfbfb09
+      ;
+      0x20200060=87600e9ca73ea134 0x20200068=a47ed6af953ed962
+      0x20200070=f237b3b657f235b8 0x20200078=10c4f507f64539ca
+      0x20200080=1be1f57a02dabbfc 0x20200088=355ea8099872623c
+      0x20200090=25a8ac43909de8ba 0x20200098=65724bee0a9e75f6
+      0x202000a0=28d3a23b98ed9e83 0x202000a8=e51a5b4567ec7bc8
+      0x202000b0=81507810b85ab11c 0x202000b8=3954a7b10dfbfb09
+      |
+      """
+    oracle "ce38267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=3c62729809a85e35 V1B=fcbbda027af5e11b LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=87600e9ca73ea134 0x20200068=a47ed6af953ed962
+      0x20200070=f237b3b657f235b8 0x20200078=10c4f507f64539ca
+      0x20200080=1be1f57a02dabbfc 0x20200088=355ea8099872623c
+      0x20200090=25a8ac43909de8ba 0x20200098=65724bee0a9e75f6
+      0x202000a0=28d3a23b98ed9e83 0x202000a8=e51a5b4567ec7bc8
+      0x202000b0=81507810b85ab11c 0x202000b8=3954a7b10dfbfb09
+      ;
+      0x20200060=87600e9ca73ea134 0x20200068=a47ed6af953ed962
+      0x20200070=f237b3b657f235b8 0x20200078=10c4f507f64539ca
+      0x20200080=1be1f57a02dabbfc 0x20200088=355ea8099872623c
+      0x20200090=25a8ac43909de8ba 0x20200098=65724bee0a9e75f6
+      0x202000a0=28d3a23b98ed9e83 0x202000a8=e51a5b4567ec7bc8
+      0x202000b0=81507810b85ab11c 0x202000b8=3954a7b10dfbfb09
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LVXL original values``() =
+    oracle "7c263ace" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=ffe2f3813d96139d V1B=7f290d6ebf9f3330 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=506126f0ad09b7ba 0x20200068=aed8e432e0aa1d39
+      0x20200070=f1c8f54d9d1b3a77 0x20200078=ebb2fa8a99b874f1
+      0x20200080=ffe2f3813d96139d 0x20200088=7f290d6ebf9f3330
+      0x20200090=2b5659b6c60ce546 0x20200098=d81f57fb4150d9a8
+      0x202000a0=bf531251289f0115 0x202000a8=d5a6230a4bc8bb59
+      0x202000b0=47d767a994defde9 0x202000b8=ca5495f0376b3d82
+      ;
+      0x20200060=506126f0ad09b7ba 0x20200068=aed8e432e0aa1d39
+      0x20200070=f1c8f54d9d1b3a77 0x20200078=ebb2fa8a99b874f1
+      0x20200080=ffe2f3813d96139d 0x20200088=7f290d6ebf9f3330
+      0x20200090=2b5659b6c60ce546 0x20200098=d81f57fb4150d9a8
+      0x202000a0=bf531251289f0115 0x202000a8=d5a6230a4bc8bb59
+      0x202000b0=47d767a994defde9 0x202000b8=ca5495f0376b3d82
+      |
+      """
+    oracle "7c263ace" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=ffe2f3813d96139d V1B=7f290d6ebf9f3330 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=506126f0ad09b7ba 0x20200068=aed8e432e0aa1d39
+      0x20200070=f1c8f54d9d1b3a77 0x20200078=ebb2fa8a99b874f1
+      0x20200080=ffe2f3813d96139d 0x20200088=7f290d6ebf9f3330
+      0x20200090=2b5659b6c60ce546 0x20200098=d81f57fb4150d9a8
+      0x202000a0=bf531251289f0115 0x202000a8=d5a6230a4bc8bb59
+      0x202000b0=47d767a994defde9 0x202000b8=ca5495f0376b3d82
+      ;
+      0x20200060=506126f0ad09b7ba 0x20200068=aed8e432e0aa1d39
+      0x20200070=f1c8f54d9d1b3a77 0x20200078=ebb2fa8a99b874f1
+      0x20200080=ffe2f3813d96139d 0x20200088=7f290d6ebf9f3330
+      0x20200090=2b5659b6c60ce546 0x20200098=d81f57fb4150d9a8
+      0x202000a0=bf531251289f0115 0x202000a8=d5a6230a4bc8bb59
+      0x202000b0=47d767a994defde9 0x202000b8=ca5495f0376b3d82
+      |
+      """
+    oracle "ce3a267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=30339fbf6e0d297f V1B=9d13963d81f3e2ff LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=506126f0ad09b7ba 0x20200068=aed8e432e0aa1d39
+      0x20200070=f1c8f54d9d1b3a77 0x20200078=ebb2fa8a99b874f1
+      0x20200080=ffe2f3813d96139d 0x20200088=7f290d6ebf9f3330
+      0x20200090=2b5659b6c60ce546 0x20200098=d81f57fb4150d9a8
+      0x202000a0=bf531251289f0115 0x202000a8=d5a6230a4bc8bb59
+      0x202000b0=47d767a994defde9 0x202000b8=ca5495f0376b3d82
+      ;
+      0x20200060=506126f0ad09b7ba 0x20200068=aed8e432e0aa1d39
+      0x20200070=f1c8f54d9d1b3a77 0x20200078=ebb2fa8a99b874f1
+      0x20200080=ffe2f3813d96139d 0x20200088=7f290d6ebf9f3330
+      0x20200090=2b5659b6c60ce546 0x20200098=d81f57fb4150d9a8
+      0x202000a0=bf531251289f0115 0x202000a8=d5a6230a4bc8bb59
+      0x202000b0=47d767a994defde9 0x202000b8=ca5495f0376b3d82
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWA original values``() =
+    oracle "e8a6000a" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=ffffffffa2fc4f46 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=930b6d57f3e16ac3 0x20200068=e6a892ebf06ffc2c
+      0x20200070=7901352198d9a309 0x20200078=e68f870666bf143c
+      0x20200080=a2fc4f46aa5fccfd 0x20200088=730b13200d88e699
+      0x20200090=e853a68ef9d5dda5 0x20200098=6ac13969b182ab3f
+      0x202000a0=6d542c21b6057c0f 0x202000a8=949f6eccf680d9be
+      0x202000b0=da0543bc7d7a566c 0x202000b8=48f6572632dc5ea1
+      ;
+      0x20200060=930b6d57f3e16ac3 0x20200068=e6a892ebf06ffc2c
+      0x20200070=7901352198d9a309 0x20200078=e68f870666bf143c
+      0x20200080=a2fc4f46aa5fccfd 0x20200088=730b13200d88e699
+      0x20200090=e853a68ef9d5dda5 0x20200098=6ac13969b182ab3f
+      0x202000a0=6d542c21b6057c0f 0x202000a8=949f6eccf680d9be
+      0x202000b0=da0543bc7d7a566c 0x202000b8=48f6572632dc5ea1
+      |
+      """
+    oracle "0a00a6e8" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=464ffca2 R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=930b6d57f3e16ac3 0x20200068=e6a892ebf06ffc2c
+      0x20200070=7901352198d9a309 0x20200078=e68f870666bf143c
+      0x20200080=a2fc4f46aa5fccfd 0x20200088=730b13200d88e699
+      0x20200090=e853a68ef9d5dda5 0x20200098=6ac13969b182ab3f
+      0x202000a0=6d542c21b6057c0f 0x202000a8=949f6eccf680d9be
+      0x202000b0=da0543bc7d7a566c 0x202000b8=48f6572632dc5ea1
+      ;
+      0x20200060=930b6d57f3e16ac3 0x20200068=e6a892ebf06ffc2c
+      0x20200070=7901352198d9a309 0x20200078=e68f870666bf143c
+      0x20200080=a2fc4f46aa5fccfd 0x20200088=730b13200d88e699
+      0x20200090=e853a68ef9d5dda5 0x20200098=6ac13969b182ab3f
+      0x202000a0=6d542c21b6057c0f 0x202000a8=949f6eccf680d9be
+      0x202000b0=da0543bc7d7a566c 0x202000b8=48f6572632dc5ea1
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWAUX original values``() =
+    oracle "7ca63aea" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=1278095a R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=6fad4256d933bf55 0x20200068=6bd9fc6f4ad151d8
+      0x20200070=594cc6f0a3482408 0x20200078=48430d0ddc0ea2de
+      0x20200080=1278095a4abb488f 0x20200088=12db13a48a2956ee
+      0x20200090=e052d02ddd777c0d 0x20200098=f0d28eb95de2866c
+      0x202000a0=e069ddee66ebfb87 0x202000a8=bae5d58b6057ef0c
+      0x202000b0=9f6382b95024ee75 0x202000b8=7b472f0b291ace91
+      ;
+      0x20200060=6fad4256d933bf55 0x20200068=6bd9fc6f4ad151d8
+      0x20200070=594cc6f0a3482408 0x20200078=48430d0ddc0ea2de
+      0x20200080=1278095a4abb488f 0x20200088=12db13a48a2956ee
+      0x20200090=e052d02ddd777c0d 0x20200098=f0d28eb95de2866c
+      0x202000a0=e069ddee66ebfb87 0x202000a8=bae5d58b6057ef0c
+      0x202000b0=9f6382b95024ee75 0x202000b8=7b472f0b291ace91
+      |
+      """
+    oracle "ea3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=5a097812 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=6fad4256d933bf55 0x20200068=6bd9fc6f4ad151d8
+      0x20200070=594cc6f0a3482408 0x20200078=48430d0ddc0ea2de
+      0x20200080=1278095a4abb488f 0x20200088=12db13a48a2956ee
+      0x20200090=e052d02ddd777c0d 0x20200098=f0d28eb95de2866c
+      0x202000a0=e069ddee66ebfb87 0x202000a8=bae5d58b6057ef0c
+      0x202000b0=9f6382b95024ee75 0x202000b8=7b472f0b291ace91
+      ;
+      0x20200060=6fad4256d933bf55 0x20200068=6bd9fc6f4ad151d8
+      0x20200070=594cc6f0a3482408 0x20200078=48430d0ddc0ea2de
+      0x20200080=1278095a4abb488f 0x20200088=12db13a48a2956ee
+      0x20200090=e052d02ddd777c0d 0x20200098=f0d28eb95de2866c
+      0x202000a0=e069ddee66ebfb87 0x202000a8=bae5d58b6057ef0c
+      0x202000b0=9f6382b95024ee75 0x202000b8=7b472f0b291ace91
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWAX original values``() =
+    oracle "7ca63aaa" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=fffffffff3f3160a R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=209bc8776cbc72a1 0x20200068=857bfaf39ca65ab6
+      0x20200070=c13b1f70bb56f485 0x20200078=3fefa4eb770d5bfc
+      0x20200080=f3f3160a0d4fbeff 0x20200088=96661e899b9c879e
+      0x20200090=1b1d1d4d758cf3d6 0x20200098=281f32ed87501d02
+      0x202000a0=5f71d79fdb3ec5c5 0x202000a8=1b97ae927d6ef4d8
+      0x202000b0=a83bda60d91fc9e7 0x202000b8=e1318473babfe1bf
+      ;
+      0x20200060=209bc8776cbc72a1 0x20200068=857bfaf39ca65ab6
+      0x20200070=c13b1f70bb56f485 0x20200078=3fefa4eb770d5bfc
+      0x20200080=f3f3160a0d4fbeff 0x20200088=96661e899b9c879e
+      0x20200090=1b1d1d4d758cf3d6 0x20200098=281f32ed87501d02
+      0x202000a0=5f71d79fdb3ec5c5 0x202000a8=1b97ae927d6ef4d8
+      0x202000b0=a83bda60d91fc9e7 0x202000b8=e1318473babfe1bf
+      |
+      """
+    oracle "aa3aa67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=a16f3f3 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=209bc8776cbc72a1 0x20200068=857bfaf39ca65ab6
+      0x20200070=c13b1f70bb56f485 0x20200078=3fefa4eb770d5bfc
+      0x20200080=f3f3160a0d4fbeff 0x20200088=96661e899b9c879e
+      0x20200090=1b1d1d4d758cf3d6 0x20200098=281f32ed87501d02
+      0x202000a0=5f71d79fdb3ec5c5 0x202000a8=1b97ae927d6ef4d8
+      0x202000b0=a83bda60d91fc9e7 0x202000b8=e1318473babfe1bf
+      ;
+      0x20200060=209bc8776cbc72a1 0x20200068=857bfaf39ca65ab6
+      0x20200070=c13b1f70bb56f485 0x20200078=3fefa4eb770d5bfc
+      0x20200080=f3f3160a0d4fbeff 0x20200088=96661e899b9c879e
+      0x20200090=1b1d1d4d758cf3d6 0x20200098=281f32ed87501d02
+      0x202000a0=5f71d79fdb3ec5c5 0x202000a8=1b97ae927d6ef4d8
+      0x202000b0=a83bda60d91fc9e7 0x202000b8=e1318473babfe1bf
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWBRX original values``() =
+    oracle "7ca63c2c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f7b07527 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=46d625b7ff59a219 0x20200068=42c560060a347ef8
+      0x20200070=a3e9428b02eb67ec 0x20200078=3095938831d64b79
+      0x20200080=2775b0f77833dfce 0x20200088=696a10dcb6e36d9
+      0x20200090=a1f88607e8b8efb4 0x20200098=98f4f73aef1dedf5
+      0x202000a0=a6b1b359f058cbaf 0x202000a8=7af5a87a311a4cf1
+      0x202000b0=55d5b3a06e628465 0x202000b8=b03b50f77e159d88
+      ;
+      0x20200060=46d625b7ff59a219 0x20200068=42c560060a347ef8
+      0x20200070=a3e9428b02eb67ec 0x20200078=3095938831d64b79
+      0x20200080=2775b0f77833dfce 0x20200088=696a10dcb6e36d9
+      0x20200090=a1f88607e8b8efb4 0x20200098=98f4f73aef1dedf5
+      0x202000a0=a6b1b359f058cbaf 0x202000a8=7af5a87a311a4cf1
+      0x202000b0=55d5b3a06e628465 0x202000b8=b03b50f77e159d88
+      |
+      """
+    oracle "7ca63c2c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=f7b07527 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=46d625b7ff59a219 0x20200068=42c560060a347ef8
+      0x20200070=a3e9428b02eb67ec 0x20200078=3095938831d64b79
+      0x20200080=2775b0f77833dfce 0x20200088=696a10dcb6e36d9
+      0x20200090=a1f88607e8b8efb4 0x20200098=98f4f73aef1dedf5
+      0x202000a0=a6b1b359f058cbaf 0x202000a8=7af5a87a311a4cf1
+      0x202000b0=55d5b3a06e628465 0x202000b8=b03b50f77e159d88
+      ;
+      0x20200060=46d625b7ff59a219 0x20200068=42c560060a347ef8
+      0x20200070=a3e9428b02eb67ec 0x20200078=3095938831d64b79
+      0x20200080=2775b0f77833dfce 0x20200088=696a10dcb6e36d9
+      0x20200090=a1f88607e8b8efb4 0x20200098=98f4f73aef1dedf5
+      0x202000a0=a6b1b359f058cbaf 0x202000a8=7af5a87a311a4cf1
+      0x202000b0=55d5b3a06e628465 0x202000b8=b03b50f77e159d88
+      |
+      """
+    oracle "2c3ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=2775b0f7 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=46d625b7ff59a219 0x20200068=42c560060a347ef8
+      0x20200070=a3e9428b02eb67ec 0x20200078=3095938831d64b79
+      0x20200080=2775b0f77833dfce 0x20200088=696a10dcb6e36d9
+      0x20200090=a1f88607e8b8efb4 0x20200098=98f4f73aef1dedf5
+      0x202000a0=a6b1b359f058cbaf 0x202000a8=7af5a87a311a4cf1
+      0x202000b0=55d5b3a06e628465 0x202000b8=b03b50f77e159d88
+      ;
+      0x20200060=46d625b7ff59a219 0x20200068=42c560060a347ef8
+      0x20200070=a3e9428b02eb67ec 0x20200078=3095938831d64b79
+      0x20200080=2775b0f77833dfce 0x20200088=696a10dcb6e36d9
+      0x20200090=a1f88607e8b8efb4 0x20200098=98f4f73aef1dedf5
+      0x202000a0=a6b1b359f058cbaf 0x202000a8=7af5a87a311a4cf1
+      0x202000b0=55d5b3a06e628465 0x202000b8=b03b50f77e159d88
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWZU original values``() =
+    oracle "84a60008" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=c06628a3 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=d2415d340aa37c41 0x20200068=e182204d0a9c1837
+      0x20200070=c9b9a8b80be65d82 0x20200078=ccc1e2f6cf029897
+      0x20200080=c06628a3accf5d96 0x20200088=33910c6432119f94
+      0x20200090=8e0e99d3b604504f 0x20200098=c825c1cc4a712ce
+      0x202000a0=32f9de0811fe61a9 0x202000a8=10081e8e1cdb56c4
+      0x202000b0=2edd625f76b292b0 0x202000b8=831696793da98304
+      ;
+      0x20200060=d2415d340aa37c41 0x20200068=e182204d0a9c1837
+      0x20200070=c9b9a8b80be65d82 0x20200078=ccc1e2f6cf029897
+      0x20200080=c06628a3accf5d96 0x20200088=33910c6432119f94
+      0x20200090=8e0e99d3b604504f 0x20200098=c825c1cc4a712ce
+      0x202000a0=32f9de0811fe61a9 0x202000a8=10081e8e1cdb56c4
+      0x202000b0=2edd625f76b292b0 0x202000b8=831696793da98304
+      |
+      """
+    oracle "84a60008" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=c06628a3 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=d2415d340aa37c41 0x20200068=e182204d0a9c1837
+      0x20200070=c9b9a8b80be65d82 0x20200078=ccc1e2f6cf029897
+      0x20200080=c06628a3accf5d96 0x20200088=33910c6432119f94
+      0x20200090=8e0e99d3b604504f 0x20200098=c825c1cc4a712ce
+      0x202000a0=32f9de0811fe61a9 0x202000a8=10081e8e1cdb56c4
+      0x202000b0=2edd625f76b292b0 0x202000b8=831696793da98304
+      ;
+      0x20200060=d2415d340aa37c41 0x20200068=e182204d0a9c1837
+      0x20200070=c9b9a8b80be65d82 0x20200078=ccc1e2f6cf029897
+      0x20200080=c06628a3accf5d96 0x20200088=33910c6432119f94
+      0x20200090=8e0e99d3b604504f 0x20200098=c825c1cc4a712ce
+      0x202000a0=32f9de0811fe61a9 0x202000a8=10081e8e1cdb56c4
+      0x202000b0=2edd625f76b292b0 0x202000b8=831696793da98304
+      |
+      """
+    oracle "0800a684" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=a32866c0 R6=20200080 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=d2415d340aa37c41 0x20200068=e182204d0a9c1837
+      0x20200070=c9b9a8b80be65d82 0x20200078=ccc1e2f6cf029897
+      0x20200080=c06628a3accf5d96 0x20200088=33910c6432119f94
+      0x20200090=8e0e99d3b604504f 0x20200098=c825c1cc4a712ce
+      0x202000a0=32f9de0811fe61a9 0x202000a8=10081e8e1cdb56c4
+      0x202000b0=2edd625f76b292b0 0x202000b8=831696793da98304
+      ;
+      0x20200060=d2415d340aa37c41 0x20200068=e182204d0a9c1837
+      0x20200070=c9b9a8b80be65d82 0x20200078=ccc1e2f6cf029897
+      0x20200080=c06628a3accf5d96 0x20200088=33910c6432119f94
+      0x20200090=8e0e99d3b604504f 0x20200098=c825c1cc4a712ce
+      0x202000a0=32f9de0811fe61a9 0x202000a8=10081e8e1cdb56c4
+      0x202000b0=2edd625f76b292b0 0x202000b8=831696793da98304
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWZUX original values``() =
+    oracle "7ca6386e" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=43321ac1 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=aa24145185c7885d 0x20200068=4aa8a2d591193f57
+      0x20200070=6fb8d72f3bc389ef 0x20200078=2a754ee4a22ffcc6
+      0x20200080=43321ac1132e8304 0x20200088=f28f03d610e16ba3
+      0x20200090=373f809e1310665c 0x20200098=160cf04a24957c9b
+      0x202000a0=7dd31860e103e91c 0x202000a8=58da9b7b7257dfcc
+      0x202000b0=121a403f164e4a02 0x202000b8=ce5917c538243a2f
+      ;
+      0x20200060=aa24145185c7885d 0x20200068=4aa8a2d591193f57
+      0x20200070=6fb8d72f3bc389ef 0x20200078=2a754ee4a22ffcc6
+      0x20200080=43321ac1132e8304 0x20200088=f28f03d610e16ba3
+      0x20200090=373f809e1310665c 0x20200098=160cf04a24957c9b
+      0x202000a0=7dd31860e103e91c 0x202000a8=58da9b7b7257dfcc
+      0x202000b0=121a403f164e4a02 0x202000b8=ce5917c538243a2f
+      |
+      """
+    oracle "7ca6386e" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=43321ac1 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=aa24145185c7885d 0x20200068=4aa8a2d591193f57
+      0x20200070=6fb8d72f3bc389ef 0x20200078=2a754ee4a22ffcc6
+      0x20200080=43321ac1132e8304 0x20200088=f28f03d610e16ba3
+      0x20200090=373f809e1310665c 0x20200098=160cf04a24957c9b
+      0x202000a0=7dd31860e103e91c 0x202000a8=58da9b7b7257dfcc
+      0x202000b0=121a403f164e4a02 0x202000b8=ce5917c538243a2f
+      ;
+      0x20200060=aa24145185c7885d 0x20200068=4aa8a2d591193f57
+      0x20200070=6fb8d72f3bc389ef 0x20200078=2a754ee4a22ffcc6
+      0x20200080=43321ac1132e8304 0x20200088=f28f03d610e16ba3
+      0x20200090=373f809e1310665c 0x20200098=160cf04a24957c9b
+      0x202000a0=7dd31860e103e91c 0x202000a8=58da9b7b7257dfcc
+      0x202000b0=121a403f164e4a02 0x202000b8=ce5917c538243a2f
+      |
+      """
+    oracle "6e38a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=c11a3243 R6=20200080 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=aa24145185c7885d 0x20200068=4aa8a2d591193f57
+      0x20200070=6fb8d72f3bc389ef 0x20200078=2a754ee4a22ffcc6
+      0x20200080=43321ac1132e8304 0x20200088=f28f03d610e16ba3
+      0x20200090=373f809e1310665c 0x20200098=160cf04a24957c9b
+      0x202000a0=7dd31860e103e91c 0x202000a8=58da9b7b7257dfcc
+      0x202000b0=121a403f164e4a02 0x202000b8=ce5917c538243a2f
+      ;
+      0x20200060=aa24145185c7885d 0x20200068=4aa8a2d591193f57
+      0x20200070=6fb8d72f3bc389ef 0x20200078=2a754ee4a22ffcc6
+      0x20200080=43321ac1132e8304 0x20200088=f28f03d610e16ba3
+      0x20200090=373f809e1310665c 0x20200098=160cf04a24957c9b
+      0x202000a0=7dd31860e103e91c 0x202000a8=58da9b7b7257dfcc
+      0x202000b0=121a403f164e4a02 0x202000b8=ce5917c538243a2f
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWZX original values``() =
+    oracle "7ca6382e" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=b9aaf5e9 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2cf2ff22fb168383 0x20200068=f9cce7a408a9ab1b
+      0x20200070=d64ee6f57619e6e6 0x20200078=61030268d9babae6
+      0x20200080=b9aaf5e95499745f 0x20200088=cb47d5a4e8ae401f
+      0x20200090=476cb3666cba9c1c 0x20200098=b45a3647e8e1fb2d
+      0x202000a0=6e77da86f66f87be 0x202000a8=44b26f68e5359215
+      0x202000b0=c213776473a162f3 0x202000b8=b5d74775902eca30
+      ;
+      0x20200060=2cf2ff22fb168383 0x20200068=f9cce7a408a9ab1b
+      0x20200070=d64ee6f57619e6e6 0x20200078=61030268d9babae6
+      0x20200080=b9aaf5e95499745f 0x20200088=cb47d5a4e8ae401f
+      0x20200090=476cb3666cba9c1c 0x20200098=b45a3647e8e1fb2d
+      0x202000a0=6e77da86f66f87be 0x202000a8=44b26f68e5359215
+      0x202000b0=c213776473a162f3 0x202000b8=b5d74775902eca30
+      |
+      """
+    oracle "7ca6382e" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=b9aaf5e9 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2cf2ff22fb168383 0x20200068=f9cce7a408a9ab1b
+      0x20200070=d64ee6f57619e6e6 0x20200078=61030268d9babae6
+      0x20200080=b9aaf5e95499745f 0x20200088=cb47d5a4e8ae401f
+      0x20200090=476cb3666cba9c1c 0x20200098=b45a3647e8e1fb2d
+      0x202000a0=6e77da86f66f87be 0x202000a8=44b26f68e5359215
+      0x202000b0=c213776473a162f3 0x202000b8=b5d74775902eca30
+      ;
+      0x20200060=2cf2ff22fb168383 0x20200068=f9cce7a408a9ab1b
+      0x20200070=d64ee6f57619e6e6 0x20200078=61030268d9babae6
+      0x20200080=b9aaf5e95499745f 0x20200088=cb47d5a4e8ae401f
+      0x20200090=476cb3666cba9c1c 0x20200098=b45a3647e8e1fb2d
+      0x202000a0=6e77da86f66f87be 0x202000a8=44b26f68e5359215
+      0x202000b0=c213776473a162f3 0x202000b8=b5d74775902eca30
+      |
+      """
+    oracle "2e38a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=20200078 R7=8 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R5=e9f5aab9 R6=20200078 R7=8 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2cf2ff22fb168383 0x20200068=f9cce7a408a9ab1b
+      0x20200070=d64ee6f57619e6e6 0x20200078=61030268d9babae6
+      0x20200080=b9aaf5e95499745f 0x20200088=cb47d5a4e8ae401f
+      0x20200090=476cb3666cba9c1c 0x20200098=b45a3647e8e1fb2d
+      0x202000a0=6e77da86f66f87be 0x202000a8=44b26f68e5359215
+      0x202000b0=c213776473a162f3 0x202000b8=b5d74775902eca30
+      ;
+      0x20200060=2cf2ff22fb168383 0x20200068=f9cce7a408a9ab1b
+      0x20200070=d64ee6f57619e6e6 0x20200078=61030268d9babae6
+      0x20200080=b9aaf5e95499745f 0x20200088=cb47d5a4e8ae401f
+      0x20200090=476cb3666cba9c1c 0x20200098=b45a3647e8e1fb2d
+      0x202000a0=6e77da86f66f87be 0x202000a8=44b26f68e5359215
+      0x202000b0=c213776473a162f3 0x202000b8=b5d74775902eca30
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LXSD original values``() =
+    oracle "e426000a" Endian.Big WordSize.Bit64 """
+      R6=20200078 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 V1A=416c158e7b04c2ca V1B=0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=3bb3fd70d0401963 0x20200068=70b250e6ec5655fe
+      0x20200070=91df4a0fd4c90ebd 0x20200078=f2f2a9aeeef3c93a
+      0x20200080=416c158e7b04c2ca 0x20200088=8a2d5b822402da06
+      0x20200090=6ca17d933e5e2ada 0x20200098=7ea3076022db2e15
+      0x202000a0=bda49e089bb6254d 0x202000a8=bd75747fada53211
+      0x202000b0=525c9d605180ce8a 0x202000b8=1d329410735d4b5b
+      ;
+      0x20200060=3bb3fd70d0401963 0x20200068=70b250e6ec5655fe
+      0x20200070=91df4a0fd4c90ebd 0x20200078=f2f2a9aeeef3c93a
+      0x20200080=416c158e7b04c2ca 0x20200088=8a2d5b822402da06
+      0x20200090=6ca17d933e5e2ada 0x20200098=7ea3076022db2e15
+      0x202000a0=bda49e089bb6254d 0x202000a8=bd75747fada53211
+      0x202000b0=525c9d605180ce8a 0x202000b8=1d329410735d4b5b
+      |
+      """
+    oracle "0a0026e4" Endian.Little WordSize.Bit64 """
+      R6=20200078 V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 V1A=cac2047b8e156c41 V1B=0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=3bb3fd70d0401963 0x20200068=70b250e6ec5655fe
+      0x20200070=91df4a0fd4c90ebd 0x20200078=f2f2a9aeeef3c93a
+      0x20200080=416c158e7b04c2ca 0x20200088=8a2d5b822402da06
+      0x20200090=6ca17d933e5e2ada 0x20200098=7ea3076022db2e15
+      0x202000a0=bda49e089bb6254d 0x202000a8=bd75747fada53211
+      0x202000b0=525c9d605180ce8a 0x202000b8=1d329410735d4b5b
+      ;
+      0x20200060=3bb3fd70d0401963 0x20200068=70b250e6ec5655fe
+      0x20200070=91df4a0fd4c90ebd 0x20200078=f2f2a9aeeef3c93a
+      0x20200080=416c158e7b04c2ca 0x20200088=8a2d5b822402da06
+      0x20200090=6ca17d933e5e2ada 0x20200098=7ea3076022db2e15
+      0x202000a0=bda49e089bb6254d 0x202000a8=bd75747fada53211
+      0x202000b0=525c9d605180ce8a 0x202000b8=1d329410735d4b5b
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LXSDX original values``() =
+    oracle "7c263c98" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=397d82b3b840287c VSRL1=0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=4b3d9795ac1908a9 0x20200068=3b6125b13342ae99
+      0x20200070=9f9cf71e10560d09 0x20200078=861718730ccad2a7
+      0x20200080=397d82b3b840287c 0x20200088=156e2e30fa658093
+      0x20200090=f2cc307854f3d98d 0x20200098=3a53aff9b504f609
+      0x202000a0=22bcddaaaab46399 0x202000a8=c4853f8abdcfe6ef
+      0x202000b0=9e7a94f0a72b64de 0x202000b8=ab915d6923e6c188
+      ;
+      0x20200060=4b3d9795ac1908a9 0x20200068=3b6125b13342ae99
+      0x20200070=9f9cf71e10560d09 0x20200078=861718730ccad2a7
+      0x20200080=397d82b3b840287c 0x20200088=156e2e30fa658093
+      0x20200090=f2cc307854f3d98d 0x20200098=3a53aff9b504f609
+      0x202000a0=22bcddaaaab46399 0x202000a8=c4853f8abdcfe6ef
+      0x202000b0=9e7a94f0a72b64de 0x202000b8=ab915d6923e6c188
+      |
+      """
+    oracle "983c267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=7c2840b8b3827d39 VSRL1=0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=4b3d9795ac1908a9 0x20200068=3b6125b13342ae99
+      0x20200070=9f9cf71e10560d09 0x20200078=861718730ccad2a7
+      0x20200080=397d82b3b840287c 0x20200088=156e2e30fa658093
+      0x20200090=f2cc307854f3d98d 0x20200098=3a53aff9b504f609
+      0x202000a0=22bcddaaaab46399 0x202000a8=c4853f8abdcfe6ef
+      0x202000b0=9e7a94f0a72b64de 0x202000b8=ab915d6923e6c188
+      ;
+      0x20200060=4b3d9795ac1908a9 0x20200068=3b6125b13342ae99
+      0x20200070=9f9cf71e10560d09 0x20200078=861718730ccad2a7
+      0x20200080=397d82b3b840287c 0x20200088=156e2e30fa658093
+      0x20200090=f2cc307854f3d98d 0x20200098=3a53aff9b504f609
+      0x202000a0=22bcddaaaab46399 0x202000a8=c4853f8abdcfe6ef
+      0x202000b0=9e7a94f0a72b64de 0x202000b8=ab915d6923e6c188
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LXVD2X original values``() =
+    oracle "7c263e98" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=7687e12688ca2917 VSRL1=a10f6c809cc48058
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8221339450fd0afe 0x20200068=2e8216bbe66d5fa6
+      0x20200070=43bdac16bcd69624 0x20200078=7ce49a8dd53667af
+      0x20200080=7687e12688ca2917 0x20200088=a10f6c809cc48058
+      0x20200090=ff95a3f8e439bc75 0x20200098=53155ed9c9e8285b
+      0x202000a0=ea39d67c5c460bb4 0x202000a8=d3240a2e0b9bc9f7
+      0x202000b0=fcee0af854a1f0d6 0x202000b8=5154bdc9fe16e5a7
+      ;
+      0x20200060=8221339450fd0afe 0x20200068=2e8216bbe66d5fa6
+      0x20200070=43bdac16bcd69624 0x20200078=7ce49a8dd53667af
+      0x20200080=7687e12688ca2917 0x20200088=a10f6c809cc48058
+      0x20200090=ff95a3f8e439bc75 0x20200098=53155ed9c9e8285b
+      0x202000a0=ea39d67c5c460bb4 0x202000a8=d3240a2e0b9bc9f7
+      0x202000b0=fcee0af854a1f0d6 0x202000b8=5154bdc9fe16e5a7
+      |
+      """
+    oracle "983e267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1729ca8826e18776 VSRL1=5880c49c806c0fa1
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8221339450fd0afe 0x20200068=2e8216bbe66d5fa6
+      0x20200070=43bdac16bcd69624 0x20200078=7ce49a8dd53667af
+      0x20200080=7687e12688ca2917 0x20200088=a10f6c809cc48058
+      0x20200090=ff95a3f8e439bc75 0x20200098=53155ed9c9e8285b
+      0x202000a0=ea39d67c5c460bb4 0x202000a8=d3240a2e0b9bc9f7
+      0x202000b0=fcee0af854a1f0d6 0x202000b8=5154bdc9fe16e5a7
+      ;
+      0x20200060=8221339450fd0afe 0x20200068=2e8216bbe66d5fa6
+      0x20200070=43bdac16bcd69624 0x20200078=7ce49a8dd53667af
+      0x20200080=7687e12688ca2917 0x20200088=a10f6c809cc48058
+      0x20200090=ff95a3f8e439bc75 0x20200098=53155ed9c9e8285b
+      0x202000a0=ea39d67c5c460bb4 0x202000a8=d3240a2e0b9bc9f7
+      0x202000b0=fcee0af854a1f0d6 0x202000b8=5154bdc9fe16e5a7
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LXVDSX original values``() =
+    oracle "7c263a98" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=8049f425c8532eb4 VSRL1=8049f425c8532eb4
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=5019fc6a896b6933 0x20200068=2df83e5094d6121a
+      0x20200070=96f8b3932f720d28 0x20200078=ec2a918fd91819ff
+      0x20200080=8049f425c8532eb4 0x20200088=9fc2837ae827bd45
+      0x20200090=f2d28e3e32a180ac 0x20200098=d6b9db2532e1a71a
+      0x202000a0=ada234bfb507fe32 0x202000a8=63306f7cfd638176
+      0x202000b0=d464658997ef5d5c 0x202000b8=a11c4d54c4060feb
+      ;
+      0x20200060=5019fc6a896b6933 0x20200068=2df83e5094d6121a
+      0x20200070=96f8b3932f720d28 0x20200078=ec2a918fd91819ff
+      0x20200080=8049f425c8532eb4 0x20200088=9fc2837ae827bd45
+      0x20200090=f2d28e3e32a180ac 0x20200098=d6b9db2532e1a71a
+      0x202000a0=ada234bfb507fe32 0x202000a8=63306f7cfd638176
+      0x202000b0=d464658997ef5d5c 0x202000b8=a11c4d54c4060feb
+      |
+      """
+    oracle "983a267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=b42e53c825f44980 VSRL1=b42e53c825f44980
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=5019fc6a896b6933 0x20200068=2df83e5094d6121a
+      0x20200070=96f8b3932f720d28 0x20200078=ec2a918fd91819ff
+      0x20200080=8049f425c8532eb4 0x20200088=9fc2837ae827bd45
+      0x20200090=f2d28e3e32a180ac 0x20200098=d6b9db2532e1a71a
+      0x202000a0=ada234bfb507fe32 0x202000a8=63306f7cfd638176
+      0x202000b0=d464658997ef5d5c 0x202000b8=a11c4d54c4060feb
+      ;
+      0x20200060=5019fc6a896b6933 0x20200068=2df83e5094d6121a
+      0x20200070=96f8b3932f720d28 0x20200078=ec2a918fd91819ff
+      0x20200080=8049f425c8532eb4 0x20200088=9fc2837ae827bd45
+      0x20200090=f2d28e3e32a180ac 0x20200098=d6b9db2532e1a71a
+      0x202000a0=ada234bfb507fe32 0x202000a8=63306f7cfd638176
+      0x202000b0=d464658997ef5d5c 0x202000b8=a11c4d54c4060feb
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LXVW4X original values``() =
+    oracle "7c263e18" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=e96705ebd252423e VSRL1=15d91c63ecf7f175
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=9f5e46f5a375fe3b 0x20200068=7b279a64f6a6b804
+      0x20200070=dd95b11f32828651 0x20200078=b9f3f93547432f1a
+      0x20200080=e96705ebd252423e 0x20200088=15d91c63ecf7f175
+      0x20200090=83689096efd4709c 0x20200098=748a1c362682d93c
+      0x202000a0=93d5f956b055e02c 0x202000a8=b266850e0e43a65e
+      0x202000b0=8026a6ca0ecb41a5 0x202000b8=8ae331e0f4b50b8
+      ;
+      0x20200060=9f5e46f5a375fe3b 0x20200068=7b279a64f6a6b804
+      0x20200070=dd95b11f32828651 0x20200078=b9f3f93547432f1a
+      0x20200080=e96705ebd252423e 0x20200088=15d91c63ecf7f175
+      0x20200090=83689096efd4709c 0x20200098=748a1c362682d93c
+      0x202000a0=93d5f956b055e02c 0x202000a8=b266850e0e43a65e
+      0x202000b0=8026a6ca0ecb41a5 0x202000b8=8ae331e0f4b50b8
+      |
+      """
+    oracle "183e267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=eb0567e93e4252d2 VSRL1=631cd91575f1f7ec
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=9f5e46f5a375fe3b 0x20200068=7b279a64f6a6b804
+      0x20200070=dd95b11f32828651 0x20200078=b9f3f93547432f1a
+      0x20200080=e96705ebd252423e 0x20200088=15d91c63ecf7f175
+      0x20200090=83689096efd4709c 0x20200098=748a1c362682d93c
+      0x202000a0=93d5f956b055e02c 0x202000a8=b266850e0e43a65e
+      0x202000b0=8026a6ca0ecb41a5 0x202000b8=8ae331e0f4b50b8
+      ;
+      0x20200060=9f5e46f5a375fe3b 0x20200068=7b279a64f6a6b804
+      0x20200070=dd95b11f32828651 0x20200078=b9f3f93547432f1a
+      0x20200080=e96705ebd252423e 0x20200088=15d91c63ecf7f175
+      0x20200090=83689096efd4709c 0x20200098=748a1c362682d93c
+      0x202000a0=93d5f956b055e02c 0x202000a8=b266850e0e43a65e
+      0x202000b0=8026a6ca0ecb41a5 0x202000b8=8ae331e0f4b50b8
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MCRF original values``() =
+    oracle "4d0c0000" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d0c0000" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "00000c4d" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MCRFS original values``() =
+    oracle "fd0c0080" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fd0c0080" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "80000cfd" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFCR original values``() =
+    oracle "7ca00026" Endian.Big WordSize.Bit32 """
+      R5=bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca00026" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2600a07c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFS. original values``() =
+    oracle "fc20048f" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc20048f" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8f0420fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFSCRN original values``() =
+    oracle "fc361c8e" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc361c8e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8e1c36fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 F3=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFSCRNI original values``() =
+    oracle "fc370c8e" Endian.Big WordSize.Bit32 """
+      F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fc370c8e" Endian.Big WordSize.Bit64 """
+      F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=0 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=1
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8e0c37fc" Endian.Little WordSize.Bit64 """
+      F1=4045000000000000 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=0 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=1
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSCR original values``() =
+    oracle "10200604" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=0 V1B=10000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10200604" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=0 V1B=10000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "04062010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=0 V1B=10000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSRD original values``() =
+    oracle "7c260066" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=3ff8000000000000 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "6600267c" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=3ff8000000000000 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSRLD original values``() =
+    oracle "7c260266" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=8090a0b0c0d0e0f F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "6602267c" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=8090a0b0c0d0e0f F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSRWZ original values``() =
+    oracle "7c2600e6" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=0 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e600267c" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=0 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTCRF original values``() =
+    oracle "7d021120" Endian.Big WordSize.Bit32 """
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=3
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d021120" Endian.Big WordSize.Bit64 """
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=3
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2011027d" Endian.Little WordSize.Bit64 """
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=3
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB0 original values``() =
+    oracle "fd20008c" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fd20008c" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c0020fd" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB0. original values``() =
+    oracle "fd20008d" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fd20008d" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8d0020fd" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB1. original values``() =
+    oracle "fd20004d" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=a000000 FPSCR=a0400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fd20004d" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=a000000 FPSCR=a0400000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4d0020fd" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0 FPSCR=0
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000 CR=a000000 FPSCR=a0400000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSF. original values``() =
+    oracle "fdfe1d8f" Endian.Big WordSize.Bit32 """
+      F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "fdfe1d8f" Endian.Big WordSize.Bit64 """
+      F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8f1dfefd" Endian.Little WordSize.Bit64 """
+      F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTOCRF original values``() =
+    oracle "7d120120" Endian.Big WordSize.Bit32 """
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d120120" Endian.Big WordSize.Bit64 """
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2001127d" Endian.Little WordSize.Bit64 """
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSCR original values``() =
+    oracle "10001e44" Endian.Big WordSize.Bit32 """
+      V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=c0d0e0f
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10001e44" Endian.Big WordSize.Bit64 """
+      V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=c0d0e0f
+      ;
+
+      ;
+
+      |
+      """
+    oracle "441e0010" Endian.Little WordSize.Bit64 """
+      V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=c0d0e0f
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRD original values``() =
+    oracle "7c260166" Endian.Big WordSize.Bit64 """
+      R6=3 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 F1=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "6601267c" Endian.Little WordSize.Bit64 """
+      R6=3 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 F1=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRDD original values``() =
+    oracle "7c263b66" Endian.Big WordSize.Bit64 """
+      R6=3 R7=5 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=3 R7=5 F1=3 VSRL1=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "663b267c" Endian.Little WordSize.Bit64 """
+      R6=3 R7=5 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=3 R7=5 F1=3 VSRL1=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRWA original values``() =
+    oracle "7c2601a6" Endian.Big WordSize.Bit64 """
+      R6=3 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 F1=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a601267c" Endian.Little WordSize.Bit64 """
+      R6=3 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 F1=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRWZ original values``() =
+    oracle "7c2601e6" Endian.Big WordSize.Bit64 """
+      R6=3 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 F1=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e601267c" Endian.Little WordSize.Bit64 """
+      R6=3 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 F1=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHD original values``() =
+    oracle "7ca63892" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9238a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHD. original values``() =
+    oracle "7ca63893" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9338a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHDU original values``() =
+    oracle "7ca63812" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1238a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHDU. original values``() =
+    oracle "7ca63813" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1338a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHW original values``() =
+    oracle "7ca63896" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63896" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9638a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHW. original values``() =
+    oracle "7ca63897" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63897" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9738a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHWU original values``() =
+    oracle "7ca63816" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63816" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1638a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHWU. original values``() =
+    oracle "7ca63817" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63817" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1738a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=0 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLD original values``() =
+    oracle "7ca639d2" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d239a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLD. original values``() =
+    oracle "7ca639d3" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d339a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLI original values``() =
+    oracle "1ca6000c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=24 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1ca6000c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=24 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a61c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=24 R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLW original values``() =
+    oracle "7ca639d6" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca639d6" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d639a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLW. original values``() =
+    oracle "7ca639d7" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca639d7" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d739a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLWO original values``() =
+    oracle "7ca63dd6" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63dd6" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d63da67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLWO. original values``() =
+    oracle "7ca63dd7" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63dd7" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d73da67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=f R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NAND. original values``() =
+    oracle "7d063bb9" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffe R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063bb9" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffffe R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "b93b067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffffe R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NEG original values``() =
+    oracle "7ca600d0" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca600d0" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d000a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NEG. original values``() =
+    oracle "7ca600d1" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca600d1" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d100a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NEGO original values``() =
+    oracle "7ca604d0" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca604d0" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d004a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NEGO. original values``() =
+    oracle "7ca604d1" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca604d1" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d104a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffd R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NOR. original values``() =
+    oracle "7d0638f9" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffff8 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d0638f9" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffff8 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f938067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffff8 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ORC original values``() =
+    oracle "7d063b38" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=fffffffb R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063b38" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=fffffffffffffffb R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "383b067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=fffffffffffffffb R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ORC. original values``() =
+    oracle "7d063b39" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffb R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063b39" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffffb R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "393b067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=fffffffffffffffb R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] OR. original values``() =
+    oracle "7d063b79" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=7 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063b79" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=7 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "793b067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=7 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ORI original values``() =
+    oracle "61060055" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=57 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "61060055" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=57 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "55000661" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=57 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ORIS original values``() =
+    oracle "65060055" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=550003 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "65060055" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=550003 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "55000665" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=550003 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] POPCNTD original values``() =
+    oracle "7d0603f4" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=2 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f403067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=2 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] PRTYD original values``() =
+    oracle "7d060174" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=1 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7401067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=1 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCL original values``() =
+    oracle "790638d0" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d0380679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCL. original values``() =
+    oracle "790638d1" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d1380679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCR original values``() =
+    oracle "79063ed2" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d23e0679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCR. original values``() =
+    oracle "79063ed3" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d33e0679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIC original values``() =
+    oracle "790628c8" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c8280679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIC. original values``() =
+    oracle "790628c9" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c9280679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICL original values``() =
+    oracle "790628c0" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c0280679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICL. original values``() =
+    oracle "790628c1" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c1280679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICR original values``() =
+    oracle "79062ec4" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c42e0679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICR. original values``() =
+    oracle "79062ec5" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c52e0679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIMI original values``() =
+    oracle "790628cc" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=6d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "cc280679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=6d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIMI. original values``() =
+    oracle "790628cd" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=6d R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "cd280679" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=6d R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWIMI original values``() =
+    oracle "510628f6" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=6d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "510628f6" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=bad0bad0000006d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f6280651" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=bad0bad0000006d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWIMI. original values``() =
+    oracle "510628f7" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=6d R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "510628f7" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=bad0bad0000006d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f7280651" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=bad0bad0000006d R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWINM. original values``() =
+    oracle "550628f7" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "550628f7" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f7280655" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWNM original values``() =
+    oracle "5d0638f6" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5d0638f6" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f638065d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWNM. original values``() =
+    oracle "5d0638f7" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5d0638f7" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "f738065d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SLD original values``() =
+    oracle "7d063836" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3638067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SLD. original values``() =
+    oracle "7d063837" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3738067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SLW original values``() =
+    oracle "7d063830" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063830" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3038067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SLW. original values``() =
+    oracle "7d063831" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063831" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3138067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=60 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAD original values``() =
+    oracle "7d063e34" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "343e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAD. original values``() =
+    oracle "7d063e35" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "353e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRADI original values``() =
+    oracle "7d062e74" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "742e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRADI. original values``() =
+    oracle "7d062e75" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "752e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAW original values``() =
+    oracle "7d063e30" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063e30" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "303e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAW. original values``() =
+    oracle "7d063e31" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063e31" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "313e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAWI original values``() =
+    oracle "7d062e70" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d062e70" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "702e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAWI. original values``() =
+    oracle "7d062e71" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d062e71" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "712e067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRD original values``() =
+    oracle "7d063c36" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "363c067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRD. original values``() =
+    oracle "7d063c37" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "373c067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRW original values``() =
+    oracle "7d063c30" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063c30" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "303c067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SRW. original values``() =
+    oracle "7d063c31" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063c31" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "313c067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=0 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=20000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STB original values``() =
+    oracle "99060008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f53b4e510c3f06a 0x20200068=a58516e6e4e67956
+      0x20200070=7abe86c1cd0c6077 0x20200078=18aa43933f857834
+      0x20200080=f6524d6945f4e82e 0x20200088=f6626333537d4d13
+      0x20200090=645d8d2a5f27d2a2 0x20200098=a29a27b885d2c83e
+      0x202000a0=cdd230961d287a33 0x202000a8=447f7c0303b09007
+      0x202000b0=c037288e6f5b7754 0x202000b8=39c2a537a9bdefb1
+      ;
+      0x20200060=f53b4e510c3f06a 0x20200068=a58516e6e4e67956
+      0x20200070=7abe86c1cd0c6077 0x20200078=18aa43933f857834
+      0x20200080=3524d6945f4e82e 0x20200088=f6626333537d4d13
+      0x20200090=645d8d2a5f27d2a2 0x20200098=a29a27b885d2c83e
+      0x202000a0=cdd230961d287a33 0x202000a8=447f7c0303b09007
+      0x202000b0=c037288e6f5b7754 0x202000b8=39c2a537a9bdefb1
+      |
+      """
+    oracle "99060008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f53b4e510c3f06a 0x20200068=a58516e6e4e67956
+      0x20200070=7abe86c1cd0c6077 0x20200078=18aa43933f857834
+      0x20200080=f6524d6945f4e82e 0x20200088=f6626333537d4d13
+      0x20200090=645d8d2a5f27d2a2 0x20200098=a29a27b885d2c83e
+      0x202000a0=cdd230961d287a33 0x202000a8=447f7c0303b09007
+      0x202000b0=c037288e6f5b7754 0x202000b8=39c2a537a9bdefb1
+      ;
+      0x20200060=f53b4e510c3f06a 0x20200068=a58516e6e4e67956
+      0x20200070=7abe86c1cd0c6077 0x20200078=18aa43933f857834
+      0x20200080=3524d6945f4e82e 0x20200088=f6626333537d4d13
+      0x20200090=645d8d2a5f27d2a2 0x20200098=a29a27b885d2c83e
+      0x202000a0=cdd230961d287a33 0x202000a8=447f7c0303b09007
+      0x202000b0=c037288e6f5b7754 0x202000b8=39c2a537a9bdefb1
+      |
+      """
+    oracle "08000699" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f53b4e510c3f06a 0x20200068=a58516e6e4e67956
+      0x20200070=7abe86c1cd0c6077 0x20200078=18aa43933f857834
+      0x20200080=f6524d6945f4e82e 0x20200088=f6626333537d4d13
+      0x20200090=645d8d2a5f27d2a2 0x20200098=a29a27b885d2c83e
+      0x202000a0=cdd230961d287a33 0x202000a8=447f7c0303b09007
+      0x202000b0=c037288e6f5b7754 0x202000b8=39c2a537a9bdefb1
+      ;
+      0x20200060=f53b4e510c3f06a 0x20200068=a58516e6e4e67956
+      0x20200070=7abe86c1cd0c6077 0x20200078=18aa43933f857834
+      0x20200080=3524d6945f4e82e 0x20200088=f6626333537d4d13
+      0x20200090=645d8d2a5f27d2a2 0x20200098=a29a27b885d2c83e
+      0x202000a0=cdd230961d287a33 0x202000a8=447f7c0303b09007
+      0x202000b0=c037288e6f5b7754 0x202000b8=39c2a537a9bdefb1
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STBU original values``() =
+    oracle "9d060008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=72d4dbd18cde9dd2 0x20200068=9fe4d96903e4204c
+      0x20200070=b027389431b6f2e3 0x20200078=c76d03e5ad1e19d7
+      0x20200080=780561e9bce0d3c 0x20200088=b2e17da42ddf6f03
+      0x20200090=fe1802d8eab7ffd8 0x20200098=aa6c593464fd3efe
+      0x202000a0=cd4086d8953837d3 0x202000a8=166373392be22a8f
+      0x202000b0=91949455fcad805f 0x202000b8=24811edb631960cb
+      ;
+      0x20200060=72d4dbd18cde9dd2 0x20200068=9fe4d96903e4204c
+      0x20200070=b027389431b6f2e3 0x20200078=c76d03e5ad1e19d7
+      0x20200080=380561e9bce0d3c 0x20200088=b2e17da42ddf6f03
+      0x20200090=fe1802d8eab7ffd8 0x20200098=aa6c593464fd3efe
+      0x202000a0=cd4086d8953837d3 0x202000a8=166373392be22a8f
+      0x202000b0=91949455fcad805f 0x202000b8=24811edb631960cb
+      |
+      """
+    oracle "9d060008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=72d4dbd18cde9dd2 0x20200068=9fe4d96903e4204c
+      0x20200070=b027389431b6f2e3 0x20200078=c76d03e5ad1e19d7
+      0x20200080=780561e9bce0d3c 0x20200088=b2e17da42ddf6f03
+      0x20200090=fe1802d8eab7ffd8 0x20200098=aa6c593464fd3efe
+      0x202000a0=cd4086d8953837d3 0x202000a8=166373392be22a8f
+      0x202000b0=91949455fcad805f 0x202000b8=24811edb631960cb
+      ;
+      0x20200060=72d4dbd18cde9dd2 0x20200068=9fe4d96903e4204c
+      0x20200070=b027389431b6f2e3 0x20200078=c76d03e5ad1e19d7
+      0x20200080=380561e9bce0d3c 0x20200088=b2e17da42ddf6f03
+      0x20200090=fe1802d8eab7ffd8 0x20200098=aa6c593464fd3efe
+      0x202000a0=cd4086d8953837d3 0x202000a8=166373392be22a8f
+      0x202000b0=91949455fcad805f 0x202000b8=24811edb631960cb
+      |
+      """
+    oracle "0800069d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=72d4dbd18cde9dd2 0x20200068=9fe4d96903e4204c
+      0x20200070=b027389431b6f2e3 0x20200078=c76d03e5ad1e19d7
+      0x20200080=780561e9bce0d3c 0x20200088=b2e17da42ddf6f03
+      0x20200090=fe1802d8eab7ffd8 0x20200098=aa6c593464fd3efe
+      0x202000a0=cd4086d8953837d3 0x202000a8=166373392be22a8f
+      0x202000b0=91949455fcad805f 0x202000b8=24811edb631960cb
+      ;
+      0x20200060=72d4dbd18cde9dd2 0x20200068=9fe4d96903e4204c
+      0x20200070=b027389431b6f2e3 0x20200078=c76d03e5ad1e19d7
+      0x20200080=380561e9bce0d3c 0x20200088=b2e17da42ddf6f03
+      0x20200090=fe1802d8eab7ffd8 0x20200098=aa6c593464fd3efe
+      0x202000a0=cd4086d8953837d3 0x202000a8=166373392be22a8f
+      0x202000b0=91949455fcad805f 0x202000b8=24811edb631960cb
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STBUX original values``() =
+    oracle "7d0639ee" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4a56bac63e68ec35 0x20200068=fee6edf41bad8a94
+      0x20200070=8935649b259f0260 0x20200078=c4177342b4f045ea
+      0x20200080=efd116176ce1f63a 0x20200088=1bc41d93c0c11fa4
+      0x20200090=18e3893a02bee19f 0x20200098=55729212eb15e839
+      0x202000a0=c77f63897f7b16ba 0x202000a8=98ee9d1f6ce84fc3
+      0x202000b0=c781c4448776a95 0x202000b8=70e28bb82829b0cb
+      ;
+      0x20200060=4a56bac63e68ec35 0x20200068=fee6edf41bad8a94
+      0x20200070=8935649b259f0260 0x20200078=c4177342b4f045ea
+      0x20200080=3d116176ce1f63a 0x20200088=1bc41d93c0c11fa4
+      0x20200090=18e3893a02bee19f 0x20200098=55729212eb15e839
+      0x202000a0=c77f63897f7b16ba 0x202000a8=98ee9d1f6ce84fc3
+      0x202000b0=c781c4448776a95 0x202000b8=70e28bb82829b0cb
+      |
+      """
+    oracle "7d0639ee" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4a56bac63e68ec35 0x20200068=fee6edf41bad8a94
+      0x20200070=8935649b259f0260 0x20200078=c4177342b4f045ea
+      0x20200080=efd116176ce1f63a 0x20200088=1bc41d93c0c11fa4
+      0x20200090=18e3893a02bee19f 0x20200098=55729212eb15e839
+      0x202000a0=c77f63897f7b16ba 0x202000a8=98ee9d1f6ce84fc3
+      0x202000b0=c781c4448776a95 0x202000b8=70e28bb82829b0cb
+      ;
+      0x20200060=4a56bac63e68ec35 0x20200068=fee6edf41bad8a94
+      0x20200070=8935649b259f0260 0x20200078=c4177342b4f045ea
+      0x20200080=3d116176ce1f63a 0x20200088=1bc41d93c0c11fa4
+      0x20200090=18e3893a02bee19f 0x20200098=55729212eb15e839
+      0x202000a0=c77f63897f7b16ba 0x202000a8=98ee9d1f6ce84fc3
+      0x202000b0=c781c4448776a95 0x202000b8=70e28bb82829b0cb
+      |
+      """
+    oracle "ee39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4a56bac63e68ec35 0x20200068=fee6edf41bad8a94
+      0x20200070=8935649b259f0260 0x20200078=c4177342b4f045ea
+      0x20200080=efd116176ce1f63a 0x20200088=1bc41d93c0c11fa4
+      0x20200090=18e3893a02bee19f 0x20200098=55729212eb15e839
+      0x202000a0=c77f63897f7b16ba 0x202000a8=98ee9d1f6ce84fc3
+      0x202000b0=c781c4448776a95 0x202000b8=70e28bb82829b0cb
+      ;
+      0x20200060=4a56bac63e68ec35 0x20200068=fee6edf41bad8a94
+      0x20200070=8935649b259f0260 0x20200078=c4177342b4f045ea
+      0x20200080=3d116176ce1f63a 0x20200088=1bc41d93c0c11fa4
+      0x20200090=18e3893a02bee19f 0x20200098=55729212eb15e839
+      0x202000a0=c77f63897f7b16ba 0x202000a8=98ee9d1f6ce84fc3
+      0x202000b0=c781c4448776a95 0x202000b8=70e28bb82829b0cb
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STBX original values``() =
+    oracle "7d0639ae" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=9d82cb712d220a02 0x20200068=2a49d65c33941970
+      0x20200070=5cf36efd5eef7448 0x20200078=bf7206e328dc32cf
+      0x20200080=d11a1f5f1d84c704 0x20200088=c0d06fdd715a0459
+      0x20200090=3dc8280e96d6d525 0x20200098=f655aea47ee212e0
+      0x202000a0=382cdd64faa0dbc7 0x202000a8=1266571bd61e47a9
+      0x202000b0=8aedab539574e966 0x202000b8=fae0e454667d50a4
+      ;
+      0x20200060=9d82cb712d220a02 0x20200068=2a49d65c33941970
+      0x20200070=5cf36efd5eef7448 0x20200078=bf7206e328dc32cf
+      0x20200080=31a1f5f1d84c704 0x20200088=c0d06fdd715a0459
+      0x20200090=3dc8280e96d6d525 0x20200098=f655aea47ee212e0
+      0x202000a0=382cdd64faa0dbc7 0x202000a8=1266571bd61e47a9
+      0x202000b0=8aedab539574e966 0x202000b8=fae0e454667d50a4
+      |
+      """
+    oracle "7d0639ae" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=9d82cb712d220a02 0x20200068=2a49d65c33941970
+      0x20200070=5cf36efd5eef7448 0x20200078=bf7206e328dc32cf
+      0x20200080=d11a1f5f1d84c704 0x20200088=c0d06fdd715a0459
+      0x20200090=3dc8280e96d6d525 0x20200098=f655aea47ee212e0
+      0x202000a0=382cdd64faa0dbc7 0x202000a8=1266571bd61e47a9
+      0x202000b0=8aedab539574e966 0x202000b8=fae0e454667d50a4
+      ;
+      0x20200060=9d82cb712d220a02 0x20200068=2a49d65c33941970
+      0x20200070=5cf36efd5eef7448 0x20200078=bf7206e328dc32cf
+      0x20200080=31a1f5f1d84c704 0x20200088=c0d06fdd715a0459
+      0x20200090=3dc8280e96d6d525 0x20200098=f655aea47ee212e0
+      0x202000a0=382cdd64faa0dbc7 0x202000a8=1266571bd61e47a9
+      0x202000b0=8aedab539574e966 0x202000b8=fae0e454667d50a4
+      |
+      """
+    oracle "ae39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=9d82cb712d220a02 0x20200068=2a49d65c33941970
+      0x20200070=5cf36efd5eef7448 0x20200078=bf7206e328dc32cf
+      0x20200080=d11a1f5f1d84c704 0x20200088=c0d06fdd715a0459
+      0x20200090=3dc8280e96d6d525 0x20200098=f655aea47ee212e0
+      0x202000a0=382cdd64faa0dbc7 0x202000a8=1266571bd61e47a9
+      0x202000b0=8aedab539574e966 0x202000b8=fae0e454667d50a4
+      ;
+      0x20200060=9d82cb712d220a02 0x20200068=2a49d65c33941970
+      0x20200070=5cf36efd5eef7448 0x20200078=bf7206e328dc32cf
+      0x20200080=31a1f5f1d84c704 0x20200088=c0d06fdd715a0459
+      0x20200090=3dc8280e96d6d525 0x20200098=f655aea47ee212e0
+      0x202000a0=382cdd64faa0dbc7 0x202000a8=1266571bd61e47a9
+      0x202000b0=8aedab539574e966 0x202000b8=fae0e454667d50a4
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STD original values``() =
+    oracle "f9060008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e71990f74f7dbca4 0x20200068=1c74d747dea58c52
+      0x20200070=49a4b912a55255be 0x20200078=ab4f17fa6ae297f6
+      0x20200080=c2b1b5f41b8c45ab 0x20200088=52c7ad5186d94b26
+      0x20200090=6c219d422dce088b 0x20200098=b7b51db4839659c9
+      0x202000a0=ccfdebb880418b9b 0x202000a8=44c32d56091fca35
+      0x202000b0=f45fa9f8e9f9634b 0x202000b8=523f0805d482f94b
+      ;
+      0x20200060=e71990f74f7dbca4 0x20200068=1c74d747dea58c52
+      0x20200070=49a4b912a55255be 0x20200078=ab4f17fa6ae297f6 0x20200080=3
+      0x20200088=52c7ad5186d94b26 0x20200090=6c219d422dce088b
+      0x20200098=b7b51db4839659c9 0x202000a0=ccfdebb880418b9b
+      0x202000a8=44c32d56091fca35 0x202000b0=f45fa9f8e9f9634b
+      0x202000b8=523f0805d482f94b
+      |
+      """
+    oracle "080006f9" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e71990f74f7dbca4 0x20200068=1c74d747dea58c52
+      0x20200070=49a4b912a55255be 0x20200078=ab4f17fa6ae297f6
+      0x20200080=c2b1b5f41b8c45ab 0x20200088=52c7ad5186d94b26
+      0x20200090=6c219d422dce088b 0x20200098=b7b51db4839659c9
+      0x202000a0=ccfdebb880418b9b 0x202000a8=44c32d56091fca35
+      0x202000b0=f45fa9f8e9f9634b 0x202000b8=523f0805d482f94b
+      ;
+      0x20200060=e71990f74f7dbca4 0x20200068=1c74d747dea58c52
+      0x20200070=49a4b912a55255be 0x20200078=ab4f17fa6ae297f6
+      0x20200080=300000000000000 0x20200088=52c7ad5186d94b26
+      0x20200090=6c219d422dce088b 0x20200098=b7b51db4839659c9
+      0x202000a0=ccfdebb880418b9b 0x202000a8=44c32d56091fca35
+      0x202000b0=f45fa9f8e9f9634b 0x202000b8=523f0805d482f94b
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STDBRX original values``() =
+    oracle "7d063d28" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8d40236f8cf74a6f 0x20200068=c095d5471c6e8892
+      0x20200070=397af84af5a9ea81 0x20200078=77bd234c324a60d8
+      0x20200080=1043d438457b5152 0x20200088=be8337ba3f0ae8e6
+      0x20200090=2418adb10122d492 0x20200098=ee0e6b5aa2ae7c21
+      0x202000a0=46f3daeb41ab7c6d 0x202000a8=6f8a01bfdb5e358f
+      0x202000b0=721e208c204b0d47 0x202000b8=e2cdcc6bf8b2a312
+      ;
+      0x20200060=8d40236f8cf74a6f 0x20200068=c095d5471c6e8892
+      0x20200070=397af84af5a9ea81 0x20200078=77bd234c324a60d8
+      0x20200080=300000000000000 0x20200088=be8337ba3f0ae8e6
+      0x20200090=2418adb10122d492 0x20200098=ee0e6b5aa2ae7c21
+      0x202000a0=46f3daeb41ab7c6d 0x202000a8=6f8a01bfdb5e358f
+      0x202000b0=721e208c204b0d47 0x202000b8=e2cdcc6bf8b2a312
+      |
+      """
+    oracle "283d067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=8d40236f8cf74a6f 0x20200068=c095d5471c6e8892
+      0x20200070=397af84af5a9ea81 0x20200078=77bd234c324a60d8
+      0x20200080=1043d438457b5152 0x20200088=be8337ba3f0ae8e6
+      0x20200090=2418adb10122d492 0x20200098=ee0e6b5aa2ae7c21
+      0x202000a0=46f3daeb41ab7c6d 0x202000a8=6f8a01bfdb5e358f
+      0x202000b0=721e208c204b0d47 0x202000b8=e2cdcc6bf8b2a312
+      ;
+      0x20200060=8d40236f8cf74a6f 0x20200068=c095d5471c6e8892
+      0x20200070=397af84af5a9ea81 0x20200078=77bd234c324a60d8 0x20200080=3
+      0x20200088=be8337ba3f0ae8e6 0x20200090=2418adb10122d492
+      0x20200098=ee0e6b5aa2ae7c21 0x202000a0=46f3daeb41ab7c6d
+      0x202000a8=6f8a01bfdb5e358f 0x202000b0=721e208c204b0d47
+      0x202000b8=e2cdcc6bf8b2a312
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STDCX. original values``() =
+    oracle "7d0639ad" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=6d4b1d81bb390b24 0x20200068=ee4bd47a48e2312e
+      0x20200070=4de88a2f58281986 0x20200078=d9655dfffb22bb87
+      0x20200080=841b21ad7a46db82 0x20200088=79d7cdb85b9da4e2
+      0x20200090=be938d4fde4a8557 0x20200098=9867c6847e7ef8d6
+      0x202000a0=11e27e9bebd821e5 0x202000a8=4afa03e82b93855
+      0x202000b0=f5f3578ec53f8bed 0x202000b8=b04b51bca5c693b9
+      ;
+      0x20200060=6d4b1d81bb390b24 0x20200068=ee4bd47a48e2312e
+      0x20200070=4de88a2f58281986 0x20200078=d9655dfffb22bb87
+      0x20200080=841b21ad7a46db82 0x20200088=79d7cdb85b9da4e2
+      0x20200090=be938d4fde4a8557 0x20200098=9867c6847e7ef8d6
+      0x202000a0=11e27e9bebd821e5 0x202000a8=4afa03e82b93855
+      0x202000b0=f5f3578ec53f8bed 0x202000b8=b04b51bca5c693b9
+      |
+      """
+    oracle "ad39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=6d4b1d81bb390b24 0x20200068=ee4bd47a48e2312e
+      0x20200070=4de88a2f58281986 0x20200078=d9655dfffb22bb87
+      0x20200080=841b21ad7a46db82 0x20200088=79d7cdb85b9da4e2
+      0x20200090=be938d4fde4a8557 0x20200098=9867c6847e7ef8d6
+      0x202000a0=11e27e9bebd821e5 0x202000a8=4afa03e82b93855
+      0x202000b0=f5f3578ec53f8bed 0x202000b8=b04b51bca5c693b9
+      ;
+      0x20200060=6d4b1d81bb390b24 0x20200068=ee4bd47a48e2312e
+      0x20200070=4de88a2f58281986 0x20200078=d9655dfffb22bb87
+      0x20200080=841b21ad7a46db82 0x20200088=79d7cdb85b9da4e2
+      0x20200090=be938d4fde4a8557 0x20200098=9867c6847e7ef8d6
+      0x202000a0=11e27e9bebd821e5 0x202000a8=4afa03e82b93855
+      0x202000b0=f5f3578ec53f8bed 0x202000b8=b04b51bca5c693b9
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STDU original values``() =
+    oracle "f9060009" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=511226e73d88862c 0x20200068=2f39f0bbe1252e54
+      0x20200070=850b3fa335a8ce57 0x20200078=c1b2c028bbb71db7
+      0x20200080=4513d2476873bee2 0x20200088=41ac6f2bb8241cdd
+      0x20200090=7ee807ff0425cb3d 0x20200098=15ef791a9c2e74b4
+      0x202000a0=6bbba034c43803da 0x202000a8=5ccf47d23b7cdcf3
+      0x202000b0=f4311a365add9c45 0x202000b8=2f25806b7de40c6e
+      ;
+      0x20200060=511226e73d88862c 0x20200068=2f39f0bbe1252e54
+      0x20200070=850b3fa335a8ce57 0x20200078=c1b2c028bbb71db7 0x20200080=3
+      0x20200088=41ac6f2bb8241cdd 0x20200090=7ee807ff0425cb3d
+      0x20200098=15ef791a9c2e74b4 0x202000a0=6bbba034c43803da
+      0x202000a8=5ccf47d23b7cdcf3 0x202000b0=f4311a365add9c45
+      0x202000b8=2f25806b7de40c6e
+      |
+      """
+    oracle "090006f9" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=511226e73d88862c 0x20200068=2f39f0bbe1252e54
+      0x20200070=850b3fa335a8ce57 0x20200078=c1b2c028bbb71db7
+      0x20200080=4513d2476873bee2 0x20200088=41ac6f2bb8241cdd
+      0x20200090=7ee807ff0425cb3d 0x20200098=15ef791a9c2e74b4
+      0x202000a0=6bbba034c43803da 0x202000a8=5ccf47d23b7cdcf3
+      0x202000b0=f4311a365add9c45 0x202000b8=2f25806b7de40c6e
+      ;
+      0x20200060=511226e73d88862c 0x20200068=2f39f0bbe1252e54
+      0x20200070=850b3fa335a8ce57 0x20200078=c1b2c028bbb71db7
+      0x20200080=300000000000000 0x20200088=41ac6f2bb8241cdd
+      0x20200090=7ee807ff0425cb3d 0x20200098=15ef791a9c2e74b4
+      0x202000a0=6bbba034c43803da 0x202000a8=5ccf47d23b7cdcf3
+      0x202000b0=f4311a365add9c45 0x202000b8=2f25806b7de40c6e
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STDUX original values``() =
+    oracle "7d06396a" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f9252a88470fa91d 0x20200068=c31d5fb95e880bc5
+      0x20200070=388b3c7f80867498 0x20200078=e7f95a08251df16f
+      0x20200080=b64fc01e418ffe0c 0x20200088=edb14edb180a5ad1
+      0x20200090=b76492cf8d4220fc 0x20200098=a554186bedf62d98
+      0x202000a0=e62942b98f569bfe 0x202000a8=5c6b5e7b05af2688
+      0x202000b0=785105922fd48943 0x202000b8=7c742636235bf9a7
+      ;
+      0x20200060=f9252a88470fa91d 0x20200068=c31d5fb95e880bc5
+      0x20200070=388b3c7f80867498 0x20200078=e7f95a08251df16f 0x20200080=3
+      0x20200088=edb14edb180a5ad1 0x20200090=b76492cf8d4220fc
+      0x20200098=a554186bedf62d98 0x202000a0=e62942b98f569bfe
+      0x202000a8=5c6b5e7b05af2688 0x202000b0=785105922fd48943
+      0x202000b8=7c742636235bf9a7
+      |
+      """
+    oracle "6a39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f9252a88470fa91d 0x20200068=c31d5fb95e880bc5
+      0x20200070=388b3c7f80867498 0x20200078=e7f95a08251df16f
+      0x20200080=b64fc01e418ffe0c 0x20200088=edb14edb180a5ad1
+      0x20200090=b76492cf8d4220fc 0x20200098=a554186bedf62d98
+      0x202000a0=e62942b98f569bfe 0x202000a8=5c6b5e7b05af2688
+      0x202000b0=785105922fd48943 0x202000b8=7c742636235bf9a7
+      ;
+      0x20200060=f9252a88470fa91d 0x20200068=c31d5fb95e880bc5
+      0x20200070=388b3c7f80867498 0x20200078=e7f95a08251df16f
+      0x20200080=300000000000000 0x20200088=edb14edb180a5ad1
+      0x20200090=b76492cf8d4220fc 0x20200098=a554186bedf62d98
+      0x202000a0=e62942b98f569bfe 0x202000a8=5c6b5e7b05af2688
+      0x202000b0=785105922fd48943 0x202000b8=7c742636235bf9a7
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STDX original values``() =
+    oracle "7d06392a" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e2466fb6440db6e7 0x20200068=1a6b5173727c4ef2
+      0x20200070=12709cd1451907ec 0x20200078=46f180a2a97ac7d
+      0x20200080=fddc33f2614a98b4 0x20200088=2eec2ce1b0ce109e
+      0x20200090=4fcaae2ad22f805a 0x20200098=4d705de15c4e5a5e
+      0x202000a0=bb64981f861589a6 0x202000a8=5e4e9e290776dda8
+      0x202000b0=1f092c4cb93d4dbf 0x202000b8=c7b6871cb16b3a78
+      ;
+      0x20200060=e2466fb6440db6e7 0x20200068=1a6b5173727c4ef2
+      0x20200070=12709cd1451907ec 0x20200078=46f180a2a97ac7d 0x20200080=3
+      0x20200088=2eec2ce1b0ce109e 0x20200090=4fcaae2ad22f805a
+      0x20200098=4d705de15c4e5a5e 0x202000a0=bb64981f861589a6
+      0x202000a8=5e4e9e290776dda8 0x202000b0=1f092c4cb93d4dbf
+      0x202000b8=c7b6871cb16b3a78
+      |
+      """
+    oracle "2a39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e2466fb6440db6e7 0x20200068=1a6b5173727c4ef2
+      0x20200070=12709cd1451907ec 0x20200078=46f180a2a97ac7d
+      0x20200080=fddc33f2614a98b4 0x20200088=2eec2ce1b0ce109e
+      0x20200090=4fcaae2ad22f805a 0x20200098=4d705de15c4e5a5e
+      0x202000a0=bb64981f861589a6 0x202000a8=5e4e9e290776dda8
+      0x202000b0=1f092c4cb93d4dbf 0x202000b8=c7b6871cb16b3a78
+      ;
+      0x20200060=e2466fb6440db6e7 0x20200068=1a6b5173727c4ef2
+      0x20200070=12709cd1451907ec 0x20200078=46f180a2a97ac7d
+      0x20200080=300000000000000 0x20200088=2eec2ce1b0ce109e
+      0x20200090=4fcaae2ad22f805a 0x20200098=4d705de15c4e5a5e
+      0x202000a0=bb64981f861589a6 0x202000a8=5e4e9e290776dda8
+      0x202000b0=1f092c4cb93d4dbf 0x202000b8=c7b6871cb16b3a78
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFD original values``() =
+    oracle "d8260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=95ac30939025d391 0x20200068=e3f2a4a811ac4b4b
+      0x20200070=d97b9856280e2f5 0x20200078=ca4e5c84fc1eda23
+      0x20200080=3f0314c7fdfa1c88 0x20200088=f942668e6098e9d4
+      0x20200090=8ad449e635f6f98e 0x20200098=cb2af3f06410cd57
+      0x202000a0=8eddb71ae345da3b 0x202000a8=f6db176c8944cf1e
+      0x202000b0=826dcd7688bed470 0x202000b8=50e7a33c93d858c
+      ;
+      0x20200060=95ac30939025d391 0x20200068=e3f2a4a811ac4b4b
+      0x20200070=d97b9856280e2f5 0x20200078=ca4e5c84fc1eda23
+      0x20200080=3ff8000000000000 0x20200088=f942668e6098e9d4
+      0x20200090=8ad449e635f6f98e 0x20200098=cb2af3f06410cd57
+      0x202000a0=8eddb71ae345da3b 0x202000a8=f6db176c8944cf1e
+      0x202000b0=826dcd7688bed470 0x202000b8=50e7a33c93d858c
+      |
+      """
+    oracle "d8260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=95ac30939025d391 0x20200068=e3f2a4a811ac4b4b
+      0x20200070=d97b9856280e2f5 0x20200078=ca4e5c84fc1eda23
+      0x20200080=3f0314c7fdfa1c88 0x20200088=f942668e6098e9d4
+      0x20200090=8ad449e635f6f98e 0x20200098=cb2af3f06410cd57
+      0x202000a0=8eddb71ae345da3b 0x202000a8=f6db176c8944cf1e
+      0x202000b0=826dcd7688bed470 0x202000b8=50e7a33c93d858c
+      ;
+      0x20200060=95ac30939025d391 0x20200068=e3f2a4a811ac4b4b
+      0x20200070=d97b9856280e2f5 0x20200078=ca4e5c84fc1eda23
+      0x20200080=3ff8000000000000 0x20200088=f942668e6098e9d4
+      0x20200090=8ad449e635f6f98e 0x20200098=cb2af3f06410cd57
+      0x202000a0=8eddb71ae345da3b 0x202000a8=f6db176c8944cf1e
+      0x202000b0=826dcd7688bed470 0x202000b8=50e7a33c93d858c
+      |
+      """
+    oracle "080026d8" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=95ac30939025d391 0x20200068=e3f2a4a811ac4b4b
+      0x20200070=d97b9856280e2f5 0x20200078=ca4e5c84fc1eda23
+      0x20200080=3f0314c7fdfa1c88 0x20200088=f942668e6098e9d4
+      0x20200090=8ad449e635f6f98e 0x20200098=cb2af3f06410cd57
+      0x202000a0=8eddb71ae345da3b 0x202000a8=f6db176c8944cf1e
+      0x202000b0=826dcd7688bed470 0x202000b8=50e7a33c93d858c
+      ;
+      0x20200060=95ac30939025d391 0x20200068=e3f2a4a811ac4b4b
+      0x20200070=d97b9856280e2f5 0x20200078=ca4e5c84fc1eda23 0x20200080=f83f
+      0x20200088=f942668e6098e9d4 0x20200090=8ad449e635f6f98e
+      0x20200098=cb2af3f06410cd57 0x202000a0=8eddb71ae345da3b
+      0x202000a8=f6db176c8944cf1e 0x202000b0=826dcd7688bed470
+      0x202000b8=50e7a33c93d858c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFDU original values``() =
+    oracle "dc260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=c2402f0f8e188ee9 0x20200068=e4311a80df84f1a5
+      0x20200070=fca60b916012bd9e 0x20200078=9c8a645984aa5e9a
+      0x20200080=d0366af5654827f2 0x20200088=c69615e769110c69
+      0x20200090=a7516dd07e8e5972 0x20200098=c4e81b7b56d37101
+      0x202000a0=374827775b706250 0x202000a8=7e423fe9b9d6728f
+      0x202000b0=d7d3aba7ac0365d2 0x202000b8=bbb9e3f788c14079
+      ;
+      0x20200060=c2402f0f8e188ee9 0x20200068=e4311a80df84f1a5
+      0x20200070=fca60b916012bd9e 0x20200078=9c8a645984aa5e9a
+      0x20200080=3ff8000000000000 0x20200088=c69615e769110c69
+      0x20200090=a7516dd07e8e5972 0x20200098=c4e81b7b56d37101
+      0x202000a0=374827775b706250 0x202000a8=7e423fe9b9d6728f
+      0x202000b0=d7d3aba7ac0365d2 0x202000b8=bbb9e3f788c14079
+      |
+      """
+    oracle "dc260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=c2402f0f8e188ee9 0x20200068=e4311a80df84f1a5
+      0x20200070=fca60b916012bd9e 0x20200078=9c8a645984aa5e9a
+      0x20200080=d0366af5654827f2 0x20200088=c69615e769110c69
+      0x20200090=a7516dd07e8e5972 0x20200098=c4e81b7b56d37101
+      0x202000a0=374827775b706250 0x202000a8=7e423fe9b9d6728f
+      0x202000b0=d7d3aba7ac0365d2 0x202000b8=bbb9e3f788c14079
+      ;
+      0x20200060=c2402f0f8e188ee9 0x20200068=e4311a80df84f1a5
+      0x20200070=fca60b916012bd9e 0x20200078=9c8a645984aa5e9a
+      0x20200080=3ff8000000000000 0x20200088=c69615e769110c69
+      0x20200090=a7516dd07e8e5972 0x20200098=c4e81b7b56d37101
+      0x202000a0=374827775b706250 0x202000a8=7e423fe9b9d6728f
+      0x202000b0=d7d3aba7ac0365d2 0x202000b8=bbb9e3f788c14079
+      |
+      """
+    oracle "080026dc" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=c2402f0f8e188ee9 0x20200068=e4311a80df84f1a5
+      0x20200070=fca60b916012bd9e 0x20200078=9c8a645984aa5e9a
+      0x20200080=d0366af5654827f2 0x20200088=c69615e769110c69
+      0x20200090=a7516dd07e8e5972 0x20200098=c4e81b7b56d37101
+      0x202000a0=374827775b706250 0x202000a8=7e423fe9b9d6728f
+      0x202000b0=d7d3aba7ac0365d2 0x202000b8=bbb9e3f788c14079
+      ;
+      0x20200060=c2402f0f8e188ee9 0x20200068=e4311a80df84f1a5
+      0x20200070=fca60b916012bd9e 0x20200078=9c8a645984aa5e9a
+      0x20200080=f83f 0x20200088=c69615e769110c69
+      0x20200090=a7516dd07e8e5972 0x20200098=c4e81b7b56d37101
+      0x202000a0=374827775b706250 0x202000a8=7e423fe9b9d6728f
+      0x202000b0=d7d3aba7ac0365d2 0x202000b8=bbb9e3f788c14079
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFDUX original values``() =
+    oracle "7c263dee" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=a45fb27d7db4608d 0x20200068=aa917b16e747ddd0
+      0x20200070=7535f8f8a7ae13e7 0x20200078=f95f8fdf92e2b322
+      0x20200080=550d0ba4145b5548 0x20200088=18981e40287f3f74
+      0x20200090=16e78237acca932a 0x20200098=f7b8b03d91743d0b
+      0x202000a0=43a7ddc3e2207d9f 0x202000a8=9d85407201affd05
+      0x202000b0=dd3844e5fbcdbf76 0x202000b8=b445f7fba813673c
+      ;
+      0x20200060=a45fb27d7db4608d 0x20200068=aa917b16e747ddd0
+      0x20200070=7535f8f8a7ae13e7 0x20200078=f95f8fdf92e2b322
+      0x20200080=3ff8000000000000 0x20200088=18981e40287f3f74
+      0x20200090=16e78237acca932a 0x20200098=f7b8b03d91743d0b
+      0x202000a0=43a7ddc3e2207d9f 0x202000a8=9d85407201affd05
+      0x202000b0=dd3844e5fbcdbf76 0x202000b8=b445f7fba813673c
+      |
+      """
+    oracle "7c263dee" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=a45fb27d7db4608d 0x20200068=aa917b16e747ddd0
+      0x20200070=7535f8f8a7ae13e7 0x20200078=f95f8fdf92e2b322
+      0x20200080=550d0ba4145b5548 0x20200088=18981e40287f3f74
+      0x20200090=16e78237acca932a 0x20200098=f7b8b03d91743d0b
+      0x202000a0=43a7ddc3e2207d9f 0x202000a8=9d85407201affd05
+      0x202000b0=dd3844e5fbcdbf76 0x202000b8=b445f7fba813673c
+      ;
+      0x20200060=a45fb27d7db4608d 0x20200068=aa917b16e747ddd0
+      0x20200070=7535f8f8a7ae13e7 0x20200078=f95f8fdf92e2b322
+      0x20200080=3ff8000000000000 0x20200088=18981e40287f3f74
+      0x20200090=16e78237acca932a 0x20200098=f7b8b03d91743d0b
+      0x202000a0=43a7ddc3e2207d9f 0x202000a8=9d85407201affd05
+      0x202000b0=dd3844e5fbcdbf76 0x202000b8=b445f7fba813673c
+      |
+      """
+    oracle "ee3d267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=a45fb27d7db4608d 0x20200068=aa917b16e747ddd0
+      0x20200070=7535f8f8a7ae13e7 0x20200078=f95f8fdf92e2b322
+      0x20200080=550d0ba4145b5548 0x20200088=18981e40287f3f74
+      0x20200090=16e78237acca932a 0x20200098=f7b8b03d91743d0b
+      0x202000a0=43a7ddc3e2207d9f 0x202000a8=9d85407201affd05
+      0x202000b0=dd3844e5fbcdbf76 0x202000b8=b445f7fba813673c
+      ;
+      0x20200060=a45fb27d7db4608d 0x20200068=aa917b16e747ddd0
+      0x20200070=7535f8f8a7ae13e7 0x20200078=f95f8fdf92e2b322
+      0x20200080=f83f 0x20200088=18981e40287f3f74
+      0x20200090=16e78237acca932a 0x20200098=f7b8b03d91743d0b
+      0x202000a0=43a7ddc3e2207d9f 0x202000a8=9d85407201affd05
+      0x202000b0=dd3844e5fbcdbf76 0x202000b8=b445f7fba813673c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFDX original values``() =
+    oracle "7c263dae" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5d9ba677591d7cad 0x20200068=1e82d2f302c0629f
+      0x20200070=f071140eee87184 0x20200078=73cb61a306b00e50
+      0x20200080=c264653f2938b817 0x20200088=afbd5ebdcdc0e174
+      0x20200090=385a31c83d99988a 0x20200098=a27a8995d951a44c
+      0x202000a0=cbe98b340d6c5019 0x202000a8=16ddbdd07cc3b9c
+      0x202000b0=bcb2202bc44eb37c 0x202000b8=8d05288078ac85e0
+      ;
+      0x20200060=5d9ba677591d7cad 0x20200068=1e82d2f302c0629f
+      0x20200070=f071140eee87184 0x20200078=73cb61a306b00e50
+      0x20200080=3ff8000000000000 0x20200088=afbd5ebdcdc0e174
+      0x20200090=385a31c83d99988a 0x20200098=a27a8995d951a44c
+      0x202000a0=cbe98b340d6c5019 0x202000a8=16ddbdd07cc3b9c
+      0x202000b0=bcb2202bc44eb37c 0x202000b8=8d05288078ac85e0
+      |
+      """
+    oracle "7c263dae" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5d9ba677591d7cad 0x20200068=1e82d2f302c0629f
+      0x20200070=f071140eee87184 0x20200078=73cb61a306b00e50
+      0x20200080=c264653f2938b817 0x20200088=afbd5ebdcdc0e174
+      0x20200090=385a31c83d99988a 0x20200098=a27a8995d951a44c
+      0x202000a0=cbe98b340d6c5019 0x202000a8=16ddbdd07cc3b9c
+      0x202000b0=bcb2202bc44eb37c 0x202000b8=8d05288078ac85e0
+      ;
+      0x20200060=5d9ba677591d7cad 0x20200068=1e82d2f302c0629f
+      0x20200070=f071140eee87184 0x20200078=73cb61a306b00e50
+      0x20200080=3ff8000000000000 0x20200088=afbd5ebdcdc0e174
+      0x20200090=385a31c83d99988a 0x20200098=a27a8995d951a44c
+      0x202000a0=cbe98b340d6c5019 0x202000a8=16ddbdd07cc3b9c
+      0x202000b0=bcb2202bc44eb37c 0x202000b8=8d05288078ac85e0
+      |
+      """
+    oracle "ae3d267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=5d9ba677591d7cad 0x20200068=1e82d2f302c0629f
+      0x20200070=f071140eee87184 0x20200078=73cb61a306b00e50
+      0x20200080=c264653f2938b817 0x20200088=afbd5ebdcdc0e174
+      0x20200090=385a31c83d99988a 0x20200098=a27a8995d951a44c
+      0x202000a0=cbe98b340d6c5019 0x202000a8=16ddbdd07cc3b9c
+      0x202000b0=bcb2202bc44eb37c 0x202000b8=8d05288078ac85e0
+      ;
+      0x20200060=5d9ba677591d7cad 0x20200068=1e82d2f302c0629f
+      0x20200070=f071140eee87184 0x20200078=73cb61a306b00e50 0x20200080=f83f
+      0x20200088=afbd5ebdcdc0e174 0x20200090=385a31c83d99988a
+      0x20200098=a27a8995d951a44c 0x202000a0=cbe98b340d6c5019
+      0x202000a8=16ddbdd07cc3b9c 0x202000b0=bcb2202bc44eb37c
+      0x202000b8=8d05288078ac85e0
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFIWX original values``() =
+    oracle "7c263fae" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=795edf212ccd6fa2 0x20200068=18dc021d2e1519b6
+      0x20200070=eb919fa28ffd5733 0x20200078=b0233ada39b4c32b
+      0x20200080=f855acde07b9d25a 0x20200088=a9d3601881f7fbcb
+      0x20200090=fb05a7b4877c3b6a 0x20200098=360f940ce5e7e8c1
+      0x202000a0=e73e353edc9914f 0x202000a8=f49b86ba58c5b93d
+      0x202000b0=c01a059dac306a55 0x202000b8=dcec6b3afd682ef2
+      ;
+      0x20200060=795edf212ccd6fa2 0x20200068=18dc021d2e1519b6
+      0x20200070=eb919fa28ffd5733 0x20200078=b0233ada39b4c32b
+      0x20200080=7b9d25a 0x20200088=a9d3601881f7fbcb
+      0x20200090=fb05a7b4877c3b6a 0x20200098=360f940ce5e7e8c1
+      0x202000a0=e73e353edc9914f 0x202000a8=f49b86ba58c5b93d
+      0x202000b0=c01a059dac306a55 0x202000b8=dcec6b3afd682ef2
+      |
+      """
+    oracle "7c263fae" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=795edf212ccd6fa2 0x20200068=18dc021d2e1519b6
+      0x20200070=eb919fa28ffd5733 0x20200078=b0233ada39b4c32b
+      0x20200080=f855acde07b9d25a 0x20200088=a9d3601881f7fbcb
+      0x20200090=fb05a7b4877c3b6a 0x20200098=360f940ce5e7e8c1
+      0x202000a0=e73e353edc9914f 0x202000a8=f49b86ba58c5b93d
+      0x202000b0=c01a059dac306a55 0x202000b8=dcec6b3afd682ef2
+      ;
+      0x20200060=795edf212ccd6fa2 0x20200068=18dc021d2e1519b6
+      0x20200070=eb919fa28ffd5733 0x20200078=b0233ada39b4c32b
+      0x20200080=7b9d25a 0x20200088=a9d3601881f7fbcb
+      0x20200090=fb05a7b4877c3b6a 0x20200098=360f940ce5e7e8c1
+      0x202000a0=e73e353edc9914f 0x202000a8=f49b86ba58c5b93d
+      0x202000b0=c01a059dac306a55 0x202000b8=dcec6b3afd682ef2
+      |
+      """
+    oracle "ae3f267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=795edf212ccd6fa2 0x20200068=18dc021d2e1519b6
+      0x20200070=eb919fa28ffd5733 0x20200078=b0233ada39b4c32b
+      0x20200080=f855acde07b9d25a 0x20200088=a9d3601881f7fbcb
+      0x20200090=fb05a7b4877c3b6a 0x20200098=360f940ce5e7e8c1
+      0x202000a0=e73e353edc9914f 0x202000a8=f49b86ba58c5b93d
+      0x202000b0=c01a059dac306a55 0x202000b8=dcec6b3afd682ef2
+      ;
+      0x20200060=795edf212ccd6fa2 0x20200068=18dc021d2e1519b6
+      0x20200070=eb919fa28ffd5733 0x20200078=b0233ada39b4c32b
+      0x20200080=7b9d25a 0x20200088=a9d3601881f7fbcb
+      0x20200090=fb05a7b4877c3b6a 0x20200098=360f940ce5e7e8c1
+      0x202000a0=e73e353edc9914f 0x202000a8=f49b86ba58c5b93d
+      0x202000b0=c01a059dac306a55 0x202000b8=dcec6b3afd682ef2
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFS original values``() =
+    oracle "d0260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e1bcbb2b30d2dda5 0x20200068=9980e8de5107c1b6
+      0x20200070=82522f26104c0c2e 0x20200078=498f12e27fc40940
+      0x20200080=f2792bfbee8b8954 0x20200088=8a6f8455659b3e6b
+      0x20200090=28d072252e7af6ae 0x20200098=88d22b92b26fc1cc
+      0x202000a0=f9ebe66c2afd82a4 0x202000a8=b85bc05251b2a9e2
+      0x202000b0=c6c38d23fa3f0882 0x202000b8=9abb9444acf30711
+      ;
+      0x20200060=e1bcbb2b30d2dda5 0x20200068=9980e8de5107c1b6
+      0x20200070=82522f26104c0c2e 0x20200078=498f12e27fc40940
+      0x20200080=3fc00000ee8b8954 0x20200088=8a6f8455659b3e6b
+      0x20200090=28d072252e7af6ae 0x20200098=88d22b92b26fc1cc
+      0x202000a0=f9ebe66c2afd82a4 0x202000a8=b85bc05251b2a9e2
+      0x202000b0=c6c38d23fa3f0882 0x202000b8=9abb9444acf30711
+      |
+      """
+    oracle "d0260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e1bcbb2b30d2dda5 0x20200068=9980e8de5107c1b6
+      0x20200070=82522f26104c0c2e 0x20200078=498f12e27fc40940
+      0x20200080=f2792bfbee8b8954 0x20200088=8a6f8455659b3e6b
+      0x20200090=28d072252e7af6ae 0x20200098=88d22b92b26fc1cc
+      0x202000a0=f9ebe66c2afd82a4 0x202000a8=b85bc05251b2a9e2
+      0x202000b0=c6c38d23fa3f0882 0x202000b8=9abb9444acf30711
+      ;
+      0x20200060=e1bcbb2b30d2dda5 0x20200068=9980e8de5107c1b6
+      0x20200070=82522f26104c0c2e 0x20200078=498f12e27fc40940
+      0x20200080=3fc00000ee8b8954 0x20200088=8a6f8455659b3e6b
+      0x20200090=28d072252e7af6ae 0x20200098=88d22b92b26fc1cc
+      0x202000a0=f9ebe66c2afd82a4 0x202000a8=b85bc05251b2a9e2
+      0x202000b0=c6c38d23fa3f0882 0x202000b8=9abb9444acf30711
+      |
+      """
+    oracle "080026d0" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e1bcbb2b30d2dda5 0x20200068=9980e8de5107c1b6
+      0x20200070=82522f26104c0c2e 0x20200078=498f12e27fc40940
+      0x20200080=f2792bfbee8b8954 0x20200088=8a6f8455659b3e6b
+      0x20200090=28d072252e7af6ae 0x20200098=88d22b92b26fc1cc
+      0x202000a0=f9ebe66c2afd82a4 0x202000a8=b85bc05251b2a9e2
+      0x202000b0=c6c38d23fa3f0882 0x202000b8=9abb9444acf30711
+      ;
+      0x20200060=e1bcbb2b30d2dda5 0x20200068=9980e8de5107c1b6
+      0x20200070=82522f26104c0c2e 0x20200078=498f12e27fc40940
+      0x20200080=c03fee8b8954 0x20200088=8a6f8455659b3e6b
+      0x20200090=28d072252e7af6ae 0x20200098=88d22b92b26fc1cc
+      0x202000a0=f9ebe66c2afd82a4 0x202000a8=b85bc05251b2a9e2
+      0x202000b0=c6c38d23fa3f0882 0x202000b8=9abb9444acf30711
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFSU original values``() =
+    oracle "d4260008" Endian.Big WordSize.Bit32 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b2c8a1e5253484ac 0x20200068=224fe737a7504311
+      0x20200070=b6256d2229a77f5d 0x20200078=af152718877b3707
+      0x20200080=bf08bff768e39e36 0x20200088=59d574f7bec03bfb
+      0x20200090=8b9ed3ddabe88763 0x20200098=d4c0bd44d7d8381
+      0x202000a0=4b681fdd57ac27f2 0x202000a8=c35f612b3c3df888
+      0x202000b0=37859666bfbe9345 0x202000b8=afb3b69bffef3e62
+      ;
+      0x20200060=b2c8a1e5253484ac 0x20200068=224fe737a7504311
+      0x20200070=b6256d2229a77f5d 0x20200078=af152718877b3707
+      0x20200080=3fc0000068e39e36 0x20200088=59d574f7bec03bfb
+      0x20200090=8b9ed3ddabe88763 0x20200098=d4c0bd44d7d8381
+      0x202000a0=4b681fdd57ac27f2 0x202000a8=c35f612b3c3df888
+      0x202000b0=37859666bfbe9345 0x202000b8=afb3b69bffef3e62
+      |
+      """
+    oracle "d4260008" Endian.Big WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b2c8a1e5253484ac 0x20200068=224fe737a7504311
+      0x20200070=b6256d2229a77f5d 0x20200078=af152718877b3707
+      0x20200080=bf08bff768e39e36 0x20200088=59d574f7bec03bfb
+      0x20200090=8b9ed3ddabe88763 0x20200098=d4c0bd44d7d8381
+      0x202000a0=4b681fdd57ac27f2 0x202000a8=c35f612b3c3df888
+      0x202000b0=37859666bfbe9345 0x202000b8=afb3b69bffef3e62
+      ;
+      0x20200060=b2c8a1e5253484ac 0x20200068=224fe737a7504311
+      0x20200070=b6256d2229a77f5d 0x20200078=af152718877b3707
+      0x20200080=3fc0000068e39e36 0x20200088=59d574f7bec03bfb
+      0x20200090=8b9ed3ddabe88763 0x20200098=d4c0bd44d7d8381
+      0x202000a0=4b681fdd57ac27f2 0x202000a8=c35f612b3c3df888
+      0x202000b0=37859666bfbe9345 0x202000b8=afb3b69bffef3e62
+      |
+      """
+    oracle "080026d4" Endian.Little WordSize.Bit64 """
+      R6=20200078 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 F1=3ff8000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=b2c8a1e5253484ac 0x20200068=224fe737a7504311
+      0x20200070=b6256d2229a77f5d 0x20200078=af152718877b3707
+      0x20200080=bf08bff768e39e36 0x20200088=59d574f7bec03bfb
+      0x20200090=8b9ed3ddabe88763 0x20200098=d4c0bd44d7d8381
+      0x202000a0=4b681fdd57ac27f2 0x202000a8=c35f612b3c3df888
+      0x202000b0=37859666bfbe9345 0x202000b8=afb3b69bffef3e62
+      ;
+      0x20200060=b2c8a1e5253484ac 0x20200068=224fe737a7504311
+      0x20200070=b6256d2229a77f5d 0x20200078=af152718877b3707
+      0x20200080=c03f68e39e36 0x20200088=59d574f7bec03bfb
+      0x20200090=8b9ed3ddabe88763 0x20200098=d4c0bd44d7d8381
+      0x202000a0=4b681fdd57ac27f2 0x202000a8=c35f612b3c3df888
+      0x202000b0=37859666bfbe9345 0x202000b8=afb3b69bffef3e62
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFSUX original values``() =
+    oracle "7c263d6e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=54ebd0b93ecd5572 0x20200068=ad03b59cef9a64b
+      0x20200070=6b78303468801347 0x20200078=b0bcd9c2f854ce96
+      0x20200080=9988d11d24194d46 0x20200088=ba6eea89fa874138
+      0x20200090=f680aa488fe19933 0x20200098=877a6d643b1311a0
+      0x202000a0=3124978198a2e29e 0x202000a8=219d9f45fbd5deaf
+      0x202000b0=c42c8e5f58aa17d 0x202000b8=99fad2faa6f57b5a
+      ;
+      0x20200060=54ebd0b93ecd5572 0x20200068=ad03b59cef9a64b
+      0x20200070=6b78303468801347 0x20200078=b0bcd9c2f854ce96
+      0x20200080=3fc0000024194d46 0x20200088=ba6eea89fa874138
+      0x20200090=f680aa488fe19933 0x20200098=877a6d643b1311a0
+      0x202000a0=3124978198a2e29e 0x202000a8=219d9f45fbd5deaf
+      0x202000b0=c42c8e5f58aa17d 0x202000b8=99fad2faa6f57b5a
+      |
+      """
+    oracle "7c263d6e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=54ebd0b93ecd5572 0x20200068=ad03b59cef9a64b
+      0x20200070=6b78303468801347 0x20200078=b0bcd9c2f854ce96
+      0x20200080=9988d11d24194d46 0x20200088=ba6eea89fa874138
+      0x20200090=f680aa488fe19933 0x20200098=877a6d643b1311a0
+      0x202000a0=3124978198a2e29e 0x202000a8=219d9f45fbd5deaf
+      0x202000b0=c42c8e5f58aa17d 0x202000b8=99fad2faa6f57b5a
+      ;
+      0x20200060=54ebd0b93ecd5572 0x20200068=ad03b59cef9a64b
+      0x20200070=6b78303468801347 0x20200078=b0bcd9c2f854ce96
+      0x20200080=3fc0000024194d46 0x20200088=ba6eea89fa874138
+      0x20200090=f680aa488fe19933 0x20200098=877a6d643b1311a0
+      0x202000a0=3124978198a2e29e 0x202000a8=219d9f45fbd5deaf
+      0x202000b0=c42c8e5f58aa17d 0x202000b8=99fad2faa6f57b5a
+      |
+      """
+    oracle "6e3d267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200080 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=54ebd0b93ecd5572 0x20200068=ad03b59cef9a64b
+      0x20200070=6b78303468801347 0x20200078=b0bcd9c2f854ce96
+      0x20200080=9988d11d24194d46 0x20200088=ba6eea89fa874138
+      0x20200090=f680aa488fe19933 0x20200098=877a6d643b1311a0
+      0x202000a0=3124978198a2e29e 0x202000a8=219d9f45fbd5deaf
+      0x202000b0=c42c8e5f58aa17d 0x202000b8=99fad2faa6f57b5a
+      ;
+      0x20200060=54ebd0b93ecd5572 0x20200068=ad03b59cef9a64b
+      0x20200070=6b78303468801347 0x20200078=b0bcd9c2f854ce96
+      0x20200080=c03f24194d46 0x20200088=ba6eea89fa874138
+      0x20200090=f680aa488fe19933 0x20200098=877a6d643b1311a0
+      0x202000a0=3124978198a2e29e 0x202000a8=219d9f45fbd5deaf
+      0x202000b0=c42c8e5f58aa17d 0x202000b8=99fad2faa6f57b5a
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STFSX original values``() =
+    oracle "7c263d2e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=acbaf94e2c643007 0x20200068=80d5c07cd1acf48b
+      0x20200070=9f07683a8c3f0f9d 0x20200078=c98cc54e746474da
+      0x20200080=8c121b7a6e1101b3 0x20200088=9cfbe2566ec6d515
+      0x20200090=786f1592c19a9849 0x20200098=a5a4da2f7dc02bb7
+      0x202000a0=a2677278671e6a9f 0x202000a8=641699a1abadef1b
+      0x202000b0=87aae3923173d731 0x202000b8=b21cd73317558688
+      ;
+      0x20200060=acbaf94e2c643007 0x20200068=80d5c07cd1acf48b
+      0x20200070=9f07683a8c3f0f9d 0x20200078=c98cc54e746474da
+      0x20200080=3fc000006e1101b3 0x20200088=9cfbe2566ec6d515
+      0x20200090=786f1592c19a9849 0x20200098=a5a4da2f7dc02bb7
+      0x202000a0=a2677278671e6a9f 0x202000a8=641699a1abadef1b
+      0x202000b0=87aae3923173d731 0x202000b8=b21cd73317558688
+      |
+      """
+    oracle "7c263d2e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=acbaf94e2c643007 0x20200068=80d5c07cd1acf48b
+      0x20200070=9f07683a8c3f0f9d 0x20200078=c98cc54e746474da
+      0x20200080=8c121b7a6e1101b3 0x20200088=9cfbe2566ec6d515
+      0x20200090=786f1592c19a9849 0x20200098=a5a4da2f7dc02bb7
+      0x202000a0=a2677278671e6a9f 0x202000a8=641699a1abadef1b
+      0x202000b0=87aae3923173d731 0x202000b8=b21cd73317558688
+      ;
+      0x20200060=acbaf94e2c643007 0x20200068=80d5c07cd1acf48b
+      0x20200070=9f07683a8c3f0f9d 0x20200078=c98cc54e746474da
+      0x20200080=3fc000006e1101b3 0x20200088=9cfbe2566ec6d515
+      0x20200090=786f1592c19a9849 0x20200098=a5a4da2f7dc02bb7
+      0x202000a0=a2677278671e6a9f 0x202000a8=641699a1abadef1b
+      0x202000b0=87aae3923173d731 0x202000b8=b21cd73317558688
+      |
+      """
+    oracle "2e3d267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=3ff8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      0x20200060=acbaf94e2c643007 0x20200068=80d5c07cd1acf48b
+      0x20200070=9f07683a8c3f0f9d 0x20200078=c98cc54e746474da
+      0x20200080=8c121b7a6e1101b3 0x20200088=9cfbe2566ec6d515
+      0x20200090=786f1592c19a9849 0x20200098=a5a4da2f7dc02bb7
+      0x202000a0=a2677278671e6a9f 0x202000a8=641699a1abadef1b
+      0x202000b0=87aae3923173d731 0x202000b8=b21cd73317558688
+      ;
+      0x20200060=acbaf94e2c643007 0x20200068=80d5c07cd1acf48b
+      0x20200070=9f07683a8c3f0f9d 0x20200078=c98cc54e746474da
+      0x20200080=c03f6e1101b3 0x20200088=9cfbe2566ec6d515
+      0x20200090=786f1592c19a9849 0x20200098=a5a4da2f7dc02bb7
+      0x202000a0=a2677278671e6a9f 0x202000a8=641699a1abadef1b
+      0x202000b0=87aae3923173d731 0x202000b8=b21cd73317558688
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STH original values``() =
+    oracle "b1060008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=13dc3d49083be852 0x20200068=e2187a7a6b02533e
+      0x20200070=d80520f84f53c672 0x20200078=8d9aa01ce046acd9
+      0x20200080=ac43ea4bf62921ec 0x20200088=64864d1f8b78c4c2
+      0x20200090=bf1892141b3914ee 0x20200098=2d983c2517422e1c
+      0x202000a0=27984cc08e2918c4 0x202000a8=7414ee8c924f0161
+      0x202000b0=751374051fd1b09d 0x202000b8=a69ffb3e1c8909d0
+      ;
+      0x20200060=13dc3d49083be852 0x20200068=e2187a7a6b02533e
+      0x20200070=d80520f84f53c672 0x20200078=8d9aa01ce046acd9
+      0x20200080=3ea4bf62921ec 0x20200088=64864d1f8b78c4c2
+      0x20200090=bf1892141b3914ee 0x20200098=2d983c2517422e1c
+      0x202000a0=27984cc08e2918c4 0x202000a8=7414ee8c924f0161
+      0x202000b0=751374051fd1b09d 0x202000b8=a69ffb3e1c8909d0
+      |
+      """
+    oracle "b1060008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=13dc3d49083be852 0x20200068=e2187a7a6b02533e
+      0x20200070=d80520f84f53c672 0x20200078=8d9aa01ce046acd9
+      0x20200080=ac43ea4bf62921ec 0x20200088=64864d1f8b78c4c2
+      0x20200090=bf1892141b3914ee 0x20200098=2d983c2517422e1c
+      0x202000a0=27984cc08e2918c4 0x202000a8=7414ee8c924f0161
+      0x202000b0=751374051fd1b09d 0x202000b8=a69ffb3e1c8909d0
+      ;
+      0x20200060=13dc3d49083be852 0x20200068=e2187a7a6b02533e
+      0x20200070=d80520f84f53c672 0x20200078=8d9aa01ce046acd9
+      0x20200080=3ea4bf62921ec 0x20200088=64864d1f8b78c4c2
+      0x20200090=bf1892141b3914ee 0x20200098=2d983c2517422e1c
+      0x202000a0=27984cc08e2918c4 0x202000a8=7414ee8c924f0161
+      0x202000b0=751374051fd1b09d 0x202000b8=a69ffb3e1c8909d0
+      |
+      """
+    oracle "080006b1" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=13dc3d49083be852 0x20200068=e2187a7a6b02533e
+      0x20200070=d80520f84f53c672 0x20200078=8d9aa01ce046acd9
+      0x20200080=ac43ea4bf62921ec 0x20200088=64864d1f8b78c4c2
+      0x20200090=bf1892141b3914ee 0x20200098=2d983c2517422e1c
+      0x202000a0=27984cc08e2918c4 0x202000a8=7414ee8c924f0161
+      0x202000b0=751374051fd1b09d 0x202000b8=a69ffb3e1c8909d0
+      ;
+      0x20200060=13dc3d49083be852 0x20200068=e2187a7a6b02533e
+      0x20200070=d80520f84f53c672 0x20200078=8d9aa01ce046acd9
+      0x20200080=300ea4bf62921ec 0x20200088=64864d1f8b78c4c2
+      0x20200090=bf1892141b3914ee 0x20200098=2d983c2517422e1c
+      0x202000a0=27984cc08e2918c4 0x202000a8=7414ee8c924f0161
+      0x202000b0=751374051fd1b09d 0x202000b8=a69ffb3e1c8909d0
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STHBRX original values``() =
+    oracle "7d063f2c" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ce1a540c64f604fa 0x20200068=45f619607faaf6ee
+      0x20200070=af108e646408c798 0x20200078=df49065ec47d6ac1
+      0x20200080=a71ed6aea5826eb3 0x20200088=e928b13ba6fc9024
+      0x20200090=8136bfa12ba09a1b 0x20200098=2a6b52566c152229
+      0x202000a0=32e9462368127f1b 0x202000a8=e3332c1914f178d
+      0x202000b0=d9c261be654e5aeb 0x202000b8=24124f0b77d95b2c
+      ;
+      0x20200060=ce1a540c64f604fa 0x20200068=45f619607faaf6ee
+      0x20200070=af108e646408c798 0x20200078=df49065ec47d6ac1
+      0x20200080=300d6aea5826eb3 0x20200088=e928b13ba6fc9024
+      0x20200090=8136bfa12ba09a1b 0x20200098=2a6b52566c152229
+      0x202000a0=32e9462368127f1b 0x202000a8=e3332c1914f178d
+      0x202000b0=d9c261be654e5aeb 0x202000b8=24124f0b77d95b2c
+      |
+      """
+    oracle "7d063f2c" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ce1a540c64f604fa 0x20200068=45f619607faaf6ee
+      0x20200070=af108e646408c798 0x20200078=df49065ec47d6ac1
+      0x20200080=a71ed6aea5826eb3 0x20200088=e928b13ba6fc9024
+      0x20200090=8136bfa12ba09a1b 0x20200098=2a6b52566c152229
+      0x202000a0=32e9462368127f1b 0x202000a8=e3332c1914f178d
+      0x202000b0=d9c261be654e5aeb 0x202000b8=24124f0b77d95b2c
+      ;
+      0x20200060=ce1a540c64f604fa 0x20200068=45f619607faaf6ee
+      0x20200070=af108e646408c798 0x20200078=df49065ec47d6ac1
+      0x20200080=300d6aea5826eb3 0x20200088=e928b13ba6fc9024
+      0x20200090=8136bfa12ba09a1b 0x20200098=2a6b52566c152229
+      0x202000a0=32e9462368127f1b 0x202000a8=e3332c1914f178d
+      0x202000b0=d9c261be654e5aeb 0x202000b8=24124f0b77d95b2c
+      |
+      """
+    oracle "2c3f067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=ce1a540c64f604fa 0x20200068=45f619607faaf6ee
+      0x20200070=af108e646408c798 0x20200078=df49065ec47d6ac1
+      0x20200080=a71ed6aea5826eb3 0x20200088=e928b13ba6fc9024
+      0x20200090=8136bfa12ba09a1b 0x20200098=2a6b52566c152229
+      0x202000a0=32e9462368127f1b 0x202000a8=e3332c1914f178d
+      0x202000b0=d9c261be654e5aeb 0x202000b8=24124f0b77d95b2c
+      ;
+      0x20200060=ce1a540c64f604fa 0x20200068=45f619607faaf6ee
+      0x20200070=af108e646408c798 0x20200078=df49065ec47d6ac1
+      0x20200080=3d6aea5826eb3 0x20200088=e928b13ba6fc9024
+      0x20200090=8136bfa12ba09a1b 0x20200098=2a6b52566c152229
+      0x202000a0=32e9462368127f1b 0x202000a8=e3332c1914f178d
+      0x202000b0=d9c261be654e5aeb 0x202000b8=24124f0b77d95b2c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STHU original values``() =
+    oracle "b5060008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=34b898065b09977a 0x20200068=89943ccb674afd78
+      0x20200070=51df6ba1c14c19c3 0x20200078=80d7d239311042f2
+      0x20200080=418f69bc160d53f0 0x20200088=dcf77133350cbdd7
+      0x20200090=f98357b4482cd2f6 0x20200098=cf75951b8951fffd
+      0x202000a0=f819bde362a595a1 0x202000a8=7bab977d3ec9a882
+      0x202000b0=3e36c26a9e60ed6a 0x202000b8=eac689bb90274ece
+      ;
+      0x20200060=34b898065b09977a 0x20200068=89943ccb674afd78
+      0x20200070=51df6ba1c14c19c3 0x20200078=80d7d239311042f2
+      0x20200080=369bc160d53f0 0x20200088=dcf77133350cbdd7
+      0x20200090=f98357b4482cd2f6 0x20200098=cf75951b8951fffd
+      0x202000a0=f819bde362a595a1 0x202000a8=7bab977d3ec9a882
+      0x202000b0=3e36c26a9e60ed6a 0x202000b8=eac689bb90274ece
+      |
+      """
+    oracle "b5060008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=34b898065b09977a 0x20200068=89943ccb674afd78
+      0x20200070=51df6ba1c14c19c3 0x20200078=80d7d239311042f2
+      0x20200080=418f69bc160d53f0 0x20200088=dcf77133350cbdd7
+      0x20200090=f98357b4482cd2f6 0x20200098=cf75951b8951fffd
+      0x202000a0=f819bde362a595a1 0x202000a8=7bab977d3ec9a882
+      0x202000b0=3e36c26a9e60ed6a 0x202000b8=eac689bb90274ece
+      ;
+      0x20200060=34b898065b09977a 0x20200068=89943ccb674afd78
+      0x20200070=51df6ba1c14c19c3 0x20200078=80d7d239311042f2
+      0x20200080=369bc160d53f0 0x20200088=dcf77133350cbdd7
+      0x20200090=f98357b4482cd2f6 0x20200098=cf75951b8951fffd
+      0x202000a0=f819bde362a595a1 0x202000a8=7bab977d3ec9a882
+      0x202000b0=3e36c26a9e60ed6a 0x202000b8=eac689bb90274ece
+      |
+      """
+    oracle "080006b5" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=34b898065b09977a 0x20200068=89943ccb674afd78
+      0x20200070=51df6ba1c14c19c3 0x20200078=80d7d239311042f2
+      0x20200080=418f69bc160d53f0 0x20200088=dcf77133350cbdd7
+      0x20200090=f98357b4482cd2f6 0x20200098=cf75951b8951fffd
+      0x202000a0=f819bde362a595a1 0x202000a8=7bab977d3ec9a882
+      0x202000b0=3e36c26a9e60ed6a 0x202000b8=eac689bb90274ece
+      ;
+      0x20200060=34b898065b09977a 0x20200068=89943ccb674afd78
+      0x20200070=51df6ba1c14c19c3 0x20200078=80d7d239311042f2
+      0x20200080=30069bc160d53f0 0x20200088=dcf77133350cbdd7
+      0x20200090=f98357b4482cd2f6 0x20200098=cf75951b8951fffd
+      0x202000a0=f819bde362a595a1 0x202000a8=7bab977d3ec9a882
+      0x202000b0=3e36c26a9e60ed6a 0x202000b8=eac689bb90274ece
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STHUX original values``() =
+    oracle "7d063b6e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=7841dd644dcd5b05 0x20200068=36ff3bb4fc543a4b
+      0x20200070=9f17c43aeaa43c6b 0x20200078=a40e7b311e5c2cbf
+      0x20200080=535a7b2aced93b16 0x20200088=70b262c31b2a73ba
+      0x20200090=69893e4122340809 0x20200098=f8dcc54788916b39
+      0x202000a0=cab6507e9cc0cb31 0x202000a8=53d2b6c5f9e48db9
+      0x202000b0=6b02da8d76463cd8 0x202000b8=ac6cd93fa49773b7
+      ;
+      0x20200060=7841dd644dcd5b05 0x20200068=36ff3bb4fc543a4b
+      0x20200070=9f17c43aeaa43c6b 0x20200078=a40e7b311e5c2cbf
+      0x20200080=37b2aced93b16 0x20200088=70b262c31b2a73ba
+      0x20200090=69893e4122340809 0x20200098=f8dcc54788916b39
+      0x202000a0=cab6507e9cc0cb31 0x202000a8=53d2b6c5f9e48db9
+      0x202000b0=6b02da8d76463cd8 0x202000b8=ac6cd93fa49773b7
+      |
+      """
+    oracle "7d063b6e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=7841dd644dcd5b05 0x20200068=36ff3bb4fc543a4b
+      0x20200070=9f17c43aeaa43c6b 0x20200078=a40e7b311e5c2cbf
+      0x20200080=535a7b2aced93b16 0x20200088=70b262c31b2a73ba
+      0x20200090=69893e4122340809 0x20200098=f8dcc54788916b39
+      0x202000a0=cab6507e9cc0cb31 0x202000a8=53d2b6c5f9e48db9
+      0x202000b0=6b02da8d76463cd8 0x202000b8=ac6cd93fa49773b7
+      ;
+      0x20200060=7841dd644dcd5b05 0x20200068=36ff3bb4fc543a4b
+      0x20200070=9f17c43aeaa43c6b 0x20200078=a40e7b311e5c2cbf
+      0x20200080=37b2aced93b16 0x20200088=70b262c31b2a73ba
+      0x20200090=69893e4122340809 0x20200098=f8dcc54788916b39
+      0x202000a0=cab6507e9cc0cb31 0x202000a8=53d2b6c5f9e48db9
+      0x202000b0=6b02da8d76463cd8 0x202000b8=ac6cd93fa49773b7
+      |
+      """
+    oracle "6e3b067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=7841dd644dcd5b05 0x20200068=36ff3bb4fc543a4b
+      0x20200070=9f17c43aeaa43c6b 0x20200078=a40e7b311e5c2cbf
+      0x20200080=535a7b2aced93b16 0x20200088=70b262c31b2a73ba
+      0x20200090=69893e4122340809 0x20200098=f8dcc54788916b39
+      0x202000a0=cab6507e9cc0cb31 0x202000a8=53d2b6c5f9e48db9
+      0x202000b0=6b02da8d76463cd8 0x202000b8=ac6cd93fa49773b7
+      ;
+      0x20200060=7841dd644dcd5b05 0x20200068=36ff3bb4fc543a4b
+      0x20200070=9f17c43aeaa43c6b 0x20200078=a40e7b311e5c2cbf
+      0x20200080=3007b2aced93b16 0x20200088=70b262c31b2a73ba
+      0x20200090=69893e4122340809 0x20200098=f8dcc54788916b39
+      0x202000a0=cab6507e9cc0cb31 0x202000a8=53d2b6c5f9e48db9
+      0x202000b0=6b02da8d76463cd8 0x202000b8=ac6cd93fa49773b7
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STHX original values``() =
+    oracle "7d063b2e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=1cfd16a1a8afd4b2 0x20200068=ac470fb7fbcf24a9
+      0x20200070=d018fb21afa78287 0x20200078=703e785675fdeec9
+      0x20200080=50c77bb514aff525 0x20200088=c7ce062910743408
+      0x20200090=7b15a0015f7944f4 0x20200098=7798474984552fe6
+      0x202000a0=fe6e242bf95f8ed8 0x202000a8=4d209e59727d42f2
+      0x202000b0=8f0a51cd379cefc1 0x202000b8=6ba921ad39532bc5
+      ;
+      0x20200060=1cfd16a1a8afd4b2 0x20200068=ac470fb7fbcf24a9
+      0x20200070=d018fb21afa78287 0x20200078=703e785675fdeec9
+      0x20200080=37bb514aff525 0x20200088=c7ce062910743408
+      0x20200090=7b15a0015f7944f4 0x20200098=7798474984552fe6
+      0x202000a0=fe6e242bf95f8ed8 0x202000a8=4d209e59727d42f2
+      0x202000b0=8f0a51cd379cefc1 0x202000b8=6ba921ad39532bc5
+      |
+      """
+    oracle "7d063b2e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=1cfd16a1a8afd4b2 0x20200068=ac470fb7fbcf24a9
+      0x20200070=d018fb21afa78287 0x20200078=703e785675fdeec9
+      0x20200080=50c77bb514aff525 0x20200088=c7ce062910743408
+      0x20200090=7b15a0015f7944f4 0x20200098=7798474984552fe6
+      0x202000a0=fe6e242bf95f8ed8 0x202000a8=4d209e59727d42f2
+      0x202000b0=8f0a51cd379cefc1 0x202000b8=6ba921ad39532bc5
+      ;
+      0x20200060=1cfd16a1a8afd4b2 0x20200068=ac470fb7fbcf24a9
+      0x20200070=d018fb21afa78287 0x20200078=703e785675fdeec9
+      0x20200080=37bb514aff525 0x20200088=c7ce062910743408
+      0x20200090=7b15a0015f7944f4 0x20200098=7798474984552fe6
+      0x202000a0=fe6e242bf95f8ed8 0x202000a8=4d209e59727d42f2
+      0x202000b0=8f0a51cd379cefc1 0x202000b8=6ba921ad39532bc5
+      |
+      """
+    oracle "2e3b067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=1cfd16a1a8afd4b2 0x20200068=ac470fb7fbcf24a9
+      0x20200070=d018fb21afa78287 0x20200078=703e785675fdeec9
+      0x20200080=50c77bb514aff525 0x20200088=c7ce062910743408
+      0x20200090=7b15a0015f7944f4 0x20200098=7798474984552fe6
+      0x202000a0=fe6e242bf95f8ed8 0x202000a8=4d209e59727d42f2
+      0x202000b0=8f0a51cd379cefc1 0x202000b8=6ba921ad39532bc5
+      ;
+      0x20200060=1cfd16a1a8afd4b2 0x20200068=ac470fb7fbcf24a9
+      0x20200070=d018fb21afa78287 0x20200078=703e785675fdeec9
+      0x20200080=3007bb514aff525 0x20200088=c7ce062910743408
+      0x20200090=7b15a0015f7944f4 0x20200098=7798474984552fe6
+      0x202000a0=fe6e242bf95f8ed8 0x202000a8=4d209e59727d42f2
+      0x202000b0=8f0a51cd379cefc1 0x202000b8=6ba921ad39532bc5
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STMW original values``() =
+    oracle "bfa60008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R29=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R29=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e507143e583eb3a9 0x20200068=aaa50b1702801977
+      0x20200070=69193d5296e6d9a2 0x20200078=8cba07085cf3d24f
+      0x20200080=f74fbf33775012e2 0x20200088=53fc10df01ac0d83
+      0x20200090=e31ae7a76c874da2 0x20200098=b7ba5db38291ee48
+      0x202000a0=1d73cec31a1097f4 0x202000a8=75903c3bfb57f6d
+      0x202000b0=27c55294d3645cb3 0x202000b8=a3d56d990fdc0227
+      ;
+      0x20200060=e507143e583eb3a9 0x20200068=aaa50b1702801977
+      0x20200070=69193d5296e6d9a2 0x20200078=8cba07085cf3d24f
+      0x20200080=300000000 0x20200088=1ac0d83 0x20200090=e31ae7a76c874da2
+      0x20200098=b7ba5db38291ee48 0x202000a0=1d73cec31a1097f4
+      0x202000a8=75903c3bfb57f6d 0x202000b0=27c55294d3645cb3
+      0x202000b8=a3d56d990fdc0227
+      |
+      """
+    oracle "bfa60008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R29=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R29=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=e507143e583eb3a9 0x20200068=aaa50b1702801977
+      0x20200070=69193d5296e6d9a2 0x20200078=8cba07085cf3d24f
+      0x20200080=f74fbf33775012e2 0x20200088=53fc10df01ac0d83
+      0x20200090=e31ae7a76c874da2 0x20200098=b7ba5db38291ee48
+      0x202000a0=1d73cec31a1097f4 0x202000a8=75903c3bfb57f6d
+      0x202000b0=27c55294d3645cb3 0x202000b8=a3d56d990fdc0227
+      ;
+      0x20200060=e507143e583eb3a9 0x20200068=aaa50b1702801977
+      0x20200070=69193d5296e6d9a2 0x20200078=8cba07085cf3d24f
+      0x20200080=300000000 0x20200088=1ac0d83 0x20200090=e31ae7a76c874da2
+      0x20200098=b7ba5db38291ee48 0x202000a0=1d73cec31a1097f4
+      0x202000a8=75903c3bfb57f6d 0x202000b0=27c55294d3645cb3
+      0x202000b8=a3d56d990fdc0227
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STSWI original values``() =
+    oracle "7d0625aa" Endian.Big WordSize.Bit32 """
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=cca18085ff72f8c5 0x20200068=e3be276bc6cfdf01
+      0x20200070=406d3f78c02c4865 0x20200078=62fc6d771d34dbdf
+      0x20200080=873dd4e271798aac 0x20200088=2fe93f405e13aee2
+      0x20200090=8e2a0f703fdfdf3d 0x20200098=de9cad1c768ee76e
+      0x202000a0=25e35983803a1a3a 0x202000a8=48d8f2c637946d0d
+      0x202000b0=55c96b82918de8c4 0x202000b8=7a1ae198f54b20c5
+      ;
+      0x20200060=cca18085ff72f8c5 0x20200068=e3be276bc6cfdf01
+      0x20200070=406d3f78c02c4865 0x20200078=62fc6d771d34dbdf
+      0x20200080=371798aac 0x20200088=2fe93f405e13aee2
+      0x20200090=8e2a0f703fdfdf3d 0x20200098=de9cad1c768ee76e
+      0x202000a0=25e35983803a1a3a 0x202000a8=48d8f2c637946d0d
+      0x202000b0=55c96b82918de8c4 0x202000b8=7a1ae198f54b20c5
+      |
+      """
+    oracle "7d0625aa" Endian.Big WordSize.Bit64 """
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=cca18085ff72f8c5 0x20200068=e3be276bc6cfdf01
+      0x20200070=406d3f78c02c4865 0x20200078=62fc6d771d34dbdf
+      0x20200080=873dd4e271798aac 0x20200088=2fe93f405e13aee2
+      0x20200090=8e2a0f703fdfdf3d 0x20200098=de9cad1c768ee76e
+      0x202000a0=25e35983803a1a3a 0x202000a8=48d8f2c637946d0d
+      0x202000b0=55c96b82918de8c4 0x202000b8=7a1ae198f54b20c5
+      ;
+      0x20200060=cca18085ff72f8c5 0x20200068=e3be276bc6cfdf01
+      0x20200070=406d3f78c02c4865 0x20200078=62fc6d771d34dbdf
+      0x20200080=371798aac 0x20200088=2fe93f405e13aee2
+      0x20200090=8e2a0f703fdfdf3d 0x20200098=de9cad1c768ee76e
+      0x202000a0=25e35983803a1a3a 0x202000a8=48d8f2c637946d0d
+      0x202000b0=55c96b82918de8c4 0x202000b8=7a1ae198f54b20c5
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STSWX original values``() =
+    oracle "7d063d2a" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=3287a110366762ad 0x20200068=7163fab3dfd89a91
+      0x20200070=3ad21153c316978c 0x20200078=c231bfe0e774851
+      0x20200080=31ab0a4746d5fb1d 0x20200088=795f2f4403aa1a5a
+      0x20200090=6ac909eb6473c797 0x20200098=8ce508bbb2a40821
+      0x202000a0=585f5c07e10968d0 0x202000a8=4c3c70852a1da82e
+      0x202000b0=e1ea459e11bd43b 0x202000b8=976f2ffa2704c295
+      ;
+      0x20200060=3287a110366762ad 0x20200068=7163fab3dfd89a91
+      0x20200070=3ad21153c316978c 0x20200078=c231bfe0e774851
+      0x20200080=346d5fb1d 0x20200088=795f2f4403aa1a5a
+      0x20200090=6ac909eb6473c797 0x20200098=8ce508bbb2a40821
+      0x202000a0=585f5c07e10968d0 0x202000a8=4c3c70852a1da82e
+      0x202000b0=e1ea459e11bd43b 0x202000b8=976f2ffa2704c295
+      |
+      """
+    oracle "7d063d2a" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 XER=4 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=3287a110366762ad 0x20200068=7163fab3dfd89a91
+      0x20200070=3ad21153c316978c 0x20200078=c231bfe0e774851
+      0x20200080=31ab0a4746d5fb1d 0x20200088=795f2f4403aa1a5a
+      0x20200090=6ac909eb6473c797 0x20200098=8ce508bbb2a40821
+      0x202000a0=585f5c07e10968d0 0x202000a8=4c3c70852a1da82e
+      0x202000b0=e1ea459e11bd43b 0x202000b8=976f2ffa2704c295
+      ;
+      0x20200060=3287a110366762ad 0x20200068=7163fab3dfd89a91
+      0x20200070=3ad21153c316978c 0x20200078=c231bfe0e774851
+      0x20200080=346d5fb1d 0x20200088=795f2f4403aa1a5a
+      0x20200090=6ac909eb6473c797 0x20200098=8ce508bbb2a40821
+      0x202000a0=585f5c07e10968d0 0x202000a8=4c3c70852a1da82e
+      0x202000b0=e1ea459e11bd43b 0x202000b8=976f2ffa2704c295
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STVX original values``() =
+    oracle "7c2639ce" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=bace378fb9f5456d 0x20200068=e1d4bbaef313c453
+      0x20200070=ad3c4e1273bf10c8 0x20200078=7145b37fbe537db6
+      0x20200080=6148e5d519eacd4f 0x20200088=e342095ab02e881
+      0x20200090=804666fc12b2ccb6 0x20200098=797caa8e48c06078
+      0x202000a0=45a44353c7e871e1 0x202000a8=e9bc1ed62854743e
+      0x202000b0=4169ca1ed5ec1893 0x202000b8=780a4ca0565e715
+      ;
+      0x20200060=bace378fb9f5456d 0x20200068=e1d4bbaef313c453
+      0x20200070=ad3c4e1273bf10c8 0x20200078=7145b37fbe537db6
+      0x20200080=1020304050607 0x20200088=8090a0b0c0d0e0f
+      0x20200090=804666fc12b2ccb6 0x20200098=797caa8e48c06078
+      0x202000a0=45a44353c7e871e1 0x202000a8=e9bc1ed62854743e
+      0x202000b0=4169ca1ed5ec1893 0x202000b8=780a4ca0565e715
+      |
+      """
+    oracle "7c2639ce" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=bace378fb9f5456d 0x20200068=e1d4bbaef313c453
+      0x20200070=ad3c4e1273bf10c8 0x20200078=7145b37fbe537db6
+      0x20200080=6148e5d519eacd4f 0x20200088=e342095ab02e881
+      0x20200090=804666fc12b2ccb6 0x20200098=797caa8e48c06078
+      0x202000a0=45a44353c7e871e1 0x202000a8=e9bc1ed62854743e
+      0x202000b0=4169ca1ed5ec1893 0x202000b8=780a4ca0565e715
+      ;
+      0x20200060=bace378fb9f5456d 0x20200068=e1d4bbaef313c453
+      0x20200070=ad3c4e1273bf10c8 0x20200078=7145b37fbe537db6
+      0x20200080=1020304050607 0x20200088=8090a0b0c0d0e0f
+      0x20200090=804666fc12b2ccb6 0x20200098=797caa8e48c06078
+      0x202000a0=45a44353c7e871e1 0x202000a8=e9bc1ed62854743e
+      0x202000b0=4169ca1ed5ec1893 0x202000b8=780a4ca0565e715
+      |
+      """
+    oracle "ce39267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=bace378fb9f5456d 0x20200068=e1d4bbaef313c453
+      0x20200070=ad3c4e1273bf10c8 0x20200078=7145b37fbe537db6
+      0x20200080=6148e5d519eacd4f 0x20200088=e342095ab02e881
+      0x20200090=804666fc12b2ccb6 0x20200098=797caa8e48c06078
+      0x202000a0=45a44353c7e871e1 0x202000a8=e9bc1ed62854743e
+      0x202000b0=4169ca1ed5ec1893 0x202000b8=780a4ca0565e715
+      ;
+      0x20200060=bace378fb9f5456d 0x20200068=e1d4bbaef313c453
+      0x20200070=ad3c4e1273bf10c8 0x20200078=7145b37fbe537db6
+      0x20200080=f0e0d0c0b0a0908 0x20200088=706050403020100
+      0x20200090=804666fc12b2ccb6 0x20200098=797caa8e48c06078
+      0x202000a0=45a44353c7e871e1 0x202000a8=e9bc1ed62854743e
+      0x202000b0=4169ca1ed5ec1893 0x202000b8=780a4ca0565e715
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STVXL original values``() =
+    oracle "7c263bce" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=49c888563d8f5fe 0x20200068=494ea21949a05f0f
+      0x20200070=9a724e1ddcd3bb87 0x20200078=a4d1de46de5f2731
+      0x20200080=6ccb91d64cdc2660 0x20200088=e6239655ed9ff036
+      0x20200090=464e0c447150253d 0x20200098=14d19adf50a9a153
+      0x202000a0=105c0f0c3538a1d1 0x202000a8=9fe4d57e6b71d162
+      0x202000b0=fbf305e73b3f4cd 0x202000b8=ec0478f5ef55a1e5
+      ;
+      0x20200060=49c888563d8f5fe 0x20200068=494ea21949a05f0f
+      0x20200070=9a724e1ddcd3bb87 0x20200078=a4d1de46de5f2731
+      0x20200080=1020304050607 0x20200088=8090a0b0c0d0e0f
+      0x20200090=464e0c447150253d 0x20200098=14d19adf50a9a153
+      0x202000a0=105c0f0c3538a1d1 0x202000a8=9fe4d57e6b71d162
+      0x202000b0=fbf305e73b3f4cd 0x202000b8=ec0478f5ef55a1e5
+      |
+      """
+    oracle "7c263bce" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=49c888563d8f5fe 0x20200068=494ea21949a05f0f
+      0x20200070=9a724e1ddcd3bb87 0x20200078=a4d1de46de5f2731
+      0x20200080=6ccb91d64cdc2660 0x20200088=e6239655ed9ff036
+      0x20200090=464e0c447150253d 0x20200098=14d19adf50a9a153
+      0x202000a0=105c0f0c3538a1d1 0x202000a8=9fe4d57e6b71d162
+      0x202000b0=fbf305e73b3f4cd 0x202000b8=ec0478f5ef55a1e5
+      ;
+      0x20200060=49c888563d8f5fe 0x20200068=494ea21949a05f0f
+      0x20200070=9a724e1ddcd3bb87 0x20200078=a4d1de46de5f2731
+      0x20200080=1020304050607 0x20200088=8090a0b0c0d0e0f
+      0x20200090=464e0c447150253d 0x20200098=14d19adf50a9a153
+      0x202000a0=105c0f0c3538a1d1 0x202000a8=9fe4d57e6b71d162
+      0x202000b0=fbf305e73b3f4cd 0x202000b8=ec0478f5ef55a1e5
+      |
+      """
+    oracle "ce3b267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=49c888563d8f5fe 0x20200068=494ea21949a05f0f
+      0x20200070=9a724e1ddcd3bb87 0x20200078=a4d1de46de5f2731
+      0x20200080=6ccb91d64cdc2660 0x20200088=e6239655ed9ff036
+      0x20200090=464e0c447150253d 0x20200098=14d19adf50a9a153
+      0x202000a0=105c0f0c3538a1d1 0x202000a8=9fe4d57e6b71d162
+      0x202000b0=fbf305e73b3f4cd 0x202000b8=ec0478f5ef55a1e5
+      ;
+      0x20200060=49c888563d8f5fe 0x20200068=494ea21949a05f0f
+      0x20200070=9a724e1ddcd3bb87 0x20200078=a4d1de46de5f2731
+      0x20200080=f0e0d0c0b0a0908 0x20200088=706050403020100
+      0x20200090=464e0c447150253d 0x20200098=14d19adf50a9a153
+      0x202000a0=105c0f0c3538a1d1 0x202000a8=9fe4d57e6b71d162
+      0x202000b0=fbf305e73b3f4cd 0x202000b8=ec0478f5ef55a1e5
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STWBRX original values``() =
+    oracle "7d063d2c" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=12834389c984f4ae 0x20200068=e5dde9d1abc2644f
+      0x20200070=7c673fd963dc3a96 0x20200078=17e0046ab64d21fd
+      0x20200080=ac90f27bfc7ddb03 0x20200088=447dda9ceee1d3f3
+      0x20200090=b1adbba26ebddf82 0x20200098=fe050dc5b03c2203
+      0x202000a0=a4a23cecb8d556ff 0x202000a8=9f95ea7e3ff10803
+      0x202000b0=dc900306f7fd79f4 0x202000b8=2e803f1bf726e7fe
+      ;
+      0x20200060=12834389c984f4ae 0x20200068=e5dde9d1abc2644f
+      0x20200070=7c673fd963dc3a96 0x20200078=17e0046ab64d21fd
+      0x20200080=3000000fc7ddb03 0x20200088=447dda9ceee1d3f3
+      0x20200090=b1adbba26ebddf82 0x20200098=fe050dc5b03c2203
+      0x202000a0=a4a23cecb8d556ff 0x202000a8=9f95ea7e3ff10803
+      0x202000b0=dc900306f7fd79f4 0x202000b8=2e803f1bf726e7fe
+      |
+      """
+    oracle "7d063d2c" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=12834389c984f4ae 0x20200068=e5dde9d1abc2644f
+      0x20200070=7c673fd963dc3a96 0x20200078=17e0046ab64d21fd
+      0x20200080=ac90f27bfc7ddb03 0x20200088=447dda9ceee1d3f3
+      0x20200090=b1adbba26ebddf82 0x20200098=fe050dc5b03c2203
+      0x202000a0=a4a23cecb8d556ff 0x202000a8=9f95ea7e3ff10803
+      0x202000b0=dc900306f7fd79f4 0x202000b8=2e803f1bf726e7fe
+      ;
+      0x20200060=12834389c984f4ae 0x20200068=e5dde9d1abc2644f
+      0x20200070=7c673fd963dc3a96 0x20200078=17e0046ab64d21fd
+      0x20200080=3000000fc7ddb03 0x20200088=447dda9ceee1d3f3
+      0x20200090=b1adbba26ebddf82 0x20200098=fe050dc5b03c2203
+      0x202000a0=a4a23cecb8d556ff 0x202000a8=9f95ea7e3ff10803
+      0x202000b0=dc900306f7fd79f4 0x202000b8=2e803f1bf726e7fe
+      |
+      """
+    oracle "2c3d067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=12834389c984f4ae 0x20200068=e5dde9d1abc2644f
+      0x20200070=7c673fd963dc3a96 0x20200078=17e0046ab64d21fd
+      0x20200080=ac90f27bfc7ddb03 0x20200088=447dda9ceee1d3f3
+      0x20200090=b1adbba26ebddf82 0x20200098=fe050dc5b03c2203
+      0x202000a0=a4a23cecb8d556ff 0x202000a8=9f95ea7e3ff10803
+      0x202000b0=dc900306f7fd79f4 0x202000b8=2e803f1bf726e7fe
+      ;
+      0x20200060=12834389c984f4ae 0x20200068=e5dde9d1abc2644f
+      0x20200070=7c673fd963dc3a96 0x20200078=17e0046ab64d21fd
+      0x20200080=3fc7ddb03 0x20200088=447dda9ceee1d3f3
+      0x20200090=b1adbba26ebddf82 0x20200098=fe050dc5b03c2203
+      0x202000a0=a4a23cecb8d556ff 0x202000a8=9f95ea7e3ff10803
+      0x202000b0=dc900306f7fd79f4 0x202000b8=2e803f1bf726e7fe
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STWU original values``() =
+    oracle "95060008" Endian.Big WordSize.Bit32 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4e528ceefcb7a313 0x20200068=d15770b421f1236e
+      0x20200070=d23d74f044a0d893 0x20200078=134d9a54748c6c5e
+      0x20200080=a9b6ee0c8dd972ac 0x20200088=ee88bc1dd7f8213a
+      0x20200090=f32a7c5b46edf7ee 0x20200098=82716f0edb2d9a78
+      0x202000a0=91816984c60a8742 0x202000a8=350ee042f1cd224f
+      0x202000b0=9f9d03e803da8e7 0x202000b8=a1cb38a0ab3ecf9c
+      ;
+      0x20200060=4e528ceefcb7a313 0x20200068=d15770b421f1236e
+      0x20200070=d23d74f044a0d893 0x20200078=134d9a54748c6c5e
+      0x20200080=38dd972ac 0x20200088=ee88bc1dd7f8213a
+      0x20200090=f32a7c5b46edf7ee 0x20200098=82716f0edb2d9a78
+      0x202000a0=91816984c60a8742 0x202000a8=350ee042f1cd224f
+      0x202000b0=9f9d03e803da8e7 0x202000b8=a1cb38a0ab3ecf9c
+      |
+      """
+    oracle "95060008" Endian.Big WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4e528ceefcb7a313 0x20200068=d15770b421f1236e
+      0x20200070=d23d74f044a0d893 0x20200078=134d9a54748c6c5e
+      0x20200080=a9b6ee0c8dd972ac 0x20200088=ee88bc1dd7f8213a
+      0x20200090=f32a7c5b46edf7ee 0x20200098=82716f0edb2d9a78
+      0x202000a0=91816984c60a8742 0x202000a8=350ee042f1cd224f
+      0x202000b0=9f9d03e803da8e7 0x202000b8=a1cb38a0ab3ecf9c
+      ;
+      0x20200060=4e528ceefcb7a313 0x20200068=d15770b421f1236e
+      0x20200070=d23d74f044a0d893 0x20200078=134d9a54748c6c5e
+      0x20200080=38dd972ac 0x20200088=ee88bc1dd7f8213a
+      0x20200090=f32a7c5b46edf7ee 0x20200098=82716f0edb2d9a78
+      0x202000a0=91816984c60a8742 0x202000a8=350ee042f1cd224f
+      0x202000b0=9f9d03e803da8e7 0x202000b8=a1cb38a0ab3ecf9c
+      |
+      """
+    oracle "08000695" Endian.Little WordSize.Bit64 """
+      R6=20200078 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=4e528ceefcb7a313 0x20200068=d15770b421f1236e
+      0x20200070=d23d74f044a0d893 0x20200078=134d9a54748c6c5e
+      0x20200080=a9b6ee0c8dd972ac 0x20200088=ee88bc1dd7f8213a
+      0x20200090=f32a7c5b46edf7ee 0x20200098=82716f0edb2d9a78
+      0x202000a0=91816984c60a8742 0x202000a8=350ee042f1cd224f
+      0x202000b0=9f9d03e803da8e7 0x202000b8=a1cb38a0ab3ecf9c
+      ;
+      0x20200060=4e528ceefcb7a313 0x20200068=d15770b421f1236e
+      0x20200070=d23d74f044a0d893 0x20200078=134d9a54748c6c5e
+      0x20200080=30000008dd972ac 0x20200088=ee88bc1dd7f8213a
+      0x20200090=f32a7c5b46edf7ee 0x20200098=82716f0edb2d9a78
+      0x202000a0=91816984c60a8742 0x202000a8=350ee042f1cd224f
+      0x202000b0=9f9d03e803da8e7 0x202000b8=a1cb38a0ab3ecf9c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STWUX original values``() =
+    oracle "7d06396e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=7905c2826847bbaa 0x20200068=461f5d9b43a7ca89
+      0x20200070=f5de1a846a20c22f 0x20200078=107004e76d54c223
+      0x20200080=8b979d1a33177df 0x20200088=6538fd5e3d630612
+      0x20200090=66d38bc119ed8c83 0x20200098=ddcd57b32c93f939
+      0x202000a0=339476a310ea1f88 0x202000a8=1d88bd78d46194f1
+      0x202000b0=fdac88af11f7d7a6 0x202000b8=84b2e510357268b5
+      ;
+      0x20200060=7905c2826847bbaa 0x20200068=461f5d9b43a7ca89
+      0x20200070=f5de1a846a20c22f 0x20200078=107004e76d54c223
+      0x20200080=3a33177df 0x20200088=6538fd5e3d630612
+      0x20200090=66d38bc119ed8c83 0x20200098=ddcd57b32c93f939
+      0x202000a0=339476a310ea1f88 0x202000a8=1d88bd78d46194f1
+      0x202000b0=fdac88af11f7d7a6 0x202000b8=84b2e510357268b5
+      |
+      """
+    oracle "7d06396e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=7905c2826847bbaa 0x20200068=461f5d9b43a7ca89
+      0x20200070=f5de1a846a20c22f 0x20200078=107004e76d54c223
+      0x20200080=8b979d1a33177df 0x20200088=6538fd5e3d630612
+      0x20200090=66d38bc119ed8c83 0x20200098=ddcd57b32c93f939
+      0x202000a0=339476a310ea1f88 0x202000a8=1d88bd78d46194f1
+      0x202000b0=fdac88af11f7d7a6 0x202000b8=84b2e510357268b5
+      ;
+      0x20200060=7905c2826847bbaa 0x20200068=461f5d9b43a7ca89
+      0x20200070=f5de1a846a20c22f 0x20200078=107004e76d54c223
+      0x20200080=3a33177df 0x20200088=6538fd5e3d630612
+      0x20200090=66d38bc119ed8c83 0x20200098=ddcd57b32c93f939
+      0x202000a0=339476a310ea1f88 0x202000a8=1d88bd78d46194f1
+      0x202000b0=fdac88af11f7d7a6 0x202000b8=84b2e510357268b5
+      |
+      """
+    oracle "6e39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200080 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=7905c2826847bbaa 0x20200068=461f5d9b43a7ca89
+      0x20200070=f5de1a846a20c22f 0x20200078=107004e76d54c223
+      0x20200080=8b979d1a33177df 0x20200088=6538fd5e3d630612
+      0x20200090=66d38bc119ed8c83 0x20200098=ddcd57b32c93f939
+      0x202000a0=339476a310ea1f88 0x202000a8=1d88bd78d46194f1
+      0x202000b0=fdac88af11f7d7a6 0x202000b8=84b2e510357268b5
+      ;
+      0x20200060=7905c2826847bbaa 0x20200068=461f5d9b43a7ca89
+      0x20200070=f5de1a846a20c22f 0x20200078=107004e76d54c223
+      0x20200080=3000000a33177df 0x20200088=6538fd5e3d630612
+      0x20200090=66d38bc119ed8c83 0x20200098=ddcd57b32c93f939
+      0x202000a0=339476a310ea1f88 0x202000a8=1d88bd78d46194f1
+      0x202000b0=fdac88af11f7d7a6 0x202000b8=84b2e510357268b5
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STWX original values``() =
+    oracle "7d06392e" Endian.Big WordSize.Bit32 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2bcf3b3c74d36a51 0x20200068=2c3807b72babc05f
+      0x20200070=318f5516e18ce12 0x20200078=a2a4934d5bc70e20
+      0x20200080=82600e8e3b48bd6d 0x20200088=316664ccb8d32571
+      0x20200090=846cf84fd7d9ea57 0x20200098=e41ac2ff40185a07
+      0x202000a0=8d6a1b722b2715d3 0x202000a8=541291570ed1b37
+      0x202000b0=3113f964e8244468 0x202000b8=5ad8e1fa6ccd332a
+      ;
+      0x20200060=2bcf3b3c74d36a51 0x20200068=2c3807b72babc05f
+      0x20200070=318f5516e18ce12 0x20200078=a2a4934d5bc70e20
+      0x20200080=33b48bd6d 0x20200088=316664ccb8d32571
+      0x20200090=846cf84fd7d9ea57 0x20200098=e41ac2ff40185a07
+      0x202000a0=8d6a1b722b2715d3 0x202000a8=541291570ed1b37
+      0x202000b0=3113f964e8244468 0x202000b8=5ad8e1fa6ccd332a
+      |
+      """
+    oracle "7d06392e" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2bcf3b3c74d36a51 0x20200068=2c3807b72babc05f
+      0x20200070=318f5516e18ce12 0x20200078=a2a4934d5bc70e20
+      0x20200080=82600e8e3b48bd6d 0x20200088=316664ccb8d32571
+      0x20200090=846cf84fd7d9ea57 0x20200098=e41ac2ff40185a07
+      0x202000a0=8d6a1b722b2715d3 0x202000a8=541291570ed1b37
+      0x202000b0=3113f964e8244468 0x202000b8=5ad8e1fa6ccd332a
+      ;
+      0x20200060=2bcf3b3c74d36a51 0x20200068=2c3807b72babc05f
+      0x20200070=318f5516e18ce12 0x20200078=a2a4934d5bc70e20
+      0x20200080=33b48bd6d 0x20200088=316664ccb8d32571
+      0x20200090=846cf84fd7d9ea57 0x20200098=e41ac2ff40185a07
+      0x202000a0=8d6a1b722b2715d3 0x202000a8=541291570ed1b37
+      0x202000b0=3113f964e8244468 0x202000b8=5ad8e1fa6ccd332a
+      |
+      """
+    oracle "2e39067d" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      0x20200060=2bcf3b3c74d36a51 0x20200068=2c3807b72babc05f
+      0x20200070=318f5516e18ce12 0x20200078=a2a4934d5bc70e20
+      0x20200080=82600e8e3b48bd6d 0x20200088=316664ccb8d32571
+      0x20200090=846cf84fd7d9ea57 0x20200098=e41ac2ff40185a07
+      0x202000a0=8d6a1b722b2715d3 0x202000a8=541291570ed1b37
+      0x202000b0=3113f964e8244468 0x202000b8=5ad8e1fa6ccd332a
+      ;
+      0x20200060=2bcf3b3c74d36a51 0x20200068=2c3807b72babc05f
+      0x20200070=318f5516e18ce12 0x20200078=a2a4934d5bc70e20
+      0x20200080=30000003b48bd6d 0x20200088=316664ccb8d32571
+      0x20200090=846cf84fd7d9ea57 0x20200098=e41ac2ff40185a07
+      0x202000a0=8d6a1b722b2715d3 0x202000a8=541291570ed1b37
+      0x202000b0=3113f964e8244468 0x202000b8=5ad8e1fa6ccd332a
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STXSD original values``() =
+    oracle "f426000a" Endian.Big WordSize.Bit64 """
+      R6=20200078 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=79b2680c25213a43 0x20200068=f520526946753d03
+      0x20200070=b09b218663e0dba2 0x20200078=89268eac7f523711
+      0x20200080=78f4c96de1b0e152 0x20200088=4d09a4cb343046b
+      0x20200090=1974eb6e62b682e7 0x20200098=65aa238ff01b0484
+      0x202000a0=ccccca3d23377409 0x202000a8=d9ee8fe2f13d416d
+      0x202000b0=4af99dbb4a94696d 0x202000b8=69b3537b53cdc014
+      ;
+      0x20200060=79b2680c25213a43 0x20200068=f520526946753d03
+      0x20200070=b09b218663e0dba2 0x20200078=89268eac7f523711
+      0x20200080=1020304050607 0x20200088=4d09a4cb343046b
+      0x20200090=1974eb6e62b682e7 0x20200098=65aa238ff01b0484
+      0x202000a0=ccccca3d23377409 0x202000a8=d9ee8fe2f13d416d
+      0x202000b0=4af99dbb4a94696d 0x202000b8=69b3537b53cdc014
+      |
+      """
+    oracle "0a0026f4" Endian.Little WordSize.Bit64 """
+      R6=20200078 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 V1A=1020304050607 V1B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=79b2680c25213a43 0x20200068=f520526946753d03
+      0x20200070=b09b218663e0dba2 0x20200078=89268eac7f523711
+      0x20200080=78f4c96de1b0e152 0x20200088=4d09a4cb343046b
+      0x20200090=1974eb6e62b682e7 0x20200098=65aa238ff01b0484
+      0x202000a0=ccccca3d23377409 0x202000a8=d9ee8fe2f13d416d
+      0x202000b0=4af99dbb4a94696d 0x202000b8=69b3537b53cdc014
+      ;
+      0x20200060=79b2680c25213a43 0x20200068=f520526946753d03
+      0x20200070=b09b218663e0dba2 0x20200078=89268eac7f523711
+      0x20200080=706050403020100 0x20200088=4d09a4cb343046b
+      0x20200090=1974eb6e62b682e7 0x20200098=65aa238ff01b0484
+      0x202000a0=ccccca3d23377409 0x202000a8=d9ee8fe2f13d416d
+      0x202000b0=4af99dbb4a94696d 0x202000b8=69b3537b53cdc014
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STXSDX original values``() =
+    oracle "7c263d98" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=c3d0882725b0e955 0x20200068=213761a9ae358d21
+      0x20200070=c738e84982a62bd5 0x20200078=3623be78629df837
+      0x20200080=f72a916e8b193b8f 0x20200088=50046649c630e3c5
+      0x20200090=fdc65d6c08ad09e 0x20200098=8af096482bd69107
+      0x202000a0=27944ab2b479c6e7 0x202000a8=fab24f55a774dd95
+      0x202000b0=9dce67f8cf4c058f 0x202000b8=708db396579cf26f
+      ;
+      0x20200060=c3d0882725b0e955 0x20200068=213761a9ae358d21
+      0x20200070=c738e84982a62bd5 0x20200078=3623be78629df837
+      0x20200080=1020304050607 0x20200088=50046649c630e3c5
+      0x20200090=fdc65d6c08ad09e 0x20200098=8af096482bd69107
+      0x202000a0=27944ab2b479c6e7 0x202000a8=fab24f55a774dd95
+      0x202000b0=9dce67f8cf4c058f 0x202000b8=708db396579cf26f
+      |
+      """
+    oracle "983d267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=c3d0882725b0e955 0x20200068=213761a9ae358d21
+      0x20200070=c738e84982a62bd5 0x20200078=3623be78629df837
+      0x20200080=f72a916e8b193b8f 0x20200088=50046649c630e3c5
+      0x20200090=fdc65d6c08ad09e 0x20200098=8af096482bd69107
+      0x202000a0=27944ab2b479c6e7 0x202000a8=fab24f55a774dd95
+      0x202000b0=9dce67f8cf4c058f 0x202000b8=708db396579cf26f
+      ;
+      0x20200060=c3d0882725b0e955 0x20200068=213761a9ae358d21
+      0x20200070=c738e84982a62bd5 0x20200078=3623be78629df837
+      0x20200080=706050403020100 0x20200088=50046649c630e3c5
+      0x20200090=fdc65d6c08ad09e 0x20200098=8af096482bd69107
+      0x202000a0=27944ab2b479c6e7 0x202000a8=fab24f55a774dd95
+      0x202000b0=9dce67f8cf4c058f 0x202000b8=708db396579cf26f
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STXVD2X original values``() =
+    oracle "7c263f98" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=34b9dce9ac324fb3 0x20200068=2341c9a8dcb59985
+      0x20200070=341ec73f4a5036a 0x20200078=c7b320d3a45e013a
+      0x20200080=2c9c58a640804a9c 0x20200088=c65137f1eb8e9e94
+      0x20200090=20db76e481dccafd 0x20200098=f484596e72139769
+      0x202000a0=12fc2379ebca828 0x202000a8=f794777738097683
+      0x202000b0=85c2fdba86f2c5c 0x202000b8=3b45ed678382340c
+      ;
+      0x20200060=34b9dce9ac324fb3 0x20200068=2341c9a8dcb59985
+      0x20200070=341ec73f4a5036a 0x20200078=c7b320d3a45e013a
+      0x20200080=1020304050607 0x20200088=8090a0b0c0d0e0f
+      0x20200090=20db76e481dccafd 0x20200098=f484596e72139769
+      0x202000a0=12fc2379ebca828 0x202000a8=f794777738097683
+      0x202000b0=85c2fdba86f2c5c 0x202000b8=3b45ed678382340c
+      |
+      """
+    oracle "983f267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=34b9dce9ac324fb3 0x20200068=2341c9a8dcb59985
+      0x20200070=341ec73f4a5036a 0x20200078=c7b320d3a45e013a
+      0x20200080=2c9c58a640804a9c 0x20200088=c65137f1eb8e9e94
+      0x20200090=20db76e481dccafd 0x20200098=f484596e72139769
+      0x202000a0=12fc2379ebca828 0x202000a8=f794777738097683
+      0x202000b0=85c2fdba86f2c5c 0x202000b8=3b45ed678382340c
+      ;
+      0x20200060=34b9dce9ac324fb3 0x20200068=2341c9a8dcb59985
+      0x20200070=341ec73f4a5036a 0x20200078=c7b320d3a45e013a
+      0x20200080=706050403020100 0x20200088=f0e0d0c0b0a0908
+      0x20200090=20db76e481dccafd 0x20200098=f484596e72139769
+      0x202000a0=12fc2379ebca828 0x202000a8=f794777738097683
+      0x202000b0=85c2fdba86f2c5c 0x202000b8=3b45ed678382340c
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] STXVW4X original values``() =
+    oracle "7c263f18" Endian.Big WordSize.Bit64 """
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f5de1d8eedee4d58 0x20200068=3a62daca333b8358
+      0x20200070=684f61f432588d58 0x20200078=60c1b857bc22216d
+      0x20200080=ccc7f67ca68cda8f 0x20200088=2729725f1faddbe
+      0x20200090=21c2c9e009116c69 0x20200098=1c0b56a6afaad11c
+      0x202000a0=4df782cc829fcb4b 0x202000a8=ce22cd6b22d732fb
+      0x202000b0=d46518725552874a 0x202000b8=d08318ad270c4b38
+      ;
+      0x20200060=f5de1d8eedee4d58 0x20200068=3a62daca333b8358
+      0x20200070=684f61f432588d58 0x20200078=60c1b857bc22216d
+      0x20200080=1020304050607 0x20200088=8090a0b0c0d0e0f
+      0x20200090=21c2c9e009116c69 0x20200098=1c0b56a6afaad11c
+      0x202000a0=4df782cc829fcb4b 0x202000a8=ce22cd6b22d732fb
+      0x202000b0=d46518725552874a 0x202000b8=d08318ad270c4b38
+      |
+      """
+    oracle "183f267c" Endian.Little WordSize.Bit64 """
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R6=20200078 R7=8 F1=1020304050607 VSRL1=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      0x20200060=f5de1d8eedee4d58 0x20200068=3a62daca333b8358
+      0x20200070=684f61f432588d58 0x20200078=60c1b857bc22216d
+      0x20200080=ccc7f67ca68cda8f 0x20200088=2729725f1faddbe
+      0x20200090=21c2c9e009116c69 0x20200098=1c0b56a6afaad11c
+      0x202000a0=4df782cc829fcb4b 0x202000a8=ce22cd6b22d732fb
+      0x202000b0=d46518725552874a 0x202000b8=d08318ad270c4b38
+      ;
+      0x20200060=f5de1d8eedee4d58 0x20200068=3a62daca333b8358
+      0x20200070=684f61f432588d58 0x20200078=60c1b857bc22216d
+      0x20200080=302010007060504 0x20200088=b0a09080f0e0d0c
+      0x20200090=21c2c9e009116c69 0x20200098=1c0b56a6afaad11c
+      0x202000a0=4df782cc829fcb4b 0x202000a8=ce22cd6b22d732fb
+      0x202000b0=d46518725552874a 0x202000b8=d08318ad270c4b38
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFC original values``() =
+    oracle "7ca63810" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63810" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1038a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFC. original values``() =
+    oracle "7ca63811" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63811" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1138a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFCO original values``() =
+    oracle "7ca63c10" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63c10" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "103ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFCO. original values``() =
+    oracle "7ca63c11" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63c11" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "113ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBF. original values``() =
+    oracle "7ca63851" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63851" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5138a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFE original values``() =
+    oracle "7ca63910" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63910" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1039a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFE. original values``() =
+    oracle "7ca63911" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63911" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1139a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFEO original values``() =
+    oracle "7ca63d10" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63d10" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "103da67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFEO. original values``() =
+    oracle "7ca63d11" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63d11" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "113da67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      XER=0
+      ;
+      R5=1 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFIC original values``() =
+    oracle "20a6000c" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=9 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "20a6000c" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=9 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a620" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=9 R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFME original values``() =
+    oracle "7ca601d0" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=fffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca601d0" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d001a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFME. original values``() =
+    oracle "7ca601d1" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=fffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca601d1" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d101a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFMEO original values``() =
+    oracle "7ca605d0" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=fffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca605d0" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d005a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFMEO. original values``() =
+    oracle "7ca605d1" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=fffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      XER=20000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca605d1" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d105a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0 XER=0
+      ;
+      R5=fffffffffffffffb R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000 XER=20040000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFO original values``() =
+    oracle "7ca63c50" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63c50" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "503ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFO. original values``() =
+    oracle "7ca63c51" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca63c51" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "513ca67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=2 R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZE original values``() =
+    oracle "7ca60190" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60190" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9001a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZE. original values``() =
+    oracle "7ca60191" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60191" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9101a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZEO original values``() =
+    oracle "7ca60590" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60590" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9005a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZEO. original values``() =
+    oracle "7ca60591" Endian.Big WordSize.Bit32 """
+      R5=bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7ca60591" Endian.Big WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "9105a67c" Endian.Little WordSize.Bit64 """
+      R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R5=fffffffffffffffc R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      CR=80000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] SYNC original values``() =
+    oracle "7c0004ac" Endian.Big WordSize.Bit32 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7c0004ac" Endian.Big WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ac04007c" Endian.Little WordSize.Bit64 """
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] TD original values``() =
+    oracle "7c063888" Endian.Big WordSize.Bit64 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8838067c" Endian.Little WordSize.Bit64 """
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 R7=5 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] TDI original values``() =
+    oracle "0806000c" Endian.Big WordSize.Bit64 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c000608" Endian.Little WordSize.Bit64 """
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUBM original values``() =
+    oracle "10221800" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221800" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "00182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUBS original values``() =
+    oracle "10221a00" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a00" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUDM original values``() =
+    oracle "102218c0" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c0182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUHM original values``() =
+    oracle "10221840" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221840" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "40182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUWM original values``() =
+    oracle "10221880" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221880" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "80182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VAND original values``() =
+    oracle "10221c04" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c04" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "041c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VANDC original values``() =
+    oracle "10221c44" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c44" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "441c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VBPERMQ original values``() =
+    oracle "10221d4c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8000 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4c1d2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8000 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZB original values``() =
+    oracle "10201f02" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=807060605050505 V1B=404040404040404 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "021f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=807060605050505 V1B=404040404040404 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZD original values``() =
+    oracle "10201fc2" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f V1B=4 V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c21f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f V1B=4 V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZH original values``() =
+    oracle "10201f42" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f000600050005 V1B=4000400040004 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "421f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f000600050005 V1B=4000400040004 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZW original values``() =
+    oracle "10201f82" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f00000005 V1B=400000004 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "821f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f00000005 V1B=400000004 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUB original values``() =
+    oracle "10221806" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221806" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "06182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUB. original values``() =
+    oracle "10221c06" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c06" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "061c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUD original values``() =
+    oracle "102218c7" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "102218c7" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c7182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUD. original values``() =
+    oracle "10221cc7" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221cc7" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c71c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUH original values``() =
+    oracle "10221846" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221846" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "46182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUH. original values``() =
+    oracle "10221c46" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c46" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "461c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUW original values``() =
+    oracle "10221886" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221886" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "86182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUW. original values``() =
+    oracle "10221c86" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c86" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+    oracle "861c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 LR=20100040 CTR=20100080 VSCR=10000 CR=20
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSB original values``() =
+    oracle "10221b06" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b06" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "061b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSB. original values``() =
+    oracle "10221f06" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221f06" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "061f2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSD original values``() =
+    oracle "10221bc7" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221bc7" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c71b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSD. original values``() =
+    oracle "10221fc7" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221fc7" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c71f2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSH original values``() =
+    oracle "10221b46" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b46" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "461b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSH. original values``() =
+    oracle "10221f46" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221f46" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "461f2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSW original values``() =
+    oracle "10221b86" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b86" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "861b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSW. original values``() =
+    oracle "10221f86" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221f86" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "861f2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUB original values``() =
+    oracle "10221a06" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a06" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "061a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUB. original values``() =
+    oracle "10221e06" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221e06" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "061e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUD original values``() =
+    oracle "10221ac7" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221ac7" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c71a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUD. original values``() =
+    oracle "10221ec7" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221ec7" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c71e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUH original values``() =
+    oracle "10221a46" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a46" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "461a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUH. original values``() =
+    oracle "10221e46" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221e46" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "461e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUW original values``() =
+    oracle "10221a86" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a86" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "861a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUW. original values``() =
+    oracle "10221e86" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221e86" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "861e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=ffffffffffffffff V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VEQV original values``() =
+    oracle "10221e84" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f0 V1B=f0f0f0f0f0f0f0f0 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "841e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f0 V1B=f0f0f0f0f0f0f0f0 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VGBBD original values``() =
+    oracle "10201d0c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f3355 V1B=ff0f3355 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c1d2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f3355 V1B=ff0f3355 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSB original values``() =
+    oracle "10221902" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221902" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "02192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSD original values``() =
+    oracle "102219c2" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c2192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSH original values``() =
+    oracle "10221942" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221942" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "42192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSW original values``() =
+    oracle "10221982" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221982" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "82192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUB original values``() =
+    oracle "10221802" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221802" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "02182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUD original values``() =
+    oracle "102218c2" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c2182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUH original values``() =
+    oracle "10221842" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221842" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "42182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUW original values``() =
+    oracle "10221882" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221882" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "82182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSB original values``() =
+    oracle "10221b02" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b02" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "021b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSD original values``() =
+    oracle "10221bc2" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c21b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSH original values``() =
+    oracle "10221b42" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b42" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "421b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSW original values``() =
+    oracle "10221b82" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b82" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "821b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUB original values``() =
+    oracle "10221a02" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a02" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "021a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUD original values``() =
+    oracle "10221ac2" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c21a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUH original values``() =
+    oracle "10221a42" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a42" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "421a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUW original values``() =
+    oracle "10221a82" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a82" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "821a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGEW original values``() =
+    oracle "10221f8c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030f0e0d0c V1B=8090a0b07060504 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c1f2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030f0e0d0c V1B=8090a0b07060504 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGHB original values``() =
+    oracle "1022180c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f010e020d030c V1B=40b050a06090708 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022180c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f010e020d030c V1B=40b050a06090708 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f010e020d030c V1B=40b050a06090708 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGHH original values``() =
+    oracle "1022184c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10f0e02030d0c V1B=4050b0a06070908 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022184c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10f0e02030d0c V1B=4050b0a06070908 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4c182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10f0e02030d0c V1B=4050b0a06070908 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGHW original values``() =
+    oracle "1022188c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030f0e0d0c V1B=40506070b0a0908 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022188c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030f0e0d0c V1B=40506070b0a0908 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030f0e0d0c V1B=40506070b0a0908 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGLB original values``() =
+    oracle "1022190c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80709060a050b04 V1B=c030d020e010f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022190c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80709060a050b04 V1B=c030d020e010f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80709060a050b04 V1B=c030d020e010f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGLH original values``() =
+    oracle "1022194c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80907060a0b0504 V1B=c0d03020e0f0100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022194c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80907060a0b0504 V1B=c0d03020e0f0100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4c192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80907060a0b0504 V1B=c0d03020e0f0100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGLW original values``() =
+    oracle "1022198c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8090a0b07060504 V1B=c0d0e0f03020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022198c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8090a0b07060504 V1B=c0d0e0f03020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8090a0b07060504 V1B=c0d0e0f03020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGOW original values``() =
+    oracle "10221e8c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40506070b0a0908 V1B=c0d0e0f03020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c1e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40506070b0a0908 V1B=c0d0e0f03020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMULESW original values``() =
+    oracle "10221b88" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f2c56503f24 V1B=386fa4d6985f2c V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "881b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f2c56503f24 V1B=386fa4d6985f2c V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMULOSW original values``() =
+    oracle "10221988" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=2c5f98d6a46f38 V1B=243f50562c0f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "88192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=2c5f98d6a46f38 V1B=243f50562c0f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VMULUWM original values``() =
+    oracle "10221889" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=56503f24d6a46f38 V1B=d6985f2c562c0f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "89182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=56503f24d6a46f38 V1B=d6985f2c562c0f00 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VNAND original values``() =
+    oracle "10221d84" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=ffffffffffffffff V1B=ffffffffffffffff V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "841d2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=ffffffffffffffff V1B=ffffffffffffffff V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VNOR original values``() =
+    oracle "10221d04" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f0 V1B=f0f0f0f0f0f0f0f0 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221d04" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f0 V1B=f0f0f0f0f0f0f0f0 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "041d2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f0 V1B=f0f0f0f0f0f0f0f0 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VOR original values``() =
+    oracle "10221c84" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c84" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "841c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VORC original values``() =
+    oracle "10221d44" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f1f2f3f4f5f6f7 V1B=f8f9fafbfcfdfeff V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "441d2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f1f2f3f4f5f6f7 V1B=f8f9fafbfcfdfeff V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPERM original values``() =
+    oracle "1022192b" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022192b" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2b192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=f0e0d0c0b0a0908 V1B=706050403020100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPKUHUM original values``() =
+    oracle "1022180e" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1030507090b0d0f V1B=e0c0a0806040200 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022180e" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1030507090b0d0f V1B=e0c0a0806040200 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0e182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1030507090b0d0f V1B=e0c0a0806040200 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPKUWUM original values``() =
+    oracle "1022184e" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=20306070a0b0e0f V1B=d0c090805040100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022184e" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=20306070a0b0e0f V1B=d0c090805040100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4e182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=20306070a0b0e0f V1B=d0c090805040100 V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTB original values``() =
+    oracle "10201f03" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1010201020203 V1B=102020302030304 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "031f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1010201020203 V1B=102020302030304 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTD original values``() =
+    oracle "10201fc3" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=c V1B=14 V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c31f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=c V1B=14 V3A=1020304050607 V3B=8090a0b0c0d0e0f LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTH original values``() =
+    oracle "10201f43" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000300030005 V1B=3000500050007 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "431f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000300030005 V1B=3000500050007 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTW original values``() =
+    oracle "10201f83" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=400000008 V1B=80000000c V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "831f2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=400000008 V1B=80000000c V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLB original values``() =
+    oracle "10221804" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40403020140c07 V1B=44241b060341c0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221804" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40403020140c07 V1B=44241b060341c0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "04182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40403020140c07 V1B=44241b060341c0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLD original values``() =
+    oracle "102218c4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030405060700 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c4182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030405060700 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLH original values``() =
+    oracle "10221844" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=4000302014100706 V1B=242a0b030340e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221844" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=4000302014100706 V1B=242a0b030340e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "44182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=4000302014100706 V1B=242a0b030340e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLW original values``() =
+    oracle "10221884" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020300005060704 V1B=8090a0b00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221884" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020300005060704 V1B=8090a0b00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "84182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020300005060704 V1B=8090a0b00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSEL original values``() =
+    oracle "1022192a" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 V4A=1011121314151617 V4B=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "1022192a" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 V4A=1011121314151617 V4B=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2a192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      V4A=1011121314151617 V4B=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=0 V1B=0 V2A=1020304050607 V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908
+      V3B=706050403020100 V4A=1011121314151617 V4B=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSL original values``() =
+    oracle "102219c4" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "102219c4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c4192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLB original values``() =
+    oracle "10221904" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40403020140c07 V1B=4040b060341c0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221904" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40403020140c07 V1B=4040b060341c0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "04192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=40403020140c07 V1B=4040b060341c0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLD original values``() =
+    oracle "10221dc4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030405060700 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c41d2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=102030405060700 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLDOI original values``() =
+    oracle "102218ac" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=203040506070809 V1B=a0b0c0d0e0f0f0e V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "102218ac" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=203040506070809 V1B=a0b0c0d0e0f0f0e V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ac182210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=203040506070809 V1B=a0b0c0d0e0f0f0e V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLH original values``() =
+    oracle "10221944" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=4000300014000700 V1B=240a0b030340e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221944" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=4000300014000700 V1B=240a0b030340e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "44192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=4000300014000700 V1B=240a0b030340e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLO original values``() =
+    oracle "10221c0c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c0c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c1c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLW original values``() =
+    oracle "10221984" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020300005060700 V1B=8090a0b00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221984" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020300005060700 V1B=8090a0b00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "84192210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020300005060700 V1B=8090a0b00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTB original values``() =
+    oracle "10211a0c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=101010101010101 V1B=101010101010101 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10211a0c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=101010101010101 V1B=101010101010101 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c1a2110" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=101010101010101 V1B=101010101010101 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTH original values``() =
+    oracle "10211a4c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=203020302030203 V1B=203020302030203 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10211a4c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=203020302030203 V1B=203020302030203 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4c1a2110" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=203020302030203 V1B=203020302030203 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTISB original values``() =
+    oracle "103d030c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fdfdfdfdfdfdfdfd V1B=fdfdfdfdfdfdfdfd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "103d030c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fdfdfdfdfdfdfdfd V1B=fdfdfdfdfdfdfdfd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c033d10" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fdfdfdfdfdfdfdfd V1B=fdfdfdfdfdfdfdfd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTISH original values``() =
+    oracle "103d034c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fffdfffdfffdfffd V1B=fffdfffdfffdfffd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "103d034c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fffdfffdfffdfffd V1B=fffdfffdfffdfffd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4c033d10" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fffdfffdfffdfffd V1B=fffdfffdfffdfffd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTISW original values``() =
+    oracle "103d038c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fffffffdfffffffd V1B=fffffffdfffffffd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "103d038c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fffffffdfffffffd V1B=fffffffdfffffffd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c033d10" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V1A=fffffffdfffffffd V1B=fffffffdfffffffd LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTW original values``() =
+    oracle "10211a8c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=405060704050607 V1B=405060704050607 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10211a8c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=405060704050607 V1B=405060704050607 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8c1a2110" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=405060704050607 V1B=405060704050607 V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSR original values``() =
+    oracle "10221ac4" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221ac4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c41a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAB original values``() =
+    oracle "10221b04" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10307 V1B=103070f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b04" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10307 V1B=103070f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "041b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10307 V1B=103070f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAD original values``() =
+    oracle "10221bc4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10203040506 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c41b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10203040506 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAH original values``() =
+    oracle "10221b44" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10006 V1B=2000a003030e0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b44" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10006 V1B=2000a003030e0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "441b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10006 V1B=2000a003030e0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAW original values``() =
+    oracle "10221b84" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000040506 V1B=8090a00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221b84" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000040506 V1B=8090a00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "841b2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000040506 V1B=8090a00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRB original values``() =
+    oracle "10221a04" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10307 V1B=103070f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a04" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10307 V1B=103070f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "041a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10307 V1B=103070f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRD original values``() =
+    oracle "10221ec4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10203040506 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c41e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10203040506 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRH original values``() =
+    oracle "10221a44" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10006 V1B=2000a003030e0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a44" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10006 V1B=2000a003030e0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "441a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10006 V1B=2000a003030e0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRO original values``() =
+    oracle "10221c4c" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c4c" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4c1c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1020304050607 V1B=8090a0b0c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRW original values``() =
+    oracle "10221a84" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000040506 V1B=8090a00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221a84" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000040506 V1B=8090a00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "841a2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=1000040506 V1B=8090a00c0d0e0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUBM original values``() =
+    oracle "10221c00" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f1f3f5f7f9fbfdff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c00" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f1f3f5f7f9fbfdff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f1f3f5f7f9fbfdff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUBS original values``() =
+    oracle "10221e00" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=1030507090b0d0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221e00" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=1030507090b0d0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001e2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=0 V1B=1030507090b0d0f V2A=1020304050607 V2B=8090a0b0c0d0e0f
+      V3A=f0e0d0c0b0a0908 V3B=706050403020100 LR=20100040 CTR=20100080
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUDM original values``() =
+    oracle "10221cc0" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f2f4f6f8fafcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c01c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f2f4f6f8fafcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUHM original values``() =
+    oracle "10221c40" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f3f4f7f8fbfcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c40" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f3f4f7f8fbfcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "401c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f3f4f7f8fbfcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUWM original values``() =
+    oracle "10221c80" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f2f4f7f8fafcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221c80" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f2f4f7f8fafcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "801c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f2f4f7f8fafcff V1B=1030507090b0d0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKHSB original values``() =
+    oracle "10201a0e" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=100020003 V1B=4000500060007 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10201a0e" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=100020003 V1B=4000500060007 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0e1a2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=100020003 V1B=4000500060007 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKHSH original values``() =
+    oracle "10201a4e" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=100000203 V1B=40500000607 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10201a4e" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=100000203 V1B=40500000607 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4e1a2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=100000203 V1B=40500000607 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKHSW original values``() =
+    oracle "10201e4e" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10203 V1B=4050607 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4e1e2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=10203 V1B=4050607 V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKLSB original values``() =
+    oracle "10201a8e" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80009000a000b V1B=c000d000e000f V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10201a8e" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80009000a000b V1B=c000d000e000f V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8e1a2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80009000a000b V1B=c000d000e000f V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKLSH original values``() =
+    oracle "10201ace" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80900000a0b V1B=c0d00000e0f V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10201ace" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80900000a0b V1B=c0d00000e0f V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ce1a2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=80900000a0b V1B=c0d00000e0f V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKLSW original values``() =
+    oracle "10201ece" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8090a0b V1B=c0d0e0f V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ce1e2010" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V3A=1020304050607
+      V3B=8090a0b0c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=8090a0b V1B=c0d0e0f V3A=1020304050607 V3B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] VXOR original values``() =
+    oracle "10221cc4" Endian.Big WordSize.Bit32 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "10221cc4" Endian.Big WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c41c2210" Endian.Little WordSize.Bit64 """
+      V1A=bad0bad0bad0bad V1B=bad0bad0bad0bad V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      V1A=f0f0f0f0f0f0f0f V1B=f0f0f0f0f0f0f0f V2A=1020304050607
+      V2B=8090a0b0c0d0e0f V3A=f0e0d0c0b0a0908 V3B=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XOR. original values``() =
+    oracle "7d063a79" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=6 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7d063a79" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=6 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "793a067d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=0
+      ;
+      R6=6 R7=5 R8=3 LR=20100040 CTR=20100080 VSCR=10000 CR=40000000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XORI original values``() =
+    oracle "69060055" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=56 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "69060055" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=56 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "55000669" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=56 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XORIS original values``() =
+    oracle "6d060055" Endian.Big WordSize.Bit32 """
+      R6=bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=550003 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "6d060055" Endian.Big WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=550003 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "5500066d" Endian.Little WordSize.Bit64 """
+      R6=bad0bad0bad0bad R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      R6=550003 R8=3 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSABSDP original values``() =
+    oracle "f0201d64" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "641d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSADDDP original values``() =
+    oracle "f0221900" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSADDSP original values``() =
+    oracle "f0221800" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCMPUDP original values``() =
+    oracle "f1021918" Endian.Big WordSize.Bit64 """
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=800000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "181902f1" Endian.Little WordSize.Bit64 """
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=0 FPSCR=0
+      ;
+      F2=3ff8000000000000 F3=4002000000000000 LR=20100040 CTR=20100080
+      VSCR=10000 CR=800000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCPSGNDP original values``() =
+    oracle "f0221d80" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "801d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPSPN original values``() =
+    oracle "f0201c2c" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3fc000003fc00000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2c1c20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3fc000003fc00000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPSXDS original values``() =
+    oracle "f0201d60" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "601d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPUXDS original values``() =
+    oracle "f0201d20" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "201d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=1 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080 VSCR=10000
+      FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSPDP original values``() =
+    oracle "f0201d24" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fff000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "241d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fff000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSPDPN original values``() =
+    oracle "f0201d2c" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3fff000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2c1d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3fff000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSXDDP original values``() =
+    oracle "f0201de0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e01d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSXDSP original values``() =
+    oracle "f0201ce0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e01c20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVUXDDP original values``() =
+    oracle "f0201da0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a01d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVUXDSP original values``() =
+    oracle "f0201ca0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a01c20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=43cffc0000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSDIVDP original values``() =
+    oracle "f02219c0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c01922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSDIVSP original values``() =
+    oracle "f02218c0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c01822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555560000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDADP original values``() =
+    oracle "f0221908" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "081922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDASP original values``() =
+    oracle "f0221808" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "081822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDMDP original values``() =
+    oracle "f0221948" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "481922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDMSP original values``() =
+    oracle "f0221848" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "481822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMAXDP original values``() =
+    oracle "f0221d00" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMINDP original values``() =
+    oracle "f0221d40" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3ff8000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "401d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=3ff8000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMULDP original values``() =
+    oracle "f0221980" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "801922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMULSP original values``() =
+    oracle "f0221880" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "801822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBADP original values``() =
+    oracle "f0221988" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "881922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBASP original values``() =
+    oracle "f0221888" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "881822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBMDP original values``() =
+    oracle "f02219c8" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c81922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBMSP original values``() =
+    oracle "f02218c8" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c81822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNABSDP original values``() =
+    oracle "f0201da4" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a41d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNEGDP original values``() =
+    oracle "f0201de4" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e41d20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDADP original values``() =
+    oracle "f0221d08" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "081d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDASP original values``() =
+    oracle "f0221c08" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "081c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDMDP original values``() =
+    oracle "f0221d48" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "481d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDMSP original values``() =
+    oracle "f0221c48" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "481c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBADP original values``() =
+    oracle "f0221d88" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "881d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBASP original values``() =
+    oracle "f0221c88" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "881c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=c00b000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBMDP original values``() =
+    oracle "f0221dc8" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c81d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBMSP original values``() =
+    oracle "f0221cc8" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c81c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4002000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPI original values``() =
+    oracle "f0201924" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "241920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPIM original values``() =
+    oracle "f02019e4" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e41920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPIP original values``() =
+    oracle "f02019a4" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a41920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=4000000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPIZ original values``() =
+    oracle "f0201964" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "641920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff0000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSQRTDP original values``() =
+    oracle "f020192c" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e1409212e F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2c1920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e1409212e F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSQRTSP original values``() =
+    oracle "f020182c" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "2c1820f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff3988e20000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRSP original values``() =
+    oracle "f0201c64" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "641c20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3ff8000000000000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSUBDP original values``() =
+    oracle "f0221940" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "401922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSUBSP original values``() =
+    oracle "f0221840" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "401822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000 VSRL1=0
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=8000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVADDDP original values``() =
+    oracle "f0221b00" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=3ff8000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "001b22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=400e000000000000 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=3ff8000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGEDP original values``() =
+    oracle "f0221b98" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "981b22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGEDP. original values``() =
+    oracle "f0221f98" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "981f22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGTDP original values``() =
+    oracle "f0221b58" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "581b22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGTDP. original values``() =
+    oracle "f0221f58" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "581f22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=3ff8000000000000 F3=4002000000000000 VSRL1=ffffffffffffffff
+      VSRL2=4002000000000000 VSRL3=bfe8000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCVSXWDP original values``() =
+    oracle "f0201be0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=41cffc0000000000 F3=3ff8000000000000 VSRL1=41d0008000000000
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e01b20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=41cffc0000000000 F3=3ff8000000000000 VSRL1=41d0008000000000
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVDIVDP original values``() =
+    oracle "f0221bc0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=c008000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "c01b22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fe5555555555555 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=c008000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVMULDP original values``() =
+    oracle "f0221b80" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bffb000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "801b22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=400b000000000000 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bffb000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVNEGDP original values``() =
+    oracle "f0201fe4" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 VSRL1=c002000000000000
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "e41f20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bff8000000000000 F3=3ff8000000000000 VSRL1=c002000000000000
+      VSRL3=4002000000000000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XVSUBDP original values``() =
+    oracle "f0221b40" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=4008000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "401b22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=bfe8000000000000 F2=3ff8000000000000 F3=4002000000000000
+      VSRL1=4008000000000000 VSRL2=4002000000000000 VSRL3=bfe8000000000000
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLAND original values``() =
+    oracle "f0221c10" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=1020304050607 F3=f0e0d0c0b0a0908 VSRL1=0 VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "101c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=0 F2=1020304050607 F3=f0e0d0c0b0a0908 VSRL1=0 VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLANDC original values``() =
+    oracle "f0221c50" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "501c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLEQV original values``() =
+    oracle "f0221dd0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f0 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f0 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d01d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f0 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f0 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLNAND original values``() =
+    oracle "f0221d90" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=ffffffffffffffff F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=ffffffffffffffff VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=ffffffffffffffff F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=ffffffffffffffff VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLNOR original values``() =
+    oracle "f0221d10" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f0 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f0 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "101d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f0 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f0 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLOR original values``() =
+    oracle "f0221c90" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLORC original values``() =
+    oracle "f0221d50" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f1f2f3f4f5f6f7 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f8f9fafbfcfdfeff VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "501d22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f1f2f3f4f5f6f7 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f8f9fafbfcfdfeff VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLXOR original values``() =
+    oracle "f0221cd0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d01c22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=f0f0f0f0f0f0f0f F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=f0f0f0f0f0f0f0f VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXMRGHW original values``() =
+    oracle "f0221890" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=102030f0e0d0c F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=40506070b0a0908 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901822f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=102030f0e0d0c F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=40506070b0a0908 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXMRGLW original values``() =
+    oracle "f0221990" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=8090a0b07060504 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=c0d0e0f03020100 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=8090a0b07060504 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=c0d0e0f03020100 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXPERMDI original values``() =
+    oracle "f0221950" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=706050403020100 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "501922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=706050403020100 VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSEL original values``() =
+    oracle "f0221930" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F2=1020304050607 F3=f0e0d0c0b0a0908 F4=1011121314151617 VSRL1=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "301922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F2=1020304050607 F3=f0e0d0c0b0a0908 F4=1011121314151617 VSRL1=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSLDWI original values``() =
+    oracle "f0221910" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=405060708090a0b F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=c0d0e0f0f0e0d0c VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "101922f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=405060708090a0b F2=1020304050607 F3=f0e0d0c0b0a0908
+      VSRL1=c0d0e0f0f0e0d0c VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSPLTIB original values``() =
+    oracle "f022aad0" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=5555555555555555 VSRL1=5555555555555555 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "d0aa22f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=5555555555555555 VSRL1=5555555555555555 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSPLTW original values``() =
+    oracle "f0211a90" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3fc0000040100000 VSRL1=bad0bad0bad0bad
+      VSRL3=bf4000003fc00000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4010000040100000 F3=3fc0000040100000 VSRL1=4010000040100000
+      VSRL3=bf4000003fc00000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "901a21f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3fc0000040100000 VSRL1=bad0bad0bad0bad
+      VSRL3=bf4000003fc00000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F1=4010000040100000 F3=3fc0000040100000 VSRL1=4010000040100000
+      VSRL3=bf4000003fc00000 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+/// Alias values, trap outcomes and time-base destinations have separate checks.
+[<TestClass>]
+type BackfillAliasLifterTests() =
+  let pairs (text: string) =
+    text.Split([| ' '; '\n'; '\r'; '\t' |],
+               StringSplitOptions.RemoveEmptyEntries)
+    |> Array.map (fun field ->
+      let parts = field.Split '='
+      parts[0], Convert.ToUInt64(parts[1], 16))
+
+  let registers text =
+    pairs text
+    |> Array.collect (fun (name, value) ->
+      if name = "CR" then
+        Array.init 32 (fun i ->
+          let id = Register.CR0_0 |> int |> fun n -> n + i
+          enum<Register> id, (value >>> (31 - i)) &&& 1UL)
+      else
+        [| Enum.Parse<Register> name, value |])
+
+  let oracle hex endian size (cases: string) =
+    let isa = ISA(Architecture.PPC, endian, size)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let variable r = regs.GetRegVar(Register.toRegID r)
+    let bytes = ByteArray.ofHexString hex
+    let parser = Parser(isa, BinReader.Init endian) :> IInstructionParsable
+    let ins = parser.Parse(bytes, 0x20100000UL)
+    let bld = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    let stmts = ins.Translate bld
+    let cases =
+      cases.Split '|' |> Array.filter (String.IsNullOrWhiteSpace >> not)
+    for case in cases do
+      let cols = case.Split ';'
+      let given =
+        registers cols[0] |> Array.toList
+        |> List.map (fun (r, v) ->
+          let expr = variable r
+          expr, BitVector(v, Expr.typeOf expr))
+      let memory =
+        pairs cols[2] |> Array.toList |> List.map (fun (addr, value) ->
+          let address = Convert.ToUInt64(addr, 16)
+          let bytes = Array.init 8 (fun i -> byte (value >>> (56 - 8 * i)))
+          address, bytes)
+      let result = IRRunner.exec stmts given memory
+      for r, value in registers cols[1] do
+        let actual = (result.Read(variable r)).ToUInt64()
+        Assert.AreEqual(box value, box actual, $"{hex} {r} {endian}")
+      for addr, value in pairs cols[3] do
+        let address = Convert.ToUInt64(addr, 16)
+        let mutable actual = 0UL
+        for i in 0UL .. 7UL do
+          actual <- (actual <<< 8) ||| uint64 result.Memory[address + i]
+        Assert.AreEqual(box value, box actual, $"{hex} {addr} {endian}")
+
+  let lifted hex =
+    let isa = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let parser = Parser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0x20100000UL)
+    let bld = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    ins.Translate bld, regs
+
+  let trap hex expected =
+    let stmts, regs = lifted hex
+    let given =
+      [ Register.R6, 3UL; Register.R7, 5UL ]
+      |> List.map (fun (reg, value) ->
+        regs.GetRegVar(Register.toRegID reg), BitVector(value, 64<rt>))
+    let result = IRRunner.exec stmts given []
+    let expected = if expected then [ 0 ] else []
+    Assert.AreEqual(box expected, box result.Interrupts)
+
+  let clock hex upper =
+    let stmts, _ = lifted hex
+    let calls =
+      stmts |> Array.choose (function
+        | SideEffect(Effect = ClockCounterRead(Some(r, hi))) -> Some(r, hi)
+        | _ -> None)
+    let expected = [| Register.toRegID Register.R5, upper |]
+    let matches = expected = calls
+    Assert.IsTrue matches
+
+  [<TestMethod>]
+  member _.``[PPC T] BA alias values``() =
+    oracle "48000006" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=4
+      ;
+
+      ;
+
+      |
+      """
+    oracle "06000048" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=4
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BLA alias values``() =
+    oracle "48000007" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100004
+      CTR=20100080 VSCR=10000 IAR=4
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07000048" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100004
+      CTR=20100080 VSCR=10000 IAR=4
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BCA alias values``() =
+    oracle "41800006" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "06008041" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] BCLA alias values``() =
+    oracle "41800007" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100004
+      CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07008041" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000 IAR=20100000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100004
+      CTR=20100080 VSCR=10000 IAR=20100004
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPD alias values``() =
+    oracle "7d263800" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0038267d" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPW alias values``() =
+    oracle "7d063800" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0038067d" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLD alias values``() =
+    oracle "7d263840" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4038267d" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLW alias values``() =
+    oracle "7d063840" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4038067d" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPDI alias values``() =
+    oracle "2d26000c" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00262d" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPWI alias values``() =
+    oracle "2d06000c" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00062d" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLDI alias values``() =
+    oracle "2926000c" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c002629" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLWI alias values``() =
+    oracle "2906000c" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c000629" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2498ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRCLR alias values``() =
+    oracle "4c631982" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8219634c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRMOVE alias values``() =
+    oracle "4c642382" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "8223644c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRNOT alias values``() =
+    oracle "4c642042" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=3468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "4220644c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=3468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] CRSET alias values``() =
+    oracle "4c631a42" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=3468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "421a634c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=3468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LI alias values``() =
+    oracle "38a0000c" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=c R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a038" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=c R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LIS alias values``() =
+    oracle "3ca0000c" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=c0000 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0c00a03c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=c0000 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] LWSYNC alias values``() =
+    oracle "7c2004ac" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "ac04207c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFCTR alias values``() =
+    oracle "7ca902a6" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=20100080 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a602a97c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=20100080 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFLR alias values``() =
+    oracle "7ca802a6" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=20100040 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a602a87c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=20100040 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFXER alias values``() =
+    oracle "7ca102a6" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=e00c0000 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a602a17c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=e00c0000 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MFTBU alias values``() =
+    clock "7cad42a6" true
+
+  [<TestMethod>]
+  member _.``[PPC T] MTCTR alias values``() =
+    oracle "7ca903a6" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=123456789abcdef VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a603a97c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=123456789abcdef VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTLR alias values``() =
+    oracle "7ca803a6" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000
+      LR=123456789abcdef CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a603a87c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000
+      LR=123456789abcdef CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MTXER alias values``() =
+    oracle "7ca103a6" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=89abcdef LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "a603a17c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=89abcdef LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] MR alias values``() =
+    oracle "7cc53378" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "7833c57c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=3 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] NOP alias values``() =
+    oracle "60000000" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "00000060" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] ROTLW alias values``() =
+    oracle "5cc5383e" Endian.Big WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=60 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "3e38c55c" Endian.Little WordSize.Bit64 """
+      R5=123456789abcdef R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+      R5=60 R6=3 R7=5 CR=2468ace0 XER=e00c0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] TWEQ alias values``() =
+    trap "7c863808" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWEQI alias values``() =
+    trap "0c86000c" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGE alias values``() =
+    trap "7d863808" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGEI alias values``() =
+    trap "0d86000c" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGT alias values``() =
+    trap "7d063808" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGTI alias values``() =
+    trap "0d06000c" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLE alias values``() =
+    trap "7e863808" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLEI alias values``() =
+    trap "0e86000c" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLGT alias values``() =
+    trap "7c263808" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLGTI alias values``() =
+    trap "0c26000c" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLE alias values``() =
+    trap "7cc63808" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLEI alias values``() =
+    trap "0cc6000c" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLT alias values``() =
+    trap "7c463808" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLTI alias values``() =
+    trap "0c46000c" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLNL alias values``() =
+    trap "7ca63808" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLNLI alias values``() =
+    trap "0ca6000c" false
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLT alias values``() =
+    trap "7e063808" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLTI alias values``() =
+    trap "0e06000c" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWNE alias values``() =
+    trap "7f063808" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TWNEI alias values``() =
+    trap "0f06000c" true
+
+  [<TestMethod>]
+  member _.``[PPC T] TRAP alias values``() =
+    trap "7fe00008" true
+
+  [<TestMethod>]
+  member _.``[PPC T] MFTB time base destination``() =
+    clock "7cac42a6" false
