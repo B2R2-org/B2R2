@@ -54674,3 +54674,1766 @@ type PrefixedLifterTests() =
       0x202000b0=3e4de4c6ad474588 0x202000b8=98a0cb0340b731ac
       |
       """
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVB prefixed values``() =
+    oracle "0500000084221900" Endian.Big """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000084221900" Endian.Little """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVD prefixed values``() =
+    oracle "0500000084221930" Endian.Big """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456789abcdef F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9876543210 VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=1 F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000084221930" Endian.Little """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456789abcdef F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9876543210 VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=1 F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVH prefixed values``() =
+    oracle "0500000084221910" Endian.Big """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000084221910" Endian.Little """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVW prefixed values``() =
+    oracle "0500000084221920" Endian.Big """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000084221920" Endian.Little """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1020304050607 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=8090a0b0c0d0e0f VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7fffffff80000000 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=ffffffff00000001 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7fff8000ffff0001 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f80ff00017f80ff VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5555555555555555 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=aaaaaaaaaaaaaaaa VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=1
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=8000000000000000 F2=8000000000000000 F4=3f VSRL1=0 VSRL3=1 VSRL4=20
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXEVAL prefixed values``() =
+    oracle "0500005a88221910" Endian.Big """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1010101010101010 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=1010101010101010 VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7ffffffe80000001 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=fffffffe00000000 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7ffc8005fff80008 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f8bff0d017080ee VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5a5a5a5a5a5a5a5a F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=a5a5a5a5a5a5a5a5 VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffffffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=7fffffffffffffff VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=800000000000003f F2=8000000000000000 F4=3f VSRL1=20 VSRL3=1
+      VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a88221910" Endian.Little """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1010101010101010 F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=1010101010101010 VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=7ffffffe80000001 F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=fffffffe00000000 VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=7ffc8005fff80008 F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=7f8bff0d017080ee VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=5a5a5a5a5a5a5a5a F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=a5a5a5a5a5a5a5a5 VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=123456776543210 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=fedcba9889abcdef VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=ffffffffffffffff F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=7fffffffffffffff VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=800000000000003f F2=8000000000000000 F4=3f VSRL1=20 VSRL3=1
+      VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXPERMX prefixed values``() =
+    oracle "0500000188221900" Endian.Big """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F2=1020304050607 F3=f0e0d0c0b0a0908 F4=1011121314151617 VSRL1=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=0 F2=7fffffff80000000 F3=1ffffffff F4=100000001 VSRL1=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL4=100000001
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=0 F2=7fff8000ffff0001 F3=1ffff80007fff F4=3000500070009 VSRL1=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL4=b000d000f0011
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=0 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F4=f0f0f0f0f0f0f0f
+      VSRL1=0 VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa
+      VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=0 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff VSRL1=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL4=ffffffff
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=0 F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=1 F2=8000000000000000 F4=3f VSRL1=80 VSRL3=1 VSRL4=20 CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000188221900" Endian.Little """
+      F1=bad0bad0bad0bad F2=1020304050607 F3=f0e0d0c0b0a0908
+      F4=1011121314151617 VSRL1=bad0bad0bad0bad VSRL2=8090a0b0c0d0e0f
+      VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=0 F2=1020304050607 F3=f0e0d0c0b0a0908 F4=1011121314151617 VSRL1=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL4=18191a1b1c1d1e1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffff80000000 F3=1ffffffff F4=100000001
+      VSRL1=bad0bad0bad0bad VSRL2=ffffffff00000001 VSRL3=7fffffff80000000
+      VSRL4=100000001 CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=0 F2=7fffffff80000000 F3=1ffffffff F4=100000001 VSRL1=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL4=100000001
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fff8000ffff0001 F3=1ffff80007fff
+      F4=3000500070009 VSRL1=bad0bad0bad0bad VSRL2=7f80ff00017f80ff
+      VSRL3=7f7f808001010000 VSRL4=b000d000f0011 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=0 F2=7fff8000ffff0001 F3=1ffff80007fff F4=3000500070009 VSRL1=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL4=b000d000f0011
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F3=ffffffffffffffff VSRL1=bad0bad0bad0bad
+      VSRL3=ffffffffffffffff CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F1=0 F3=ffffffffffffffff VSRL1=0 VSRL3=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=5555555555555555 F3=aaaaaaaaaaaaaaaa
+      F4=f0f0f0f0f0f0f0f VSRL1=bad0bad0bad0bad VSRL2=5555555555555555
+      VSRL3=aaaaaaaaaaaaaaaa VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=0 F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F4=f0f0f0f0f0f0f0f
+      VSRL1=0 VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa
+      VSRL4=f0f0f0f0f0f0f0f0 XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff
+      VSRL1=bad0bad0bad0bad VSRL2=fedcba9876543210 VSRL3=123456789abcdef
+      VSRL4=ffffffff CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F1=0 F2=123456789abcdef F3=fedcba9876543210 F4=ffffffff VSRL1=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL4=ffffffff
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=7fffffffffffffff F3=1 F4=8000000000000000
+      VSRL1=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL4=ffffffffffffffff CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F1=0 F2=7fffffffffffffff F3=1 F4=8000000000000000 VSRL1=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL4=ffffffffffffffff CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad F2=8000000000000000 F4=3f VSRL1=bad0bad0bad0bad
+      VSRL3=1 VSRL4=20 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+      F1=1 F2=8000000000000000 F4=3f VSRL1=80 VSRL3=1 VSRL4=20 CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXSPLTI32DX prefixed values``() =
+    oracle "0500123480225678" Endian.Big """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500123480225678" Endian.Little """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+      F1=bad0bad12345678 VSRL1=bad0bad12345678 CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXSPLTIDP prefixed values``() =
+    oracle "0500123480245678" Endian.Big """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500123480245678" Endian.Little """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+      F1=3a468acf00000000 VSRL1=3a468acf00000000 CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] XXSPLTIW prefixed values``() =
+    oracle "0500123480265678" Endian.Big """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500123480265678" Endian.Little """
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F1=bad0bad0bad0bad VSRL1=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+      F1=1234567812345678 VSRL1=1234567812345678 CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """

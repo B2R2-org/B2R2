@@ -81,7 +81,7 @@ let storeInteger ins (bld: ILowUIRBuilder) width =
     loadNative bld width ea := AST.xtlo width (transOpr bld (targetOf ins))
   }
 
-let private doubleOfSingle bld word =
+let doubleOfSingle bld word =
   let w = tmpVar bld 32<rt>
   let res = tmpVar bld 64<rt>
   append bld {
