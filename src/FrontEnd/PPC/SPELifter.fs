@@ -207,7 +207,7 @@ let private reverseBits (bld: ILowUIRBuilder) (word: Expr) =
 
 /// Writes the low word of a general register operand and leaves the high
 /// word alone.
-let private putLow (bld: ILowUIRBuilder) opr lo =
+let putLow (bld: ILowUIRBuilder) opr lo =
   let t = tmpVar bld 32<rt>
   append bld { t := lo }
   match opr with
