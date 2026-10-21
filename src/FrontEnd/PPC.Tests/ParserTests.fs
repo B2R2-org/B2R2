@@ -5856,3 +5856,173 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVMHOUSIANW (Multiply Half Words, Odd, Unsigned,...)``() =
     EVMHOUSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63d84"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMF (Multiply Word High Signed, Modulo,...)``() =
+    EVMWHSMF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c4f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMFA (Multiply Word High Signed, Modulo,...)``() =
+    EVMWHSMFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c6f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMI (Multiply Word High Signed, Modulo, Integer)``() =
+    EVMWHSMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c4d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMIA (Multiply Word High Signed, Modulo,...)``() =
+    EVMWHSMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c6d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSSF (Multiply Word High Signed, Saturate,...)``() =
+    EVMWHSSF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c47"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSSFA (Multiply Word High Signed, Saturate,...)``() =
+    EVMWHSSFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c67"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHUMI (Multiply Word High Unsigned, Modulo, Integer)``() =
+    EVMWHUMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c4c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHUMIA (Multiply Word High Unsigned, Modulo,...)``() =
+    EVMWHUMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c6c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSMIAAW (Multiply Word Low Signed, Modulo,...)``() =
+    EVMWLSMIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d49"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSMIANW (Multiply Word Low Signed, Modulo,...)``() =
+    EVMWLSMIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dc9"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSSIAAW (Multiply Word Low Signed, Saturate,...)``() =
+    EVMWLSSIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d41"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSSIANW (Multiply Word Low Signed, Saturate,...)``() =
+    EVMWLSSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dc1"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMI (Multiply Word Low Unsigned, Modulo, Integer)``() =
+    EVMWLUMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c48"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMIA (Multiply Word Low Unsigned, Modulo,...)``() =
+    EVMWLUMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c68"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMIAAW (Multiply Word Low Unsigned, Modulo,...)``() =
+    EVMWLUMIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d48"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMIANW (Multiply Word Low Unsigned, Modulo,...)``() =
+    EVMWLUMIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dc8"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUSIAAW (Multiply Word Low Unsigned, Saturate,...)``() =
+    EVMWLUSIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d40"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUSIANW (Multiply Word Low Unsigned, Saturate,...)``() =
+    EVMWLUSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dc0"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMF (Multiply Word Signed, Modulo, Fractional)``() =
+    EVMWSMF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c5b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMFA (Multiply Word Signed, Modulo, Fractional...)``() =
+    EVMWSMFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c7b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMFAA (Multiply Word Signed, Modulo, Fractional...)``() =
+    EVMWSMFAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d5b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMFAN (Multiply Word Signed, Modulo, Fractional...)``() =
+    EVMWSMFAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ddb"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMI (Multiply Word Signed, Modulo, Integer)``() =
+    EVMWSMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c59"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMIA (Multiply Word Signed, Modulo, Integer to...)``() =
+    EVMWSMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c79"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMIAA (Multiply Word Signed, Modulo, Integer...)``() =
+    EVMWSMIAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d59"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMIAN (Multiply Word Signed, Modulo, Integer...)``() =
+    EVMWSMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dd9"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSF (Multiply Word Signed, Saturate, Fractional)``() =
+    EVMWSSF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c53"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSFA (Multiply Word Signed, Saturate,...)``() =
+    EVMWSSFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c73"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSFAA (Multiply Word Signed, Saturate,...)``() =
+    EVMWSSFAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d53"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSFAN (Multiply Word Signed, Saturate,...)``() =
+    EVMWSSFAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dd3"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMI (Multiply Word Unsigned, Modulo, Integer)``() =
+    EVMWUMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c58"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMIA (Multiply Word Unsigned, Modulo, Integer...)``() =
+    EVMWUMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c78"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMIAA (Multiply Word Unsigned, Modulo, Integer...)``() =
+    EVMWUMIAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d58"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMIAN (Multiply Word Unsigned, Modulo, Integer...)``() =
+    EVMWUMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dd8"

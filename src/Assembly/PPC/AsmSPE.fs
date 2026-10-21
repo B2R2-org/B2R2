@@ -243,6 +243,43 @@ let private halfEncoders () =
     Op.EVMHOUSIAAW, rrr 1284u
     Op.EVMHOUSIANW, rrr 1412u ]
 
+/// The encoders of the "word" theme.
+let private wordEncoders () =
+  [ Op.EVMWHSMF, rrr 1103u
+    Op.EVMWHSMFA, rrr 1135u
+    Op.EVMWHSMI, rrr 1101u
+    Op.EVMWHSMIA, rrr 1133u
+    Op.EVMWHSSF, rrr 1095u
+    Op.EVMWHSSFA, rrr 1127u
+    Op.EVMWHUMI, rrr 1100u
+    Op.EVMWHUMIA, rrr 1132u
+    Op.EVMWLSMIAAW, rrr 1353u
+    Op.EVMWLSMIANW, rrr 1481u
+    Op.EVMWLSSIAAW, rrr 1345u
+    Op.EVMWLSSIANW, rrr 1473u
+    Op.EVMWLUMI, rrr 1096u
+    Op.EVMWLUMIA, rrr 1128u
+    Op.EVMWLUMIAAW, rrr 1352u
+    Op.EVMWLUMIANW, rrr 1480u
+    Op.EVMWLUSIAAW, rrr 1344u
+    Op.EVMWLUSIANW, rrr 1472u
+    Op.EVMWSMF, rrr 1115u
+    Op.EVMWSMFA, rrr 1147u
+    Op.EVMWSMFAA, rrr 1371u
+    Op.EVMWSMFAN, rrr 1499u
+    Op.EVMWSMI, rrr 1113u
+    Op.EVMWSMIA, rrr 1145u
+    Op.EVMWSMIAA, rrr 1369u
+    Op.EVMWSMIAN, rrr 1497u
+    Op.EVMWSSF, rrr 1107u
+    Op.EVMWSSFA, rrr 1139u
+    Op.EVMWSSFAA, rrr 1363u
+    Op.EVMWSSFAN, rrr 1491u
+    Op.EVMWUMI, rrr 1112u
+    Op.EVMWUMIA, rrr 1144u
+    Op.EVMWUMIAA, rrr 1368u
+    Op.EVMWUMIAN, rrr 1496u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
@@ -250,4 +287,5 @@ let signalProcessingEncoders () =
       shiftEncoders ()
       compareEncoders ()
       memoryEncoders ()
-      halfEncoders () ]
+      halfEncoders ()
+      wordEncoders () ]

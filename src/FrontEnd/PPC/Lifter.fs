@@ -2987,6 +2987,74 @@ let translate (ins: Instruction) bld =
     evmh ins bld Odd Unsigned Clamp Integer AddWords
   | Op.EVMHOUSIANW ->
     evmh ins bld Odd Unsigned Clamp Integer SubtractWords
+  | Op.EVMWHSMF ->
+    evmwPart ins bld High Signed Wrap Fractional Plain
+  | Op.EVMWHSMFA ->
+    evmwPart ins bld High Signed Wrap Fractional ToAccumulator
+  | Op.EVMWHSMI ->
+    evmwPart ins bld High Signed Wrap Integer Plain
+  | Op.EVMWHSMIA ->
+    evmwPart ins bld High Signed Wrap Integer ToAccumulator
+  | Op.EVMWHSSF ->
+    evmwPart ins bld High Signed Clamp Fractional Plain
+  | Op.EVMWHSSFA ->
+    evmwPart ins bld High Signed Clamp Fractional ToAccumulator
+  | Op.EVMWHUMI ->
+    evmwPart ins bld High Unsigned Wrap Integer Plain
+  | Op.EVMWHUMIA ->
+    evmwPart ins bld High Unsigned Wrap Integer ToAccumulator
+  | Op.EVMWLSMIAAW ->
+    evmwPart ins bld Low Signed Wrap Integer AddWords
+  | Op.EVMWLSMIANW ->
+    evmwPart ins bld Low Signed Wrap Integer SubtractWords
+  | Op.EVMWLSSIAAW ->
+    evmwPart ins bld Low Signed Clamp Integer AddWords
+  | Op.EVMWLSSIANW ->
+    evmwPart ins bld Low Signed Clamp Integer SubtractWords
+  | Op.EVMWLUMI ->
+    evmwPart ins bld Low Unsigned Wrap Integer Plain
+  | Op.EVMWLUMIA ->
+    evmwPart ins bld Low Unsigned Wrap Integer ToAccumulator
+  | Op.EVMWLUMIAAW ->
+    evmwPart ins bld Low Unsigned Wrap Integer AddWords
+  | Op.EVMWLUMIANW ->
+    evmwPart ins bld Low Unsigned Wrap Integer SubtractWords
+  | Op.EVMWLUSIAAW ->
+    evmwPart ins bld Low Unsigned Clamp Integer AddWords
+  | Op.EVMWLUSIANW ->
+    evmwPart ins bld Low Unsigned Clamp Integer SubtractWords
+  | Op.EVMWSMF ->
+    evmwWhole ins bld Signed Wrap Fractional Plain
+  | Op.EVMWSMFA ->
+    evmwWhole ins bld Signed Wrap Fractional ToAccumulator
+  | Op.EVMWSMFAA ->
+    evmwWhole ins bld Signed Wrap Fractional AddWhole
+  | Op.EVMWSMFAN ->
+    evmwWhole ins bld Signed Wrap Fractional SubtractWhole
+  | Op.EVMWSMI ->
+    evmwWhole ins bld Signed Wrap Integer Plain
+  | Op.EVMWSMIA ->
+    evmwWhole ins bld Signed Wrap Integer ToAccumulator
+  | Op.EVMWSMIAA ->
+    evmwWhole ins bld Signed Wrap Integer AddWhole
+  | Op.EVMWSMIAN ->
+    evmwWhole ins bld Signed Wrap Integer SubtractWhole
+  | Op.EVMWSSF ->
+    evmwWhole ins bld Signed Clamp Fractional Plain
+  | Op.EVMWSSFA ->
+    evmwWhole ins bld Signed Clamp Fractional ToAccumulator
+  | Op.EVMWSSFAA ->
+    evmwWhole ins bld Signed Clamp Fractional AddWhole
+  | Op.EVMWSSFAN ->
+    evmwWhole ins bld Signed Clamp Fractional SubtractWhole
+  | Op.EVMWUMI ->
+    evmwWhole ins bld Unsigned Wrap Integer Plain
+  | Op.EVMWUMIA ->
+    evmwWhole ins bld Unsigned Wrap Integer ToAccumulator
+  | Op.EVMWUMIAA ->
+    evmwWhole ins bld Unsigned Wrap Integer AddWhole
+  | Op.EVMWUMIAN ->
+    evmwWhole ins bld Unsigned Wrap Integer SubtractWhole
   (* End of lane S. *)
   | o ->
 #if DEBUG

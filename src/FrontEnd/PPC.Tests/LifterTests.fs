@@ -33219,3 +33219,751 @@ type SignalProcessingLifterTests() =
       7fff80007fff8000 7fff80007fff8000 100000001 80008f00
       0 0 c000cf00
       """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMF (Multiply Word High Signed, Modulo,...)``() =
+    (* evmwhsmf r5, r6, r7 *)
+    arith "10a63c4f" """
+      8000000080000000 8000000080000000 0 0
+      8000000080000000 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000180000001 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      800000007ffffffe 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      7ffffffe80000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMFA (Multiply Word High Signed, Modulo,...)``() =
+    (* evmwhsmfa r5, r6, r7 *)
+    arith "10a63c6f" """
+      8000000080000000 8000000080000000 0 0
+      8000000080000000 8000000080000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      8000000080000000 8000000080000000 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7ffffffe7ffffffe 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000180000001 8000000180000001 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      800000007ffffffe 800000007ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      7ffffffe80000000 7ffffffe80000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMI (Multiply Word High Signed, Modulo, Integer)``() =
+    (* evmwhsmi r5, r6, r7 *)
+    arith "10a63c4d" """
+      8000000080000000 8000000080000000 0 0
+      4000000040000000 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000040000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff3fffffff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      c0000000c0000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      400000003fffffff 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      3fffffff40000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSMIA (Multiply Word High Signed, Modulo,...)``() =
+    (* evmwhsmia r5, r6, r7 *)
+    arith "10a63c6d" """
+      8000000080000000 8000000080000000 0 0
+      4000000040000000 4000000040000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000040000000 4000000040000000 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff3fffffff 3fffffff3fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      c0000000c0000000 c0000000c0000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      400000003fffffff 400000003fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      3fffffff40000000 3fffffff40000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSSF (Multiply Word High Signed, Saturate,...)``() =
+    (* evmwhssf r5, r6, r7 *)
+    arith "10a63c47" """
+      8000000080000000 8000000080000000 0 0
+      7fffffff7fffffff 0 c000c000
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7fffffff7fffffff 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000180000001 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7fffffff7ffffffe 7ffffffe7ffffffe c0000f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      7ffffffe7fffffff 100000001 8000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHSSFA (Multiply Word High Signed, Saturate,...)``() =
+    (* evmwhssfa r5, r6, r7 *)
+    arith "10a63c67" """
+      8000000080000000 8000000080000000 0 0
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7ffffffe7ffffffe 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000180000001 8000000180000001 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7fffffff7ffffffe 7fffffff7ffffffe c0000f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      7ffffffe7fffffff 7ffffffe7fffffff 8000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHUMI (Multiply Word High Unsigned, Modulo, Integer)``() =
+    (* evmwhumi r5, r6, r7 *)
+    arith "10a63c4c" """
+      8000000080000000 8000000080000000 0 0
+      4000000040000000 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000040000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff3fffffff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      3fffffff3fffffff 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      0 fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      400000003fffffff 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      3fffffff40000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWHUMIA (Multiply Word High Unsigned, Modulo,...)``() =
+    (* evmwhumia r5, r6, r7 *)
+    arith "10a63c6c" """
+      8000000080000000 8000000080000000 0 0
+      4000000040000000 4000000040000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000040000000 4000000040000000 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff3fffffff 3fffffff3fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      3fffffff3fffffff 3fffffff3fffffff 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      0 0 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      400000003fffffff 400000003fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      3fffffff40000000 3fffffff40000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSMIAAW (Multiply Word Low Signed, Modulo,...)``() =
+    (* evmwlsmiaaw r5, r6, r7 *)
+    arith "10a63d49" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      8000000080000000 8000000080000000 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      0 0 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7fffffff 7ffffffe7fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      200000001 200000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSMIANW (Multiply Word Low Signed, Modulo,...)``() =
+    (* evmwlsmianw r5, r6, r7 *)
+    arith "10a63dc9" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7ffffffe7ffffffe 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      0 0 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7ffffffd 7ffffffe7ffffffd f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      1 1 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSSIAAW (Multiply Word Low Signed, Saturate,...)``() =
+    (* evmwlssiaaw r5, r6, r7 *)
+    arith "10a63d41" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000080000000 8000000080000000 c000c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7fffffff 7ffffffe7fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      200000001 200000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLSSIANW (Multiply Word Low Signed, Saturate,...)``() =
+    (* evmwlssianw r5, r6, r7 *)
+    arith "10a63dc1" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7ffffffe7ffffffe 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      0 0 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7ffffffd 7ffffffe7ffffffd f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      1 1 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMI (Multiply Word Low Unsigned, Modulo, Integer)``() =
+    (* evmwlumi r5, r6, r7 *)
+    arith "10a63c48" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      0 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      100000001 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000080000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      1 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      100000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMIA (Multiply Word Low Unsigned, Modulo,...)``() =
+    (* evmwlumia r5, r6, r7 *)
+    arith "10a63c68" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      0 0 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      100000001 100000001 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000080000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      1 1 f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      100000000 100000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMIAAW (Multiply Word Low Unsigned, Modulo,...)``() =
+    (* evmwlumiaaw r5, r6, r7 *)
+    arith "10a63d48" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      8000000080000000 8000000080000000 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      0 0 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7fffffff 7ffffffe7fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      200000001 200000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUMIANW (Multiply Word Low Unsigned, Modulo,...)``() =
+    (* evmwlumianw r5, r6, r7 *)
+    arith "10a63dc8" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7ffffffe7ffffffe 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      0 0 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7ffffffd 7ffffffe7ffffffd f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      1 1 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUSIAAW (Multiply Word Low Unsigned, Saturate,...)``() =
+    (* evmwlusiaaw r5, r6, r7 *)
+    arith "10a63d40" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      8000000080000000 8000000080000000 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff c000c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      ffffffffffffffff ffffffffffffffff c000c002
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff c000c003
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7fffffff 7ffffffe7fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      200000001 200000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWLUSIANW (Multiply Word Low Unsigned, Saturate,...)``() =
+    (* evmwlusianw r5, r6, r7 *)
+    arith "10a63dc0" """
+      8000000080000000 8000000080000000 0 0
+      0 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe7ffffffe 7ffffffe7ffffffe 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      0 0 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      0 0 c000c003
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe7ffffffd 7ffffffe7ffffffd f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      1 1 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMF (Multiply Word Signed, Modulo, Fractional)``() =
+    (* evmwsmf r5, r6, r7 *)
+    arith "10a63c5b" """
+      8000000080000000 8000000080000000 0 0
+      8000000000000000 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      8000000000000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe00000002 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000100000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      2 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffffffffffe fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe00000002 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      8000000000000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMFA (Multiply Word Signed, Modulo, Fractional...)``() =
+    (* evmwsmfa r5, r6, r7 *)
+    arith "10a63c7b" """
+      8000000080000000 8000000080000000 0 0
+      8000000000000000 8000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      8000000000000000 8000000000000000 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe00000002 7ffffffe00000002 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000100000000 8000000100000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      2 2 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffffffffffe fffffffffffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe00000002 7ffffffe00000002 f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      8000000000000000 8000000000000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMFAA (Multiply Word Signed, Modulo, Fractional...)``() =
+    (* evmwsmfaa r5, r6, r7 *)
+    arith "10a63d5b" """
+      8000000080000000 8000000080000000 0 0
+      8000000000000000 8000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      ffffffff7fffffff ffffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      fffffffd80000001 fffffffd80000001 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      180000000 180000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1 1 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffc fffffffefffffffc 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      fffffffc80000000 fffffffc80000000 f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      8000000100000001 8000000100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMFAN (Multiply Word Signed, Modulo, Fractional...)``() =
+    (* evmwsmfan r5, r6, r7 *)
+    arith "10a63ddb" """
+      8000000080000000 8000000080000000 0 0
+      8000000000000000 8000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      ffffffff7fffffff ffffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      17ffffffd 17ffffffd 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      ffffffff80000000 ffffffff80000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffd fffffffffffffffd 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff00000000 ffffffff00000000 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffc 7ffffffc f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      8000000100000001 8000000100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMI (Multiply Word Signed, Modulo, Integer)``() =
+    (* evmwsmi r5, r6, r7 *)
+    arith "10a63c59" """
+      8000000080000000 8000000080000000 0 0
+      4000000000000000 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000000000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff00000001 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      c000000080000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      3fffffff00000001 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      4000000000000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMIA (Multiply Word Signed, Modulo, Integer to...)``() =
+    (* evmwsmia r5, r6, r7 *)
+    arith "10a63c79" """
+      8000000080000000 8000000080000000 0 0
+      4000000000000000 4000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000000000000 4000000000000000 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff00000001 3fffffff00000001 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      c000000080000000 c000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1 1 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      3fffffff00000001 3fffffff00000001 f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      4000000000000000 4000000000000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMIAA (Multiply Word Signed, Modulo, Integer...)``() =
+    (* evmwsmiaa r5, r6, r7 *)
+    arith "10a63d59" """
+      8000000080000000 8000000080000000 0 0
+      4000000000000000 4000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      bfffffff7fffffff bfffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      bffffffe80000000 bffffffe80000000 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      4000000100000000 4000000100000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffd fffffffefffffffd 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      bffffffd7fffffff bffffffd7fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      4000000100000001 4000000100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSMIAN (Multiply Word Signed, Modulo, Integer...)``() =
+    (* evmwsmian r5, r6, r7 *)
+    arith "10a63dd9" """
+      8000000080000000 8000000080000000 0 0
+      c000000000000000 c000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      3fffffff7fffffff 3fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      400000007ffffffe 400000007ffffffe 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      c000000000000000 c000000000000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffe fffffffffffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffeffffffff fffffffeffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      3fffffff7ffffffd 3fffffff7ffffffd f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      c000000100000001 c000000100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSF (Multiply Word Signed, Saturate, Fractional)``() =
+    (* evmwssf r5, r6, r7 *)
+    arith "10a63c53" """
+      8000000080000000 8000000080000000 0 0
+      7fffffffffffffff 0 c000
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffffffffffff 7fffffff7fffffff 8000c000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe00000002 7fffffff7fffffff 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000100000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      2 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffffffffffe fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe00000002 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      7fffffffffffffff 100000001 8000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSFA (Multiply Word Signed, Saturate,...)``() =
+    (* evmwssfa r5, r6, r7 *)
+    arith "10a63c73" """
+      8000000080000000 8000000080000000 0 0
+      7fffffffffffffff 7fffffffffffffff c000
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      7fffffffffffffff 7fffffffffffffff 8000c000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      7ffffffe00000002 7ffffffe00000002 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      8000000100000000 8000000100000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      2 2 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffffffffffe fffffffffffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffe00000002 7ffffffe00000002 f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      7fffffffffffffff 7fffffffffffffff 8000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSFAA (Multiply Word Signed, Saturate,...)``() =
+    (* evmwssfaa r5, r6, r7 *)
+    arith "10a63d53" """
+      8000000080000000 8000000080000000 0 0
+      7fffffffffffffff 7fffffffffffffff c000
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      ffffffff7ffffffe ffffffff7ffffffe 8000c000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      fffffffd80000001 fffffffd80000001 c000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      180000000 180000000 c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1 1 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffc fffffffefffffffc 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      fffffffc80000000 fffffffc80000000 cf01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      8000000100000000 8000000100000000 8000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWSSFAN (Multiply Word Signed, Saturate,...)``() =
+    (* evmwssfan r5, r6, r7 *)
+    arith "10a63dd3" """
+      8000000080000000 8000000080000000 0 0
+      8000000000000001 8000000000000001 c000
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      ffffffff80000000 ffffffff80000000 8000c000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      17ffffffd 17ffffffd 0
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      ffffffff80000000 ffffffff80000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffd fffffffffffffffd 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff00000000 ffffffff00000000 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      7ffffffc 7ffffffc f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      8000000100000002 8000000100000002 8000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMI (Multiply Word Unsigned, Modulo, Integer)``() =
+    (* evmwumi r5, r6, r7 *)
+    arith "10a63c58" """
+      8000000080000000 8000000080000000 0 0
+      4000000000000000 0 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000000000000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff00000001 7fffffff7fffffff 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      3fffffff80000000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffe00000001 ffffffffffffffff 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff fffffffefffffffe 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      3fffffff00000001 7ffffffe7ffffffe f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      4000000000000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMIA (Multiply Word Unsigned, Modulo, Integer...)``() =
+    (* evmwumia r5, r6, r7 *)
+    arith "10a63c78" """
+      8000000080000000 8000000080000000 0 0
+      4000000000000000 4000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      4000000000000000 4000000000000000 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      3fffffff00000001 3fffffff00000001 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      3fffffff80000000 3fffffff80000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffe00000001 fffffffe00000001 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff ffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      3fffffff00000001 3fffffff00000001 f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      4000000000000000 4000000000000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMIAA (Multiply Word Unsigned, Modulo, Integer...)``() =
+    (* evmwumiaa r5, r6, r7 *)
+    arith "10a63d58" """
+      8000000080000000 8000000080000000 0 0
+      4000000000000000 4000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      bfffffff7fffffff bfffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      bffffffe80000000 bffffffe80000000 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      c000000000000000 c000000000000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffe00000000 fffffffe00000000 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffffffffffd fffffffffffffffd 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      bffffffd7fffffff bffffffd7fffffff f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      4000000100000001 4000000100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMWUMIAN (Multiply Word Unsigned, Modulo, Integer...)``() =
+    (* evmwumian r5, r6, r7 *)
+    arith "10a63dd8" """
+      8000000080000000 8000000080000000 0 0
+      c000000000000000 c000000000000000 0
+      8000000080000000 8000000080000000 7fffffff7fffffff 80008000
+      3fffffff7fffffff 3fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff 7fffffff7fffffff 40004000
+      400000007ffffffe 400000007ffffffe 40004000
+      7fffffff7fffffff 8000000080000000 8000000080000000 1
+      4000000100000000 4000000100000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1fffffffe 1fffffffe 2
+      100000001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdffffffff fffffffdffffffff 3
+      800000007fffffff 800000007fffffff 7ffffffe7ffffffe f01
+      3fffffff7ffffffd 3fffffff7ffffffd f01
+      7fffffff80000000 7fffffff80000000 100000001 80008f00
+      c000000100000001 c000000100000001 80008f00
+      """

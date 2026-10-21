@@ -248,3 +248,87 @@ let evmhGuarded ins bld half sign kind accumulate =
     append bld { result := sum }
     commit bld rt (AST.xthi 32<rt> result) (AST.xtlo 32<rt> result) true None
   }
+
+/// Which word of the 64-bit product of two words a multiply keeps.
+type WordPart =
+  | High
+  | Low
+
+/// The 64-bit product of two words.
+let private wordProduct sign kind (a: Expr) (b: Expr) =
+  let widen (x: Expr) =
+    match sign with
+    | Signed -> AST.sext 64<rt> x
+    | Unsigned -> AST.zext 64<rt> x
+  let exact = widen a .* widen b
+  match kind with
+  | Integer -> exact
+  | Fractional -> exact << numI32 1 64<rt>
+
+/// Whether both words are the most negative fraction, which a saturating
+/// fractional multiply turns into the largest positive one.
+let private bothMostNegative (a: Expr) (b: Expr) =
+  let minusOne = num32 0x80000000u
+  (a == minusOne) .& (b == minusOne)
+
+/// The multiplies of each pair of words that keep the high or the low word of
+/// the product: evmwhsmf, evmwhssfa, evmwlumiaaw, evmwlssianw and the rest.
+let evmwPart ins bld part sign saturation kind accumulate =
+  lift bld ins {
+    let struct (rt, ra, rb) = getThreeOprs ins
+    let struct (ah, al) = wordsOf bld ra
+    let struct (bh, bl) = wordsOf bld rb
+    let struct (acch, accl) = accumulatorWords bld
+    let saturates = reports saturation && kind = Fractional
+    let element a b acc =
+      let p = wordProduct sign kind a b
+      let value = if part = High then AST.xthi 32<rt> p else AST.xtlo 32<rt> p
+      let special = bothMostNegative a b
+      let shown = if saturates && part = High then special else AST.b0
+      let chosen = AST.ite shown (num32 0x7fffffffu) value
+      let flagged = reports saturation
+      finish bld sign saturation accumulate flagged (struct (chosen, shown)) acc
+    let struct (hi, ovh) = element ah bh acch
+    let struct (lo, ovl) = element al bl accl
+    let flags = if reports saturation then Some(struct (ovh, ovl)) else None
+    commit bld rt hi lo (accumulate <> Plain) flags
+  }
+
+/// The multiplies of the low words, whose 64-bit product goes to RT whole,
+/// into the accumulator too, or added to or subtracted from it: evmwsmi,
+/// evmwumia, evmwsmfaa, evmwssfan and the rest.
+let evmwWhole ins bld sign saturation kind accumulate =
+  lift bld ins {
+    let struct (rt, ra, rb) = getThreeOprs ins
+    let struct (_, al) = wordsOf bld ra
+    let struct (_, bl) = wordsOf bld rb
+    let acc = regVar bld Register.ACC
+    let saturates = reports saturation && kind = Fractional
+    let special = bothMostNegative al bl
+    let product = wordProduct sign kind al bl
+    let most = numU64 0x7fffffffffffffffUL 64<rt>
+    let p = tmpVar bld 64<rt>
+    let mov = tmpVar bld 1<rt>
+    append bld {
+      p := if saturates then AST.ite special most product else product
+      mov := if saturates then special else AST.b0
+    }
+    let sums = accumulate = AddWhole || accumulate = SubtractWhole
+    let wide (x: Expr) = AST.sext 128<rt> x
+    let t = tmpVar bld 128<rt>
+    let ov = tmpVar bld 1<rt>
+    let result = tmpVar bld 64<rt>
+    let a, b = wide acc, wide p
+    let total = if accumulate = SubtractWhole then a .- b else a .+ b
+    let carried = AST.extract t 1<rt> 64 <+> AST.extract t 1<rt> 63
+    append bld {
+      t := total
+      ov := if saturates && sums then carried else AST.b0
+      result := if sums then AST.xtlo 64<rt> t else p
+    }
+    let hi = AST.xthi 32<rt> result
+    let lo = AST.xtlo 32<rt> result
+    let zero = AST.b0
+    let flags = if saturates then Some(struct (zero, ov .| mov)) else None
+    commit bld rt hi lo (accumulate <> Plain) flags
+  }
