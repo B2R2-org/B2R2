@@ -362,7 +362,14 @@ let vecDivide ins bld esize signed kind =
       if kind = ExtendedQuotient then dividend << numI32 n wide else dividend
     let divisor = widen signed wide b
     let zero = divisor == AST.num0 wide
-    let safe = AST.ite zero (AST.num1 wide) divisor
+    let overflow =
+      if signed && kind = ExtendedQuotient then
+        let min = AST.num1 wide << numI32 (2 * n - 1) wide
+        (dividend == min) .& (divisor == AST.not (AST.num0 wide))
+      else
+        AST.b0
+    let invalid = zero .| overflow
+    let safe = AST.ite invalid (AST.num1 wide) divisor
     let answer =
       match kind, signed with
       | Remainder, true -> dividend ?% safe
@@ -370,7 +377,7 @@ let vecDivide ins bld esize signed kind =
       | _, true -> dividend ?/ safe
       | _, false -> dividend ./ safe
     let undefined = if kind = Remainder then AST.num0 esize else a
-    AST.ite zero undefined (AST.xtlo esize answer))
+    AST.ite invalid undefined (AST.xtlo esize answer))
 
 /// vsum4ubs/vsum4sbs/vsum4shs: each word of vD the sum of the elements of vA
 /// that lie within it plus the matching word of vB, computed exactly and
