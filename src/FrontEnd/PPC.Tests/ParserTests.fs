@@ -6745,3 +6745,88 @@ type VLEParserTests() =
   member _.``[PPC VLE] SE_ANDI (AND immediate)``() =
     SE_ANDI ** [ O.Reg R3; O.Imm 0x5UL ]
     |> testVLE "2e53"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SLW (shift left word)``() =
+    SE_SLW ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4243"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRW (shift right word)``() =
+    SE_SRW ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4043"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRAW (shift right algebraic word)``() =
+    SE_SRAW ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4143"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SLWI (shift left word immediate)``() =
+    SE_SLWI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6c53"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRWI (shift right word immediate)``() =
+    SE_SRWI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6853"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRAWI (shift right algebraic word immediate)``() =
+    SE_SRAWI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6a53"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BCLRI (bit clear immediate)``() =
+    SE_BCLRI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6053"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BGENI (bit generate immediate)``() =
+    SE_BGENI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6253"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BMASKI (bit mask generate immediate)``() =
+    SE_BMASKI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2c53"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BSETI (bit set immediate)``() =
+    SE_BSETI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6453"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BTSTI (bit test immediate)``() =
+    SE_BTSTI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "6653"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMP (compare word)``() =
+    SE_CMP ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0c43"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPL (compare logical word)``() =
+    SE_CMPL ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0d43"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPH (compare halfword)``() =
+    SE_CMPH ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0e43"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPHL (compare halfword logical)``() =
+    SE_CMPHL ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0f43"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPI (compare immediate word)``() =
+    SE_CMPI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2a53"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPLI (compare logical immediate word)``() =
+    SE_CMPLI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2243"

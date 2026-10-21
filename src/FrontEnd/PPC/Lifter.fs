@@ -3292,6 +3292,36 @@ let translate (ins: Instruction) bld =
     VLELifter.subtractImmediate ins bld true
   | Op.SE_ANDI ->
     VLELifter.andImmediate ins bld
+  | Op.SE_SLW ->
+    slw (VLELifter.dyadic ins) false bld
+  | Op.SE_SRW ->
+    srw (VLELifter.dyadic ins) false bld
+  | Op.SE_SRAW ->
+    sraw (VLELifter.dyadic ins) false bld
+  | Op.SE_SLWI ->
+    rlwinm (VLELifter.shiftLeftImmediate ins) false bld
+  | Op.SE_SRWI ->
+    rlwinm (VLELifter.shiftRightImmediate ins) false bld
+  | Op.SE_SRAWI ->
+    srawi (VLELifter.shiftRightAlgebraicImmediate ins) false bld
+  | Op.SE_BCLRI ->
+    VLELifter.clearBit ins bld
+  | Op.SE_BGENI ->
+    VLELifter.generateBit ins bld
+  | Op.SE_BSETI ->
+    VLELifter.setBit ins bld
+  | Op.SE_BMASKI ->
+    VLELifter.generateMask ins bld
+  | Op.SE_BTSTI ->
+    VLELifter.testBit ins bld
+  | Op.SE_CMP | Op.SE_CMPI ->
+    cmp (VLELifter.compareInCR0 ins) bld true
+  | Op.SE_CMPL | Op.SE_CMPLI ->
+    cmpl (VLELifter.compareInCR0 ins) bld true
+  | Op.SE_CMPH ->
+    VLELifter.compareHalfword ins bld true
+  | Op.SE_CMPHL ->
+    VLELifter.compareHalfword ins bld false
   (* End of lane L. *)
   | o ->
 #if DEBUG

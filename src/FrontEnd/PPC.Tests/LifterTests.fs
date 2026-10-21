@@ -43062,3 +43062,600 @@ type VLELifterTests() =
       let given = [ R3, r3 ]
       let wanted = [ R3, r3' ]
       check isa "2e53" given wanted
+
+  /// <summary>
+  /// se_slw RX,RY shifts the low word of RX left by the six low bits of RY and
+  /// puts the result in the low word of RX, with the high word cleared: shift
+  /// amounts from 32 to 63 give zero. (Book VLE 5.10) It is slw RX,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SLW shifts the low word left``() =
+    (* se_slw r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x12345678UL, 0x4UL, 0x23456780UL)
+        (vle32, 0x1UL, 0x1fUL, 0x80000000UL)
+        (vle32, 0x1UL, 0x20UL, 0UL)
+        (vle32, 0x80000000UL, 0x1UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0x8UL, 0xbcdef000UL)
+        (vle32, 0xffffffffUL, 0UL, 0xffffffffUL)
+        (vle32, 0x3UL, 0x3fUL, 0UL)
+        (vle32, 0xf0f0f0f0UL, 0x24UL, 0UL)
+        (vle64, 0x12345678UL, 0x4UL, 0x23456780UL)
+        (vle64, 0x1UL, 0x1fUL, 0x80000000UL)
+        (vle64, 0x1UL, 0x20UL, 0UL)
+        (vle64, 0x80000000UL, 0x1UL, 0UL)
+        (vle64, w1, 0x8UL, 0xbcdef000UL)
+        (vle64, 0xffffffffUL, 0UL, 0xffffffffUL)
+        (vle64, 0x3UL, 0x3fUL, 0UL)
+        (vle64, 0xf0f0f0f0UL, 0x24UL, 0UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "4243" given wanted
+    for isa in vleTargets do sameAs isa "4243" "7c632030"
+
+  /// <summary>
+  /// se_srw RX,RY shifts the low word of RX right by the six low bits of RY,
+  /// filling with zeros, and puts the result in the low word of RX, with the
+  /// high word cleared: shift amounts from 32 to 63 give zero. (Book VLE 5.10)
+  /// It is srw RX,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRW shifts the low word right``() =
+    (* se_srw r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x12345678UL, 0x4UL, 0x1234567UL)
+        (vle32, 0x1UL, 0x1fUL, 0UL)
+        (vle32, 0x1UL, 0x20UL, 0UL)
+        (vle32, 0x80000000UL, 0x1UL, 0x40000000UL)
+        (vle32, 0x9abcdef0UL, 0x8UL, 0x9abcdeUL)
+        (vle32, 0xffffffffUL, 0UL, 0xffffffffUL)
+        (vle32, 0x3UL, 0x3fUL, 0UL)
+        (vle32, 0xf0f0f0f0UL, 0x24UL, 0UL)
+        (vle64, 0x12345678UL, 0x4UL, 0x1234567UL)
+        (vle64, 0x1UL, 0x1fUL, 0UL)
+        (vle64, 0x1UL, 0x20UL, 0UL)
+        (vle64, 0x80000000UL, 0x1UL, 0x40000000UL)
+        (vle64, w1, 0x8UL, 0x9abcdeUL)
+        (vle64, 0xffffffffUL, 0UL, 0xffffffffUL)
+        (vle64, 0x3UL, 0x3fUL, 0UL)
+        (vle64, 0xf0f0f0f0UL, 0x24UL, 0UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "4043" given wanted
+    for isa in vleTargets do sameAs isa "4043" "7c632430"
+
+  /// <summary>
+  /// se_sraw RX,RY shifts the low word of RX right by the six low bits of RY,
+  /// filling with its sign bit, and puts the result, sign-extended into the
+  /// high word, in RX. XER[CA] is set when the word is negative and a one bit
+  /// was shifted out, and cleared otherwise; an amount from 32 to 63 gives all
+  /// sign bits and sets XER[CA] for a negative word. Each case runs with
+  /// XER[CA] set and with it clear, so that a write of either value shows.
+  /// (Book VLE 5.10) It is sraw RX,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRAW shifts the low word right algebraically``() =
+    (* se_sraw r3,r4 *)
+    let w1 = 0xfffffffff8000000UL
+    let w2 = 0xffffffffffffffffUL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0xffffffffff9abcdeUL
+    let w5 = 0xfedcba9876543210UL
+    let w6 = 0xffffffff80000000UL
+    for isa, r3, r4, xer, r3', xer' in
+      [ (vle32, 0x80000000UL, 0x4UL, 0UL, 0xf8000000UL, 0UL)
+        (vle32, 0xfffffff0UL, 0x4UL, 0UL, 0xffffffffUL, 0UL)
+        (vle32, 0xfffffff1UL, 0x4UL, 0UL, 0xffffffffUL, ca)
+        (vle32, 0x7fffffffUL, 0x3UL, 0UL, 0xfffffffUL, 0UL)
+        (vle32, 0x80000000UL, 0x20UL, 0UL, 0xffffffffUL, ca)
+        (vle32, 0x80000001UL, 0x28UL, 0UL, 0xffffffffUL, ca)
+        (vle32, 0x7fffffffUL, 0x3fUL, 0UL, 0UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0x8UL, 0UL, 0xff9abcdeUL, ca)
+        (vle32, 0x76543210UL, 0xcUL, 0UL, 0x76543UL, 0UL)
+        (vle32, 0x80000000UL, 0UL, 0UL, 0x80000000UL, 0UL)
+        (vle32, 0x80000000UL, 0x4UL, ca, 0xf8000000UL, 0UL)
+        (vle32, 0xfffffff0UL, 0x4UL, ca, 0xffffffffUL, 0UL)
+        (vle32, 0xfffffff1UL, 0x4UL, ca, 0xffffffffUL, ca)
+        (vle32, 0x7fffffffUL, 0x3UL, ca, 0xfffffffUL, 0UL)
+        (vle32, 0x80000000UL, 0x20UL, ca, 0xffffffffUL, ca)
+        (vle32, 0x80000001UL, 0x28UL, ca, 0xffffffffUL, ca)
+        (vle32, 0x7fffffffUL, 0x3fUL, ca, 0UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0x8UL, ca, 0xff9abcdeUL, ca)
+        (vle32, 0x76543210UL, 0xcUL, ca, 0x76543UL, 0UL)
+        (vle32, 0x80000000UL, 0UL, ca, 0x80000000UL, 0UL)
+        (vle64, 0x80000000UL, 0x4UL, 0UL, w1, 0UL)
+        (vle64, 0xfffffff0UL, 0x4UL, 0UL, w2, 0UL)
+        (vle64, 0xfffffff1UL, 0x4UL, 0UL, w2, ca)
+        (vle64, 0x7fffffffUL, 0x3UL, 0UL, 0xfffffffUL, 0UL)
+        (vle64, 0x80000000UL, 0x20UL, 0UL, w2, ca)
+        (vle64, 0x80000001UL, 0x28UL, 0UL, w2, ca)
+        (vle64, 0x7fffffffUL, 0x3fUL, 0UL, 0UL, 0UL)
+        (vle64, w3, 0x8UL, 0UL, w4, ca)
+        (vle64, w5, 0xcUL, 0UL, 0x76543UL, 0UL)
+        (vle64, 0x80000000UL, 0UL, 0UL, w6, 0UL)
+        (vle64, 0x80000000UL, 0x4UL, ca, w1, 0UL)
+        (vle64, 0xfffffff0UL, 0x4UL, ca, w2, 0UL)
+        (vle64, 0xfffffff1UL, 0x4UL, ca, w2, ca)
+        (vle64, 0x7fffffffUL, 0x3UL, ca, 0xfffffffUL, 0UL)
+        (vle64, 0x80000000UL, 0x20UL, ca, w2, ca)
+        (vle64, 0x80000001UL, 0x28UL, ca, w2, ca)
+        (vle64, 0x7fffffffUL, 0x3fUL, ca, 0UL, 0UL)
+        (vle64, w3, 0x8UL, ca, w4, ca)
+        (vle64, w5, 0xcUL, ca, 0x76543UL, 0UL)
+        (vle64, 0x80000000UL, 0UL, ca, w6, 0UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer' ]
+      check isa "4143" given wanted
+    for isa in vleTargets do sameAs isa "4143" "7c632630"
+
+  /// <summary>
+  /// se_slwi RX,UI5 shifts the low word of RX left by UI5 (the sample is 5) and
+  /// puts the result in the low word of RX, with the high word cleared. (Book
+  /// VLE 5.10) It is the rotate that keeps the bits from 0 to 31 - UI5.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SLWI shifts the low word left by a number``() =
+    (* se_slwi r3,5 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xfedcba9876543210UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x468acf00UL)
+        (vle32, 0x80000000UL, 0UL)
+        (vle32, 0xffffffffUL, 0xffffffe0UL)
+        (vle32, 0x9abcdef0UL, 0x579bde00UL)
+        (vle32, 0x76543210UL, 0xca864200UL)
+        (vle32, 0x1fUL, 0x3e0UL)
+        (vle64, 0x12345678UL, 0x468acf00UL)
+        (vle64, 0x80000000UL, 0UL)
+        (vle64, 0xffffffffUL, 0xffffffe0UL)
+        (vle64, w1, 0x579bde00UL)
+        (vle64, w2, 0xca864200UL)
+        (vle64, 0x1fUL, 0x3e0UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "6c53" given wanted
+
+  /// <summary>
+  /// se_srwi RX,UI5 shifts the low word of RX right by UI5 (the sample is 5),
+  /// filling with zeros, and puts the result in the low word of RX, with the
+  /// high word cleared. (Book VLE 5.10)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRWI shifts the low word right by a number``() =
+    (* se_srwi r3,5 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xfedcba9876543210UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x91a2b3UL)
+        (vle32, 0x80000000UL, 0x4000000UL)
+        (vle32, 0xffffffffUL, 0x7ffffffUL)
+        (vle32, 0x9abcdef0UL, 0x4d5e6f7UL)
+        (vle32, 0x76543210UL, 0x3b2a190UL)
+        (vle32, 0x1fUL, 0UL)
+        (vle64, 0x12345678UL, 0x91a2b3UL)
+        (vle64, 0x80000000UL, 0x4000000UL)
+        (vle64, 0xffffffffUL, 0x7ffffffUL)
+        (vle64, w1, 0x4d5e6f7UL)
+        (vle64, w2, 0x3b2a190UL)
+        (vle64, 0x1fUL, 0UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "6853" given wanted
+
+  /// <summary>
+  /// se_srawi RX,UI5 shifts the low word of RX right by UI5 (the sample is 5),
+  /// filling with its sign bit, and puts the result, sign-extended into the
+  /// high word, in RX. XER[CA] is set when the word is negative and a one bit
+  /// was shifted out, and cleared otherwise. (Book VLE 5.10) It is srawi.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SRAWI shifts right algebraically by a number``() =
+    (* se_srawi r3,5 *)
+    let w1 = 0xfffffffffc000000UL
+    let w2 = 0xffffffffffffffffUL
+    let w3 = 0xfedcba9876543210UL
+    for isa, r3, xer, r3', xer' in
+      [ (vle32, 0x80000000UL, 0UL, 0xfc000000UL, 0UL)
+        (vle32, 0xffffffe0UL, 0UL, 0xffffffffUL, 0UL)
+        (vle32, 0xffffffe1UL, 0UL, 0xffffffffUL, ca)
+        (vle32, 0x7fffffffUL, 0UL, 0x3ffffffUL, 0UL)
+        (vle32, 0x12345678UL, 0UL, 0x91a2b3UL, 0UL)
+        (vle32, 0x76543210UL, 0UL, 0x3b2a190UL, 0UL)
+        (vle32, 0x80000000UL, ca, 0xfc000000UL, 0UL)
+        (vle32, 0xffffffe0UL, ca, 0xffffffffUL, 0UL)
+        (vle32, 0xffffffe1UL, ca, 0xffffffffUL, ca)
+        (vle32, 0x7fffffffUL, ca, 0x3ffffffUL, 0UL)
+        (vle32, 0x12345678UL, ca, 0x91a2b3UL, 0UL)
+        (vle32, 0x76543210UL, ca, 0x3b2a190UL, 0UL)
+        (vle64, 0x80000000UL, 0UL, w1, 0UL)
+        (vle64, 0xffffffe0UL, 0UL, w2, 0UL)
+        (vle64, 0xffffffe1UL, 0UL, w2, ca)
+        (vle64, 0x7fffffffUL, 0UL, 0x3ffffffUL, 0UL)
+        (vle64, 0x12345678UL, 0UL, 0x91a2b3UL, 0UL)
+        (vle64, w3, 0UL, 0x3b2a190UL, 0UL)
+        (vle64, 0x80000000UL, ca, w1, 0UL)
+        (vle64, 0xffffffe0UL, ca, w2, 0UL)
+        (vle64, 0xffffffe1UL, ca, w2, ca)
+        (vle64, 0x7fffffffUL, ca, 0x3ffffffUL, 0UL)
+        (vle64, 0x12345678UL, ca, 0x91a2b3UL, 0UL)
+        (vle64, w3, ca, 0x3b2a190UL, 0UL) ] do
+      let given = [ R3, r3; XER, xer ]
+      let wanted = [ R3, r3'; XER, xer' ]
+      check isa "6a53" given wanted
+
+  /// <summary>
+  /// se_bclri RX,UI5 clears bit UI5 + 32 of RX, which is bit 31 - UI5 counted
+  /// from the least significant (the sample is UI5 = 5, bit 26). (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BCLRI clears a bit``() =
+    (* se_bclri r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0xfffffffffbffffffUL
+    let w3 = 0x123456789abcdef0UL
+    for isa, r3, r3' in
+      [ (vle32, 0xffffffffUL, 0xfbffffffUL)
+        (vle32, 0xffffffffUL, 0xfbffffffUL)
+        (vle32, 0x4000000UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0x9abcdef0UL)
+        (vle32, 0UL, 0UL)
+        (vle64, 0xffffffffUL, 0xfbffffffUL)
+        (vle64, w1, w2)
+        (vle64, 0x4000000UL, 0UL)
+        (vle64, w3, w3)
+        (vle64, 0UL, 0UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "6053" given wanted
+
+  /// <summary>
+  /// se_bgeni RX,UI5 puts a one in bit UI5 + 32 of RX and zeros everywhere
+  /// else, whatever RX held: with UI5 = 5 that is bit 26 from the least
+  /// significant. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BGENI generates a single bit``() =
+    (* se_bgeni r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0x123456789abcdef0UL
+    for isa, r3, r3' in
+      [ (vle32, 0UL, 0x4000000UL)
+        (vle32, 0xffffffffUL, 0x4000000UL)
+        (vle32, 0x9abcdef0UL, 0x4000000UL)
+        (vle64, 0UL, 0x4000000UL)
+        (vle64, w1, 0x4000000UL)
+        (vle64, w2, 0x4000000UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "6253" given wanted
+
+  /// <summary>
+  /// se_bmaski RX,UI5 puts UI5 ones in the low bits of RX and zeros above them:
+  /// the sample is 5, giving 0x1f. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BMASKI generates a mask of ones``() =
+    (* se_bmaski r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0x123456789abcdef0UL
+    for isa, r3, r3' in
+      [ (vle32, 0UL, 0x1fUL)
+        (vle32, 0xffffffffUL, 0x1fUL)
+        (vle32, 0x9abcdef0UL, 0x1fUL)
+        (vle64, 0UL, 0x1fUL)
+        (vle64, w1, 0x1fUL)
+        (vle64, w2, 0x1fUL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "2c53" given wanted
+
+  /// <summary>
+  /// se_bseti RX,UI5 sets bit UI5 + 32 of RX, which is bit 31 - UI5 counted
+  /// from the least significant (the sample is UI5 = 5, bit 26), and leaves
+  /// every other bit alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BSETI sets a bit``() =
+    (* se_bseti r3,5 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789ebcdef0UL
+    for isa, r3, r3' in
+      [ (vle32, 0UL, 0x4000000UL)
+        (vle32, 0xffffffffUL, 0xffffffffUL)
+        (vle32, 0x9abcdef0UL, 0x9ebcdef0UL)
+        (vle64, 0UL, 0x4000000UL)
+        (vle64, 0xffffffffUL, 0xffffffffUL)
+        (vle64, w1, w2) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "6453" given wanted
+
+  /// <summary>
+  /// se_btsti RX,UI5 tests bit UI5 + 32 of RX (bit 26 from the least
+  /// significant for the sample) and records it in CR0 without changing RX: LT
+  /// is cleared, GT is set if the bit is one and EQ if it is zero, and SO is
+  /// copied from XER[SO]. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BTSTI tests a bit``() =
+    (* se_btsti r3,5 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffffffffffffUL
+    for isa, r3, xer, cr0' in
+      [ (vle32, 0x4000000UL, 0UL, 0x4UL)
+        (vle32, 0UL, 0UL, 0x2UL)
+        (vle32, 0xfbffffffUL, 0UL, 0x2UL)
+        (vle32, 0x9abcdef0UL, 0UL, 0x2UL)
+        (vle32, 0xffffffffUL, 0UL, 0x4UL)
+        (vle32, 0x4000000UL, so, 0x5UL)
+        (vle32, 0UL, so, 0x3UL)
+        (vle32, 0xfbffffffUL, so, 0x3UL)
+        (vle32, 0x9abcdef0UL, so, 0x3UL)
+        (vle32, 0xffffffffUL, so, 0x5UL)
+        (vle64, 0x4000000UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0UL, 0x2UL)
+        (vle64, 0xfbffffffUL, 0UL, 0x2UL)
+        (vle64, w1, 0UL, 0x2UL)
+        (vle64, w2, 0UL, 0x4UL)
+        (vle64, 0x4000000UL, so, 0x5UL)
+        (vle64, 0UL, so, 0x3UL)
+        (vle64, 0xfbffffffUL, so, 0x3UL)
+        (vle64, w1, so, 0x3UL)
+        (vle64, w2, so, 0x5UL) ] do
+      let given = [ R3, r3; XER, xer ]
+      let wanted = [ R3, r3; XER, xer; CR0, cr0' ]
+      check isa "6653" given wanted
+
+  /// <summary>
+  /// se_cmp RX,RY compares the low words of RX and RY as signed numbers and
+  /// puts the result in CR0: LT, GT or EQ, and SO copied from XER[SO]. The high
+  /// words are not looked at. (Book VLE 5.6) It is cmpw cr0,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMP compares words as signed numbers``() =
+    (* se_cmp r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffff9abcdef0UL
+    for isa, r3, r4, xer, cr0' in
+      [ (vle32, 0x12345678UL, 0x12345678UL, 0UL, 0x2UL)
+        (vle32, 0x7fffffffUL, 0x80000000UL, 0UL, 0x4UL)
+        (vle32, 0x80000000UL, 0x1UL, 0UL, 0x8UL)
+        (vle32, 0x1UL, 0x1UL, 0UL, 0x2UL)
+        (vle32, 0x9abcdef0UL, 0x9abcdef0UL, 0UL, 0x2UL)
+        (vle32, 0x1UL, 0xffffffffUL, 0UL, 0x4UL)
+        (vle32, 0UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x12345678UL, 0x12345678UL, so, 0x3UL)
+        (vle32, 0x7fffffffUL, 0x80000000UL, so, 0x5UL)
+        (vle32, 0x80000000UL, 0x1UL, so, 0x9UL)
+        (vle32, 0x1UL, 0x1UL, so, 0x3UL)
+        (vle32, 0x9abcdef0UL, 0x9abcdef0UL, so, 0x3UL)
+        (vle32, 0x1UL, 0xffffffffUL, so, 0x5UL)
+        (vle32, 0UL, 0UL, so, 0x3UL)
+        (vle64, 0x12345678UL, 0x12345678UL, 0UL, 0x2UL)
+        (vle64, 0x7fffffffUL, 0x80000000UL, 0UL, 0x4UL)
+        (vle64, 0x80000000UL, 0x1UL, 0UL, 0x8UL)
+        (vle64, 0x100000001UL, 0x1UL, 0UL, 0x2UL)
+        (vle64, w1, w2, 0UL, 0x2UL)
+        (vle64, 0x1UL, 0xffffffffUL, 0UL, 0x4UL)
+        (vle64, 0UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x12345678UL, 0x12345678UL, so, 0x3UL)
+        (vle64, 0x7fffffffUL, 0x80000000UL, so, 0x5UL)
+        (vle64, 0x80000000UL, 0x1UL, so, 0x9UL)
+        (vle64, 0x100000001UL, 0x1UL, so, 0x3UL)
+        (vle64, w1, w2, so, 0x3UL)
+        (vle64, 0x1UL, 0xffffffffUL, so, 0x5UL)
+        (vle64, 0UL, 0UL, so, 0x3UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "0c43" given wanted
+    for isa in vleTargets do sameAs isa "0c43" "7c032000"
+
+  /// <summary>
+  /// se_cmpl RX,RY compares the low words of RX and RY as unsigned numbers and
+  /// puts the result in CR0, as se_cmp does. (Book VLE 5.6) It is cmplw
+  /// cr0,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPL compares words as unsigned numbers``() =
+    (* se_cmpl r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffff9abcdef0UL
+    for isa, r3, r4, xer, cr0' in
+      [ (vle32, 0x12345678UL, 0x12345678UL, 0UL, 0x2UL)
+        (vle32, 0x7fffffffUL, 0x80000000UL, 0UL, 0x8UL)
+        (vle32, 0x80000000UL, 0x1UL, 0UL, 0x4UL)
+        (vle32, 0x1UL, 0x1UL, 0UL, 0x2UL)
+        (vle32, 0x9abcdef0UL, 0x9abcdef0UL, 0UL, 0x2UL)
+        (vle32, 0x1UL, 0xffffffffUL, 0UL, 0x8UL)
+        (vle32, 0UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x12345678UL, 0x12345678UL, so, 0x3UL)
+        (vle32, 0x7fffffffUL, 0x80000000UL, so, 0x9UL)
+        (vle32, 0x80000000UL, 0x1UL, so, 0x5UL)
+        (vle32, 0x1UL, 0x1UL, so, 0x3UL)
+        (vle32, 0x9abcdef0UL, 0x9abcdef0UL, so, 0x3UL)
+        (vle32, 0x1UL, 0xffffffffUL, so, 0x9UL)
+        (vle32, 0UL, 0UL, so, 0x3UL)
+        (vle64, 0x12345678UL, 0x12345678UL, 0UL, 0x2UL)
+        (vle64, 0x7fffffffUL, 0x80000000UL, 0UL, 0x8UL)
+        (vle64, 0x80000000UL, 0x1UL, 0UL, 0x4UL)
+        (vle64, 0x100000001UL, 0x1UL, 0UL, 0x2UL)
+        (vle64, w1, w2, 0UL, 0x2UL)
+        (vle64, 0x1UL, 0xffffffffUL, 0UL, 0x8UL)
+        (vle64, 0UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x12345678UL, 0x12345678UL, so, 0x3UL)
+        (vle64, 0x7fffffffUL, 0x80000000UL, so, 0x9UL)
+        (vle64, 0x80000000UL, 0x1UL, so, 0x5UL)
+        (vle64, 0x100000001UL, 0x1UL, so, 0x3UL)
+        (vle64, w1, w2, so, 0x3UL)
+        (vle64, 0x1UL, 0xffffffffUL, so, 0x9UL)
+        (vle64, 0UL, 0UL, so, 0x3UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "0d43" given wanted
+    for isa in vleTargets do sameAs isa "0d43" "7c032040"
+
+  /// <summary>
+  /// se_cmph RX,RY compares the low halfwords of RX and RY as signed numbers
+  /// and puts the result in CR0: LT, GT or EQ, and SO copied from XER[SO]. The
+  /// rest of each register is not looked at. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPH compares halfwords as signed numbers``() =
+    (* se_cmph r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffffffffdef0UL
+    for isa, r3, r4, xer, cr0' in
+      [ (vle32, 0x12345678UL, 0x5678UL, 0UL, 0x2UL)
+        (vle32, 0x7fffUL, 0x8000UL, 0UL, 0x4UL)
+        (vle32, 0x8000UL, 0x1UL, 0UL, 0x8UL)
+        (vle32, 0x10001UL, 0x1UL, 0UL, 0x2UL)
+        (vle32, 0x9abcdef0UL, 0xffffdef0UL, 0UL, 0x2UL)
+        (vle32, 0UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x12345678UL, 0x5678UL, so, 0x3UL)
+        (vle32, 0x7fffUL, 0x8000UL, so, 0x5UL)
+        (vle32, 0x8000UL, 0x1UL, so, 0x9UL)
+        (vle32, 0x10001UL, 0x1UL, so, 0x3UL)
+        (vle32, 0x9abcdef0UL, 0xffffdef0UL, so, 0x3UL)
+        (vle32, 0UL, 0UL, so, 0x3UL)
+        (vle64, 0x12345678UL, 0x5678UL, 0UL, 0x2UL)
+        (vle64, 0x7fffUL, 0x8000UL, 0UL, 0x4UL)
+        (vle64, 0x8000UL, 0x1UL, 0UL, 0x8UL)
+        (vle64, 0x10001UL, 0x1UL, 0UL, 0x2UL)
+        (vle64, w1, w2, 0UL, 0x2UL)
+        (vle64, 0UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x12345678UL, 0x5678UL, so, 0x3UL)
+        (vle64, 0x7fffUL, 0x8000UL, so, 0x5UL)
+        (vle64, 0x8000UL, 0x1UL, so, 0x9UL)
+        (vle64, 0x10001UL, 0x1UL, so, 0x3UL)
+        (vle64, w1, w2, so, 0x3UL)
+        (vle64, 0UL, 0UL, so, 0x3UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "0e43" given wanted
+
+  /// <summary>
+  /// se_cmphl RX,RY compares the low halfwords of RX and RY as unsigned numbers
+  /// and puts the result in CR0, as se_cmph does. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPHL compares halfwords as unsigned numbers``() =
+    (* se_cmphl r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffffffffdef0UL
+    for isa, r3, r4, xer, cr0' in
+      [ (vle32, 0x12345678UL, 0x5678UL, 0UL, 0x2UL)
+        (vle32, 0x7fffUL, 0x8000UL, 0UL, 0x8UL)
+        (vle32, 0x8000UL, 0x1UL, 0UL, 0x4UL)
+        (vle32, 0x10001UL, 0x1UL, 0UL, 0x2UL)
+        (vle32, 0x9abcdef0UL, 0xffffdef0UL, 0UL, 0x2UL)
+        (vle32, 0UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x12345678UL, 0x5678UL, so, 0x3UL)
+        (vle32, 0x7fffUL, 0x8000UL, so, 0x9UL)
+        (vle32, 0x8000UL, 0x1UL, so, 0x5UL)
+        (vle32, 0x10001UL, 0x1UL, so, 0x3UL)
+        (vle32, 0x9abcdef0UL, 0xffffdef0UL, so, 0x3UL)
+        (vle32, 0UL, 0UL, so, 0x3UL)
+        (vle64, 0x12345678UL, 0x5678UL, 0UL, 0x2UL)
+        (vle64, 0x7fffUL, 0x8000UL, 0UL, 0x8UL)
+        (vle64, 0x8000UL, 0x1UL, 0UL, 0x4UL)
+        (vle64, 0x10001UL, 0x1UL, 0UL, 0x2UL)
+        (vle64, w1, w2, 0UL, 0x2UL)
+        (vle64, 0UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x12345678UL, 0x5678UL, so, 0x3UL)
+        (vle64, 0x7fffUL, 0x8000UL, so, 0x9UL)
+        (vle64, 0x8000UL, 0x1UL, so, 0x5UL)
+        (vle64, 0x10001UL, 0x1UL, so, 0x3UL)
+        (vle64, w1, w2, so, 0x3UL)
+        (vle64, 0UL, 0UL, so, 0x3UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "0f43" given wanted
+
+  /// <summary>
+  /// se_cmpi RX,UI5 compares the low word of RX, as a signed number, with the
+  /// zero-extended UI5 (the sample is 5) and puts the result in CR0, with SO
+  /// copied from XER[SO]. (Book VLE 5.6) It is cmpwi cr0,RX,UI5.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPI compares a word with a five-bit number``() =
+    (* se_cmpi r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r3, xer, cr0' in
+      [ (vle32, 0x5UL, 0UL, 0x2UL)
+        (vle32, 0x4UL, 0UL, 0x8UL)
+        (vle32, 0x6UL, 0UL, 0x4UL)
+        (vle32, 0xfffffffbUL, 0UL, 0x8UL)
+        (vle32, 0x5UL, 0UL, 0x2UL)
+        (vle32, 0x80000005UL, 0UL, 0x8UL)
+        (vle32, 0xffffffffUL, 0UL, 0x8UL)
+        (vle32, 0x5UL, so, 0x3UL)
+        (vle32, 0x4UL, so, 0x9UL)
+        (vle32, 0x6UL, so, 0x5UL)
+        (vle32, 0xfffffffbUL, so, 0x9UL)
+        (vle32, 0x5UL, so, 0x3UL)
+        (vle32, 0x80000005UL, so, 0x9UL)
+        (vle32, 0xffffffffUL, so, 0x9UL)
+        (vle64, 0x5UL, 0UL, 0x2UL)
+        (vle64, 0x4UL, 0UL, 0x8UL)
+        (vle64, 0x6UL, 0UL, 0x4UL)
+        (vle64, 0xfffffffbUL, 0UL, 0x8UL)
+        (vle64, 0x100000005UL, 0UL, 0x2UL)
+        (vle64, 0x80000005UL, 0UL, 0x8UL)
+        (vle64, w1, 0UL, 0x8UL)
+        (vle64, 0x5UL, so, 0x3UL)
+        (vle64, 0x4UL, so, 0x9UL)
+        (vle64, 0x6UL, so, 0x5UL)
+        (vle64, 0xfffffffbUL, so, 0x9UL)
+        (vle64, 0x100000005UL, so, 0x3UL)
+        (vle64, 0x80000005UL, so, 0x9UL)
+        (vle64, w1, so, 0x9UL) ] do
+      let given = [ R3, r3; XER, xer ]
+      let wanted = [ R3, r3; XER, xer; CR0, cr0' ]
+      check isa "2a53" given wanted
+    for isa in vleTargets do sameAs isa "2a53" "2c030005"
+
+  /// <summary>
+  /// se_cmpli RX,OIMM compares the low word of RX, as an unsigned number, with
+  /// OIMM, which is the field plus one (the sample is 5), and puts the result
+  /// in CR0, with SO copied from XER[SO]. (Book VLE 5.6) It is cmplwi cr0,RX,
+  /// OIMM.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_CMPLI compares a word with 1 to 32``() =
+    (* se_cmpli r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r3, xer, cr0' in
+      [ (vle32, 0x5UL, 0UL, 0x2UL)
+        (vle32, 0x4UL, 0UL, 0x8UL)
+        (vle32, 0x6UL, 0UL, 0x4UL)
+        (vle32, 0xfffffffbUL, 0UL, 0x4UL)
+        (vle32, 0x5UL, 0UL, 0x2UL)
+        (vle32, 0x80000005UL, 0UL, 0x4UL)
+        (vle32, 0xffffffffUL, 0UL, 0x4UL)
+        (vle32, 0x5UL, so, 0x3UL)
+        (vle32, 0x4UL, so, 0x9UL)
+        (vle32, 0x6UL, so, 0x5UL)
+        (vle32, 0xfffffffbUL, so, 0x5UL)
+        (vle32, 0x5UL, so, 0x3UL)
+        (vle32, 0x80000005UL, so, 0x5UL)
+        (vle32, 0xffffffffUL, so, 0x5UL)
+        (vle64, 0x5UL, 0UL, 0x2UL)
+        (vle64, 0x4UL, 0UL, 0x8UL)
+        (vle64, 0x6UL, 0UL, 0x4UL)
+        (vle64, 0xfffffffbUL, 0UL, 0x4UL)
+        (vle64, 0x100000005UL, 0UL, 0x2UL)
+        (vle64, 0x80000005UL, 0UL, 0x4UL)
+        (vle64, w1, 0UL, 0x4UL)
+        (vle64, 0x5UL, so, 0x3UL)
+        (vle64, 0x4UL, so, 0x9UL)
+        (vle64, 0x6UL, so, 0x5UL)
+        (vle64, 0xfffffffbUL, so, 0x5UL)
+        (vle64, 0x100000005UL, so, 0x3UL)
+        (vle64, 0x80000005UL, so, 0x5UL)
+        (vle64, w1, so, 0x5UL) ] do
+      let given = [ R3, r3; XER, xer ]
+      let wanted = [ R3, r3; XER, xer; CR0, cr0' ]
+      check isa "2243" given wanted
+    for isa in vleTargets do sameAs isa "2243" "28030005"

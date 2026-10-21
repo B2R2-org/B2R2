@@ -144,8 +144,25 @@ let vleEncoders () =
     Op.SE_ANDC, rrForm 0x4500u
     Op.SE_AND, rrForm 0x4600u
     Op.SE_ANDdot, rrForm 0x4700u
+    Op.SE_CMP, rrForm 0x0C00u
+    Op.SE_CMPL, rrForm 0x0D00u
+    Op.SE_CMPH, rrForm 0x0E00u
+    Op.SE_CMPHL, rrForm 0x0F00u
+    Op.SE_SRW, rrForm 0x4000u
+    Op.SE_SRAW, rrForm 0x4100u
+    Op.SE_SLW, rrForm 0x4200u
     Op.SE_ADDI, roForm 0x2000u
+    Op.SE_CMPLI, roForm 0x2200u
     Op.SE_SUBI, roForm 0x2400u
     Op.SE_SUBIdot, roForm 0x2600u
+    Op.SE_CMPI, riForm 0x2A00u
+    Op.SE_BMASKI, riForm 0x2C00u
     Op.SE_ANDI, riForm 0x2E00u
+    Op.SE_BCLRI, riForm 0x6000u
+    Op.SE_BGENI, riForm 0x6200u
+    Op.SE_BSETI, riForm 0x6400u
+    Op.SE_BTSTI, riForm 0x6600u
+    Op.SE_SRWI, riForm 0x6800u
+    Op.SE_SRAWI, riForm 0x6A00u
+    Op.SE_SLWI, riForm 0x6C00u
     Op.SE_LI, loadImmediate ]
