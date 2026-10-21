@@ -7003,3 +7003,113 @@ type VLEParserTests() =
   member _.``[PPC VLE] E_STWU (store word with update)``() =
     E_STWU ** [ O.Reg R3; O.Mem(-8, R4) ]
     |> testVLE "186406f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_B (branch)``() =
+    E_B ** [ O.Addr 0x8UL ]
+    |> testVLE "78000008"
+    E_B ** [ O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "79fffff8"
+    E_B ** [ O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "79fffff8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_BL (branch and link)``() =
+    E_BL ** [ O.Addr 0x8UL ]
+    |> testVLE "78000009"
+    E_BL ** [ O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "79fffff9"
+    E_BL ** [ O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "79fffff9"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_BC (branch conditional)``() =
+    E_BC ** [ O.Imm 0x1UL; O.BI 2u; O.Addr 0x8UL ]
+    |> testVLE "7a120008"
+    E_BC ** [ O.Imm 0x2UL; O.BI 1u; O.Addr 0x8UL ]
+    |> testVLE "7a210008"
+    E_BC ** [ O.Imm 0x3UL; O.BI 1u; O.Addr 0x8UL ]
+    |> testVLE "7a310008"
+    E_BC ** [ O.Imm 0x0UL; O.BI 15u; O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "7a0ffff8"
+    E_BC ** [ O.Imm 0x0UL; O.BI 15u; O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "7a0ffff8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_BCL (branch conditional and link)``() =
+    E_BCL ** [ O.Imm 0x0UL; O.BI 9u; O.Addr 0x8UL ]
+    |> testVLE "7a090009"
+    E_BCL ** [ O.Imm 0x2UL; O.BI 5u; O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "7a25fff9"
+    E_BCL ** [ O.Imm 0x2UL; O.BI 5u; O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "7a25fff9"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SC (system call)``() =
+    E_SC ** []
+    |> testVLE "7c000048"
+    E_SC ** [ O.Imm 0x1UL ]
+    |> testVLE "7c000848"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRAND (condition register AND)``() =
+    E_CRAND ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221a02"
+    E_CRAND ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caafa02"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRANDC (condition register AND with complement)``() =
+    E_CRANDC ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221902"
+    E_CRANDC ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caaf902"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CREQV (condition register equivalent)``() =
+    E_CREQV ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221a42"
+    E_CREQV ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caafa42"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRNAND (condition register NAND)``() =
+    E_CRNAND ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c2219c2"
+    E_CRNAND ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caaf9c2"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRNOR (condition register NOR)``() =
+    E_CRNOR ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221842"
+    E_CRNOR ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caaf842"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CROR (condition register OR)``() =
+    E_CROR ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221b82"
+    E_CROR ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caafb82"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRORC (condition register OR with complement)``() =
+    E_CRORC ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221b42"
+    E_CRORC ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caafb42"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRXOR (condition register XOR)``() =
+    E_CRXOR ** [ O.BI 1u; O.BI 2u; O.BI 3u ]
+    |> testVLE "7c221982"
+    E_CRXOR ** [ O.BI 5u; O.BI 10u; O.BI 31u ]
+    |> testVLE "7caaf982"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_MCRF (move CR field)``() =
+    E_MCRF ** [ O.Reg CR1; O.Reg CR2 ]
+    |> testVLE "7c880020"
+    E_MCRF ** [ O.Reg CR5; O.Reg CR2 ]
+    |> testVLE "7e880020"

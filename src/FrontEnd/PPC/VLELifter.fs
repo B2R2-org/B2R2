@@ -264,6 +264,33 @@ let branchOnBit (ins: Instruction) (bld: ILowUIRBuilder) =
     AST.interjmp next InterJmpKind.Base
   }
 
+/// e_bc and e_bcl: a branch to the address a displacement names that is decided
+/// by BO32, whose high bit says whether the counter is decremented and tested
+/// and whose low bit says what the test, or the bit of the condition register,
+/// has to be: the counter forms branch when it is not zero (2) or zero (3),
+/// the others when the bit is zero (0) or one (1). A branch that links writes
+/// the address of the instruction after it into LR whether it is taken or not.
+let branchConditional (ins: Instruction) (bld: ILowUIRBuilder) link =
+  let struct (bo, bi) =
+    match ins.Operands with
+    | ThreeOperands(OprImm bo, OprBI bi, _) -> struct (bo, bi)
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let rt = bld.RegType
+    let ctr = regVar bld Register.CTR
+    let bit = regVar bld (OperandHelper.getCRbitRegister bi)
+    let target = branchTarget ins bld
+    let next = nextAddress ins bld
+    let dest = tmpVar bld rt
+    if link then regVar bld Register.LR := next else ()
+    if bo >= 2UL then ctr := ctr .- AST.num1 rt else ()
+    let zero = AST.num0 rt
+    let counterTest = if bo = 2UL then ctr != zero else ctr == zero
+    let test = if bo >= 2UL then counterTest else bit == numU64 bo 1<rt>
+    dest := AST.ite test target next
+    AST.interjmp dest (if link then InterJmpKind.IsCall else InterJmpKind.Base)
+  }
+
 /// A load of a size from an address that is a base register plus a
 /// displacement, zero-extended into the register it names. The base register
 /// is whichever the instruction names, register 0 included.

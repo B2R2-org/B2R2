@@ -44181,3 +44181,442 @@ type VLELifterTests() =
       Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)
       expect 4UL (uint64 memory.Count) (nameOf isa)
       expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_b goes to the address of the instruction plus BD24 || 0b0, sign-extended
+  /// and cut to the width of a register: the samples are displacements of 8 and
+  /// -8, and the last two cases sit at the top and the bottom of a 32-bit
+  /// address space. LR is not touched. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_B goes to the address its displacement names``() =
+    for isa, hex, addr, target in
+      [ (vle32, "78000008", 0x1000UL, 0x1008UL)
+        (vle64, "78000008", 0x1000UL, 0x1008UL)
+        (vle32, "79fffff8", 0x1000UL, 0xff8UL)
+        (vle64, "79fffff8", 0x1000UL, 0xff8UL)
+        (vle32, "78000008", 0xfffffffcUL, 0x4UL)
+        (vle64, "78000008", 0xfffffffcUL, 0x100000004UL)
+        (vle32, "79fffff8", 0x4UL, 0xfffffffcUL)
+        (vle64, "79fffff8", 0x4UL, 0xfffffffffffffffcUL) ] do
+      let after, went, kinds = taken isa addr hex [ LR, 0x5555UL ]
+      expect target went $"{hex} {addr:x} {nameOf isa}"
+      expect 0x5555UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.Base kinds
+
+  /// <summary>
+  /// e_bl goes where e_b does and puts the address of the instruction after it,
+  /// four bytes on, into LR. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_BL goes to its displacement and links``() =
+    for isa, hex, addr, target in
+      [ (vle32, "78000009", 0x1000UL, 0x1008UL)
+        (vle64, "78000009", 0x1000UL, 0x1008UL)
+        (vle32, "79fffff9", 0x1000UL, 0xff8UL)
+        (vle64, "79fffff9", 0x1000UL, 0xff8UL) ] do
+      let after, went, kinds = taken isa addr hex [ LR, 0x5555UL ]
+      expect target went $"{hex} {addr:x} {nameOf isa}"
+      expect (addr + 4UL) (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.IsCall kinds
+
+  /// <summary>
+  /// e_bc BO32,BI32,target branches by BD15 || 0b0 when its test holds and goes
+  /// on to the next instruction, four bytes on, when it does not. BO32 = 1 and
+  /// 0 test the bit of CR0 to CR3 that BI32 names against one and zero: the
+  /// first sample takes the EQ bit of CR0 set, the fourth the SO bit of CR3
+  /// clear. BO32 = 2 and 3 decrement CTR and test it against zero, taking the
+  /// branch when it is not zero (the second sample) or is (the third). CTR is
+  /// not touched by the others and LR is touched by none. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_BC branches on a bit or on the counter``() =
+    let w1 = 0x100000001UL
+    let w2 = 0x100000000UL
+    for isa, hex, field, cr, ctr, target, ctr' in
+      [ (vle32, "7a120008", CR0, 0b0010UL, 7UL, 0x1008UL, 7UL)
+        (vle64, "7a120008", CR0, 0b0010UL, 7UL, 0x1008UL, 7UL)
+        (vle32, "7a120008", CR0, 0b1101UL, 7UL, 0x1004UL, 7UL)
+        (vle64, "7a120008", CR0, 0b1101UL, 7UL, 0x1004UL, 7UL)
+        (vle32, "7a210008", CR0, 0UL, 5UL, 0x1008UL, 4UL)
+        (vle64, "7a210008", CR0, 0UL, w1, 0x1008UL, w2)
+        (vle32, "7a210008", CR0, 0UL, 1UL, 0x1004UL, 0UL)
+        (vle64, "7a210008", CR0, 0UL, 1UL, 0x1004UL, 0UL)
+        (vle32, "7a210008", CR0, 0UL, 0UL, 0x1008UL, 0xffffffffUL)
+        (vle32, "7a310008", CR0, 0UL, 1UL, 0x1008UL, 0UL)
+        (vle64, "7a310008", CR0, 0UL, 1UL, 0x1008UL, 0UL)
+        (vle32, "7a310008", CR0, 0UL, 5UL, 0x1004UL, 4UL)
+        (vle64, "7a310008", CR0, 0UL, w1, 0x1004UL, w2)
+        (vle32, "7a0ffff8", CR3, 0b0000UL, 7UL, 0xff8UL, 7UL)
+        (vle64, "7a0ffff8", CR3, 0b0000UL, 7UL, 0xff8UL, 7UL)
+        (vle32, "7a0ffff8", CR3, 0b0001UL, 7UL, 0x1004UL, 7UL)
+        (vle64, "7a0ffff8", CR3, 0b0001UL, 7UL, 0x1004UL, 7UL) ] do
+      let given = withBits [ field, cr; CTR, ctr; LR, 0x5555UL ]
+      let after, went, kinds = taken isa 0x1000UL hex given
+      expect target went $"{hex} {cr:x} {ctr:x} {nameOf isa}"
+      expect ctr' (after CTR) $"{hex} {cr:x} {ctr:x} {nameOf isa}"
+      expect 0x5555UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.Base kinds
+
+  /// <summary>
+  /// e_bcl branches as e_bc does and writes the address of the instruction
+  /// after it, four bytes on, into LR whether it takes the branch or not. The
+  /// samples are BO32 = 0 on the GT bit of CR2, branching when it is clear, and
+  /// BO32 = 2 on the counter, branching when it is not zero after the
+  /// decrement. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_BCL branches and links``() =
+    for isa, hex, cr, ctr, target in
+      [ (vle32, "7a090009", 0b0000UL, 5UL, 0x1008UL)
+        (vle64, "7a090009", 0b0000UL, 5UL, 0x1008UL)
+        (vle32, "7a090009", 0b0100UL, 5UL, 0x1004UL)
+        (vle64, "7a090009", 0b0100UL, 5UL, 0x1004UL)
+        (vle32, "7a25fff9", 0UL, 5UL, 0xff8UL)
+        (vle64, "7a25fff9", 0UL, 5UL, 0xff8UL)
+        (vle32, "7a25fff9", 0UL, 1UL, 0x1004UL)
+        (vle64, "7a25fff9", 0UL, 1UL, 0x1004UL) ] do
+      let given = withBits [ CR2, cr; CTR, ctr; LR, 0x5555UL ]
+      let after, went, kinds = taken isa 0x1000UL hex given
+      expect target went $"{hex} {cr:x} {ctr:x} {nameOf isa}"
+      expect 0x1004UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.IsCall kinds
+
+  /// <summary>
+  /// e_sc makes a system call, with a level of 0 or 1 that its encoding carries
+  /// and the lift leaves to the operand: the lift is the system call that sc
+  /// makes. (Book VLE 4.3)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SC lifts as SC does``() =
+    for isa in vleTargets do
+      sameAs isa "7c000048" "44000002"
+      sameAs isa "7c000848" "44000002"
+
+  /// <summary>
+  /// e_crand BT,BA,BB puts into the bit BT of the condition register the result
+  /// of the operation that ANDs the bit BA with the bit BB, bits numbered from
+  /// the LT bit of CR0 as 0. The first sample works in CR0, the second takes
+  /// its bits from CR1, CR2 and CR7. Nothing else in the condition register
+  /// changes. (Book VLE 4.4) It is crand, in another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRAND ANDs two bits``() =
+    (* e_crand gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221a02" given wanted
+    for isa in vleTargets do sameAs isa "7c221a02" "4c221a02"
+    (* e_crand 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caafa02" given wanted
+
+  /// <summary>
+  /// e_crandc BT,BA,BB puts into the bit BT of the condition register the
+  /// result of the operation that ANDs the bit BA with the complement of the
+  /// bit BB, bits numbered from the LT bit of CR0 as 0. The first sample works
+  /// in CR0, the second takes its bits from CR1, CR2 and CR7. Nothing else in
+  /// the condition register changes. (Book VLE 4.4) It is crandc, in another
+  /// encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRANDC ANDs a bit with a complement``() =
+    (* e_crandc gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221902" given wanted
+    for isa in vleTargets do sameAs isa "7c221902" "4c221902"
+    (* e_crandc 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caaf902" given wanted
+
+  /// <summary>
+  /// e_creqv BT,BA,BB puts into the bit BT of the condition register the result
+  /// of the operation that sets it to the equivalence of the bit BA and the bit
+  /// BB (one if they are equal), bits numbered from the LT bit of CR0 as 0. The
+  /// first sample works in CR0, the second takes its bits from CR1, CR2 and
+  /// CR7. Nothing else in the condition register changes. (Book VLE 4.4) It is
+  /// creqv, in another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CREQV sets a bit to equivalence``() =
+    (* e_creqv gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221a42" given wanted
+    for isa in vleTargets do sameAs isa "7c221a42" "4c221a42"
+    (* e_creqv 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caafa42" given wanted
+
+  /// <summary>
+  /// e_crnand BT,BA,BB puts into the bit BT of the condition register the
+  /// result of the operation that sets it to the complement of the bit BA ANDed
+  /// with the bit BB, bits numbered from the LT bit of CR0 as 0. The first
+  /// sample works in CR0, the second takes its bits from CR1, CR2 and CR7.
+  /// Nothing else in the condition register changes. (Book VLE 4.4) It is
+  /// crnand, in another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRNAND NANDs two bits``() =
+    (* e_crnand gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c2219c2" given wanted
+    for isa in vleTargets do sameAs isa "7c2219c2" "4c2219c2"
+    (* e_crnand 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caaf9c2" given wanted
+
+  /// <summary>
+  /// e_crnor BT,BA,BB puts into the bit BT of the condition register the result
+  /// of the operation that sets it to the complement of the bit BA ORed with
+  /// the bit BB, bits numbered from the LT bit of CR0 as 0. The first sample
+  /// works in CR0, the second takes its bits from CR1, CR2 and CR7. Nothing
+  /// else in the condition register changes. (Book VLE 4.4) It is crnor, in
+  /// another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRNOR NORs two bits``() =
+    (* e_crnor gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221842" given wanted
+    for isa in vleTargets do sameAs isa "7c221842" "4c221842"
+    (* e_crnor 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caaf842" given wanted
+
+  /// <summary>
+  /// e_cror BT,BA,BB puts into the bit BT of the condition register the result
+  /// of the operation that ORs the bit BA with the bit BB, bits numbered from
+  /// the LT bit of CR0 as 0. The first sample works in CR0, the second takes
+  /// its bits from CR1, CR2 and CR7. Nothing else in the condition register
+  /// changes. (Book VLE 4.4) It is cror, in another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CROR ORs two bits``() =
+    (* e_cror gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221b82" given wanted
+    for isa in vleTargets do sameAs isa "7c221b82" "4c221b82"
+    (* e_cror 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caafb82" given wanted
+
+  /// <summary>
+  /// e_crorc BT,BA,BB puts into the bit BT of the condition register the result
+  /// of the operation that ORs the bit BA with the complement of the bit BB,
+  /// bits numbered from the LT bit of CR0 as 0. The first sample works in CR0,
+  /// the second takes its bits from CR1, CR2 and CR7. Nothing else in the
+  /// condition register changes. (Book VLE 4.4) It is crorc, in another
+  /// encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRORC ORs a bit with a complement``() =
+    (* e_crorc gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x1UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x7UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221b42" given wanted
+    for isa in vleTargets do sameAs isa "7c221b42" "4c221b42"
+    (* e_crorc 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xeUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0x4UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caafb42" given wanted
+
+  /// <summary>
+  /// e_crxor BT,BA,BB puts into the bit BT of the condition register the result
+  /// of the operation that XORs the bit BA with the bit BB, bits numbered from
+  /// the LT bit of CR0 as 0. The first sample works in CR0, the second takes
+  /// its bits from CR1, CR2 and CR7. Nothing else in the condition register
+  /// changes. (Book VLE 4.4) It is crxor, in another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CRXOR XORs two bits``() =
+    (* e_crxor gt,eq,so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0xcUL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7c221982" given wanted
+    for isa in vleTargets do sameAs isa "7c221982" "4c221982"
+    (* e_crxor 4*cr1+gt,4*cr2+eq,4*cr7+so *)
+    for isa, cr0, cr1, cr2, cr7, cr0', cr1', cr2', cr7' in
+      [ (vle32, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle32, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle32, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle32, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x6UL, 0x9UL, 0x5UL, 0xaUL, 0x6UL, 0x9UL)
+        (vle64, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xfUL, 0xbUL, 0xfUL, 0xfUL)
+        (vle64, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL)
+        (vle64, 0x3UL, 0xcUL, 0x5UL, 0x6UL, 0x3UL, 0x8UL, 0x5UL, 0x6UL) ] do
+      let given = [ CR0, cr0; CR1, cr1; CR2, cr2; CR7, cr7 ]
+      let wanted = [ CR0, cr0'; CR1, cr1'; CR2, cr2'; CR7, cr7' ]
+      check isa "7caaf982" given wanted
+
+  /// <summary>
+  /// e_mcrf BF,BFA copies the CR field BFA into the field BF and changes no
+  /// other. The first sample copies CR2 into CR1, the second CR2 into CR5.
+  /// (Book VLE 4.4) It is mcrf, in another encoding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_MCRF copies a CR field``() =
+    (* e_mcrf cr1,cr2 *)
+    for isa, cr1, cr2, cr5, cr1', cr2', cr5' in
+      [ (vle32, 0x5UL, 0xaUL, 0x3UL, 0xaUL, 0xaUL, 0x3UL)
+        (vle32, 0UL, 0x6UL, 0x9UL, 0x6UL, 0x6UL, 0x9UL)
+        (vle64, 0x5UL, 0xaUL, 0x3UL, 0xaUL, 0xaUL, 0x3UL)
+        (vle64, 0UL, 0x6UL, 0x9UL, 0x6UL, 0x6UL, 0x9UL) ] do
+      let given = [ CR1, cr1; CR2, cr2; CR5, cr5 ]
+      let wanted = [ CR1, cr1'; CR2, cr2'; CR5, cr5' ]
+      check isa "7c880020" given wanted
+    for isa in vleTargets do sameAs isa "7c880020" "4c880000"
+    (* e_mcrf cr5,cr2 *)
+    for isa, cr1, cr2, cr5, cr1', cr2', cr5' in
+      [ (vle32, 0x5UL, 0xaUL, 0x3UL, 0x5UL, 0xaUL, 0xaUL)
+        (vle32, 0UL, 0x6UL, 0x9UL, 0UL, 0x6UL, 0x6UL)
+        (vle64, 0x5UL, 0xaUL, 0x3UL, 0x5UL, 0xaUL, 0xaUL)
+        (vle64, 0UL, 0x6UL, 0x9UL, 0UL, 0x6UL, 0x6UL) ] do
+      let given = [ CR1, cr1; CR2, cr2; CR5, cr5 ]
+      let wanted = [ CR1, cr1'; CR2, cr2'; CR5, cr5' ]
+      check isa "7e880020" given wanted

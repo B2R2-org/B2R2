@@ -215,9 +215,74 @@ let private parseD8 bin =
   | 0x09u -> parseAccess32 Op.E_STMW disp bin
   | _ -> raise ParsingFailureException
 
+/// e_b and e_bl, which count their distance in 24 bits, and e_bc and e_bcl,
+/// which count it in 15 and name a condition: the bit of CR0 to CR3 to test
+/// and what to do with it and the counter.
+let private parseBranch32 bitLen bin =
+  let link = Bits.pick bin 0u = 1u
+  match Bits.extract bin 25u 22u with
+  | 0b1000u ->
+    let distance = Bits.extract bin 15u 1u <<< 1 |> uint64
+    let disp = Bits.signExtend 16 bitLen distance |> uint64 |> OprAddr
+    let bo = Bits.extract bin 21u 20u |> uint64 |> OprImm
+    let bi = Bits.extract bin 19u 16u |> OprBI
+    let op = if link then Op.E_BCL else Op.E_BC
+    struct (op, ThreeOperands(bo, bi, disp))
+  | n when n < 8u ->
+    let distance = Bits.extract bin 24u 1u <<< 1 |> uint64
+    let disp = Bits.signExtend 25 bitLen distance |> uint64 |> OprAddr
+    struct ((if link then Op.E_BL else Op.E_B), OneOperand disp)
+  | _ ->
+    raise ParsingFailureException
+
+/// The instructions that combine two bits of the condition register into a
+/// third, which name the three bits in the fields the base encoding keeps its
+/// registers in.
+let private parseCRLogic op bin =
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException else ()
+  let bt = Bits.extract bin 25u 21u |> OprBI
+  let ba = Bits.extract bin 20u 16u |> OprBI
+  let bb = Bits.extract bin 15u 11u |> OprBI
+  struct (op, ThreeOperands(bt, ba, bb))
+
+/// e_mcrf, which names two fields of the condition register.
+let private parseMCRF bin =
+  if Bits.extract bin 22u 21u <> 0u then raise ParsingFailureException else ()
+  if Bits.extract bin 17u 11u <> 0u then raise ParsingFailureException else ()
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException else ()
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let bfa = getCondRegister (Bits.extract bin 20u 18u) |> OprReg
+  struct (Op.E_MCRF, TwoOperands(bf, bfa))
+
+/// e_sc, whose only operand is the level of the call it makes, which is left
+/// out when it is zero.
+let private parseSystemCall bin =
+  if Bits.extract bin 25u 16u <> 0u then raise ParsingFailureException else ()
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException else ()
+  match Bits.extract bin 15u 11u with
+  | 0u -> struct (Op.E_SC, NoOperand)
+  | elev -> struct (Op.E_SC, OneOperand(OprImm(uint64 elev)))
+
+/// The instructions of primary opcode 31 that exist only in VLE, which the ten
+/// bits of the extended opcode tell apart. The rest are the base encoding's.
+let private parseOpcode31 bin =
+  match Bits.extract bin 10u 1u with
+  | 16u -> ValueSome(parseMCRF bin)
+  | 33u -> ValueSome(parseCRLogic Op.E_CRNOR bin)
+  | 36u -> ValueSome(parseSystemCall bin)
+  | 129u -> ValueSome(parseCRLogic Op.E_CRANDC bin)
+  | 193u -> ValueSome(parseCRLogic Op.E_CRXOR bin)
+  | 225u -> ValueSome(parseCRLogic Op.E_CRNAND bin)
+  | 257u -> ValueSome(parseCRLogic Op.E_CRAND bin)
+  | 289u -> ValueSome(parseCRLogic Op.E_CREQV bin)
+  | 417u -> ValueSome(parseCRLogic Op.E_CRORC bin)
+  | 449u -> ValueSome(parseCRLogic Op.E_CROR bin)
+  | _ -> ValueNone
+
 /// The instructions that fill two halfwords and are not the base encoding.
-let private parse32 (bin: uint32) =
+let private parse32 bitLen (bin: uint32) =
   match bin >>> 26 with
+  | 0x1Eu -> parseBranch32 bitLen bin
   | 0x06u -> parseD8 bin
   | 0x0Cu -> parseAccess32 Op.E_LBZ (disp16 bin) bin
   | 0x0Du -> parseAccess32 Op.E_STB (disp16 bin) bin
@@ -243,8 +308,14 @@ let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
     match bin >>> 26 with
     | 0x4u ->
       ParsingMain.parse lifter category span reader addr rt
+    | 0x1Fu ->
+      match parseOpcode31 bin with
+      | ValueSome(struct (opcode, operands)) ->
+        Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)
+      | ValueNone ->
+        raise ParsingFailureException
     | _ ->
-      let struct (opcode, operands) = parse32 bin
+      let struct (opcode, operands) = parse32 (int rt) bin
       Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)
 
 // vim: set tw=80 sts=2 sw=2:
