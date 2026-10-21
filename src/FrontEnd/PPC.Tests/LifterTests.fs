@@ -24561,6 +24561,37 @@ type LifterTests() =
       []
 
   /// <summary>
+  /// The signed divides leave rD alone where the ISA leaves the quotient
+  /// undefined -- the most negative word or doubleword over -1, and a zero
+  /// divisor -- so no run reaches a division that overflows; the forms with
+  /// OE still set XER[OV] and XER[SO].
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] Signed divides keep rD where the quotient is undefined``() =
+    let rd = 0x1234UL
+    (* divw, divw., divwo, divwo. r5, r6, r7 and the doubleword forms *)
+    let words = [ "7ca63bd6"; "7ca63bd7"; "7ca63fd6"; "7ca63fd7" ]
+    let doublewords = [ "7ca63bd2"; "7ca63bd3"; "7ca63fd2"; "7ca63fd3" ]
+    let cases width =
+      [ 1UL <<< (width - 1), UInt64.MaxValue >>> (64 - width)
+        1UL <<< (width - 1), 0UL ]
+    for isa, forms, width in
+      [ ppc32, words, 32
+        ppc64, words, 32
+        ppc64le, words, 32
+        ppc64, doublewords, 64
+        ppc64le, doublewords, 64 ] do
+      for hex in forms do
+        for a, b in cases width do
+          let after = run isa hex [ R5, rd; R6, a; R7, b ]
+          let case = $"{hex} {a:x} {b:x} {nameOf isa}"
+          expect rd (after R5) case
+          if hex[5] = 'f' then
+            expect (so ||| ov) (after XER &&& (so ||| ov)) case
+          else
+            ()
+
+  /// <summary>
   /// divdo sets XER[OV] where the quotient cannot be represented in 64 bits
   /// -- the most negative doubleword over -1, a zero divisor -- and clears it
   /// where it can, ORs it into XER[SO] and leaves XER[CA] alone. The

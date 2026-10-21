@@ -389,12 +389,19 @@ let private divide ins updateCond ovCond (bld: ILowUIRBuilder) width signed =
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let a = AST.xtlo width src1
     let b = AST.xtlo width src2
+    let zero = b == AST.num0 width
+    let invalid =
+      if signed then
+        let min = AST.num1 width << numI32 (int width - 1) width
+        zero .| ((a == min) .& (b == AST.not (AST.num0 width)))
+      else
+        zero
     if ovCond && signed then isSignedDivOV bld width a b
     elif ovCond then isUnsignedDivOV bld width b
     else ()
     let q = if signed then a ?/ b else a ./ b
     let q = if signed then AST.sext bld.RegType q else AST.zext bld.RegType q
-    dst := AST.ite (b == AST.num0 width) dst q
+    dst := AST.ite invalid dst q
     if updateCond then setCR0Reg bld dst else ()
   }
 
