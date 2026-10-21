@@ -188,6 +188,10 @@ let private parse16 bitLen (half: uint32) =
 let private disp16 bin =
   Bits.signExtend 16 32 (uint64 (Bits.extract bin 15u 0u)) |> int32
 
+/// The condition register field a compare of the SCI8-form names, in the two
+/// bits above the immediate's scale.
+let private crf bin = getCondRegister (Bits.extract bin 22u 21u) |> OprReg
+
 /// The displacement of a D8-form instruction: eight bits, sign-extended.
 let private disp8 bin =
   Bits.signExtend 8 32 (uint64 (Bits.extract bin 7u 0u)) |> int32
@@ -279,11 +283,57 @@ let private parseOpcode31 bin =
   | 449u -> ValueSome(parseCRLogic Op.E_CROR bin)
   | _ -> ValueNone
 
+/// The scaled immediate of an SCI8-form instruction, which the manual builds
+/// from F, SCL and UI8: UI8 at the byte SCL names and F in every bit around it,
+/// cut to the width of a register.
+let private scaled bitLen bin =
+  let ui8 = uint64 (Bits.extract bin 7u 0u)
+  let shift = 8 * int (Bits.extract bin 9u 8u)
+  let window = 0xFFUL <<< shift
+  let fill = if Bits.pick bin 10u = 1u then ~~~window else 0UL
+  (fill ||| (ui8 <<< shift)) &&& Bits.getBitMask64 bitLen |> OprImm
+
+/// The SCI8-form instructions that multiply or compare, which tell themselves
+/// from one another by the bit that says the others record: no bit, a multiply,
+/// and a bit, a compare of the word, signed or unsigned by a bit above the
+/// field that says which field it compares into.
+let private parseMultiplyOrCompare bin rd ra imm =
+  match Bits.pick bin 11u, Bits.extract bin 25u 23u with
+  | 0u, _ -> struct (Op.E_MULLI, ThreeOperands(rd, ra, imm))
+  | _, 0u -> struct (Op.E_CMPI, ThreeOperands(crf bin, ra, imm))
+  | _, 1u -> struct (Op.E_CMPLI, ThreeOperands(crf bin, ra, imm))
+  | _ -> raise ParsingFailureException
+
+/// The instructions of the SCI8-form: an arithmetic or logical operation with a
+/// scaled immediate, which the bit above the immediate says records its result.
+let private parseScaled bitLen bin =
+  let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let imm = scaled bitLen bin
+  let pick plain dot = if Bits.pick bin 11u = 1u then dot else plain
+  let arithmetic op = struct (op, ThreeOperands(rd, ra, imm))
+  let logical op = struct (op, ThreeOperands(ra, rd, imm))
+  match Bits.extract bin 15u 12u with
+  | 0x8u -> arithmetic (pick Op.E_ADDI Op.E_ADDIdot)
+  | 0x9u -> arithmetic (pick Op.E_ADDIC Op.E_ADDICdot)
+  | 0xAu -> parseMultiplyOrCompare bin rd ra imm
+  | 0xBu -> arithmetic (pick Op.E_SUBFIC Op.E_SUBFICdot)
+  | 0xCu -> logical (pick Op.E_ANDI Op.E_ANDIdot)
+  | 0xDu -> logical (pick Op.E_ORI Op.E_ORIdot)
+  | 0xEu -> logical (pick Op.E_XORI Op.E_XORIdot)
+  | _ -> raise ParsingFailureException
+
+/// The instructions of primary opcode 6: the D8-form, whose byte at bits 16 to
+/// 23 starts with zeros, and the SCI8-form, whose four bits at 16 to 19 do not.
+let private parseOpcode6 bitLen bin =
+  if Bits.extract bin 15u 12u = 0u then parseD8 bin
+  else parseScaled bitLen bin
+
 /// The instructions that fill two halfwords and are not the base encoding.
 let private parse32 bitLen (bin: uint32) =
   match bin >>> 26 with
   | 0x1Eu -> parseBranch32 bitLen bin
-  | 0x06u -> parseD8 bin
+  | 0x06u -> parseOpcode6 bitLen bin
   | 0x0Cu -> parseAccess32 Op.E_LBZ (disp16 bin) bin
   | 0x0Du -> parseAccess32 Op.E_STB (disp16 bin) bin
   | 0x0Eu -> parseAccess32 Op.E_LHA (disp16 bin) bin
