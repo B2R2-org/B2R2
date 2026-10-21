@@ -1837,6 +1837,17 @@ let opCodeToString = function
   | Op.EVMWUMIA -> "evmwumia"
   | Op.EVMWUMIAA -> "evmwumiaa"
   | Op.EVMWUMIAN -> "evmwumian"
+  | Op.EVADDSMIAAW -> "evaddsmiaaw"
+  | Op.EVADDSSIAAW -> "evaddssiaaw"
+  | Op.EVADDUMIAAW -> "evaddumiaaw"
+  | Op.EVADDUSIAAW -> "evaddusiaaw"
+  | Op.EVDIVWS -> "evdivws"
+  | Op.EVDIVWU -> "evdivwu"
+  | Op.EVMRA -> "evmra"
+  | Op.EVSUBFSMIAAW -> "evsubfsmiaaw"
+  | Op.EVSUBFSSIAAW -> "evsubfssiaaw"
+  | Op.EVSUBFUMIAAW -> "evsubfumiaaw"
+  | Op.EVSUBFUSIAAW -> "evsubfusiaaw"
   | _ -> Terminator.impossible ()
 
 let condToString = function

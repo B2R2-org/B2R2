@@ -280,6 +280,20 @@ let private wordEncoders () =
     Op.EVMWUMIAA, rrr 1368u
     Op.EVMWUMIAN, rrr 1496u ]
 
+/// The encoders of the "accum" theme.
+let private accumEncoders () =
+  [ Op.EVADDSMIAAW, rr 1225u
+    Op.EVADDSSIAAW, rr 1217u
+    Op.EVADDUMIAAW, rr 1224u
+    Op.EVADDUSIAAW, rr 1216u
+    Op.EVDIVWS, rrr 1222u
+    Op.EVDIVWU, rrr 1223u
+    Op.EVMRA, rr 1220u
+    Op.EVSUBFSMIAAW, rr 1227u
+    Op.EVSUBFSSIAAW, rr 1219u
+    Op.EVSUBFUMIAAW, rr 1226u
+    Op.EVSUBFUSIAAW, rr 1218u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
@@ -288,4 +302,5 @@ let signalProcessingEncoders () =
       compareEncoders ()
       memoryEncoders ()
       halfEncoders ()
-      wordEncoders () ]
+      wordEncoders ()
+      accumEncoders () ]

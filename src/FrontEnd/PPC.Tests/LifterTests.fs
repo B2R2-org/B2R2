@@ -33967,3 +33967,269 @@ type SignalProcessingLifterTests() =
       7fffffff80000000 7fffffff80000000 100000001 80008f00
       c000000100000001 c000000100000001 80008f00
       """
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDSMIAAW (Add Signed, Modulo, Integer to...)``() =
+    (* evaddsmiaaw r5, r6 *)
+    arith "10a604c9" """
+      8000800080008000 0 0 0
+      8000800080008000 8000800080008000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      7fff00007fff 7fff00007fff 80008000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      ffff7ffeffff7ffe ffff7ffeffff7ffe 40004000
+      7fff7fff7fff7fff 0 8000000080000000 1
+      ffff7fffffff7fff ffff7fffffff7fff 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 0 fffffffefffffffe 3
+      ffff0000ffff ffff0000ffff 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      7ffd00007ffd 7ffd00007ffd f01
+      7fff80007fff8000 0 100000001 80008f00
+      7fff80017fff8001 7fff80017fff8001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDSSIAAW (Add Signed, Saturate, Integer to...)``() =
+    (* evaddssiaaw r5, r6 *)
+    arith "10a604c1" """
+      8000800080008000 0 0 0
+      8000800080008000 8000800080008000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      7fff00007fff 7fff00007fff 80008000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 0 8000000080000000 1
+      ffff7fffffff7fff ffff7fffffff7fff 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 0 fffffffefffffffe 3
+      ffff0000ffff ffff0000ffff 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      7ffd00007ffd 7ffd00007ffd f01
+      7fff80007fff8000 0 100000001 80008f00
+      7fff80017fff8001 7fff80017fff8001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDUMIAAW (Add Unsigned, Modulo, Integer to...)``() =
+    (* evaddumiaaw r5, r6 *)
+    arith "10a604c8" """
+      8000800080008000 0 0 0
+      8000800080008000 8000800080008000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      7fff00007fff 7fff00007fff 80008000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      ffff7ffeffff7ffe ffff7ffeffff7ffe 40004000
+      7fff7fff7fff7fff 0 8000000080000000 1
+      ffff7fffffff7fff ffff7fffffff7fff 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 0 fffffffefffffffe 3
+      ffff0000ffff ffff0000ffff 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      7ffd00007ffd 7ffd00007ffd f01
+      7fff80007fff8000 0 100000001 80008f00
+      7fff80017fff8001 7fff80017fff8001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDUSIAAW (Add Unsigned, Saturate, Integer to...)``() =
+    (* evaddusiaaw r5, r6 *)
+    arith "10a604c0" """
+      8000800080008000 0 0 0
+      8000800080008000 8000800080008000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      ffffffffffffffff ffffffffffffffff c000c000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      ffff7ffeffff7ffe ffff7ffeffff7ffe 0
+      7fff7fff7fff7fff 0 8000000080000000 1
+      ffff7fffffff7fff ffff7fffffff7fff 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      ffffffffffffffff ffffffffffffffff c000c002
+      1000100010001 0 fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff c000c003
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      ffffffffffffffff ffffffffffffffff c000cf01
+      7fff80007fff8000 0 100000001 80008f00
+      7fff80017fff8001 7fff80017fff8001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVDIVWS (Divide Word Signed)``() =
+    (* evdivws r5, r6, r7 *)
+    arith "10a63cc6" """
+      8000000000000000 ffffffff00000000 4000000040000000 0
+      7fffffff7fffffff 4000000040000000 c000c000
+      500000064 7 100000002 80008000
+      7fffffff0000000e 100000002 c0008000
+      fffffffb00000001 80000000 7fffffff00000001 40004000
+      8000000000000000 7fffffff00000001 c0000000
+      7 2 8000000080000000 1
+      7fffffff00000003 8000000080000000 c0000001
+      712345678 20000ffff 7fffffff00000001 2
+      300001234 7fffffff00000001 2
+      fffffff980000000 2ffffffff 7fffffff00000001 3
+      fffffffd7fffffff 7fffffff00000001 c003
+      80000000fffffff9 200000002 7fffffff00000001 f01
+      c0000000fffffffd 7fffffff00000001 f01
+      ffffffff7fffffff ffffffffffffffff ffffffff 80008f00
+      180000001 ffffffff 80008f00
+      6400000005 700000000 ffffffff00000000 0
+      e7fffffff ffffffff00000000 c000
+      1234567880000000 ffff00000002 100000002 80008000
+      1234c0000000 100000002 80008000
+      7ffffffffffffff9 fffffffffffffffe 7fffffff00000001 40004000
+      8000000100000003 7fffffff00000001 0
+      fffffff9fffffffb fffffffe00000000 1234567889abcdef 1
+      380000000 1234567889abcdef c001
+      80000000ffffffff 1ffffffff 100000002 2
+      8000000000000001 100000002 2
+      180000000 8000000000000001 1234567889abcdef 3
+      80000000 1234567889abcdef 3
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVDIVWU (Divide Word Unsigned)``() =
+    (* evdivwu r5, r6, r7 *)
+    arith "10a63cc7" """
+      8000000000000000 ffffffff00000000 0 0
+      ffffffff 0 c000
+      500000064 7 1234567889abcdef 80008000
+      ffffffff0000000e 1234567889abcdef c0008000
+      fffffffb00000001 80000000 ffffffff00000000 40004000
+      ffffffff00000000 ffffffff00000000 c0000000
+      7 2 7fffffff00000001 1
+      ffffffff00000003 7fffffff00000001 c0000001
+      712345678 20000ffff c0000000c0000000 2
+      300001234 c0000000c0000000 2
+      fffffff980000000 2ffffffff 8000000080000000 3
+      7ffffffc00000000 8000000080000000 3
+      80000000fffffff9 200000002 ffffffff f01
+      400000007ffffffc ffffffff f01
+      ffffffff7fffffff ffffffffffffffff 80000000ffffffff 80008f00
+      100000000 80000000ffffffff 80008f00
+      6400000005 700000000 100000002 0
+      effffffff 100000002 c000
+      1234567880000000 ffff00000002 100000002 80008000
+      123440000000 100000002 80008000
+      7ffffffffffffff9 fffffffffffffffe 7fffffff00000001 40004000
+      0 7fffffff00000001 0
+      fffffff9fffffffb fffffffe00000000 c0000000c0000000 1
+      ffffffff c0000000c0000000 c001
+      80000000ffffffff 1ffffffff 7fffffff00000001 2
+      8000000000000001 7fffffff00000001 2
+      180000000 8000000000000001 c0000000c0000000 3
+      80000000 c0000000c0000000 3
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMRA (Initialize Accumulator)``() =
+    (* evmra r5, r6 *)
+    arith "10a604c4" """
+      100008000 0 0 0
+      100008000 100008000 0
+      1f7fff8000 0 4000000040000000 80008000
+      1f7fff8000 1f7fff8000 80008000
+      80000000ffff 0 1234567889abcdef 40004000
+      80000000ffff 80000000ffff 40004000
+      7fff800000010001 0 ffffffff00000000 1
+      7fff800000010001 7fff800000010001 1
+      80007fff00030005 0 c0000000c0000000 2
+      80007fff00030005 80007fff00030005 2
+      7fff7fffffffffff 0 7fffffff00000001 3
+      7fff7fffffffffff 7fff7fffffffffff 3
+      ffffffff7fff8000 0 7fffffff00000001 f01
+      ffffffff7fff8000 ffffffff7fff8000 f01
+      2000007fff 0 100000002 80008f00
+      2000007fff 2000007fff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFSMIAAW (Subtract Signed, Modulo, Integer to...)``() =
+    (* evsubfsmiaaw r5, r6 *)
+    arith "10a604cb" """
+      8000800080008000 0 0 0
+      7fff80007fff8000 7fff80007fff8000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      ffff7fffffff7fff ffff7fffffff7fff 80008000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      800000008000 800000008000 40004000
+      7fff7fff7fff7fff 0 8000000080000000 1
+      800100008001 800100008001 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      0 0 2
+      1000100010001 0 fffffffefffffffe 3
+      fffefffdfffefffd fffefffdfffefffd 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      ffff7fffffff7fff ffff7fffffff7fff f01
+      7fff80007fff8000 0 100000001 80008f00
+      8000800180008001 8000800180008001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFSSIAAW (Subtract Signed, Saturate, Integer to...)``() =
+    (* evsubfssiaaw r5, r6 *)
+    arith "10a604c3" """
+      8000800080008000 0 0 0
+      7fff80007fff8000 7fff80007fff8000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      800000008000 800000008000 0
+      7fff7fff7fff7fff 0 8000000080000000 1
+      8000000080000000 8000000080000000 c000c001
+      ffffffffffffffff 0 ffffffffffffffff 2
+      0 0 2
+      1000100010001 0 fffffffefffffffe 3
+      fffefffdfffefffd fffefffdfffefffd 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7fffffff7fffffff c000cf01
+      7fff80007fff8000 0 100000001 80008f00
+      8000800180008001 8000800180008001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFUMIAAW (Subtract Unsigned, Modulo, Integer to...)``() =
+    (* evsubfumiaaw r5, r6 *)
+    arith "10a604ca" """
+      8000800080008000 0 0 0
+      7fff80007fff8000 7fff80007fff8000 0
+      8000800080008000 0 7fffffff7fffffff 80008000
+      ffff7fffffff7fff ffff7fffffff7fff 80008000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      800000008000 800000008000 40004000
+      7fff7fff7fff7fff 0 8000000080000000 1
+      800100008001 800100008001 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      0 0 2
+      1000100010001 0 fffffffefffffffe 3
+      fffefffdfffefffd fffefffdfffefffd 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      ffff7fffffff7fff ffff7fffffff7fff f01
+      7fff80007fff8000 0 100000001 80008f00
+      8000800180008001 8000800180008001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFUSIAAW (Subtract Unsigned, Saturate, Integer...)``() =
+    (* evsubfusiaaw r5, r6 *)
+    arith "10a604c2" """
+      8000800080008000 0 0 0
+      0 0 c000c000
+      8000800080008000 0 7fffffff7fffffff 80008000
+      0 0 c000c000
+      7fff7fff7fff7fff 0 7fffffff7fffffff 40004000
+      800000008000 800000008000 0
+      7fff7fff7fff7fff 0 8000000080000000 1
+      800100008001 800100008001 1
+      ffffffffffffffff 0 ffffffffffffffff 2
+      0 0 2
+      1000100010001 0 fffffffefffffffe 3
+      fffefffdfffefffd fffefffdfffefffd 3
+      80007fff80007fff 0 7ffffffe7ffffffe f01
+      0 0 c000cf01
+      7fff80007fff8000 0 100000001 80008f00
+      0 0 c000cf00
+      """

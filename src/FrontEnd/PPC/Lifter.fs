@@ -3055,6 +3055,28 @@ let translate (ins: Instruction) bld =
     evmwWhole ins bld Unsigned Wrap Integer AddWhole
   | Op.EVMWUMIAN ->
     evmwWhole ins bld Unsigned Wrap Integer SubtractWhole
+  | Op.EVADDSMIAAW ->
+    evaddAccumulate ins bld Signed Wrap false
+  | Op.EVADDSSIAAW ->
+    evaddAccumulate ins bld Signed Clamp false
+  | Op.EVADDUMIAAW ->
+    evaddAccumulate ins bld Unsigned Wrap false
+  | Op.EVADDUSIAAW ->
+    evaddAccumulate ins bld Unsigned Clamp false
+  | Op.EVDIVWS ->
+    evdivw ins bld Signed
+  | Op.EVDIVWU ->
+    evdivw ins bld Unsigned
+  | Op.EVMRA ->
+    evmra ins bld
+  | Op.EVSUBFSMIAAW ->
+    evaddAccumulate ins bld Signed Wrap true
+  | Op.EVSUBFSSIAAW ->
+    evaddAccumulate ins bld Signed Clamp true
+  | Op.EVSUBFUMIAAW ->
+    evaddAccumulate ins bld Unsigned Wrap true
+  | Op.EVSUBFUSIAAW ->
+    evaddAccumulate ins bld Unsigned Clamp true
   (* End of lane S. *)
   | o ->
 #if DEBUG
