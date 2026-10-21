@@ -54,7 +54,9 @@ module internal IRRunner =
       /// Every byte of memory given or written, by address.
       Memory: IReadOnlyDictionary<uint64, byte>
       /// Every named call made, in order, with its arguments.
-      Calls: (string * BitVector list) list }
+      Calls: (string * BitVector list) list
+      /// The architectural traps raised during the instruction.
+      Interrupts: int list }
 
   /// What a run reads and writes: the registers, the temporaries and the
   /// bytes of memory by address.
@@ -65,7 +67,8 @@ module internal IRRunner =
       /// What a test answers for a named call IRRunner does not know.
       Answer: string -> BitVector list -> BitVector option
       /// Every named call made, in order, with its arguments.
-      Calls: List<string * BitVector list> }
+      Calls: List<string * BitVector list>
+      Interrupts: List<int> }
 
   let private readReg (regs: Dictionary<RegisterID, BitVector>) r t =
     match regs.TryGetValue r with
@@ -602,8 +605,12 @@ module internal IRRunner =
       readReg ctx.Regs r t
     | PCVar(Type = t) ->
       readReg ctx.Regs (idOf e) t
-    | TempVar(Index = n) ->
-      ctx.Temps[n]
+    | TempVar(Index = n; Type = t) ->
+      (* Legacy vector lifts fill a temporary by read-modify-write slices.
+         Its initially undefined bits are zero until each slice is written. *)
+      match ctx.Temps.TryGetValue n with
+      | true, value -> value
+      | _ -> BitVector.Zero t
     | BinOp(Op = BinOpType.APP; Left = FuncName(Name = n); Right = es) ->
       match es with
       | ExprList(Elements = args) -> call ctx mode n (List.map go args)
@@ -644,7 +651,8 @@ module internal IRRunner =
         Temps = Dictionary()
         Memory = Dictionary()
         Answer = answer
-        Calls = List() }
+        Calls = List()
+        Interrupts = List() }
     for reg, v in inputs do ctx.Regs[idOf reg] <- v
     for addr, bytes in memory do
       bytes |> Array.iteri (fun i b -> ctx.Memory[addr + uint64 i] <- b)
@@ -692,6 +700,16 @@ module internal IRRunner =
     | CJmp(Cond = c; TrueTarget = JmpDest(Target = t);
            FalseTarget = JmpDest(Target = f)) ->
       at[if (eval ctx (fpscrMode ctx) c).IsTrue then t else f]
+    | InterJmp(Target = target) ->
+      ctx.Regs[Register.toRegID Register.IAR] <- eval ctx (fpscrMode ctx) target
+      Int32.MaxValue
+    | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
+      let target = if (eval ctx (fpscrMode ctx) c).IsTrue then t else f
+      ctx.Regs[Register.toRegID Register.IAR] <- eval ctx (fpscrMode ctx) target
+      Int32.MaxValue
+    | SideEffect(Effect = Interrupt number) ->
+      ctx.Interrupts.Add number
+      Int32.MaxValue
     | _ ->
       put ctx stmt
       next
@@ -712,7 +730,8 @@ module internal IRRunner =
     go 0
     { Read = fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
       Memory = ctx.Memory
-      Calls = List.ofSeq ctx.Calls }
+      Calls = List.ofSeq ctx.Calls
+      Interrupts = List.ofSeq ctx.Interrupts }
 
   /// The same with no named call answered but the ones IRRunner knows.
   let exec stmts inputs memory =

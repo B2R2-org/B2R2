@@ -8092,3 +8092,3563 @@ type PrefixedParserTests() =
         OprImm 1UL
       )
     check "07901033ee021b18" (PMXVI8GER4SPP, operands)
+
+/// Original mnemonics decoded from the independently assembled GNU words.
+[<TestClass>]
+type BackfillParserTests() =
+  let decode hex endian (size: WordSize) opcode =
+    let parser = Parser(size, BinReader.Init endian) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString hex
+    let ins = parser.Parse(bytes, 0x20100000UL) :?> Instruction
+    Assert.AreEqual<Opcode>(opcode, ins.Opcode)
+    Assert.AreEqual<uint32>(4u, ins.Length)
+
+  let refuse hex =
+    let parser = Parser(WordSize.Bit32, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    Assert.Throws<ParsingFailureException>(fun () ->
+      parser.Parse(ByteArray.ofHexString hex, 0UL) |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDC original decoding``() =
+    decode "7ca63814" Endian.Big WordSize.Bit32 ADDC
+    decode "7ca63814" Endian.Big WordSize.Bit64 ADDC
+    decode "1438a67c" Endian.Little WordSize.Bit64 ADDC
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDC. original decoding``() =
+    decode "7ca63815" Endian.Big WordSize.Bit32 ADDCdot
+    decode "7ca63815" Endian.Big WordSize.Bit64 ADDCdot
+    decode "1538a67c" Endian.Little WordSize.Bit64 ADDCdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDCO original decoding``() =
+    decode "7ca63c14" Endian.Big WordSize.Bit32 ADDCO
+    decode "7ca63c14" Endian.Big WordSize.Bit64 ADDCO
+    decode "143ca67c" Endian.Little WordSize.Bit64 ADDCO
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDCO. original decoding``() =
+    decode "7ca63c15" Endian.Big WordSize.Bit32 ADDCOdot
+    decode "7ca63c15" Endian.Big WordSize.Bit64 ADDCOdot
+    decode "153ca67c" Endian.Little WordSize.Bit64 ADDCOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADD. original decoding``() =
+    decode "7ca63a15" Endian.Big WordSize.Bit32 ADDdot
+    decode "7ca63a15" Endian.Big WordSize.Bit64 ADDdot
+    decode "153aa67c" Endian.Little WordSize.Bit64 ADDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDE original decoding``() =
+    decode "7ca63914" Endian.Big WordSize.Bit32 ADDE
+    decode "7ca63914" Endian.Big WordSize.Bit64 ADDE
+    decode "1439a67c" Endian.Little WordSize.Bit64 ADDE
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDE. original decoding``() =
+    decode "7ca63915" Endian.Big WordSize.Bit32 ADDEdot
+    decode "7ca63915" Endian.Big WordSize.Bit64 ADDEdot
+    decode "1539a67c" Endian.Little WordSize.Bit64 ADDEdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDEO original decoding``() =
+    decode "7ca63d14" Endian.Big WordSize.Bit32 ADDEO
+    decode "7ca63d14" Endian.Big WordSize.Bit64 ADDEO
+    decode "143da67c" Endian.Little WordSize.Bit64 ADDEO
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDEO. original decoding``() =
+    decode "7ca63d15" Endian.Big WordSize.Bit32 ADDEOdot
+    decode "7ca63d15" Endian.Big WordSize.Bit64 ADDEOdot
+    decode "153da67c" Endian.Little WordSize.Bit64 ADDEOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDIC original decoding``() =
+    decode "30a6000c" Endian.Big WordSize.Bit32 ADDIC
+    decode "30a6000c" Endian.Big WordSize.Bit64 ADDIC
+    decode "0c00a630" Endian.Little WordSize.Bit64 ADDIC
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDIC. original decoding``() =
+    decode "34a6000c" Endian.Big WordSize.Bit32 ADDICdot
+    decode "34a6000c" Endian.Big WordSize.Bit64 ADDICdot
+    decode "0c00a634" Endian.Little WordSize.Bit64 ADDICdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDIS original decoding``() =
+    decode "3ca6000c" Endian.Big WordSize.Bit32 ADDIS
+    decode "3ca6000c" Endian.Big WordSize.Bit64 ADDIS
+    decode "0c00a63c" Endian.Little WordSize.Bit64 ADDIS
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDME original decoding``() =
+    decode "7ca601d4" Endian.Big WordSize.Bit32 ADDME
+    decode "7ca601d4" Endian.Big WordSize.Bit64 ADDME
+    decode "d401a67c" Endian.Little WordSize.Bit64 ADDME
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDME. original decoding``() =
+    decode "7ca601d5" Endian.Big WordSize.Bit32 ADDMEdot
+    decode "7ca601d5" Endian.Big WordSize.Bit64 ADDMEdot
+    decode "d501a67c" Endian.Little WordSize.Bit64 ADDMEdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDMEO original decoding``() =
+    decode "7ca605d4" Endian.Big WordSize.Bit32 ADDMEO
+    decode "7ca605d4" Endian.Big WordSize.Bit64 ADDMEO
+    decode "d405a67c" Endian.Little WordSize.Bit64 ADDMEO
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDMEO. original decoding``() =
+    decode "7ca605d5" Endian.Big WordSize.Bit32 ADDMEOdot
+    decode "7ca605d5" Endian.Big WordSize.Bit64 ADDMEOdot
+    decode "d505a67c" Endian.Little WordSize.Bit64 ADDMEOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDO original decoding``() =
+    decode "7ca63e14" Endian.Big WordSize.Bit32 ADDO
+    decode "7ca63e14" Endian.Big WordSize.Bit64 ADDO
+    decode "143ea67c" Endian.Little WordSize.Bit64 ADDO
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDO. original decoding``() =
+    decode "7ca63e15" Endian.Big WordSize.Bit32 ADDOdot
+    decode "7ca63e15" Endian.Big WordSize.Bit64 ADDOdot
+    decode "153ea67c" Endian.Little WordSize.Bit64 ADDOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZE original decoding``() =
+    decode "7ca60194" Endian.Big WordSize.Bit32 ADDZE
+    decode "7ca60194" Endian.Big WordSize.Bit64 ADDZE
+    decode "9401a67c" Endian.Little WordSize.Bit64 ADDZE
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZE. original decoding``() =
+    decode "7ca60195" Endian.Big WordSize.Bit32 ADDZEdot
+    decode "7ca60195" Endian.Big WordSize.Bit64 ADDZEdot
+    decode "9501a67c" Endian.Little WordSize.Bit64 ADDZEdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZEO original decoding``() =
+    decode "7ca60594" Endian.Big WordSize.Bit32 ADDZEO
+    decode "7ca60594" Endian.Big WordSize.Bit64 ADDZEO
+    decode "9405a67c" Endian.Little WordSize.Bit64 ADDZEO
+
+  [<TestMethod>]
+  member _.``[PPC T] ADDZEO. original decoding``() =
+    decode "7ca60595" Endian.Big WordSize.Bit32 ADDZEOdot
+    decode "7ca60595" Endian.Big WordSize.Bit64 ADDZEOdot
+    decode "9505a67c" Endian.Little WordSize.Bit64 ADDZEOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDC original decoding``() =
+    decode "7d063878" Endian.Big WordSize.Bit32 ANDC
+    decode "7d063878" Endian.Big WordSize.Bit64 ANDC
+    decode "7838067d" Endian.Little WordSize.Bit64 ANDC
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDC. original decoding``() =
+    decode "7d063879" Endian.Big WordSize.Bit32 ANDCdot
+    decode "7d063879" Endian.Big WordSize.Bit64 ANDCdot
+    decode "7938067d" Endian.Little WordSize.Bit64 ANDCdot
+
+  [<TestMethod>]
+  member _.``[PPC T] AND. original decoding``() =
+    decode "7d063839" Endian.Big WordSize.Bit32 ANDdot
+    decode "7d063839" Endian.Big WordSize.Bit64 ANDdot
+    decode "3938067d" Endian.Little WordSize.Bit64 ANDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDI. original decoding``() =
+    decode "71060055" Endian.Big WordSize.Bit32 ANDIdot
+    decode "71060055" Endian.Big WordSize.Bit64 ANDIdot
+    decode "55000671" Endian.Little WordSize.Bit64 ANDIdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ANDIS. original decoding``() =
+    decode "75060055" Endian.Big WordSize.Bit32 ANDISdot
+    decode "75060055" Endian.Big WordSize.Bit64 ANDISdot
+    decode "55000675" Endian.Little WordSize.Bit64 ANDISdot
+
+  [<TestMethod>]
+  member _.``[PPC T] BC original decoding``() =
+    decode "42890004" Endian.Big WordSize.Bit32 BC
+    decode "42890004" Endian.Big WordSize.Bit64 BC
+    decode "04008942" Endian.Little WordSize.Bit64 BC
+
+  [<TestMethod>]
+  member _.``[PPC T] BCCTR original decoding``() =
+    decode "4e890420" Endian.Big WordSize.Bit32 BCCTR
+    decode "4e890420" Endian.Big WordSize.Bit64 BCCTR
+    decode "2004894e" Endian.Little WordSize.Bit64 BCCTR
+
+  [<TestMethod>]
+  member _.``[PPC T] BCCTRL original decoding``() =
+    decode "4e890421" Endian.Big WordSize.Bit32 BCCTRL
+    decode "4e890421" Endian.Big WordSize.Bit64 BCCTRL
+    decode "2104894e" Endian.Little WordSize.Bit64 BCCTRL
+
+  [<TestMethod>]
+  member _.``[PPC T] BCL original decoding``() =
+    decode "42890005" Endian.Big WordSize.Bit32 BCL
+    decode "42890005" Endian.Big WordSize.Bit64 BCL
+    decode "05008942" Endian.Little WordSize.Bit64 BCL
+
+  [<TestMethod>]
+  member _.``[PPC T] BCLRL original decoding``() =
+    decode "4e890021" Endian.Big WordSize.Bit32 BCLRL
+    decode "4e890021" Endian.Big WordSize.Bit64 BCLRL
+    decode "2100894e" Endian.Little WordSize.Bit64 BCLRL
+
+  [<TestMethod>]
+  member _.``[PPC T] BL original decoding``() =
+    decode "48000005" Endian.Big WordSize.Bit32 BL
+    decode "48000005" Endian.Big WordSize.Bit64 BL
+    decode "05000048" Endian.Little WordSize.Bit64 BL
+
+  [<TestMethod>]
+  member _.``[PPC T] BPERMD original decoding``() =
+    refuse "7d0639f8"
+    decode "7d0639f8" Endian.Big WordSize.Bit64 BPERMD
+    decode "f839067d" Endian.Little WordSize.Bit64 BPERMD
+
+  [<TestMethod>]
+  member _.``[PPC T] CMP original decoding``() =
+    decode "7d063800" Endian.Big WordSize.Bit32 CMPW
+    decode "7d063800" Endian.Big WordSize.Bit64 CMPW
+    decode "0038067d" Endian.Little WordSize.Bit64 CMPW
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPI original decoding``() =
+    decode "2d06000c" Endian.Big WordSize.Bit32 CMPWI
+    decode "2d06000c" Endian.Big WordSize.Bit64 CMPWI
+    decode "0c00062d" Endian.Little WordSize.Bit64 CMPWI
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPL original decoding``() =
+    decode "7d063840" Endian.Big WordSize.Bit32 CMPLW
+    decode "7d063840" Endian.Big WordSize.Bit64 CMPLW
+    decode "4038067d" Endian.Little WordSize.Bit64 CMPLW
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLI original decoding``() =
+    decode "29060055" Endian.Big WordSize.Bit32 CMPLWI
+    decode "29060055" Endian.Big WordSize.Bit64 CMPLWI
+    decode "55000629" Endian.Little WordSize.Bit64 CMPLWI
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZD original decoding``() =
+    refuse "7d060074"
+    decode "7d060074" Endian.Big WordSize.Bit64 CNTLZD
+    decode "7400067d" Endian.Little WordSize.Bit64 CNTLZD
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZD. original decoding``() =
+    refuse "7d060075"
+    decode "7d060075" Endian.Big WordSize.Bit64 CNTLZDdot
+    decode "7500067d" Endian.Little WordSize.Bit64 CNTLZDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZW original decoding``() =
+    decode "7d060034" Endian.Big WordSize.Bit32 CNTLZW
+    decode "7d060034" Endian.Big WordSize.Bit64 CNTLZW
+    decode "3400067d" Endian.Little WordSize.Bit64 CNTLZW
+
+  [<TestMethod>]
+  member _.``[PPC T] CNTLZW. original decoding``() =
+    decode "7d060035" Endian.Big WordSize.Bit32 CNTLZWdot
+    decode "7d060035" Endian.Big WordSize.Bit64 CNTLZWdot
+    decode "3500067d" Endian.Little WordSize.Bit64 CNTLZWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] CRAND original decoding``() =
+    decode "4d2a5a02" Endian.Big WordSize.Bit32 CRAND
+    decode "4d2a5a02" Endian.Big WordSize.Bit64 CRAND
+    decode "025a2a4d" Endian.Little WordSize.Bit64 CRAND
+
+  [<TestMethod>]
+  member _.``[PPC T] CRANDC original decoding``() =
+    decode "4d2a5902" Endian.Big WordSize.Bit32 CRANDC
+    decode "4d2a5902" Endian.Big WordSize.Bit64 CRANDC
+    decode "02592a4d" Endian.Little WordSize.Bit64 CRANDC
+
+  [<TestMethod>]
+  member _.``[PPC T] CREQV original decoding``() =
+    decode "4d2a5a42" Endian.Big WordSize.Bit32 CREQV
+    decode "4d2a5a42" Endian.Big WordSize.Bit64 CREQV
+    decode "425a2a4d" Endian.Little WordSize.Bit64 CREQV
+
+  [<TestMethod>]
+  member _.``[PPC T] CRNAND original decoding``() =
+    decode "4d2a59c2" Endian.Big WordSize.Bit32 CRNAND
+    decode "4d2a59c2" Endian.Big WordSize.Bit64 CRNAND
+    decode "c2592a4d" Endian.Little WordSize.Bit64 CRNAND
+
+  [<TestMethod>]
+  member _.``[PPC T] CRNOR original decoding``() =
+    decode "4d2a5842" Endian.Big WordSize.Bit32 CRNOR
+    decode "4d2a5842" Endian.Big WordSize.Bit64 CRNOR
+    decode "42582a4d" Endian.Little WordSize.Bit64 CRNOR
+
+  [<TestMethod>]
+  member _.``[PPC T] CROR original decoding``() =
+    decode "4d2a5b82" Endian.Big WordSize.Bit32 CROR
+    decode "4d2a5b82" Endian.Big WordSize.Bit64 CROR
+    decode "825b2a4d" Endian.Little WordSize.Bit64 CROR
+
+  [<TestMethod>]
+  member _.``[PPC T] CRORC original decoding``() =
+    decode "4d2a5b42" Endian.Big WordSize.Bit32 CRORC
+    decode "4d2a5b42" Endian.Big WordSize.Bit64 CRORC
+    decode "425b2a4d" Endian.Little WordSize.Bit64 CRORC
+
+  [<TestMethod>]
+  member _.``[PPC T] CRXOR original decoding``() =
+    decode "4d2a5982" Endian.Big WordSize.Bit32 CRXOR
+    decode "4d2a5982" Endian.Big WordSize.Bit64 CRXOR
+    decode "82592a4d" Endian.Little WordSize.Bit64 CRXOR
+
+  [<TestMethod>]
+  member _.``[PPC T] DCBST original decoding``() =
+    decode "7c06386c" Endian.Big WordSize.Bit32 DCBST
+    decode "7c06386c" Endian.Big WordSize.Bit64 DCBST
+    decode "6c38067c" Endian.Little WordSize.Bit64 DCBST
+
+  [<TestMethod>]
+  member _.``[PPC T] DCBZ original decoding``() =
+    decode "7c063fec" Endian.Big WordSize.Bit32 DCBZ
+    decode "7c063fec" Endian.Big WordSize.Bit64 DCBZ
+    decode "ec3f067c" Endian.Little WordSize.Bit64 DCBZ
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVD original decoding``() =
+    refuse "7ca63bd2"
+    decode "7ca63bd2" Endian.Big WordSize.Bit64 DIVD
+    decode "d23ba67c" Endian.Little WordSize.Bit64 DIVD
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVD. original decoding``() =
+    refuse "7ca63bd3"
+    decode "7ca63bd3" Endian.Big WordSize.Bit64 DIVDdot
+    decode "d33ba67c" Endian.Little WordSize.Bit64 DIVDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVDU original decoding``() =
+    refuse "7ca63b92"
+    decode "7ca63b92" Endian.Big WordSize.Bit64 DIVDU
+    decode "923ba67c" Endian.Little WordSize.Bit64 DIVDU
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVDU. original decoding``() =
+    refuse "7ca63b93"
+    decode "7ca63b93" Endian.Big WordSize.Bit64 DIVDUdot
+    decode "933ba67c" Endian.Little WordSize.Bit64 DIVDUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVW original decoding``() =
+    decode "7ca63bd6" Endian.Big WordSize.Bit32 DIVW
+    decode "7ca63bd6" Endian.Big WordSize.Bit64 DIVW
+    decode "d63ba67c" Endian.Little WordSize.Bit64 DIVW
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVW. original decoding``() =
+    decode "7ca63bd7" Endian.Big WordSize.Bit32 DIVWdot
+    decode "7ca63bd7" Endian.Big WordSize.Bit64 DIVWdot
+    decode "d73ba67c" Endian.Little WordSize.Bit64 DIVWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWO original decoding``() =
+    decode "7ca63fd6" Endian.Big WordSize.Bit32 DIVWO
+    decode "7ca63fd6" Endian.Big WordSize.Bit64 DIVWO
+    decode "d63fa67c" Endian.Little WordSize.Bit64 DIVWO
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWO. original decoding``() =
+    decode "7ca63fd7" Endian.Big WordSize.Bit32 DIVWOdot
+    decode "7ca63fd7" Endian.Big WordSize.Bit64 DIVWOdot
+    decode "d73fa67c" Endian.Little WordSize.Bit64 DIVWOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWU original decoding``() =
+    decode "7ca63b96" Endian.Big WordSize.Bit32 DIVWU
+    decode "7ca63b96" Endian.Big WordSize.Bit64 DIVWU
+    decode "963ba67c" Endian.Little WordSize.Bit64 DIVWU
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWU. original decoding``() =
+    decode "7ca63b97" Endian.Big WordSize.Bit32 DIVWUdot
+    decode "7ca63b97" Endian.Big WordSize.Bit64 DIVWUdot
+    decode "973ba67c" Endian.Little WordSize.Bit64 DIVWUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWUO original decoding``() =
+    decode "7ca63f96" Endian.Big WordSize.Bit32 DIVWUO
+    decode "7ca63f96" Endian.Big WordSize.Bit64 DIVWUO
+    decode "963fa67c" Endian.Little WordSize.Bit64 DIVWUO
+
+  [<TestMethod>]
+  member _.``[PPC T] DIVWUO. original decoding``() =
+    decode "7ca63f97" Endian.Big WordSize.Bit32 DIVWUOdot
+    decode "7ca63f97" Endian.Big WordSize.Bit64 DIVWUOdot
+    decode "973fa67c" Endian.Little WordSize.Bit64 DIVWUOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] EIEIO original decoding``() =
+    decode "7c0006ac" Endian.Big WordSize.Bit32 EIEIO
+    decode "7c0006ac" Endian.Big WordSize.Bit64 EIEIO
+    decode "ac06007c" Endian.Little WordSize.Bit64 EIEIO
+
+  [<TestMethod>]
+  member _.``[PPC T] EQV original decoding``() =
+    decode "7d063a38" Endian.Big WordSize.Bit32 EQV
+    decode "7d063a38" Endian.Big WordSize.Bit64 EQV
+    decode "383a067d" Endian.Little WordSize.Bit64 EQV
+
+  [<TestMethod>]
+  member _.``[PPC T] EQV. original decoding``() =
+    decode "7d063a39" Endian.Big WordSize.Bit32 EQVdot
+    decode "7d063a39" Endian.Big WordSize.Bit64 EQVdot
+    decode "393a067d" Endian.Little WordSize.Bit64 EQVdot
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSB original decoding``() =
+    decode "7d060774" Endian.Big WordSize.Bit32 EXTSB
+    decode "7d060774" Endian.Big WordSize.Bit64 EXTSB
+    decode "7407067d" Endian.Little WordSize.Bit64 EXTSB
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSB. original decoding``() =
+    decode "7d060775" Endian.Big WordSize.Bit32 EXTSBdot
+    decode "7d060775" Endian.Big WordSize.Bit64 EXTSBdot
+    decode "7507067d" Endian.Little WordSize.Bit64 EXTSBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSH original decoding``() =
+    decode "7d060734" Endian.Big WordSize.Bit32 EXTSH
+    decode "7d060734" Endian.Big WordSize.Bit64 EXTSH
+    decode "3407067d" Endian.Little WordSize.Bit64 EXTSH
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSH. original decoding``() =
+    decode "7d060735" Endian.Big WordSize.Bit32 EXTSHdot
+    decode "7d060735" Endian.Big WordSize.Bit64 EXTSHdot
+    decode "3507067d" Endian.Little WordSize.Bit64 EXTSHdot
+
+  [<TestMethod>]
+  member _.``[PPC T] EXTSW. original decoding``() =
+    refuse "7d0607b5"
+    decode "7d0607b5" Endian.Big WordSize.Bit64 EXTSWdot
+    decode "b507067d" Endian.Little WordSize.Bit64 EXTSWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FABS original decoding``() =
+    decode "fc201a10" Endian.Big WordSize.Bit32 FABS
+    decode "fc201a10" Endian.Big WordSize.Bit64 FABS
+    decode "101a20fc" Endian.Little WordSize.Bit64 FABS
+
+  [<TestMethod>]
+  member _.``[PPC T] FABS. original decoding``() =
+    decode "fc201a11" Endian.Big WordSize.Bit32 FABSdot
+    decode "fc201a11" Endian.Big WordSize.Bit64 FABSdot
+    decode "111a20fc" Endian.Little WordSize.Bit64 FABSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FADD original decoding``() =
+    decode "fc22182a" Endian.Big WordSize.Bit32 FADD
+    decode "fc22182a" Endian.Big WordSize.Bit64 FADD
+    decode "2a1822fc" Endian.Little WordSize.Bit64 FADD
+
+  [<TestMethod>]
+  member _.``[PPC T] FADD. original decoding``() =
+    decode "fc22182b" Endian.Big WordSize.Bit32 FADDdot
+    decode "fc22182b" Endian.Big WordSize.Bit64 FADDdot
+    decode "2b1822fc" Endian.Little WordSize.Bit64 FADDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FADDS original decoding``() =
+    decode "ec22182a" Endian.Big WordSize.Bit32 FADDS
+    decode "ec22182a" Endian.Big WordSize.Bit64 FADDS
+    decode "2a1822ec" Endian.Little WordSize.Bit64 FADDS
+
+  [<TestMethod>]
+  member _.``[PPC T] FADDS. original decoding``() =
+    decode "ec22182b" Endian.Big WordSize.Bit32 FADDSdot
+    decode "ec22182b" Endian.Big WordSize.Bit64 FADDSdot
+    decode "2b1822ec" Endian.Little WordSize.Bit64 FADDSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFID original decoding``() =
+    decode "fc201e9c" Endian.Big WordSize.Bit32 FCFID
+    decode "fc201e9c" Endian.Big WordSize.Bit64 FCFID
+    decode "9c1e20fc" Endian.Little WordSize.Bit64 FCFID
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFID. original decoding``() =
+    decode "fc201e9d" Endian.Big WordSize.Bit32 FCFIDdot
+    decode "fc201e9d" Endian.Big WordSize.Bit64 FCFIDdot
+    decode "9d1e20fc" Endian.Little WordSize.Bit64 FCFIDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDS original decoding``() =
+    decode "ec201e9c" Endian.Big WordSize.Bit32 FCFIDS
+    decode "ec201e9c" Endian.Big WordSize.Bit64 FCFIDS
+    decode "9c1e20ec" Endian.Little WordSize.Bit64 FCFIDS
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDS. original decoding``() =
+    decode "ec201e9d" Endian.Big WordSize.Bit32 FCFIDSdot
+    decode "ec201e9d" Endian.Big WordSize.Bit64 FCFIDSdot
+    decode "9d1e20ec" Endian.Little WordSize.Bit64 FCFIDSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDU original decoding``() =
+    decode "fc201f9c" Endian.Big WordSize.Bit32 FCFIDU
+    decode "fc201f9c" Endian.Big WordSize.Bit64 FCFIDU
+    decode "9c1f20fc" Endian.Little WordSize.Bit64 FCFIDU
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDU. original decoding``() =
+    decode "fc201f9d" Endian.Big WordSize.Bit32 FCFIDUdot
+    decode "fc201f9d" Endian.Big WordSize.Bit64 FCFIDUdot
+    decode "9d1f20fc" Endian.Little WordSize.Bit64 FCFIDUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDUS original decoding``() =
+    decode "ec201f9c" Endian.Big WordSize.Bit32 FCFIDUS
+    decode "ec201f9c" Endian.Big WordSize.Bit64 FCFIDUS
+    decode "9c1f20ec" Endian.Little WordSize.Bit64 FCFIDUS
+
+  [<TestMethod>]
+  member _.``[PPC T] FCFIDUS. original decoding``() =
+    decode "ec201f9d" Endian.Big WordSize.Bit32 FCFIDUSdot
+    decode "ec201f9d" Endian.Big WordSize.Bit64 FCFIDUSdot
+    decode "9d1f20ec" Endian.Little WordSize.Bit64 FCFIDUSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCMPO original decoding``() =
+    decode "fd021840" Endian.Big WordSize.Bit32 FCMPO
+    decode "fd021840" Endian.Big WordSize.Bit64 FCMPO
+    decode "401802fd" Endian.Little WordSize.Bit64 FCMPO
+
+  [<TestMethod>]
+  member _.``[PPC T] FCMPU original decoding``() =
+    decode "fd021800" Endian.Big WordSize.Bit32 FCMPU
+    decode "fd021800" Endian.Big WordSize.Bit64 FCMPU
+    decode "001802fd" Endian.Little WordSize.Bit64 FCMPU
+
+  [<TestMethod>]
+  member _.``[PPC T] FCPSGN original decoding``() =
+    decode "fc221810" Endian.Big WordSize.Bit32 FCPSGN
+    decode "fc221810" Endian.Big WordSize.Bit64 FCPSGN
+    decode "101822fc" Endian.Little WordSize.Bit64 FCPSGN
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTID original decoding``() =
+    decode "fc201e5c" Endian.Big WordSize.Bit32 FCTID
+    decode "fc201e5c" Endian.Big WordSize.Bit64 FCTID
+    decode "5c1e20fc" Endian.Little WordSize.Bit64 FCTID
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTID. original decoding``() =
+    decode "fc201e5d" Endian.Big WordSize.Bit32 FCTIDdot
+    decode "fc201e5d" Endian.Big WordSize.Bit64 FCTIDdot
+    decode "5d1e20fc" Endian.Little WordSize.Bit64 FCTIDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDU original decoding``() =
+    decode "fc201f5c" Endian.Big WordSize.Bit32 FCTIDU
+    decode "fc201f5c" Endian.Big WordSize.Bit64 FCTIDU
+    decode "5c1f20fc" Endian.Little WordSize.Bit64 FCTIDU
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDU. original decoding``() =
+    decode "fc201f5d" Endian.Big WordSize.Bit32 FCTIDUdot
+    decode "fc201f5d" Endian.Big WordSize.Bit64 FCTIDUdot
+    decode "5d1f20fc" Endian.Little WordSize.Bit64 FCTIDUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDUZ original decoding``() =
+    decode "fc201f5e" Endian.Big WordSize.Bit32 FCTIDUZ
+    decode "fc201f5e" Endian.Big WordSize.Bit64 FCTIDUZ
+    decode "5e1f20fc" Endian.Little WordSize.Bit64 FCTIDUZ
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDUZ. original decoding``() =
+    decode "fc201f5f" Endian.Big WordSize.Bit32 FCTIDUZdot
+    decode "fc201f5f" Endian.Big WordSize.Bit64 FCTIDUZdot
+    decode "5f1f20fc" Endian.Little WordSize.Bit64 FCTIDUZdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDZ original decoding``() =
+    decode "fc201e5e" Endian.Big WordSize.Bit32 FCTIDZ
+    decode "fc201e5e" Endian.Big WordSize.Bit64 FCTIDZ
+    decode "5e1e20fc" Endian.Little WordSize.Bit64 FCTIDZ
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIDZ. original decoding``() =
+    decode "fc201e5f" Endian.Big WordSize.Bit32 FCTIDZdot
+    decode "fc201e5f" Endian.Big WordSize.Bit64 FCTIDZdot
+    decode "5f1e20fc" Endian.Little WordSize.Bit64 FCTIDZdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIW original decoding``() =
+    decode "fc20181c" Endian.Big WordSize.Bit32 FCTIW
+    decode "fc20181c" Endian.Big WordSize.Bit64 FCTIW
+    decode "1c1820fc" Endian.Little WordSize.Bit64 FCTIW
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIW. original decoding``() =
+    decode "fc20181d" Endian.Big WordSize.Bit32 FCTIWdot
+    decode "fc20181d" Endian.Big WordSize.Bit64 FCTIWdot
+    decode "1d1820fc" Endian.Little WordSize.Bit64 FCTIWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWU original decoding``() =
+    decode "fc20191c" Endian.Big WordSize.Bit32 FCTIWU
+    decode "fc20191c" Endian.Big WordSize.Bit64 FCTIWU
+    decode "1c1920fc" Endian.Little WordSize.Bit64 FCTIWU
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWU. original decoding``() =
+    decode "fc20191d" Endian.Big WordSize.Bit32 FCTIWUdot
+    decode "fc20191d" Endian.Big WordSize.Bit64 FCTIWUdot
+    decode "1d1920fc" Endian.Little WordSize.Bit64 FCTIWUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWUZ original decoding``() =
+    decode "fc20191e" Endian.Big WordSize.Bit32 FCTIWUZ
+    decode "fc20191e" Endian.Big WordSize.Bit64 FCTIWUZ
+    decode "1e1920fc" Endian.Little WordSize.Bit64 FCTIWUZ
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWUZ. original decoding``() =
+    decode "fc20191f" Endian.Big WordSize.Bit32 FCTIWUZdot
+    decode "fc20191f" Endian.Big WordSize.Bit64 FCTIWUZdot
+    decode "1f1920fc" Endian.Little WordSize.Bit64 FCTIWUZdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWZ original decoding``() =
+    decode "fc20181e" Endian.Big WordSize.Bit32 FCTIWZ
+    decode "fc20181e" Endian.Big WordSize.Bit64 FCTIWZ
+    decode "1e1820fc" Endian.Little WordSize.Bit64 FCTIWZ
+
+  [<TestMethod>]
+  member _.``[PPC T] FCTIWZ. original decoding``() =
+    decode "fc20181f" Endian.Big WordSize.Bit32 FCTIWZdot
+    decode "fc20181f" Endian.Big WordSize.Bit64 FCTIWZdot
+    decode "1f1820fc" Endian.Little WordSize.Bit64 FCTIWZdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIV original decoding``() =
+    decode "fc221824" Endian.Big WordSize.Bit32 FDIV
+    decode "fc221824" Endian.Big WordSize.Bit64 FDIV
+    decode "241822fc" Endian.Little WordSize.Bit64 FDIV
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIV. original decoding``() =
+    decode "fc221825" Endian.Big WordSize.Bit32 FDIVdot
+    decode "fc221825" Endian.Big WordSize.Bit64 FDIVdot
+    decode "251822fc" Endian.Little WordSize.Bit64 FDIVdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIVS original decoding``() =
+    decode "ec221824" Endian.Big WordSize.Bit32 FDIVS
+    decode "ec221824" Endian.Big WordSize.Bit64 FDIVS
+    decode "241822ec" Endian.Little WordSize.Bit64 FDIVS
+
+  [<TestMethod>]
+  member _.``[PPC T] FDIVS. original decoding``() =
+    decode "ec221825" Endian.Big WordSize.Bit32 FDIVSdot
+    decode "ec221825" Endian.Big WordSize.Bit64 FDIVSdot
+    decode "251822ec" Endian.Little WordSize.Bit64 FDIVSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMADD original decoding``() =
+    decode "fc22193a" Endian.Big WordSize.Bit32 FMADD
+    decode "fc22193a" Endian.Big WordSize.Bit64 FMADD
+    decode "3a1922fc" Endian.Little WordSize.Bit64 FMADD
+
+  [<TestMethod>]
+  member _.``[PPC T] FMADD. original decoding``() =
+    decode "fc22193b" Endian.Big WordSize.Bit32 FMADDdot
+    decode "fc22193b" Endian.Big WordSize.Bit64 FMADDdot
+    decode "3b1922fc" Endian.Little WordSize.Bit64 FMADDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMADDS original decoding``() =
+    decode "ec22193a" Endian.Big WordSize.Bit32 FMADDS
+    decode "ec22193a" Endian.Big WordSize.Bit64 FMADDS
+    decode "3a1922ec" Endian.Little WordSize.Bit64 FMADDS
+
+  [<TestMethod>]
+  member _.``[PPC T] FMADDS. original decoding``() =
+    decode "ec22193b" Endian.Big WordSize.Bit32 FMADDSdot
+    decode "ec22193b" Endian.Big WordSize.Bit64 FMADDSdot
+    decode "3b1922ec" Endian.Little WordSize.Bit64 FMADDSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMR original decoding``() =
+    decode "fc201890" Endian.Big WordSize.Bit32 FMR
+    decode "fc201890" Endian.Big WordSize.Bit64 FMR
+    decode "901820fc" Endian.Little WordSize.Bit64 FMR
+
+  [<TestMethod>]
+  member _.``[PPC T] FMR. original decoding``() =
+    decode "fc201891" Endian.Big WordSize.Bit32 FMRdot
+    decode "fc201891" Endian.Big WordSize.Bit64 FMRdot
+    decode "911820fc" Endian.Little WordSize.Bit64 FMRdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUB original decoding``() =
+    decode "fc221938" Endian.Big WordSize.Bit32 FMSUB
+    decode "fc221938" Endian.Big WordSize.Bit64 FMSUB
+    decode "381922fc" Endian.Little WordSize.Bit64 FMSUB
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUB. original decoding``() =
+    decode "fc221939" Endian.Big WordSize.Bit32 FMSUBdot
+    decode "fc221939" Endian.Big WordSize.Bit64 FMSUBdot
+    decode "391922fc" Endian.Little WordSize.Bit64 FMSUBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUBS original decoding``() =
+    decode "ec221938" Endian.Big WordSize.Bit32 FMSUBS
+    decode "ec221938" Endian.Big WordSize.Bit64 FMSUBS
+    decode "381922ec" Endian.Little WordSize.Bit64 FMSUBS
+
+  [<TestMethod>]
+  member _.``[PPC T] FMSUBS. original decoding``() =
+    decode "ec221939" Endian.Big WordSize.Bit32 FMSUBSdot
+    decode "ec221939" Endian.Big WordSize.Bit64 FMSUBSdot
+    decode "391922ec" Endian.Little WordSize.Bit64 FMSUBSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMUL original decoding``() =
+    decode "fc220132" Endian.Big WordSize.Bit32 FMUL
+    decode "fc220132" Endian.Big WordSize.Bit64 FMUL
+    decode "320122fc" Endian.Little WordSize.Bit64 FMUL
+
+  [<TestMethod>]
+  member _.``[PPC T] FMUL. original decoding``() =
+    decode "fc220133" Endian.Big WordSize.Bit32 FMULdot
+    decode "fc220133" Endian.Big WordSize.Bit64 FMULdot
+    decode "330122fc" Endian.Little WordSize.Bit64 FMULdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FMULS original decoding``() =
+    decode "ec220132" Endian.Big WordSize.Bit32 FMULS
+    decode "ec220132" Endian.Big WordSize.Bit64 FMULS
+    decode "320122ec" Endian.Little WordSize.Bit64 FMULS
+
+  [<TestMethod>]
+  member _.``[PPC T] FMULS. original decoding``() =
+    decode "ec220133" Endian.Big WordSize.Bit32 FMULSdot
+    decode "ec220133" Endian.Big WordSize.Bit64 FMULSdot
+    decode "330122ec" Endian.Little WordSize.Bit64 FMULSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FNABS original decoding``() =
+    decode "fc201910" Endian.Big WordSize.Bit32 FNABS
+    decode "fc201910" Endian.Big WordSize.Bit64 FNABS
+    decode "101920fc" Endian.Little WordSize.Bit64 FNABS
+
+  [<TestMethod>]
+  member _.``[PPC T] FNABS. original decoding``() =
+    decode "fc201911" Endian.Big WordSize.Bit32 FNABSdot
+    decode "fc201911" Endian.Big WordSize.Bit64 FNABSdot
+    decode "111920fc" Endian.Little WordSize.Bit64 FNABSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FNEG original decoding``() =
+    decode "fc201850" Endian.Big WordSize.Bit32 FNEG
+    decode "fc201850" Endian.Big WordSize.Bit64 FNEG
+    decode "501820fc" Endian.Little WordSize.Bit64 FNEG
+
+  [<TestMethod>]
+  member _.``[PPC T] FNEG. original decoding``() =
+    decode "fc201851" Endian.Big WordSize.Bit32 FNEGdot
+    decode "fc201851" Endian.Big WordSize.Bit64 FNEGdot
+    decode "511820fc" Endian.Little WordSize.Bit64 FNEGdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADD original decoding``() =
+    decode "fc22193e" Endian.Big WordSize.Bit32 FNMADD
+    decode "fc22193e" Endian.Big WordSize.Bit64 FNMADD
+    decode "3e1922fc" Endian.Little WordSize.Bit64 FNMADD
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADD. original decoding``() =
+    decode "fc22193f" Endian.Big WordSize.Bit32 FNMADDdot
+    decode "fc22193f" Endian.Big WordSize.Bit64 FNMADDdot
+    decode "3f1922fc" Endian.Little WordSize.Bit64 FNMADDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADDS original decoding``() =
+    decode "ec22193e" Endian.Big WordSize.Bit32 FNMADDS
+    decode "ec22193e" Endian.Big WordSize.Bit64 FNMADDS
+    decode "3e1922ec" Endian.Little WordSize.Bit64 FNMADDS
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMADDS. original decoding``() =
+    decode "ec22193f" Endian.Big WordSize.Bit32 FNMADDSdot
+    decode "ec22193f" Endian.Big WordSize.Bit64 FNMADDSdot
+    decode "3f1922ec" Endian.Little WordSize.Bit64 FNMADDSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUB original decoding``() =
+    decode "fc22193c" Endian.Big WordSize.Bit32 FNMSUB
+    decode "fc22193c" Endian.Big WordSize.Bit64 FNMSUB
+    decode "3c1922fc" Endian.Little WordSize.Bit64 FNMSUB
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUB. original decoding``() =
+    decode "fc22193d" Endian.Big WordSize.Bit32 FNMSUBdot
+    decode "fc22193d" Endian.Big WordSize.Bit64 FNMSUBdot
+    decode "3d1922fc" Endian.Little WordSize.Bit64 FNMSUBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUBS original decoding``() =
+    decode "ec22193c" Endian.Big WordSize.Bit32 FNMSUBS
+    decode "ec22193c" Endian.Big WordSize.Bit64 FNMSUBS
+    decode "3c1922ec" Endian.Little WordSize.Bit64 FNMSUBS
+
+  [<TestMethod>]
+  member _.``[PPC T] FNMSUBS. original decoding``() =
+    decode "ec22193d" Endian.Big WordSize.Bit32 FNMSUBSdot
+    decode "ec22193d" Endian.Big WordSize.Bit64 FNMSUBSdot
+    decode "3d1922ec" Endian.Little WordSize.Bit64 FNMSUBSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRES original decoding``() =
+    decode "ec201830" Endian.Big WordSize.Bit32 FRES
+    decode "ec201830" Endian.Big WordSize.Bit64 FRES
+    decode "301820ec" Endian.Little WordSize.Bit64 FRES
+
+  [<TestMethod>]
+  member _.``[PPC T] FRES. original decoding``() =
+    decode "ec201831" Endian.Big WordSize.Bit32 FRESdot
+    decode "ec201831" Endian.Big WordSize.Bit64 FRESdot
+    decode "311820ec" Endian.Little WordSize.Bit64 FRESdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIM original decoding``() =
+    decode "fc201bd0" Endian.Big WordSize.Bit32 FRIM
+    decode "fc201bd0" Endian.Big WordSize.Bit64 FRIM
+    decode "d01b20fc" Endian.Little WordSize.Bit64 FRIM
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIM. original decoding``() =
+    decode "fc201bd1" Endian.Big WordSize.Bit32 FRIMdot
+    decode "fc201bd1" Endian.Big WordSize.Bit64 FRIMdot
+    decode "d11b20fc" Endian.Little WordSize.Bit64 FRIMdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIN original decoding``() =
+    decode "fc201b10" Endian.Big WordSize.Bit32 FRIN
+    decode "fc201b10" Endian.Big WordSize.Bit64 FRIN
+    decode "101b20fc" Endian.Little WordSize.Bit64 FRIN
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIN. original decoding``() =
+    decode "fc201b11" Endian.Big WordSize.Bit32 FRINdot
+    decode "fc201b11" Endian.Big WordSize.Bit64 FRINdot
+    decode "111b20fc" Endian.Little WordSize.Bit64 FRINdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIP original decoding``() =
+    decode "fc201b90" Endian.Big WordSize.Bit32 FRIP
+    decode "fc201b90" Endian.Big WordSize.Bit64 FRIP
+    decode "901b20fc" Endian.Little WordSize.Bit64 FRIP
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIP. original decoding``() =
+    decode "fc201b91" Endian.Big WordSize.Bit32 FRIPdot
+    decode "fc201b91" Endian.Big WordSize.Bit64 FRIPdot
+    decode "911b20fc" Endian.Little WordSize.Bit64 FRIPdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIZ original decoding``() =
+    decode "fc201b50" Endian.Big WordSize.Bit32 FRIZ
+    decode "fc201b50" Endian.Big WordSize.Bit64 FRIZ
+    decode "501b20fc" Endian.Little WordSize.Bit64 FRIZ
+
+  [<TestMethod>]
+  member _.``[PPC T] FRIZ. original decoding``() =
+    decode "fc201b51" Endian.Big WordSize.Bit32 FRIZdot
+    decode "fc201b51" Endian.Big WordSize.Bit64 FRIZdot
+    decode "511b20fc" Endian.Little WordSize.Bit64 FRIZdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRSP original decoding``() =
+    decode "fc201818" Endian.Big WordSize.Bit32 FRSP
+    decode "fc201818" Endian.Big WordSize.Bit64 FRSP
+    decode "181820fc" Endian.Little WordSize.Bit64 FRSP
+
+  [<TestMethod>]
+  member _.``[PPC T] FRSP. original decoding``() =
+    decode "fc201819" Endian.Big WordSize.Bit32 FRSPdot
+    decode "fc201819" Endian.Big WordSize.Bit64 FRSPdot
+    decode "191820fc" Endian.Little WordSize.Bit64 FRSPdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FRSQRTE original decoding``() =
+    decode "fc201834" Endian.Big WordSize.Bit32 FRSQRTE
+    decode "fc201834" Endian.Big WordSize.Bit64 FRSQRTE
+    decode "341820fc" Endian.Little WordSize.Bit64 FRSQRTE
+
+  [<TestMethod>]
+  member _.``[PPC T] FSEL original decoding``() =
+    decode "fc22192e" Endian.Big WordSize.Bit32 FSEL
+    decode "fc22192e" Endian.Big WordSize.Bit64 FSEL
+    decode "2e1922fc" Endian.Little WordSize.Bit64 FSEL
+
+  [<TestMethod>]
+  member _.``[PPC T] FSEL. original decoding``() =
+    decode "fc22192f" Endian.Big WordSize.Bit32 FSELdot
+    decode "fc22192f" Endian.Big WordSize.Bit64 FSELdot
+    decode "2f1922fc" Endian.Little WordSize.Bit64 FSELdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRT original decoding``() =
+    decode "fc20182c" Endian.Big WordSize.Bit32 FSQRT
+    decode "fc20182c" Endian.Big WordSize.Bit64 FSQRT
+    decode "2c1820fc" Endian.Little WordSize.Bit64 FSQRT
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRT. original decoding``() =
+    decode "fc20182d" Endian.Big WordSize.Bit32 FSQRTdot
+    decode "fc20182d" Endian.Big WordSize.Bit64 FSQRTdot
+    decode "2d1820fc" Endian.Little WordSize.Bit64 FSQRTdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRTS original decoding``() =
+    decode "ec20182c" Endian.Big WordSize.Bit32 FSQRTS
+    decode "ec20182c" Endian.Big WordSize.Bit64 FSQRTS
+    decode "2c1820ec" Endian.Little WordSize.Bit64 FSQRTS
+
+  [<TestMethod>]
+  member _.``[PPC T] FSQRTS. original decoding``() =
+    decode "ec20182d" Endian.Big WordSize.Bit32 FSQRTSdot
+    decode "ec20182d" Endian.Big WordSize.Bit64 FSQRTSdot
+    decode "2d1820ec" Endian.Little WordSize.Bit64 FSQRTSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUB original decoding``() =
+    decode "fc221828" Endian.Big WordSize.Bit32 FSUB
+    decode "fc221828" Endian.Big WordSize.Bit64 FSUB
+    decode "281822fc" Endian.Little WordSize.Bit64 FSUB
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUB. original decoding``() =
+    decode "fc221829" Endian.Big WordSize.Bit32 FSUBdot
+    decode "fc221829" Endian.Big WordSize.Bit64 FSUBdot
+    decode "291822fc" Endian.Little WordSize.Bit64 FSUBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUBS original decoding``() =
+    decode "ec221828" Endian.Big WordSize.Bit32 FSUBS
+    decode "ec221828" Endian.Big WordSize.Bit64 FSUBS
+    decode "281822ec" Endian.Little WordSize.Bit64 FSUBS
+
+  [<TestMethod>]
+  member _.``[PPC T] FSUBS. original decoding``() =
+    decode "ec221829" Endian.Big WordSize.Bit32 FSUBSdot
+    decode "ec221829" Endian.Big WordSize.Bit64 FSUBSdot
+    decode "291822ec" Endian.Little WordSize.Bit64 FSUBSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ICBI original decoding``() =
+    decode "7c063fac" Endian.Big WordSize.Bit32 ICBI
+    decode "7c063fac" Endian.Big WordSize.Bit64 ICBI
+    decode "ac3f067c" Endian.Little WordSize.Bit64 ICBI
+
+  [<TestMethod>]
+  member _.``[PPC T] ISEL original decoding``() =
+    decode "7ca63a5e" Endian.Big WordSize.Bit32 ISEL
+    decode "7ca63a5e" Endian.Big WordSize.Bit64 ISEL
+    decode "5e3aa67c" Endian.Little WordSize.Bit64 ISEL
+
+  [<TestMethod>]
+  member _.``[PPC T] ISYNC original decoding``() =
+    decode "4c00012c" Endian.Big WordSize.Bit32 ISYNC
+    decode "4c00012c" Endian.Big WordSize.Bit64 ISYNC
+    decode "2c01004c" Endian.Little WordSize.Bit64 ISYNC
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZ original decoding``() =
+    decode "88a60008" Endian.Big WordSize.Bit32 LBZ
+    decode "88a60008" Endian.Big WordSize.Bit64 LBZ
+    decode "0800a688" Endian.Little WordSize.Bit64 LBZ
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZU original decoding``() =
+    decode "8ca60008" Endian.Big WordSize.Bit32 LBZU
+    decode "8ca60008" Endian.Big WordSize.Bit64 LBZU
+    decode "0800a68c" Endian.Little WordSize.Bit64 LBZU
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZUX original decoding``() =
+    decode "7ca638ee" Endian.Big WordSize.Bit32 LBZUX
+    decode "7ca638ee" Endian.Big WordSize.Bit64 LBZUX
+    decode "ee38a67c" Endian.Little WordSize.Bit64 LBZUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LBZX original decoding``() =
+    decode "7ca638ae" Endian.Big WordSize.Bit32 LBZX
+    decode "7ca638ae" Endian.Big WordSize.Bit64 LBZX
+    decode "ae38a67c" Endian.Little WordSize.Bit64 LBZX
+
+  [<TestMethod>]
+  member _.``[PPC T] LDARX original decoding``() =
+    refuse "7ca638a8"
+    decode "7ca638a8" Endian.Big WordSize.Bit64 LDARX
+    decode "a838a67c" Endian.Little WordSize.Bit64 LDARX
+
+  [<TestMethod>]
+  member _.``[PPC T] LDBRX original decoding``() =
+    refuse "7ca63c28"
+    decode "7ca63c28" Endian.Big WordSize.Bit64 LDBRX
+    decode "283ca67c" Endian.Little WordSize.Bit64 LDBRX
+
+  [<TestMethod>]
+  member _.``[PPC T] LDU original decoding``() =
+    refuse "e8a60009"
+    decode "e8a60009" Endian.Big WordSize.Bit64 LDU
+    decode "0900a6e8" Endian.Little WordSize.Bit64 LDU
+
+  [<TestMethod>]
+  member _.``[PPC T] LDUX original decoding``() =
+    refuse "7ca6386a"
+    decode "7ca6386a" Endian.Big WordSize.Bit64 LDUX
+    decode "6a38a67c" Endian.Little WordSize.Bit64 LDUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LDX original decoding``() =
+    refuse "7ca6382a"
+    decode "7ca6382a" Endian.Big WordSize.Bit64 LDX
+    decode "2a38a67c" Endian.Little WordSize.Bit64 LDX
+
+  [<TestMethod>]
+  member _.``[PPC T] LFD original decoding``() =
+    decode "c8260008" Endian.Big WordSize.Bit32 LFD
+    decode "c8260008" Endian.Big WordSize.Bit64 LFD
+    decode "080026c8" Endian.Little WordSize.Bit64 LFD
+
+  [<TestMethod>]
+  member _.``[PPC T] LFDU original decoding``() =
+    decode "cc260008" Endian.Big WordSize.Bit32 LFDU
+    decode "cc260008" Endian.Big WordSize.Bit64 LFDU
+    decode "080026cc" Endian.Little WordSize.Bit64 LFDU
+
+  [<TestMethod>]
+  member _.``[PPC T] LFDUX original decoding``() =
+    decode "7c263cee" Endian.Big WordSize.Bit32 LFDUX
+    decode "7c263cee" Endian.Big WordSize.Bit64 LFDUX
+    decode "ee3c267c" Endian.Little WordSize.Bit64 LFDUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LFDX original decoding``() =
+    decode "7c263cae" Endian.Big WordSize.Bit32 LFDX
+    decode "7c263cae" Endian.Big WordSize.Bit64 LFDX
+    decode "ae3c267c" Endian.Little WordSize.Bit64 LFDX
+
+  [<TestMethod>]
+  member _.``[PPC T] LFIWAX original decoding``() =
+    decode "7c263eae" Endian.Big WordSize.Bit32 LFIWAX
+    decode "7c263eae" Endian.Big WordSize.Bit64 LFIWAX
+    decode "ae3e267c" Endian.Little WordSize.Bit64 LFIWAX
+
+  [<TestMethod>]
+  member _.``[PPC T] LFIWZX original decoding``() =
+    decode "7c263eee" Endian.Big WordSize.Bit32 LFIWZX
+    decode "7c263eee" Endian.Big WordSize.Bit64 LFIWZX
+    decode "ee3e267c" Endian.Little WordSize.Bit64 LFIWZX
+
+  [<TestMethod>]
+  member _.``[PPC T] LFS original decoding``() =
+    decode "c0260008" Endian.Big WordSize.Bit32 LFS
+    decode "c0260008" Endian.Big WordSize.Bit64 LFS
+    decode "080026c0" Endian.Little WordSize.Bit64 LFS
+
+  [<TestMethod>]
+  member _.``[PPC T] LFSU original decoding``() =
+    decode "c4260008" Endian.Big WordSize.Bit32 LFSU
+    decode "c4260008" Endian.Big WordSize.Bit64 LFSU
+    decode "080026c4" Endian.Little WordSize.Bit64 LFSU
+
+  [<TestMethod>]
+  member _.``[PPC T] LFSUX original decoding``() =
+    decode "7c263c6e" Endian.Big WordSize.Bit32 LFSUX
+    decode "7c263c6e" Endian.Big WordSize.Bit64 LFSUX
+    decode "6e3c267c" Endian.Little WordSize.Bit64 LFSUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LFSX original decoding``() =
+    decode "7c263c2e" Endian.Big WordSize.Bit32 LFSX
+    decode "7c263c2e" Endian.Big WordSize.Bit64 LFSX
+    decode "2e3c267c" Endian.Little WordSize.Bit64 LFSX
+
+  [<TestMethod>]
+  member _.``[PPC T] LHA original decoding``() =
+    decode "a8a60008" Endian.Big WordSize.Bit32 LHA
+    decode "a8a60008" Endian.Big WordSize.Bit64 LHA
+    decode "0800a6a8" Endian.Little WordSize.Bit64 LHA
+
+  [<TestMethod>]
+  member _.``[PPC T] LHAU original decoding``() =
+    decode "aca60008" Endian.Big WordSize.Bit32 LHAU
+    decode "aca60008" Endian.Big WordSize.Bit64 LHAU
+    decode "0800a6ac" Endian.Little WordSize.Bit64 LHAU
+
+  [<TestMethod>]
+  member _.``[PPC T] LHAUX original decoding``() =
+    decode "7ca63aee" Endian.Big WordSize.Bit32 LHAUX
+    decode "7ca63aee" Endian.Big WordSize.Bit64 LHAUX
+    decode "ee3aa67c" Endian.Little WordSize.Bit64 LHAUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LHAX original decoding``() =
+    decode "7ca63aae" Endian.Big WordSize.Bit32 LHAX
+    decode "7ca63aae" Endian.Big WordSize.Bit64 LHAX
+    decode "ae3aa67c" Endian.Little WordSize.Bit64 LHAX
+
+  [<TestMethod>]
+  member _.``[PPC T] LHBRX original decoding``() =
+    decode "7ca63e2c" Endian.Big WordSize.Bit32 LHBRX
+    decode "7ca63e2c" Endian.Big WordSize.Bit64 LHBRX
+    decode "2c3ea67c" Endian.Little WordSize.Bit64 LHBRX
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZ original decoding``() =
+    decode "a0a60008" Endian.Big WordSize.Bit32 LHZ
+    decode "a0a60008" Endian.Big WordSize.Bit64 LHZ
+    decode "0800a6a0" Endian.Little WordSize.Bit64 LHZ
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZU original decoding``() =
+    decode "a4a60008" Endian.Big WordSize.Bit32 LHZU
+    decode "a4a60008" Endian.Big WordSize.Bit64 LHZU
+    decode "0800a6a4" Endian.Little WordSize.Bit64 LHZU
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZUX original decoding``() =
+    decode "7ca63a6e" Endian.Big WordSize.Bit32 LHZUX
+    decode "7ca63a6e" Endian.Big WordSize.Bit64 LHZUX
+    decode "6e3aa67c" Endian.Little WordSize.Bit64 LHZUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LHZX original decoding``() =
+    decode "7ca63a2e" Endian.Big WordSize.Bit32 LHZX
+    decode "7ca63a2e" Endian.Big WordSize.Bit64 LHZX
+    decode "2e3aa67c" Endian.Little WordSize.Bit64 LHZX
+
+  [<TestMethod>]
+  member _.``[PPC T] LMW original decoding``() =
+    decode "bba60008" Endian.Big WordSize.Bit32 LMW
+    decode "bba60008" Endian.Big WordSize.Bit64 LMW
+    decode "0800a6bb" Endian.Little WordSize.Bit64 LMW
+
+  [<TestMethod>]
+  member _.``[PPC T] LSWI original decoding``() =
+    decode "7ca624aa" Endian.Big WordSize.Bit32 LSWI
+    decode "7ca624aa" Endian.Big WordSize.Bit64 LSWI
+    decode "aa24a67c" Endian.Little WordSize.Bit64 LSWI
+
+  [<TestMethod>]
+  member _.``[PPC T] LSWX original decoding``() =
+    decode "7ca63c2a" Endian.Big WordSize.Bit32 LSWX
+    decode "7ca63c2a" Endian.Big WordSize.Bit64 LSWX
+    decode "2a3ca67c" Endian.Little WordSize.Bit64 LSWX
+
+  [<TestMethod>]
+  member _.``[PPC T] LVEBX original decoding``() =
+    decode "7c26380e" Endian.Big WordSize.Bit32 LVEBX
+    decode "7c26380e" Endian.Big WordSize.Bit64 LVEBX
+    decode "0e38267c" Endian.Little WordSize.Bit64 LVEBX
+
+  [<TestMethod>]
+  member _.``[PPC T] LVEHX original decoding``() =
+    decode "7c26384e" Endian.Big WordSize.Bit32 LVEHX
+    decode "7c26384e" Endian.Big WordSize.Bit64 LVEHX
+    decode "4e38267c" Endian.Little WordSize.Bit64 LVEHX
+
+  [<TestMethod>]
+  member _.``[PPC T] LVEWX original decoding``() =
+    decode "7c26388e" Endian.Big WordSize.Bit32 LVEWX
+    decode "7c26388e" Endian.Big WordSize.Bit64 LVEWX
+    decode "8e38267c" Endian.Little WordSize.Bit64 LVEWX
+
+  [<TestMethod>]
+  member _.``[PPC T] LVSL original decoding``() =
+    decode "7c26380c" Endian.Big WordSize.Bit32 LVSL
+    decode "7c26380c" Endian.Big WordSize.Bit64 LVSL
+    decode "0c38267c" Endian.Little WordSize.Bit64 LVSL
+
+  [<TestMethod>]
+  member _.``[PPC T] LVSR original decoding``() =
+    decode "7c26384c" Endian.Big WordSize.Bit32 LVSR
+    decode "7c26384c" Endian.Big WordSize.Bit64 LVSR
+    decode "4c38267c" Endian.Little WordSize.Bit64 LVSR
+
+  [<TestMethod>]
+  member _.``[PPC T] LVX original decoding``() =
+    decode "7c2638ce" Endian.Big WordSize.Bit32 LVX
+    decode "7c2638ce" Endian.Big WordSize.Bit64 LVX
+    decode "ce38267c" Endian.Little WordSize.Bit64 LVX
+
+  [<TestMethod>]
+  member _.``[PPC T] LVXL original decoding``() =
+    decode "7c263ace" Endian.Big WordSize.Bit32 LVXL
+    decode "7c263ace" Endian.Big WordSize.Bit64 LVXL
+    decode "ce3a267c" Endian.Little WordSize.Bit64 LVXL
+
+  [<TestMethod>]
+  member _.``[PPC T] LWA original decoding``() =
+    refuse "e8a6000a"
+    decode "e8a6000a" Endian.Big WordSize.Bit64 LWA
+    decode "0a00a6e8" Endian.Little WordSize.Bit64 LWA
+
+  [<TestMethod>]
+  member _.``[PPC T] LWARX original decoding``() =
+    decode "7ca63828" Endian.Big WordSize.Bit32 LWARX
+    decode "7ca63828" Endian.Big WordSize.Bit64 LWARX
+    decode "2838a67c" Endian.Little WordSize.Bit64 LWARX
+
+  [<TestMethod>]
+  member _.``[PPC T] LWAUX original decoding``() =
+    refuse "7ca63aea"
+    decode "7ca63aea" Endian.Big WordSize.Bit64 LWAUX
+    decode "ea3aa67c" Endian.Little WordSize.Bit64 LWAUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LWAX original decoding``() =
+    refuse "7ca63aaa"
+    decode "7ca63aaa" Endian.Big WordSize.Bit64 LWAX
+    decode "aa3aa67c" Endian.Little WordSize.Bit64 LWAX
+
+  [<TestMethod>]
+  member _.``[PPC T] LWBRX original decoding``() =
+    decode "7ca63c2c" Endian.Big WordSize.Bit32 LWBRX
+    decode "7ca63c2c" Endian.Big WordSize.Bit64 LWBRX
+    decode "2c3ca67c" Endian.Little WordSize.Bit64 LWBRX
+
+  [<TestMethod>]
+  member _.``[PPC T] LWZU original decoding``() =
+    decode "84a60008" Endian.Big WordSize.Bit32 LWZU
+    decode "84a60008" Endian.Big WordSize.Bit64 LWZU
+    decode "0800a684" Endian.Little WordSize.Bit64 LWZU
+
+  [<TestMethod>]
+  member _.``[PPC T] LWZUX original decoding``() =
+    decode "7ca6386e" Endian.Big WordSize.Bit32 LWZUX
+    decode "7ca6386e" Endian.Big WordSize.Bit64 LWZUX
+    decode "6e38a67c" Endian.Little WordSize.Bit64 LWZUX
+
+  [<TestMethod>]
+  member _.``[PPC T] LWZX original decoding``() =
+    decode "7ca6382e" Endian.Big WordSize.Bit32 LWZX
+    decode "7ca6382e" Endian.Big WordSize.Bit64 LWZX
+    decode "2e38a67c" Endian.Little WordSize.Bit64 LWZX
+
+  [<TestMethod>]
+  member _.``[PPC T] LXSD original decoding``() =
+    refuse "e426000a"
+    decode "e426000a" Endian.Big WordSize.Bit64 LXSD
+    decode "0a0026e4" Endian.Little WordSize.Bit64 LXSD
+
+  [<TestMethod>]
+  member _.``[PPC T] LXSDX original decoding``() =
+    decode "7c263c98" Endian.Big WordSize.Bit32 LXSDX
+    decode "7c263c98" Endian.Big WordSize.Bit64 LXSDX
+    decode "983c267c" Endian.Little WordSize.Bit64 LXSDX
+
+  [<TestMethod>]
+  member _.``[PPC T] LXVD2X original decoding``() =
+    decode "7c263e98" Endian.Big WordSize.Bit32 LXVD2X
+    decode "7c263e98" Endian.Big WordSize.Bit64 LXVD2X
+    decode "983e267c" Endian.Little WordSize.Bit64 LXVD2X
+
+  [<TestMethod>]
+  member _.``[PPC T] LXVDSX original decoding``() =
+    decode "7c263a98" Endian.Big WordSize.Bit32 LXVDSX
+    decode "7c263a98" Endian.Big WordSize.Bit64 LXVDSX
+    decode "983a267c" Endian.Little WordSize.Bit64 LXVDSX
+
+  [<TestMethod>]
+  member _.``[PPC T] LXVW4X original decoding``() =
+    decode "7c263e18" Endian.Big WordSize.Bit32 LXVW4X
+    decode "7c263e18" Endian.Big WordSize.Bit64 LXVW4X
+    decode "183e267c" Endian.Little WordSize.Bit64 LXVW4X
+
+  [<TestMethod>]
+  member _.``[PPC T] MCRF original decoding``() =
+    decode "4d0c0000" Endian.Big WordSize.Bit32 MCRF
+    decode "4d0c0000" Endian.Big WordSize.Bit64 MCRF
+    decode "00000c4d" Endian.Little WordSize.Bit64 MCRF
+
+  [<TestMethod>]
+  member _.``[PPC T] MCRFS original decoding``() =
+    decode "fd0c0080" Endian.Big WordSize.Bit32 MCRFS
+    decode "fd0c0080" Endian.Big WordSize.Bit64 MCRFS
+    decode "80000cfd" Endian.Little WordSize.Bit64 MCRFS
+
+  [<TestMethod>]
+  member _.``[PPC T] MFCR original decoding``() =
+    decode "7ca00026" Endian.Big WordSize.Bit32 MFCR
+    decode "7ca00026" Endian.Big WordSize.Bit64 MFCR
+    decode "2600a07c" Endian.Little WordSize.Bit64 MFCR
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFS original decoding``() =
+    decode "fc20048e" Endian.Big WordSize.Bit32 MFFS
+    decode "fc20048e" Endian.Big WordSize.Bit64 MFFS
+    decode "8e0420fc" Endian.Little WordSize.Bit64 MFFS
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFS. original decoding``() =
+    decode "fc20048f" Endian.Big WordSize.Bit32 MFFSdot
+    decode "fc20048f" Endian.Big WordSize.Bit64 MFFSdot
+    decode "8f0420fc" Endian.Little WordSize.Bit64 MFFSdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFSCRN original decoding``() =
+    decode "fc361c8e" Endian.Big WordSize.Bit32 MFFSCRN
+    decode "fc361c8e" Endian.Big WordSize.Bit64 MFFSCRN
+    decode "8e1c36fc" Endian.Little WordSize.Bit64 MFFSCRN
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFSCRNI original decoding``() =
+    decode "fc370c8e" Endian.Big WordSize.Bit32 MFFSCRNI
+    decode "fc370c8e" Endian.Big WordSize.Bit64 MFFSCRNI
+    decode "8e0c37fc" Endian.Little WordSize.Bit64 MFFSCRNI
+
+  [<TestMethod>]
+  member _.``[PPC T] MFFSL original decoding``() =
+    decode "fc38048e" Endian.Big WordSize.Bit32 MFFSL
+    decode "fc38048e" Endian.Big WordSize.Bit64 MFFSL
+    decode "8e0438fc" Endian.Little WordSize.Bit64 MFFSL
+
+  [<TestMethod>]
+  member _.``[PPC T] MFTB original decoding``() =
+    decode "7cac42a6" Endian.Big WordSize.Bit32 MFTB
+    decode "7cac42a6" Endian.Big WordSize.Bit64 MFTB
+    decode "a642ac7c" Endian.Little WordSize.Bit64 MFTB
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSCR original decoding``() =
+    decode "10200604" Endian.Big WordSize.Bit32 MFVSCR
+    decode "10200604" Endian.Big WordSize.Bit64 MFVSCR
+    decode "04062010" Endian.Little WordSize.Bit64 MFVSCR
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSRD original decoding``() =
+    refuse "7c260066"
+    decode "7c260066" Endian.Big WordSize.Bit64 MFVSRD
+    decode "6600267c" Endian.Little WordSize.Bit64 MFVSRD
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSRLD original decoding``() =
+    refuse "7c260266"
+    decode "7c260266" Endian.Big WordSize.Bit64 MFVSRLD
+    decode "6602267c" Endian.Little WordSize.Bit64 MFVSRLD
+
+  [<TestMethod>]
+  member _.``[PPC T] MFVSRWZ original decoding``() =
+    refuse "7c2600e6"
+    decode "7c2600e6" Endian.Big WordSize.Bit64 MFVSRWZ
+    decode "e600267c" Endian.Little WordSize.Bit64 MFVSRWZ
+
+  [<TestMethod>]
+  member _.``[PPC T] MTCRF original decoding``() =
+    decode "7d021120" Endian.Big WordSize.Bit32 MTCRF
+    decode "7d021120" Endian.Big WordSize.Bit64 MTCRF
+    decode "2011027d" Endian.Little WordSize.Bit64 MTCRF
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB0 original decoding``() =
+    decode "fd20008c" Endian.Big WordSize.Bit32 MTFSB0
+    decode "fd20008c" Endian.Big WordSize.Bit64 MTFSB0
+    decode "8c0020fd" Endian.Little WordSize.Bit64 MTFSB0
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB0. original decoding``() =
+    decode "fd20008d" Endian.Big WordSize.Bit32 MTFSB0dot
+    decode "fd20008d" Endian.Big WordSize.Bit64 MTFSB0dot
+    decode "8d0020fd" Endian.Little WordSize.Bit64 MTFSB0dot
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB1 original decoding``() =
+    decode "fd20004c" Endian.Big WordSize.Bit32 MTFSB1
+    decode "fd20004c" Endian.Big WordSize.Bit64 MTFSB1
+    decode "4c0020fd" Endian.Little WordSize.Bit64 MTFSB1
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSB1. original decoding``() =
+    decode "fd20004d" Endian.Big WordSize.Bit32 MTFSB1dot
+    decode "fd20004d" Endian.Big WordSize.Bit64 MTFSB1dot
+    decode "4d0020fd" Endian.Little WordSize.Bit64 MTFSB1dot
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSF. original decoding``() =
+    decode "fdfe1d8f" Endian.Big WordSize.Bit32 MTFSFdot
+    decode "fdfe1d8f" Endian.Big WordSize.Bit64 MTFSFdot
+    decode "8f1dfefd" Endian.Little WordSize.Bit64 MTFSFdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MTFSFI. original decoding``() =
+    decode "fd00010d" Endian.Big WordSize.Bit32 MTFSFIdot
+    decode "fd00010d" Endian.Big WordSize.Bit64 MTFSFIdot
+    decode "0d0100fd" Endian.Little WordSize.Bit64 MTFSFIdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MTOCRF original decoding``() =
+    decode "7d120120" Endian.Big WordSize.Bit32 MTOCRF
+    decode "7d120120" Endian.Big WordSize.Bit64 MTOCRF
+    decode "2001127d" Endian.Little WordSize.Bit64 MTOCRF
+
+  [<TestMethod>]
+  member _.``[PPC T] MTSPR original decoding``() =
+    decode "7d0903a6" Endian.Big WordSize.Bit32 MTCTR
+    decode "7d0903a6" Endian.Big WordSize.Bit64 MTCTR
+    decode "a603097d" Endian.Little WordSize.Bit64 MTCTR
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSCR original decoding``() =
+    decode "10001e44" Endian.Big WordSize.Bit32 MTVSCR
+    decode "10001e44" Endian.Big WordSize.Bit64 MTVSCR
+    decode "441e0010" Endian.Little WordSize.Bit64 MTVSCR
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRD original decoding``() =
+    refuse "7c260166"
+    decode "7c260166" Endian.Big WordSize.Bit64 MTVSRD
+    decode "6601267c" Endian.Little WordSize.Bit64 MTVSRD
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRDD original decoding``() =
+    refuse "7c263b66"
+    decode "7c263b66" Endian.Big WordSize.Bit64 MTVSRDD
+    decode "663b267c" Endian.Little WordSize.Bit64 MTVSRDD
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRWA original decoding``() =
+    refuse "7c2601a6"
+    decode "7c2601a6" Endian.Big WordSize.Bit64 MTVSRWA
+    decode "a601267c" Endian.Little WordSize.Bit64 MTVSRWA
+
+  [<TestMethod>]
+  member _.``[PPC T] MTVSRWZ original decoding``() =
+    refuse "7c2601e6"
+    decode "7c2601e6" Endian.Big WordSize.Bit64 MTVSRWZ
+    decode "e601267c" Endian.Little WordSize.Bit64 MTVSRWZ
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHD original decoding``() =
+    refuse "7ca63892"
+    decode "7ca63892" Endian.Big WordSize.Bit64 MULHD
+    decode "9238a67c" Endian.Little WordSize.Bit64 MULHD
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHD. original decoding``() =
+    refuse "7ca63893"
+    decode "7ca63893" Endian.Big WordSize.Bit64 MULHDdot
+    decode "9338a67c" Endian.Little WordSize.Bit64 MULHDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHDU original decoding``() =
+    refuse "7ca63812"
+    decode "7ca63812" Endian.Big WordSize.Bit64 MULHDU
+    decode "1238a67c" Endian.Little WordSize.Bit64 MULHDU
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHDU. original decoding``() =
+    refuse "7ca63813"
+    decode "7ca63813" Endian.Big WordSize.Bit64 MULHDUdot
+    decode "1338a67c" Endian.Little WordSize.Bit64 MULHDUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHW original decoding``() =
+    decode "7ca63896" Endian.Big WordSize.Bit32 MULHW
+    decode "7ca63896" Endian.Big WordSize.Bit64 MULHW
+    decode "9638a67c" Endian.Little WordSize.Bit64 MULHW
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHW. original decoding``() =
+    decode "7ca63897" Endian.Big WordSize.Bit32 MULHWdot
+    decode "7ca63897" Endian.Big WordSize.Bit64 MULHWdot
+    decode "9738a67c" Endian.Little WordSize.Bit64 MULHWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHWU original decoding``() =
+    decode "7ca63816" Endian.Big WordSize.Bit32 MULHWU
+    decode "7ca63816" Endian.Big WordSize.Bit64 MULHWU
+    decode "1638a67c" Endian.Little WordSize.Bit64 MULHWU
+
+  [<TestMethod>]
+  member _.``[PPC T] MULHWU. original decoding``() =
+    decode "7ca63817" Endian.Big WordSize.Bit32 MULHWUdot
+    decode "7ca63817" Endian.Big WordSize.Bit64 MULHWUdot
+    decode "1738a67c" Endian.Little WordSize.Bit64 MULHWUdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLD original decoding``() =
+    refuse "7ca639d2"
+    decode "7ca639d2" Endian.Big WordSize.Bit64 MULLD
+    decode "d239a67c" Endian.Little WordSize.Bit64 MULLD
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLD. original decoding``() =
+    refuse "7ca639d3"
+    decode "7ca639d3" Endian.Big WordSize.Bit64 MULLDdot
+    decode "d339a67c" Endian.Little WordSize.Bit64 MULLDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLI original decoding``() =
+    decode "1ca6000c" Endian.Big WordSize.Bit32 MULLI
+    decode "1ca6000c" Endian.Big WordSize.Bit64 MULLI
+    decode "0c00a61c" Endian.Little WordSize.Bit64 MULLI
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLW original decoding``() =
+    decode "7ca639d6" Endian.Big WordSize.Bit32 MULLW
+    decode "7ca639d6" Endian.Big WordSize.Bit64 MULLW
+    decode "d639a67c" Endian.Little WordSize.Bit64 MULLW
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLW. original decoding``() =
+    decode "7ca639d7" Endian.Big WordSize.Bit32 MULLWdot
+    decode "7ca639d7" Endian.Big WordSize.Bit64 MULLWdot
+    decode "d739a67c" Endian.Little WordSize.Bit64 MULLWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLWO original decoding``() =
+    decode "7ca63dd6" Endian.Big WordSize.Bit32 MULLWO
+    decode "7ca63dd6" Endian.Big WordSize.Bit64 MULLWO
+    decode "d63da67c" Endian.Little WordSize.Bit64 MULLWO
+
+  [<TestMethod>]
+  member _.``[PPC T] MULLWO. original decoding``() =
+    decode "7ca63dd7" Endian.Big WordSize.Bit32 MULLWOdot
+    decode "7ca63dd7" Endian.Big WordSize.Bit64 MULLWOdot
+    decode "d73da67c" Endian.Little WordSize.Bit64 MULLWOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] NAND. original decoding``() =
+    decode "7d063bb9" Endian.Big WordSize.Bit32 NANDdot
+    decode "7d063bb9" Endian.Big WordSize.Bit64 NANDdot
+    decode "b93b067d" Endian.Little WordSize.Bit64 NANDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] NEG original decoding``() =
+    decode "7ca600d0" Endian.Big WordSize.Bit32 NEG
+    decode "7ca600d0" Endian.Big WordSize.Bit64 NEG
+    decode "d000a67c" Endian.Little WordSize.Bit64 NEG
+
+  [<TestMethod>]
+  member _.``[PPC T] NEG. original decoding``() =
+    decode "7ca600d1" Endian.Big WordSize.Bit32 NEGdot
+    decode "7ca600d1" Endian.Big WordSize.Bit64 NEGdot
+    decode "d100a67c" Endian.Little WordSize.Bit64 NEGdot
+
+  [<TestMethod>]
+  member _.``[PPC T] NEGO original decoding``() =
+    decode "7ca604d0" Endian.Big WordSize.Bit32 NEGO
+    decode "7ca604d0" Endian.Big WordSize.Bit64 NEGO
+    decode "d004a67c" Endian.Little WordSize.Bit64 NEGO
+
+  [<TestMethod>]
+  member _.``[PPC T] NEGO. original decoding``() =
+    decode "7ca604d1" Endian.Big WordSize.Bit32 NEGOdot
+    decode "7ca604d1" Endian.Big WordSize.Bit64 NEGOdot
+    decode "d104a67c" Endian.Little WordSize.Bit64 NEGOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] NOR. original decoding``() =
+    decode "7d0638f9" Endian.Big WordSize.Bit32 NORdot
+    decode "7d0638f9" Endian.Big WordSize.Bit64 NORdot
+    decode "f938067d" Endian.Little WordSize.Bit64 NORdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ORC original decoding``() =
+    decode "7d063b38" Endian.Big WordSize.Bit32 ORC
+    decode "7d063b38" Endian.Big WordSize.Bit64 ORC
+    decode "383b067d" Endian.Little WordSize.Bit64 ORC
+
+  [<TestMethod>]
+  member _.``[PPC T] ORC. original decoding``() =
+    decode "7d063b39" Endian.Big WordSize.Bit32 ORCdot
+    decode "7d063b39" Endian.Big WordSize.Bit64 ORCdot
+    decode "393b067d" Endian.Little WordSize.Bit64 ORCdot
+
+  [<TestMethod>]
+  member _.``[PPC T] OR. original decoding``() =
+    decode "7d063b79" Endian.Big WordSize.Bit32 ORdot
+    decode "7d063b79" Endian.Big WordSize.Bit64 ORdot
+    decode "793b067d" Endian.Little WordSize.Bit64 ORdot
+
+  [<TestMethod>]
+  member _.``[PPC T] ORI original decoding``() =
+    decode "61060055" Endian.Big WordSize.Bit32 ORI
+    decode "61060055" Endian.Big WordSize.Bit64 ORI
+    decode "55000661" Endian.Little WordSize.Bit64 ORI
+
+  [<TestMethod>]
+  member _.``[PPC T] ORIS original decoding``() =
+    decode "65060055" Endian.Big WordSize.Bit32 ORIS
+    decode "65060055" Endian.Big WordSize.Bit64 ORIS
+    decode "55000665" Endian.Little WordSize.Bit64 ORIS
+
+  [<TestMethod>]
+  member _.``[PPC T] PRTYD original decoding``() =
+    refuse "7d060174"
+    decode "7d060174" Endian.Big WordSize.Bit64 PRTYD
+    decode "7401067d" Endian.Little WordSize.Bit64 PRTYD
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCL original decoding``() =
+    refuse "790638d0"
+    decode "790638d0" Endian.Big WordSize.Bit64 RLDCL
+    decode "d0380679" Endian.Little WordSize.Bit64 RLDCL
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCL. original decoding``() =
+    refuse "790638d1"
+    decode "790638d1" Endian.Big WordSize.Bit64 RLDCLdot
+    decode "d1380679" Endian.Little WordSize.Bit64 RLDCLdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCR original decoding``() =
+    refuse "79063ed2"
+    decode "79063ed2" Endian.Big WordSize.Bit64 RLDCR
+    decode "d23e0679" Endian.Little WordSize.Bit64 RLDCR
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDCR. original decoding``() =
+    refuse "79063ed3"
+    decode "79063ed3" Endian.Big WordSize.Bit64 RLDCRdot
+    decode "d33e0679" Endian.Little WordSize.Bit64 RLDCRdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIC original decoding``() =
+    refuse "790628c8"
+    decode "790628c8" Endian.Big WordSize.Bit64 RLDIC
+    decode "c8280679" Endian.Little WordSize.Bit64 RLDIC
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIC. original decoding``() =
+    refuse "790628c9"
+    decode "790628c9" Endian.Big WordSize.Bit64 RLDICdot
+    decode "c9280679" Endian.Little WordSize.Bit64 RLDICdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICL. original decoding``() =
+    refuse "790628c1"
+    decode "790628c1" Endian.Big WordSize.Bit64 RLDICLdot
+    decode "c1280679" Endian.Little WordSize.Bit64 RLDICLdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICR original decoding``() =
+    refuse "79062ec4"
+    decode "79062ec4" Endian.Big WordSize.Bit64 RLDICR
+    decode "c42e0679" Endian.Little WordSize.Bit64 RLDICR
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDICR. original decoding``() =
+    refuse "79062ec5"
+    decode "79062ec5" Endian.Big WordSize.Bit64 RLDICRdot
+    decode "c52e0679" Endian.Little WordSize.Bit64 RLDICRdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIMI original decoding``() =
+    refuse "790628cc"
+    decode "790628cc" Endian.Big WordSize.Bit64 RLDIMI
+    decode "cc280679" Endian.Little WordSize.Bit64 RLDIMI
+
+  [<TestMethod>]
+  member _.``[PPC T] RLDIMI. original decoding``() =
+    refuse "790628cd"
+    decode "790628cd" Endian.Big WordSize.Bit64 RLDIMIdot
+    decode "cd280679" Endian.Little WordSize.Bit64 RLDIMIdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWIMI original decoding``() =
+    decode "510628f6" Endian.Big WordSize.Bit32 RLWIMI
+    decode "510628f6" Endian.Big WordSize.Bit64 RLWIMI
+    decode "f6280651" Endian.Little WordSize.Bit64 RLWIMI
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWIMI. original decoding``() =
+    decode "510628f7" Endian.Big WordSize.Bit32 RLWIMIdot
+    decode "510628f7" Endian.Big WordSize.Bit64 RLWIMIdot
+    decode "f7280651" Endian.Little WordSize.Bit64 RLWIMIdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWINM original decoding``() =
+    decode "550628f6" Endian.Big WordSize.Bit32 RLWINM
+    decode "550628f6" Endian.Big WordSize.Bit64 RLWINM
+    decode "f6280655" Endian.Little WordSize.Bit64 RLWINM
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWINM. original decoding``() =
+    decode "550628f7" Endian.Big WordSize.Bit32 RLWINMdot
+    decode "550628f7" Endian.Big WordSize.Bit64 RLWINMdot
+    decode "f7280655" Endian.Little WordSize.Bit64 RLWINMdot
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWNM original decoding``() =
+    decode "5d0638f6" Endian.Big WordSize.Bit32 RLWNM
+    decode "5d0638f6" Endian.Big WordSize.Bit64 RLWNM
+    decode "f638065d" Endian.Little WordSize.Bit64 RLWNM
+
+  [<TestMethod>]
+  member _.``[PPC T] RLWNM. original decoding``() =
+    decode "5d0638f7" Endian.Big WordSize.Bit32 RLWNMdot
+    decode "5d0638f7" Endian.Big WordSize.Bit64 RLWNMdot
+    decode "f738065d" Endian.Little WordSize.Bit64 RLWNMdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SC original decoding``() =
+    decode "44000002" Endian.Big WordSize.Bit32 SC
+    decode "44000002" Endian.Big WordSize.Bit64 SC
+    decode "02000044" Endian.Little WordSize.Bit64 SC
+
+  [<TestMethod>]
+  member _.``[PPC T] SLD original decoding``() =
+    refuse "7d063836"
+    decode "7d063836" Endian.Big WordSize.Bit64 SLD
+    decode "3638067d" Endian.Little WordSize.Bit64 SLD
+
+  [<TestMethod>]
+  member _.``[PPC T] SLD. original decoding``() =
+    refuse "7d063837"
+    decode "7d063837" Endian.Big WordSize.Bit64 SLDdot
+    decode "3738067d" Endian.Little WordSize.Bit64 SLDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SLW original decoding``() =
+    decode "7d063830" Endian.Big WordSize.Bit32 SLW
+    decode "7d063830" Endian.Big WordSize.Bit64 SLW
+    decode "3038067d" Endian.Little WordSize.Bit64 SLW
+
+  [<TestMethod>]
+  member _.``[PPC T] SLW. original decoding``() =
+    decode "7d063831" Endian.Big WordSize.Bit32 SLWdot
+    decode "7d063831" Endian.Big WordSize.Bit64 SLWdot
+    decode "3138067d" Endian.Little WordSize.Bit64 SLWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAD original decoding``() =
+    refuse "7d063e34"
+    decode "7d063e34" Endian.Big WordSize.Bit64 SRAD
+    decode "343e067d" Endian.Little WordSize.Bit64 SRAD
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAD. original decoding``() =
+    refuse "7d063e35"
+    decode "7d063e35" Endian.Big WordSize.Bit64 SRADdot
+    decode "353e067d" Endian.Little WordSize.Bit64 SRADdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SRADI. original decoding``() =
+    refuse "7d062e75"
+    decode "7d062e75" Endian.Big WordSize.Bit64 SRADIdot
+    decode "752e067d" Endian.Little WordSize.Bit64 SRADIdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAW original decoding``() =
+    decode "7d063e30" Endian.Big WordSize.Bit32 SRAW
+    decode "7d063e30" Endian.Big WordSize.Bit64 SRAW
+    decode "303e067d" Endian.Little WordSize.Bit64 SRAW
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAW. original decoding``() =
+    decode "7d063e31" Endian.Big WordSize.Bit32 SRAWdot
+    decode "7d063e31" Endian.Big WordSize.Bit64 SRAWdot
+    decode "313e067d" Endian.Little WordSize.Bit64 SRAWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAWI original decoding``() =
+    decode "7d062e70" Endian.Big WordSize.Bit32 SRAWI
+    decode "7d062e70" Endian.Big WordSize.Bit64 SRAWI
+    decode "702e067d" Endian.Little WordSize.Bit64 SRAWI
+
+  [<TestMethod>]
+  member _.``[PPC T] SRAWI. original decoding``() =
+    decode "7d062e71" Endian.Big WordSize.Bit32 SRAWIdot
+    decode "7d062e71" Endian.Big WordSize.Bit64 SRAWIdot
+    decode "712e067d" Endian.Little WordSize.Bit64 SRAWIdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SRD original decoding``() =
+    refuse "7d063c36"
+    decode "7d063c36" Endian.Big WordSize.Bit64 SRD
+    decode "363c067d" Endian.Little WordSize.Bit64 SRD
+
+  [<TestMethod>]
+  member _.``[PPC T] SRD. original decoding``() =
+    refuse "7d063c37"
+    decode "7d063c37" Endian.Big WordSize.Bit64 SRDdot
+    decode "373c067d" Endian.Little WordSize.Bit64 SRDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SRW original decoding``() =
+    decode "7d063c30" Endian.Big WordSize.Bit32 SRW
+    decode "7d063c30" Endian.Big WordSize.Bit64 SRW
+    decode "303c067d" Endian.Little WordSize.Bit64 SRW
+
+  [<TestMethod>]
+  member _.``[PPC T] SRW. original decoding``() =
+    decode "7d063c31" Endian.Big WordSize.Bit32 SRWdot
+    decode "7d063c31" Endian.Big WordSize.Bit64 SRWdot
+    decode "313c067d" Endian.Little WordSize.Bit64 SRWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] STB original decoding``() =
+    decode "99060008" Endian.Big WordSize.Bit32 STB
+    decode "99060008" Endian.Big WordSize.Bit64 STB
+    decode "08000699" Endian.Little WordSize.Bit64 STB
+
+  [<TestMethod>]
+  member _.``[PPC T] STBU original decoding``() =
+    decode "9d060008" Endian.Big WordSize.Bit32 STBU
+    decode "9d060008" Endian.Big WordSize.Bit64 STBU
+    decode "0800069d" Endian.Little WordSize.Bit64 STBU
+
+  [<TestMethod>]
+  member _.``[PPC T] STBUX original decoding``() =
+    decode "7d0639ee" Endian.Big WordSize.Bit32 STBUX
+    decode "7d0639ee" Endian.Big WordSize.Bit64 STBUX
+    decode "ee39067d" Endian.Little WordSize.Bit64 STBUX
+
+  [<TestMethod>]
+  member _.``[PPC T] STBX original decoding``() =
+    decode "7d0639ae" Endian.Big WordSize.Bit32 STBX
+    decode "7d0639ae" Endian.Big WordSize.Bit64 STBX
+    decode "ae39067d" Endian.Little WordSize.Bit64 STBX
+
+  [<TestMethod>]
+  member _.``[PPC T] STD original decoding``() =
+    refuse "f9060008"
+    decode "f9060008" Endian.Big WordSize.Bit64 STD
+    decode "080006f9" Endian.Little WordSize.Bit64 STD
+
+  [<TestMethod>]
+  member _.``[PPC T] STDBRX original decoding``() =
+    refuse "7d063d28"
+    decode "7d063d28" Endian.Big WordSize.Bit64 STDBRX
+    decode "283d067d" Endian.Little WordSize.Bit64 STDBRX
+
+  [<TestMethod>]
+  member _.``[PPC T] STDCX. original decoding``() =
+    refuse "7d0639ad"
+    decode "7d0639ad" Endian.Big WordSize.Bit64 STDCXdot
+    decode "ad39067d" Endian.Little WordSize.Bit64 STDCXdot
+
+  [<TestMethod>]
+  member _.``[PPC T] STDUX original decoding``() =
+    refuse "7d06396a"
+    decode "7d06396a" Endian.Big WordSize.Bit64 STDUX
+    decode "6a39067d" Endian.Little WordSize.Bit64 STDUX
+
+  [<TestMethod>]
+  member _.``[PPC T] STDX original decoding``() =
+    refuse "7d06392a"
+    decode "7d06392a" Endian.Big WordSize.Bit64 STDX
+    decode "2a39067d" Endian.Little WordSize.Bit64 STDX
+
+  [<TestMethod>]
+  member _.``[PPC T] STFD original decoding``() =
+    decode "d8260008" Endian.Big WordSize.Bit32 STFD
+    decode "d8260008" Endian.Big WordSize.Bit64 STFD
+    decode "080026d8" Endian.Little WordSize.Bit64 STFD
+
+  [<TestMethod>]
+  member _.``[PPC T] STFDU original decoding``() =
+    decode "dc260008" Endian.Big WordSize.Bit32 STFDU
+    decode "dc260008" Endian.Big WordSize.Bit64 STFDU
+    decode "080026dc" Endian.Little WordSize.Bit64 STFDU
+
+  [<TestMethod>]
+  member _.``[PPC T] STFDUX original decoding``() =
+    decode "7c263dee" Endian.Big WordSize.Bit32 STFDUX
+    decode "7c263dee" Endian.Big WordSize.Bit64 STFDUX
+    decode "ee3d267c" Endian.Little WordSize.Bit64 STFDUX
+
+  [<TestMethod>]
+  member _.``[PPC T] STFDX original decoding``() =
+    decode "7c263dae" Endian.Big WordSize.Bit32 STFDX
+    decode "7c263dae" Endian.Big WordSize.Bit64 STFDX
+    decode "ae3d267c" Endian.Little WordSize.Bit64 STFDX
+
+  [<TestMethod>]
+  member _.``[PPC T] STFIWX original decoding``() =
+    decode "7c263fae" Endian.Big WordSize.Bit32 STFIWX
+    decode "7c263fae" Endian.Big WordSize.Bit64 STFIWX
+    decode "ae3f267c" Endian.Little WordSize.Bit64 STFIWX
+
+  [<TestMethod>]
+  member _.``[PPC T] STFS original decoding``() =
+    decode "d0260008" Endian.Big WordSize.Bit32 STFS
+    decode "d0260008" Endian.Big WordSize.Bit64 STFS
+    decode "080026d0" Endian.Little WordSize.Bit64 STFS
+
+  [<TestMethod>]
+  member _.``[PPC T] STFSU original decoding``() =
+    decode "d4260008" Endian.Big WordSize.Bit32 STFSU
+    decode "d4260008" Endian.Big WordSize.Bit64 STFSU
+    decode "080026d4" Endian.Little WordSize.Bit64 STFSU
+
+  [<TestMethod>]
+  member _.``[PPC T] STFSUX original decoding``() =
+    decode "7c263d6e" Endian.Big WordSize.Bit32 STFSUX
+    decode "7c263d6e" Endian.Big WordSize.Bit64 STFSUX
+    decode "6e3d267c" Endian.Little WordSize.Bit64 STFSUX
+
+  [<TestMethod>]
+  member _.``[PPC T] STFSX original decoding``() =
+    decode "7c263d2e" Endian.Big WordSize.Bit32 STFSX
+    decode "7c263d2e" Endian.Big WordSize.Bit64 STFSX
+    decode "2e3d267c" Endian.Little WordSize.Bit64 STFSX
+
+  [<TestMethod>]
+  member _.``[PPC T] STH original decoding``() =
+    decode "b1060008" Endian.Big WordSize.Bit32 STH
+    decode "b1060008" Endian.Big WordSize.Bit64 STH
+    decode "080006b1" Endian.Little WordSize.Bit64 STH
+
+  [<TestMethod>]
+  member _.``[PPC T] STHBRX original decoding``() =
+    decode "7d063f2c" Endian.Big WordSize.Bit32 STHBRX
+    decode "7d063f2c" Endian.Big WordSize.Bit64 STHBRX
+    decode "2c3f067d" Endian.Little WordSize.Bit64 STHBRX
+
+  [<TestMethod>]
+  member _.``[PPC T] STHU original decoding``() =
+    decode "b5060008" Endian.Big WordSize.Bit32 STHU
+    decode "b5060008" Endian.Big WordSize.Bit64 STHU
+    decode "080006b5" Endian.Little WordSize.Bit64 STHU
+
+  [<TestMethod>]
+  member _.``[PPC T] STHUX original decoding``() =
+    decode "7d063b6e" Endian.Big WordSize.Bit32 STHUX
+    decode "7d063b6e" Endian.Big WordSize.Bit64 STHUX
+    decode "6e3b067d" Endian.Little WordSize.Bit64 STHUX
+
+  [<TestMethod>]
+  member _.``[PPC T] STHX original decoding``() =
+    decode "7d063b2e" Endian.Big WordSize.Bit32 STHX
+    decode "7d063b2e" Endian.Big WordSize.Bit64 STHX
+    decode "2e3b067d" Endian.Little WordSize.Bit64 STHX
+
+  [<TestMethod>]
+  member _.``[PPC T] STMW original decoding``() =
+    decode "bfa60008" Endian.Big WordSize.Bit32 STMW
+    decode "bfa60008" Endian.Big WordSize.Bit64 STMW
+    decode "0800a6bf" Endian.Little WordSize.Bit64 STMW
+
+  [<TestMethod>]
+  member _.``[PPC T] STSWI original decoding``() =
+    decode "7d0625aa" Endian.Big WordSize.Bit32 STSWI
+    decode "7d0625aa" Endian.Big WordSize.Bit64 STSWI
+    decode "aa25067d" Endian.Little WordSize.Bit64 STSWI
+
+  [<TestMethod>]
+  member _.``[PPC T] STSWX original decoding``() =
+    decode "7d063d2a" Endian.Big WordSize.Bit32 STSWX
+    decode "7d063d2a" Endian.Big WordSize.Bit64 STSWX
+    decode "2a3d067d" Endian.Little WordSize.Bit64 STSWX
+
+  [<TestMethod>]
+  member _.``[PPC T] STVEBX original decoding``() =
+    decode "7c26390e" Endian.Big WordSize.Bit32 STVEBX
+    decode "7c26390e" Endian.Big WordSize.Bit64 STVEBX
+    decode "0e39267c" Endian.Little WordSize.Bit64 STVEBX
+
+  [<TestMethod>]
+  member _.``[PPC T] STVEHX original decoding``() =
+    decode "7c26394e" Endian.Big WordSize.Bit32 STVEHX
+    decode "7c26394e" Endian.Big WordSize.Bit64 STVEHX
+    decode "4e39267c" Endian.Little WordSize.Bit64 STVEHX
+
+  [<TestMethod>]
+  member _.``[PPC T] STVEWX original decoding``() =
+    decode "7c26398e" Endian.Big WordSize.Bit32 STVEWX
+    decode "7c26398e" Endian.Big WordSize.Bit64 STVEWX
+    decode "8e39267c" Endian.Little WordSize.Bit64 STVEWX
+
+  [<TestMethod>]
+  member _.``[PPC T] STVX original decoding``() =
+    decode "7c2639ce" Endian.Big WordSize.Bit32 STVX
+    decode "7c2639ce" Endian.Big WordSize.Bit64 STVX
+    decode "ce39267c" Endian.Little WordSize.Bit64 STVX
+
+  [<TestMethod>]
+  member _.``[PPC T] STVXL original decoding``() =
+    decode "7c263bce" Endian.Big WordSize.Bit32 STVXL
+    decode "7c263bce" Endian.Big WordSize.Bit64 STVXL
+    decode "ce3b267c" Endian.Little WordSize.Bit64 STVXL
+
+  [<TestMethod>]
+  member _.``[PPC T] STW original decoding``() =
+    decode "91060008" Endian.Big WordSize.Bit32 STW
+    decode "91060008" Endian.Big WordSize.Bit64 STW
+    decode "08000691" Endian.Little WordSize.Bit64 STW
+
+  [<TestMethod>]
+  member _.``[PPC T] STWBRX original decoding``() =
+    decode "7d063d2c" Endian.Big WordSize.Bit32 STWBRX
+    decode "7d063d2c" Endian.Big WordSize.Bit64 STWBRX
+    decode "2c3d067d" Endian.Little WordSize.Bit64 STWBRX
+
+  [<TestMethod>]
+  member _.``[PPC T] STWCX. original decoding``() =
+    decode "7d06392d" Endian.Big WordSize.Bit32 STWCXdot
+    decode "7d06392d" Endian.Big WordSize.Bit64 STWCXdot
+    decode "2d39067d" Endian.Little WordSize.Bit64 STWCXdot
+
+  [<TestMethod>]
+  member _.``[PPC T] STWU original decoding``() =
+    decode "95060008" Endian.Big WordSize.Bit32 STWU
+    decode "95060008" Endian.Big WordSize.Bit64 STWU
+    decode "08000695" Endian.Little WordSize.Bit64 STWU
+
+  [<TestMethod>]
+  member _.``[PPC T] STWUX original decoding``() =
+    decode "7d06396e" Endian.Big WordSize.Bit32 STWUX
+    decode "7d06396e" Endian.Big WordSize.Bit64 STWUX
+    decode "6e39067d" Endian.Little WordSize.Bit64 STWUX
+
+  [<TestMethod>]
+  member _.``[PPC T] STWX original decoding``() =
+    decode "7d06392e" Endian.Big WordSize.Bit32 STWX
+    decode "7d06392e" Endian.Big WordSize.Bit64 STWX
+    decode "2e39067d" Endian.Little WordSize.Bit64 STWX
+
+  [<TestMethod>]
+  member _.``[PPC T] STXSD original decoding``() =
+    refuse "f426000a"
+    decode "f426000a" Endian.Big WordSize.Bit64 STXSD
+    decode "0a0026f4" Endian.Little WordSize.Bit64 STXSD
+
+  [<TestMethod>]
+  member _.``[PPC T] STXSDX original decoding``() =
+    decode "7c263d98" Endian.Big WordSize.Bit32 STXSDX
+    decode "7c263d98" Endian.Big WordSize.Bit64 STXSDX
+    decode "983d267c" Endian.Little WordSize.Bit64 STXSDX
+
+  [<TestMethod>]
+  member _.``[PPC T] STXVW4X original decoding``() =
+    decode "7c263f18" Endian.Big WordSize.Bit32 STXVW4X
+    decode "7c263f18" Endian.Big WordSize.Bit64 STXVW4X
+    decode "183f267c" Endian.Little WordSize.Bit64 STXVW4X
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBF original decoding``() =
+    decode "7ca63850" Endian.Big WordSize.Bit32 SUBF
+    decode "7ca63850" Endian.Big WordSize.Bit64 SUBF
+    decode "5038a67c" Endian.Little WordSize.Bit64 SUBF
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFC original decoding``() =
+    decode "7ca63810" Endian.Big WordSize.Bit32 SUBFC
+    decode "7ca63810" Endian.Big WordSize.Bit64 SUBFC
+    decode "1038a67c" Endian.Little WordSize.Bit64 SUBFC
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFC. original decoding``() =
+    decode "7ca63811" Endian.Big WordSize.Bit32 SUBFCdot
+    decode "7ca63811" Endian.Big WordSize.Bit64 SUBFCdot
+    decode "1138a67c" Endian.Little WordSize.Bit64 SUBFCdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFCO original decoding``() =
+    decode "7ca63c10" Endian.Big WordSize.Bit32 SUBFCO
+    decode "7ca63c10" Endian.Big WordSize.Bit64 SUBFCO
+    decode "103ca67c" Endian.Little WordSize.Bit64 SUBFCO
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFCO. original decoding``() =
+    decode "7ca63c11" Endian.Big WordSize.Bit32 SUBFCOdot
+    decode "7ca63c11" Endian.Big WordSize.Bit64 SUBFCOdot
+    decode "113ca67c" Endian.Little WordSize.Bit64 SUBFCOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBF. original decoding``() =
+    decode "7ca63851" Endian.Big WordSize.Bit32 SUBFdot
+    decode "7ca63851" Endian.Big WordSize.Bit64 SUBFdot
+    decode "5138a67c" Endian.Little WordSize.Bit64 SUBFdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFE original decoding``() =
+    decode "7ca63910" Endian.Big WordSize.Bit32 SUBFE
+    decode "7ca63910" Endian.Big WordSize.Bit64 SUBFE
+    decode "1039a67c" Endian.Little WordSize.Bit64 SUBFE
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFE. original decoding``() =
+    decode "7ca63911" Endian.Big WordSize.Bit32 SUBFEdot
+    decode "7ca63911" Endian.Big WordSize.Bit64 SUBFEdot
+    decode "1139a67c" Endian.Little WordSize.Bit64 SUBFEdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFEO original decoding``() =
+    decode "7ca63d10" Endian.Big WordSize.Bit32 SUBFEO
+    decode "7ca63d10" Endian.Big WordSize.Bit64 SUBFEO
+    decode "103da67c" Endian.Little WordSize.Bit64 SUBFEO
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFEO. original decoding``() =
+    decode "7ca63d11" Endian.Big WordSize.Bit32 SUBFEOdot
+    decode "7ca63d11" Endian.Big WordSize.Bit64 SUBFEOdot
+    decode "113da67c" Endian.Little WordSize.Bit64 SUBFEOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFIC original decoding``() =
+    decode "20a6000c" Endian.Big WordSize.Bit32 SUBFIC
+    decode "20a6000c" Endian.Big WordSize.Bit64 SUBFIC
+    decode "0c00a620" Endian.Little WordSize.Bit64 SUBFIC
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFME original decoding``() =
+    decode "7ca601d0" Endian.Big WordSize.Bit32 SUBFME
+    decode "7ca601d0" Endian.Big WordSize.Bit64 SUBFME
+    decode "d001a67c" Endian.Little WordSize.Bit64 SUBFME
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFME. original decoding``() =
+    decode "7ca601d1" Endian.Big WordSize.Bit32 SUBFMEdot
+    decode "7ca601d1" Endian.Big WordSize.Bit64 SUBFMEdot
+    decode "d101a67c" Endian.Little WordSize.Bit64 SUBFMEdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFMEO original decoding``() =
+    decode "7ca605d0" Endian.Big WordSize.Bit32 SUBFMEO
+    decode "7ca605d0" Endian.Big WordSize.Bit64 SUBFMEO
+    decode "d005a67c" Endian.Little WordSize.Bit64 SUBFMEO
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFMEO. original decoding``() =
+    decode "7ca605d1" Endian.Big WordSize.Bit32 SUBFMEOdot
+    decode "7ca605d1" Endian.Big WordSize.Bit64 SUBFMEOdot
+    decode "d105a67c" Endian.Little WordSize.Bit64 SUBFMEOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFO original decoding``() =
+    decode "7ca63c50" Endian.Big WordSize.Bit32 SUBFO
+    decode "7ca63c50" Endian.Big WordSize.Bit64 SUBFO
+    decode "503ca67c" Endian.Little WordSize.Bit64 SUBFO
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFO. original decoding``() =
+    decode "7ca63c51" Endian.Big WordSize.Bit32 SUBFOdot
+    decode "7ca63c51" Endian.Big WordSize.Bit64 SUBFOdot
+    decode "513ca67c" Endian.Little WordSize.Bit64 SUBFOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZE original decoding``() =
+    decode "7ca60190" Endian.Big WordSize.Bit32 SUBFZE
+    decode "7ca60190" Endian.Big WordSize.Bit64 SUBFZE
+    decode "9001a67c" Endian.Little WordSize.Bit64 SUBFZE
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZE. original decoding``() =
+    decode "7ca60191" Endian.Big WordSize.Bit32 SUBFZEdot
+    decode "7ca60191" Endian.Big WordSize.Bit64 SUBFZEdot
+    decode "9101a67c" Endian.Little WordSize.Bit64 SUBFZEdot
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZEO original decoding``() =
+    decode "7ca60590" Endian.Big WordSize.Bit32 SUBFZEO
+    decode "7ca60590" Endian.Big WordSize.Bit64 SUBFZEO
+    decode "9005a67c" Endian.Little WordSize.Bit64 SUBFZEO
+
+  [<TestMethod>]
+  member _.``[PPC T] SUBFZEO. original decoding``() =
+    decode "7ca60591" Endian.Big WordSize.Bit32 SUBFZEOdot
+    decode "7ca60591" Endian.Big WordSize.Bit64 SUBFZEOdot
+    decode "9105a67c" Endian.Little WordSize.Bit64 SUBFZEOdot
+
+  [<TestMethod>]
+  member _.``[PPC T] TD original decoding``() =
+    refuse "7c063888"
+    decode "7c063888" Endian.Big WordSize.Bit64 TD
+    decode "8838067c" Endian.Little WordSize.Bit64 TD
+
+  [<TestMethod>]
+  member _.``[PPC T] TDI original decoding``() =
+    refuse "0806000c"
+    decode "0806000c" Endian.Big WordSize.Bit64 TDI
+    decode "0c000608" Endian.Little WordSize.Bit64 TDI
+
+  [<TestMethod>]
+  member _.``[PPC T] TW original decoding``() =
+    decode "7c063808" Endian.Big WordSize.Bit32 TW
+    decode "7c063808" Endian.Big WordSize.Bit64 TW
+    decode "0838067c" Endian.Little WordSize.Bit64 TW
+
+  [<TestMethod>]
+  member _.``[PPC T] TWI original decoding``() =
+    decode "0c06000c" Endian.Big WordSize.Bit32 TWI
+    decode "0c06000c" Endian.Big WordSize.Bit64 TWI
+    decode "0c00060c" Endian.Little WordSize.Bit64 TWI
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUBM original decoding``() =
+    decode "10221800" Endian.Big WordSize.Bit32 VADDUBM
+    decode "10221800" Endian.Big WordSize.Bit64 VADDUBM
+    decode "00182210" Endian.Little WordSize.Bit64 VADDUBM
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUBS original decoding``() =
+    decode "10221a00" Endian.Big WordSize.Bit32 VADDUBS
+    decode "10221a00" Endian.Big WordSize.Bit64 VADDUBS
+    decode "001a2210" Endian.Little WordSize.Bit64 VADDUBS
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUDM original decoding``() =
+    decode "102218c0" Endian.Big WordSize.Bit32 VADDUDM
+    decode "102218c0" Endian.Big WordSize.Bit64 VADDUDM
+    decode "c0182210" Endian.Little WordSize.Bit64 VADDUDM
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUHM original decoding``() =
+    decode "10221840" Endian.Big WordSize.Bit32 VADDUHM
+    decode "10221840" Endian.Big WordSize.Bit64 VADDUHM
+    decode "40182210" Endian.Little WordSize.Bit64 VADDUHM
+
+  [<TestMethod>]
+  member _.``[PPC T] VADDUWM original decoding``() =
+    decode "10221880" Endian.Big WordSize.Bit32 VADDUWM
+    decode "10221880" Endian.Big WordSize.Bit64 VADDUWM
+    decode "80182210" Endian.Little WordSize.Bit64 VADDUWM
+
+  [<TestMethod>]
+  member _.``[PPC T] VAND original decoding``() =
+    decode "10221c04" Endian.Big WordSize.Bit32 VAND
+    decode "10221c04" Endian.Big WordSize.Bit64 VAND
+    decode "041c2210" Endian.Little WordSize.Bit64 VAND
+
+  [<TestMethod>]
+  member _.``[PPC T] VANDC original decoding``() =
+    decode "10221c44" Endian.Big WordSize.Bit32 VANDC
+    decode "10221c44" Endian.Big WordSize.Bit64 VANDC
+    decode "441c2210" Endian.Little WordSize.Bit64 VANDC
+
+  [<TestMethod>]
+  member _.``[PPC T] VBPERMQ original decoding``() =
+    decode "10221d4c" Endian.Big WordSize.Bit32 VBPERMQ
+    decode "10221d4c" Endian.Big WordSize.Bit64 VBPERMQ
+    decode "4c1d2210" Endian.Little WordSize.Bit64 VBPERMQ
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZB original decoding``() =
+    decode "10201f02" Endian.Big WordSize.Bit32 VCLZB
+    decode "10201f02" Endian.Big WordSize.Bit64 VCLZB
+    decode "021f2010" Endian.Little WordSize.Bit64 VCLZB
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZD original decoding``() =
+    decode "10201fc2" Endian.Big WordSize.Bit32 VCLZD
+    decode "10201fc2" Endian.Big WordSize.Bit64 VCLZD
+    decode "c21f2010" Endian.Little WordSize.Bit64 VCLZD
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZH original decoding``() =
+    decode "10201f42" Endian.Big WordSize.Bit32 VCLZH
+    decode "10201f42" Endian.Big WordSize.Bit64 VCLZH
+    decode "421f2010" Endian.Little WordSize.Bit64 VCLZH
+
+  [<TestMethod>]
+  member _.``[PPC T] VCLZW original decoding``() =
+    decode "10201f82" Endian.Big WordSize.Bit32 VCLZW
+    decode "10201f82" Endian.Big WordSize.Bit64 VCLZW
+    decode "821f2010" Endian.Little WordSize.Bit64 VCLZW
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUB original decoding``() =
+    decode "10221806" Endian.Big WordSize.Bit32 VCMPEQUB
+    decode "10221806" Endian.Big WordSize.Bit64 VCMPEQUB
+    decode "06182210" Endian.Little WordSize.Bit64 VCMPEQUB
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUB. original decoding``() =
+    decode "10221c06" Endian.Big WordSize.Bit32 VCMPEQUBdot
+    decode "10221c06" Endian.Big WordSize.Bit64 VCMPEQUBdot
+    decode "061c2210" Endian.Little WordSize.Bit64 VCMPEQUBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUD original decoding``() =
+    decode "102218c7" Endian.Big WordSize.Bit32 VCMPEQUD
+    decode "102218c7" Endian.Big WordSize.Bit64 VCMPEQUD
+    decode "c7182210" Endian.Little WordSize.Bit64 VCMPEQUD
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUD. original decoding``() =
+    decode "10221cc7" Endian.Big WordSize.Bit32 VCMPEQUDdot
+    decode "10221cc7" Endian.Big WordSize.Bit64 VCMPEQUDdot
+    decode "c71c2210" Endian.Little WordSize.Bit64 VCMPEQUDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUH original decoding``() =
+    decode "10221846" Endian.Big WordSize.Bit32 VCMPEQUH
+    decode "10221846" Endian.Big WordSize.Bit64 VCMPEQUH
+    decode "46182210" Endian.Little WordSize.Bit64 VCMPEQUH
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUH. original decoding``() =
+    decode "10221c46" Endian.Big WordSize.Bit32 VCMPEQUHdot
+    decode "10221c46" Endian.Big WordSize.Bit64 VCMPEQUHdot
+    decode "461c2210" Endian.Little WordSize.Bit64 VCMPEQUHdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUW original decoding``() =
+    decode "10221886" Endian.Big WordSize.Bit32 VCMPEQUW
+    decode "10221886" Endian.Big WordSize.Bit64 VCMPEQUW
+    decode "86182210" Endian.Little WordSize.Bit64 VCMPEQUW
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPEQUW. original decoding``() =
+    decode "10221c86" Endian.Big WordSize.Bit32 VCMPEQUWdot
+    decode "10221c86" Endian.Big WordSize.Bit64 VCMPEQUWdot
+    decode "861c2210" Endian.Little WordSize.Bit64 VCMPEQUWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSB original decoding``() =
+    decode "10221b06" Endian.Big WordSize.Bit32 VCMPGTSB
+    decode "10221b06" Endian.Big WordSize.Bit64 VCMPGTSB
+    decode "061b2210" Endian.Little WordSize.Bit64 VCMPGTSB
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSB. original decoding``() =
+    decode "10221f06" Endian.Big WordSize.Bit32 VCMPGTSBdot
+    decode "10221f06" Endian.Big WordSize.Bit64 VCMPGTSBdot
+    decode "061f2210" Endian.Little WordSize.Bit64 VCMPGTSBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSD original decoding``() =
+    decode "10221bc7" Endian.Big WordSize.Bit32 VCMPGTSD
+    decode "10221bc7" Endian.Big WordSize.Bit64 VCMPGTSD
+    decode "c71b2210" Endian.Little WordSize.Bit64 VCMPGTSD
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSD. original decoding``() =
+    decode "10221fc7" Endian.Big WordSize.Bit32 VCMPGTSDdot
+    decode "10221fc7" Endian.Big WordSize.Bit64 VCMPGTSDdot
+    decode "c71f2210" Endian.Little WordSize.Bit64 VCMPGTSDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSH original decoding``() =
+    decode "10221b46" Endian.Big WordSize.Bit32 VCMPGTSH
+    decode "10221b46" Endian.Big WordSize.Bit64 VCMPGTSH
+    decode "461b2210" Endian.Little WordSize.Bit64 VCMPGTSH
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSH. original decoding``() =
+    decode "10221f46" Endian.Big WordSize.Bit32 VCMPGTSHdot
+    decode "10221f46" Endian.Big WordSize.Bit64 VCMPGTSHdot
+    decode "461f2210" Endian.Little WordSize.Bit64 VCMPGTSHdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSW original decoding``() =
+    decode "10221b86" Endian.Big WordSize.Bit32 VCMPGTSW
+    decode "10221b86" Endian.Big WordSize.Bit64 VCMPGTSW
+    decode "861b2210" Endian.Little WordSize.Bit64 VCMPGTSW
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTSW. original decoding``() =
+    decode "10221f86" Endian.Big WordSize.Bit32 VCMPGTSWdot
+    decode "10221f86" Endian.Big WordSize.Bit64 VCMPGTSWdot
+    decode "861f2210" Endian.Little WordSize.Bit64 VCMPGTSWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUB original decoding``() =
+    decode "10221a06" Endian.Big WordSize.Bit32 VCMPGTUB
+    decode "10221a06" Endian.Big WordSize.Bit64 VCMPGTUB
+    decode "061a2210" Endian.Little WordSize.Bit64 VCMPGTUB
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUB. original decoding``() =
+    decode "10221e06" Endian.Big WordSize.Bit32 VCMPGTUBdot
+    decode "10221e06" Endian.Big WordSize.Bit64 VCMPGTUBdot
+    decode "061e2210" Endian.Little WordSize.Bit64 VCMPGTUBdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUD original decoding``() =
+    decode "10221ac7" Endian.Big WordSize.Bit32 VCMPGTUD
+    decode "10221ac7" Endian.Big WordSize.Bit64 VCMPGTUD
+    decode "c71a2210" Endian.Little WordSize.Bit64 VCMPGTUD
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUD. original decoding``() =
+    decode "10221ec7" Endian.Big WordSize.Bit32 VCMPGTUDdot
+    decode "10221ec7" Endian.Big WordSize.Bit64 VCMPGTUDdot
+    decode "c71e2210" Endian.Little WordSize.Bit64 VCMPGTUDdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUH original decoding``() =
+    decode "10221a46" Endian.Big WordSize.Bit32 VCMPGTUH
+    decode "10221a46" Endian.Big WordSize.Bit64 VCMPGTUH
+    decode "461a2210" Endian.Little WordSize.Bit64 VCMPGTUH
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUH. original decoding``() =
+    decode "10221e46" Endian.Big WordSize.Bit32 VCMPGTUHdot
+    decode "10221e46" Endian.Big WordSize.Bit64 VCMPGTUHdot
+    decode "461e2210" Endian.Little WordSize.Bit64 VCMPGTUHdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUW original decoding``() =
+    decode "10221a86" Endian.Big WordSize.Bit32 VCMPGTUW
+    decode "10221a86" Endian.Big WordSize.Bit64 VCMPGTUW
+    decode "861a2210" Endian.Little WordSize.Bit64 VCMPGTUW
+
+  [<TestMethod>]
+  member _.``[PPC T] VCMPGTUW. original decoding``() =
+    decode "10221e86" Endian.Big WordSize.Bit32 VCMPGTUWdot
+    decode "10221e86" Endian.Big WordSize.Bit64 VCMPGTUWdot
+    decode "861e2210" Endian.Little WordSize.Bit64 VCMPGTUWdot
+
+  [<TestMethod>]
+  member _.``[PPC T] VEQV original decoding``() =
+    decode "10221e84" Endian.Big WordSize.Bit32 VEQV
+    decode "10221e84" Endian.Big WordSize.Bit64 VEQV
+    decode "841e2210" Endian.Little WordSize.Bit64 VEQV
+
+  [<TestMethod>]
+  member _.``[PPC T] VGBBD original decoding``() =
+    decode "10201d0c" Endian.Big WordSize.Bit32 VGBBD
+    decode "10201d0c" Endian.Big WordSize.Bit64 VGBBD
+    decode "0c1d2010" Endian.Little WordSize.Bit64 VGBBD
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSB original decoding``() =
+    decode "10221902" Endian.Big WordSize.Bit32 VMAXSB
+    decode "10221902" Endian.Big WordSize.Bit64 VMAXSB
+    decode "02192210" Endian.Little WordSize.Bit64 VMAXSB
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSD original decoding``() =
+    decode "102219c2" Endian.Big WordSize.Bit32 VMAXSD
+    decode "102219c2" Endian.Big WordSize.Bit64 VMAXSD
+    decode "c2192210" Endian.Little WordSize.Bit64 VMAXSD
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSH original decoding``() =
+    decode "10221942" Endian.Big WordSize.Bit32 VMAXSH
+    decode "10221942" Endian.Big WordSize.Bit64 VMAXSH
+    decode "42192210" Endian.Little WordSize.Bit64 VMAXSH
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXSW original decoding``() =
+    decode "10221982" Endian.Big WordSize.Bit32 VMAXSW
+    decode "10221982" Endian.Big WordSize.Bit64 VMAXSW
+    decode "82192210" Endian.Little WordSize.Bit64 VMAXSW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUB original decoding``() =
+    decode "10221802" Endian.Big WordSize.Bit32 VMAXUB
+    decode "10221802" Endian.Big WordSize.Bit64 VMAXUB
+    decode "02182210" Endian.Little WordSize.Bit64 VMAXUB
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUD original decoding``() =
+    decode "102218c2" Endian.Big WordSize.Bit32 VMAXUD
+    decode "102218c2" Endian.Big WordSize.Bit64 VMAXUD
+    decode "c2182210" Endian.Little WordSize.Bit64 VMAXUD
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUH original decoding``() =
+    decode "10221842" Endian.Big WordSize.Bit32 VMAXUH
+    decode "10221842" Endian.Big WordSize.Bit64 VMAXUH
+    decode "42182210" Endian.Little WordSize.Bit64 VMAXUH
+
+  [<TestMethod>]
+  member _.``[PPC T] VMAXUW original decoding``() =
+    decode "10221882" Endian.Big WordSize.Bit32 VMAXUW
+    decode "10221882" Endian.Big WordSize.Bit64 VMAXUW
+    decode "82182210" Endian.Little WordSize.Bit64 VMAXUW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSB original decoding``() =
+    decode "10221b02" Endian.Big WordSize.Bit32 VMINSB
+    decode "10221b02" Endian.Big WordSize.Bit64 VMINSB
+    decode "021b2210" Endian.Little WordSize.Bit64 VMINSB
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSD original decoding``() =
+    decode "10221bc2" Endian.Big WordSize.Bit32 VMINSD
+    decode "10221bc2" Endian.Big WordSize.Bit64 VMINSD
+    decode "c21b2210" Endian.Little WordSize.Bit64 VMINSD
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSH original decoding``() =
+    decode "10221b42" Endian.Big WordSize.Bit32 VMINSH
+    decode "10221b42" Endian.Big WordSize.Bit64 VMINSH
+    decode "421b2210" Endian.Little WordSize.Bit64 VMINSH
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINSW original decoding``() =
+    decode "10221b82" Endian.Big WordSize.Bit32 VMINSW
+    decode "10221b82" Endian.Big WordSize.Bit64 VMINSW
+    decode "821b2210" Endian.Little WordSize.Bit64 VMINSW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUB original decoding``() =
+    decode "10221a02" Endian.Big WordSize.Bit32 VMINUB
+    decode "10221a02" Endian.Big WordSize.Bit64 VMINUB
+    decode "021a2210" Endian.Little WordSize.Bit64 VMINUB
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUD original decoding``() =
+    decode "10221ac2" Endian.Big WordSize.Bit32 VMINUD
+    decode "10221ac2" Endian.Big WordSize.Bit64 VMINUD
+    decode "c21a2210" Endian.Little WordSize.Bit64 VMINUD
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUH original decoding``() =
+    decode "10221a42" Endian.Big WordSize.Bit32 VMINUH
+    decode "10221a42" Endian.Big WordSize.Bit64 VMINUH
+    decode "421a2210" Endian.Little WordSize.Bit64 VMINUH
+
+  [<TestMethod>]
+  member _.``[PPC T] VMINUW original decoding``() =
+    decode "10221a82" Endian.Big WordSize.Bit32 VMINUW
+    decode "10221a82" Endian.Big WordSize.Bit64 VMINUW
+    decode "821a2210" Endian.Little WordSize.Bit64 VMINUW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGEW original decoding``() =
+    decode "10221f8c" Endian.Big WordSize.Bit32 VMRGEW
+    decode "10221f8c" Endian.Big WordSize.Bit64 VMRGEW
+    decode "8c1f2210" Endian.Little WordSize.Bit64 VMRGEW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGHB original decoding``() =
+    decode "1022180c" Endian.Big WordSize.Bit32 VMRGHB
+    decode "1022180c" Endian.Big WordSize.Bit64 VMRGHB
+    decode "0c182210" Endian.Little WordSize.Bit64 VMRGHB
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGHH original decoding``() =
+    decode "1022184c" Endian.Big WordSize.Bit32 VMRGHH
+    decode "1022184c" Endian.Big WordSize.Bit64 VMRGHH
+    decode "4c182210" Endian.Little WordSize.Bit64 VMRGHH
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGHW original decoding``() =
+    decode "1022188c" Endian.Big WordSize.Bit32 VMRGHW
+    decode "1022188c" Endian.Big WordSize.Bit64 VMRGHW
+    decode "8c182210" Endian.Little WordSize.Bit64 VMRGHW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGLB original decoding``() =
+    decode "1022190c" Endian.Big WordSize.Bit32 VMRGLB
+    decode "1022190c" Endian.Big WordSize.Bit64 VMRGLB
+    decode "0c192210" Endian.Little WordSize.Bit64 VMRGLB
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGLH original decoding``() =
+    decode "1022194c" Endian.Big WordSize.Bit32 VMRGLH
+    decode "1022194c" Endian.Big WordSize.Bit64 VMRGLH
+    decode "4c192210" Endian.Little WordSize.Bit64 VMRGLH
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGLW original decoding``() =
+    decode "1022198c" Endian.Big WordSize.Bit32 VMRGLW
+    decode "1022198c" Endian.Big WordSize.Bit64 VMRGLW
+    decode "8c192210" Endian.Little WordSize.Bit64 VMRGLW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMRGOW original decoding``() =
+    decode "10221e8c" Endian.Big WordSize.Bit32 VMRGOW
+    decode "10221e8c" Endian.Big WordSize.Bit64 VMRGOW
+    decode "8c1e2210" Endian.Little WordSize.Bit64 VMRGOW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMULESW original decoding``() =
+    decode "10221b88" Endian.Big WordSize.Bit32 VMULESW
+    decode "10221b88" Endian.Big WordSize.Bit64 VMULESW
+    decode "881b2210" Endian.Little WordSize.Bit64 VMULESW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMULOSW original decoding``() =
+    decode "10221988" Endian.Big WordSize.Bit32 VMULOSW
+    decode "10221988" Endian.Big WordSize.Bit64 VMULOSW
+    decode "88192210" Endian.Little WordSize.Bit64 VMULOSW
+
+  [<TestMethod>]
+  member _.``[PPC T] VMULUWM original decoding``() =
+    decode "10221889" Endian.Big WordSize.Bit32 VMULUWM
+    decode "10221889" Endian.Big WordSize.Bit64 VMULUWM
+    decode "89182210" Endian.Little WordSize.Bit64 VMULUWM
+
+  [<TestMethod>]
+  member _.``[PPC T] VNAND original decoding``() =
+    decode "10221d84" Endian.Big WordSize.Bit32 VNAND
+    decode "10221d84" Endian.Big WordSize.Bit64 VNAND
+    decode "841d2210" Endian.Little WordSize.Bit64 VNAND
+
+  [<TestMethod>]
+  member _.``[PPC T] VNOR original decoding``() =
+    decode "10221d04" Endian.Big WordSize.Bit32 VNOR
+    decode "10221d04" Endian.Big WordSize.Bit64 VNOR
+    decode "041d2210" Endian.Little WordSize.Bit64 VNOR
+
+  [<TestMethod>]
+  member _.``[PPC T] VOR original decoding``() =
+    decode "10221c84" Endian.Big WordSize.Bit32 VOR
+    decode "10221c84" Endian.Big WordSize.Bit64 VOR
+    decode "841c2210" Endian.Little WordSize.Bit64 VOR
+
+  [<TestMethod>]
+  member _.``[PPC T] VORC original decoding``() =
+    decode "10221d44" Endian.Big WordSize.Bit32 VORC
+    decode "10221d44" Endian.Big WordSize.Bit64 VORC
+    decode "441d2210" Endian.Little WordSize.Bit64 VORC
+
+  [<TestMethod>]
+  member _.``[PPC T] VPERM original decoding``() =
+    decode "1022192b" Endian.Big WordSize.Bit32 VPERM
+    decode "1022192b" Endian.Big WordSize.Bit64 VPERM
+    decode "2b192210" Endian.Little WordSize.Bit64 VPERM
+
+  [<TestMethod>]
+  member _.``[PPC T] VPKUHUM original decoding``() =
+    decode "1022180e" Endian.Big WordSize.Bit32 VPKUHUM
+    decode "1022180e" Endian.Big WordSize.Bit64 VPKUHUM
+    decode "0e182210" Endian.Little WordSize.Bit64 VPKUHUM
+
+  [<TestMethod>]
+  member _.``[PPC T] VPKUWUM original decoding``() =
+    decode "1022184e" Endian.Big WordSize.Bit32 VPKUWUM
+    decode "1022184e" Endian.Big WordSize.Bit64 VPKUWUM
+    decode "4e182210" Endian.Little WordSize.Bit64 VPKUWUM
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTB original decoding``() =
+    decode "10201f03" Endian.Big WordSize.Bit32 VPOPCNTB
+    decode "10201f03" Endian.Big WordSize.Bit64 VPOPCNTB
+    decode "031f2010" Endian.Little WordSize.Bit64 VPOPCNTB
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTD original decoding``() =
+    decode "10201fc3" Endian.Big WordSize.Bit32 VPOPCNTD
+    decode "10201fc3" Endian.Big WordSize.Bit64 VPOPCNTD
+    decode "c31f2010" Endian.Little WordSize.Bit64 VPOPCNTD
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTH original decoding``() =
+    decode "10201f43" Endian.Big WordSize.Bit32 VPOPCNTH
+    decode "10201f43" Endian.Big WordSize.Bit64 VPOPCNTH
+    decode "431f2010" Endian.Little WordSize.Bit64 VPOPCNTH
+
+  [<TestMethod>]
+  member _.``[PPC T] VPOPCNTW original decoding``() =
+    decode "10201f83" Endian.Big WordSize.Bit32 VPOPCNTW
+    decode "10201f83" Endian.Big WordSize.Bit64 VPOPCNTW
+    decode "831f2010" Endian.Little WordSize.Bit64 VPOPCNTW
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLB original decoding``() =
+    decode "10221804" Endian.Big WordSize.Bit32 VRLB
+    decode "10221804" Endian.Big WordSize.Bit64 VRLB
+    decode "04182210" Endian.Little WordSize.Bit64 VRLB
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLD original decoding``() =
+    decode "102218c4" Endian.Big WordSize.Bit32 VRLD
+    decode "102218c4" Endian.Big WordSize.Bit64 VRLD
+    decode "c4182210" Endian.Little WordSize.Bit64 VRLD
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLH original decoding``() =
+    decode "10221844" Endian.Big WordSize.Bit32 VRLH
+    decode "10221844" Endian.Big WordSize.Bit64 VRLH
+    decode "44182210" Endian.Little WordSize.Bit64 VRLH
+
+  [<TestMethod>]
+  member _.``[PPC T] VRLW original decoding``() =
+    decode "10221884" Endian.Big WordSize.Bit32 VRLW
+    decode "10221884" Endian.Big WordSize.Bit64 VRLW
+    decode "84182210" Endian.Little WordSize.Bit64 VRLW
+
+  [<TestMethod>]
+  member _.``[PPC T] VSEL original decoding``() =
+    decode "1022192a" Endian.Big WordSize.Bit32 VSEL
+    decode "1022192a" Endian.Big WordSize.Bit64 VSEL
+    decode "2a192210" Endian.Little WordSize.Bit64 VSEL
+
+  [<TestMethod>]
+  member _.``[PPC T] VSL original decoding``() =
+    decode "102219c4" Endian.Big WordSize.Bit32 VSL
+    decode "102219c4" Endian.Big WordSize.Bit64 VSL
+    decode "c4192210" Endian.Little WordSize.Bit64 VSL
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLB original decoding``() =
+    decode "10221904" Endian.Big WordSize.Bit32 VSLB
+    decode "10221904" Endian.Big WordSize.Bit64 VSLB
+    decode "04192210" Endian.Little WordSize.Bit64 VSLB
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLD original decoding``() =
+    decode "10221dc4" Endian.Big WordSize.Bit32 VSLD
+    decode "10221dc4" Endian.Big WordSize.Bit64 VSLD
+    decode "c41d2210" Endian.Little WordSize.Bit64 VSLD
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLDOI original decoding``() =
+    decode "102218ac" Endian.Big WordSize.Bit32 VSLDOI
+    decode "102218ac" Endian.Big WordSize.Bit64 VSLDOI
+    decode "ac182210" Endian.Little WordSize.Bit64 VSLDOI
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLH original decoding``() =
+    decode "10221944" Endian.Big WordSize.Bit32 VSLH
+    decode "10221944" Endian.Big WordSize.Bit64 VSLH
+    decode "44192210" Endian.Little WordSize.Bit64 VSLH
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLO original decoding``() =
+    decode "10221c0c" Endian.Big WordSize.Bit32 VSLO
+    decode "10221c0c" Endian.Big WordSize.Bit64 VSLO
+    decode "0c1c2210" Endian.Little WordSize.Bit64 VSLO
+
+  [<TestMethod>]
+  member _.``[PPC T] VSLW original decoding``() =
+    decode "10221984" Endian.Big WordSize.Bit32 VSLW
+    decode "10221984" Endian.Big WordSize.Bit64 VSLW
+    decode "84192210" Endian.Little WordSize.Bit64 VSLW
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTB original decoding``() =
+    decode "10211a0c" Endian.Big WordSize.Bit32 VSPLTB
+    decode "10211a0c" Endian.Big WordSize.Bit64 VSPLTB
+    decode "0c1a2110" Endian.Little WordSize.Bit64 VSPLTB
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTH original decoding``() =
+    decode "10211a4c" Endian.Big WordSize.Bit32 VSPLTH
+    decode "10211a4c" Endian.Big WordSize.Bit64 VSPLTH
+    decode "4c1a2110" Endian.Little WordSize.Bit64 VSPLTH
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTISB original decoding``() =
+    decode "103d030c" Endian.Big WordSize.Bit32 VSPLTISB
+    decode "103d030c" Endian.Big WordSize.Bit64 VSPLTISB
+    decode "0c033d10" Endian.Little WordSize.Bit64 VSPLTISB
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTISH original decoding``() =
+    decode "103d034c" Endian.Big WordSize.Bit32 VSPLTISH
+    decode "103d034c" Endian.Big WordSize.Bit64 VSPLTISH
+    decode "4c033d10" Endian.Little WordSize.Bit64 VSPLTISH
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTISW original decoding``() =
+    decode "103d038c" Endian.Big WordSize.Bit32 VSPLTISW
+    decode "103d038c" Endian.Big WordSize.Bit64 VSPLTISW
+    decode "8c033d10" Endian.Little WordSize.Bit64 VSPLTISW
+
+  [<TestMethod>]
+  member _.``[PPC T] VSPLTW original decoding``() =
+    decode "10211a8c" Endian.Big WordSize.Bit32 VSPLTW
+    decode "10211a8c" Endian.Big WordSize.Bit64 VSPLTW
+    decode "8c1a2110" Endian.Little WordSize.Bit64 VSPLTW
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAB original decoding``() =
+    decode "10221b04" Endian.Big WordSize.Bit32 VSRAB
+    decode "10221b04" Endian.Big WordSize.Bit64 VSRAB
+    decode "041b2210" Endian.Little WordSize.Bit64 VSRAB
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAD original decoding``() =
+    decode "10221bc4" Endian.Big WordSize.Bit32 VSRAD
+    decode "10221bc4" Endian.Big WordSize.Bit64 VSRAD
+    decode "c41b2210" Endian.Little WordSize.Bit64 VSRAD
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAH original decoding``() =
+    decode "10221b44" Endian.Big WordSize.Bit32 VSRAH
+    decode "10221b44" Endian.Big WordSize.Bit64 VSRAH
+    decode "441b2210" Endian.Little WordSize.Bit64 VSRAH
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRAW original decoding``() =
+    decode "10221b84" Endian.Big WordSize.Bit32 VSRAW
+    decode "10221b84" Endian.Big WordSize.Bit64 VSRAW
+    decode "841b2210" Endian.Little WordSize.Bit64 VSRAW
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRB original decoding``() =
+    decode "10221a04" Endian.Big WordSize.Bit32 VSRB
+    decode "10221a04" Endian.Big WordSize.Bit64 VSRB
+    decode "041a2210" Endian.Little WordSize.Bit64 VSRB
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRD original decoding``() =
+    decode "10221ec4" Endian.Big WordSize.Bit32 VSRD
+    decode "10221ec4" Endian.Big WordSize.Bit64 VSRD
+    decode "c41e2210" Endian.Little WordSize.Bit64 VSRD
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRH original decoding``() =
+    decode "10221a44" Endian.Big WordSize.Bit32 VSRH
+    decode "10221a44" Endian.Big WordSize.Bit64 VSRH
+    decode "441a2210" Endian.Little WordSize.Bit64 VSRH
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRO original decoding``() =
+    decode "10221c4c" Endian.Big WordSize.Bit32 VSRO
+    decode "10221c4c" Endian.Big WordSize.Bit64 VSRO
+    decode "4c1c2210" Endian.Little WordSize.Bit64 VSRO
+
+  [<TestMethod>]
+  member _.``[PPC T] VSRW original decoding``() =
+    decode "10221a84" Endian.Big WordSize.Bit32 VSRW
+    decode "10221a84" Endian.Big WordSize.Bit64 VSRW
+    decode "841a2210" Endian.Little WordSize.Bit64 VSRW
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUBM original decoding``() =
+    decode "10221c00" Endian.Big WordSize.Bit32 VSUBUBM
+    decode "10221c00" Endian.Big WordSize.Bit64 VSUBUBM
+    decode "001c2210" Endian.Little WordSize.Bit64 VSUBUBM
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUBS original decoding``() =
+    decode "10221e00" Endian.Big WordSize.Bit32 VSUBUBS
+    decode "10221e00" Endian.Big WordSize.Bit64 VSUBUBS
+    decode "001e2210" Endian.Little WordSize.Bit64 VSUBUBS
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUDM original decoding``() =
+    decode "10221cc0" Endian.Big WordSize.Bit32 VSUBUDM
+    decode "10221cc0" Endian.Big WordSize.Bit64 VSUBUDM
+    decode "c01c2210" Endian.Little WordSize.Bit64 VSUBUDM
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUHM original decoding``() =
+    decode "10221c40" Endian.Big WordSize.Bit32 VSUBUHM
+    decode "10221c40" Endian.Big WordSize.Bit64 VSUBUHM
+    decode "401c2210" Endian.Little WordSize.Bit64 VSUBUHM
+
+  [<TestMethod>]
+  member _.``[PPC T] VSUBUWM original decoding``() =
+    decode "10221c80" Endian.Big WordSize.Bit32 VSUBUWM
+    decode "10221c80" Endian.Big WordSize.Bit64 VSUBUWM
+    decode "801c2210" Endian.Little WordSize.Bit64 VSUBUWM
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKHSB original decoding``() =
+    decode "10201a0e" Endian.Big WordSize.Bit32 VUPKHSB
+    decode "10201a0e" Endian.Big WordSize.Bit64 VUPKHSB
+    decode "0e1a2010" Endian.Little WordSize.Bit64 VUPKHSB
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKHSH original decoding``() =
+    decode "10201a4e" Endian.Big WordSize.Bit32 VUPKHSH
+    decode "10201a4e" Endian.Big WordSize.Bit64 VUPKHSH
+    decode "4e1a2010" Endian.Little WordSize.Bit64 VUPKHSH
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKHSW original decoding``() =
+    decode "10201e4e" Endian.Big WordSize.Bit32 VUPKHSW
+    decode "10201e4e" Endian.Big WordSize.Bit64 VUPKHSW
+    decode "4e1e2010" Endian.Little WordSize.Bit64 VUPKHSW
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKLSB original decoding``() =
+    decode "10201a8e" Endian.Big WordSize.Bit32 VUPKLSB
+    decode "10201a8e" Endian.Big WordSize.Bit64 VUPKLSB
+    decode "8e1a2010" Endian.Little WordSize.Bit64 VUPKLSB
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKLSH original decoding``() =
+    decode "10201ace" Endian.Big WordSize.Bit32 VUPKLSH
+    decode "10201ace" Endian.Big WordSize.Bit64 VUPKLSH
+    decode "ce1a2010" Endian.Little WordSize.Bit64 VUPKLSH
+
+  [<TestMethod>]
+  member _.``[PPC T] VUPKLSW original decoding``() =
+    decode "10201ece" Endian.Big WordSize.Bit32 VUPKLSW
+    decode "10201ece" Endian.Big WordSize.Bit64 VUPKLSW
+    decode "ce1e2010" Endian.Little WordSize.Bit64 VUPKLSW
+
+  [<TestMethod>]
+  member _.``[PPC T] XOR. original decoding``() =
+    decode "7d063a79" Endian.Big WordSize.Bit32 XORdot
+    decode "7d063a79" Endian.Big WordSize.Bit64 XORdot
+    decode "793a067d" Endian.Little WordSize.Bit64 XORdot
+
+  [<TestMethod>]
+  member _.``[PPC T] XORI original decoding``() =
+    decode "69060055" Endian.Big WordSize.Bit32 XORI
+    decode "69060055" Endian.Big WordSize.Bit64 XORI
+    decode "55000669" Endian.Little WordSize.Bit64 XORI
+
+  [<TestMethod>]
+  member _.``[PPC T] XORIS original decoding``() =
+    decode "6d060055" Endian.Big WordSize.Bit32 XORIS
+    decode "6d060055" Endian.Big WordSize.Bit64 XORIS
+    decode "5500066d" Endian.Little WordSize.Bit64 XORIS
+
+  [<TestMethod>]
+  member _.``[PPC T] XSABSDP original decoding``() =
+    decode "f0201d64" Endian.Big WordSize.Bit32 XSABSDP
+    decode "f0201d64" Endian.Big WordSize.Bit64 XSABSDP
+    decode "641d20f0" Endian.Little WordSize.Bit64 XSABSDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSADDDP original decoding``() =
+    decode "f0221900" Endian.Big WordSize.Bit32 XSADDDP
+    decode "f0221900" Endian.Big WordSize.Bit64 XSADDDP
+    decode "001922f0" Endian.Little WordSize.Bit64 XSADDDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSADDSP original decoding``() =
+    decode "f0221800" Endian.Big WordSize.Bit32 XSADDSP
+    decode "f0221800" Endian.Big WordSize.Bit64 XSADDSP
+    decode "001822f0" Endian.Little WordSize.Bit64 XSADDSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCMPUDP original decoding``() =
+    decode "f1021918" Endian.Big WordSize.Bit32 XSCMPUDP
+    decode "f1021918" Endian.Big WordSize.Bit64 XSCMPUDP
+    decode "181902f1" Endian.Little WordSize.Bit64 XSCMPUDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCPSGNDP original decoding``() =
+    decode "f0221d80" Endian.Big WordSize.Bit32 XSCPSGNDP
+    decode "f0221d80" Endian.Big WordSize.Bit64 XSCPSGNDP
+    decode "801d22f0" Endian.Little WordSize.Bit64 XSCPSGNDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPSP original decoding``() =
+    decode "f0201c24" Endian.Big WordSize.Bit32 XSCVDPSP
+    decode "f0201c24" Endian.Big WordSize.Bit64 XSCVDPSP
+    decode "241c20f0" Endian.Little WordSize.Bit64 XSCVDPSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPSPN original decoding``() =
+    decode "f0201c2c" Endian.Big WordSize.Bit32 XSCVDPSPN
+    decode "f0201c2c" Endian.Big WordSize.Bit64 XSCVDPSPN
+    decode "2c1c20f0" Endian.Little WordSize.Bit64 XSCVDPSPN
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPSXDS original decoding``() =
+    decode "f0201d60" Endian.Big WordSize.Bit32 XSCVDPSXDS
+    decode "f0201d60" Endian.Big WordSize.Bit64 XSCVDPSXDS
+    decode "601d20f0" Endian.Little WordSize.Bit64 XSCVDPSXDS
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPSXWS original decoding``() =
+    decode "f0201960" Endian.Big WordSize.Bit32 XSCVDPSXWS
+    decode "f0201960" Endian.Big WordSize.Bit64 XSCVDPSXWS
+    decode "601920f0" Endian.Little WordSize.Bit64 XSCVDPSXWS
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPUXDS original decoding``() =
+    decode "f0201d20" Endian.Big WordSize.Bit32 XSCVDPUXDS
+    decode "f0201d20" Endian.Big WordSize.Bit64 XSCVDPUXDS
+    decode "201d20f0" Endian.Little WordSize.Bit64 XSCVDPUXDS
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPUXWS original decoding``() =
+    decode "f0201920" Endian.Big WordSize.Bit32 XSCVDPUXWS
+    decode "f0201920" Endian.Big WordSize.Bit64 XSCVDPUXWS
+    decode "201920f0" Endian.Little WordSize.Bit64 XSCVDPUXWS
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSPDP original decoding``() =
+    decode "f0201d24" Endian.Big WordSize.Bit32 XSCVSPDP
+    decode "f0201d24" Endian.Big WordSize.Bit64 XSCVSPDP
+    decode "241d20f0" Endian.Little WordSize.Bit64 XSCVSPDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSPDPN original decoding``() =
+    decode "f0201d2c" Endian.Big WordSize.Bit32 XSCVSPDPN
+    decode "f0201d2c" Endian.Big WordSize.Bit64 XSCVSPDPN
+    decode "2c1d20f0" Endian.Little WordSize.Bit64 XSCVSPDPN
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSXDDP original decoding``() =
+    decode "f0201de0" Endian.Big WordSize.Bit32 XSCVSXDDP
+    decode "f0201de0" Endian.Big WordSize.Bit64 XSCVSXDDP
+    decode "e01d20f0" Endian.Little WordSize.Bit64 XSCVSXDDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVSXDSP original decoding``() =
+    decode "f0201ce0" Endian.Big WordSize.Bit32 XSCVSXDSP
+    decode "f0201ce0" Endian.Big WordSize.Bit64 XSCVSXDSP
+    decode "e01c20f0" Endian.Little WordSize.Bit64 XSCVSXDSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVUXDDP original decoding``() =
+    decode "f0201da0" Endian.Big WordSize.Bit32 XSCVUXDDP
+    decode "f0201da0" Endian.Big WordSize.Bit64 XSCVUXDDP
+    decode "a01d20f0" Endian.Little WordSize.Bit64 XSCVUXDDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVUXDSP original decoding``() =
+    decode "f0201ca0" Endian.Big WordSize.Bit32 XSCVUXDSP
+    decode "f0201ca0" Endian.Big WordSize.Bit64 XSCVUXDSP
+    decode "a01c20f0" Endian.Little WordSize.Bit64 XSCVUXDSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSDIVDP original decoding``() =
+    decode "f02219c0" Endian.Big WordSize.Bit32 XSDIVDP
+    decode "f02219c0" Endian.Big WordSize.Bit64 XSDIVDP
+    decode "c01922f0" Endian.Little WordSize.Bit64 XSDIVDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSDIVSP original decoding``() =
+    decode "f02218c0" Endian.Big WordSize.Bit32 XSDIVSP
+    decode "f02218c0" Endian.Big WordSize.Bit64 XSDIVSP
+    decode "c01822f0" Endian.Little WordSize.Bit64 XSDIVSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDADP original decoding``() =
+    decode "f0221908" Endian.Big WordSize.Bit32 XSMADDADP
+    decode "f0221908" Endian.Big WordSize.Bit64 XSMADDADP
+    decode "081922f0" Endian.Little WordSize.Bit64 XSMADDADP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDASP original decoding``() =
+    decode "f0221808" Endian.Big WordSize.Bit32 XSMADDASP
+    decode "f0221808" Endian.Big WordSize.Bit64 XSMADDASP
+    decode "081822f0" Endian.Little WordSize.Bit64 XSMADDASP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDMDP original decoding``() =
+    decode "f0221948" Endian.Big WordSize.Bit32 XSMADDMDP
+    decode "f0221948" Endian.Big WordSize.Bit64 XSMADDMDP
+    decode "481922f0" Endian.Little WordSize.Bit64 XSMADDMDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMADDMSP original decoding``() =
+    decode "f0221848" Endian.Big WordSize.Bit32 XSMADDMSP
+    decode "f0221848" Endian.Big WordSize.Bit64 XSMADDMSP
+    decode "481822f0" Endian.Little WordSize.Bit64 XSMADDMSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMAXDP original decoding``() =
+    decode "f0221d00" Endian.Big WordSize.Bit32 XSMAXDP
+    decode "f0221d00" Endian.Big WordSize.Bit64 XSMAXDP
+    decode "001d22f0" Endian.Little WordSize.Bit64 XSMAXDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMINDP original decoding``() =
+    decode "f0221d40" Endian.Big WordSize.Bit32 XSMINDP
+    decode "f0221d40" Endian.Big WordSize.Bit64 XSMINDP
+    decode "401d22f0" Endian.Little WordSize.Bit64 XSMINDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMULDP original decoding``() =
+    decode "f0221980" Endian.Big WordSize.Bit32 XSMULDP
+    decode "f0221980" Endian.Big WordSize.Bit64 XSMULDP
+    decode "801922f0" Endian.Little WordSize.Bit64 XSMULDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMULSP original decoding``() =
+    decode "f0221880" Endian.Big WordSize.Bit32 XSMULSP
+    decode "f0221880" Endian.Big WordSize.Bit64 XSMULSP
+    decode "801822f0" Endian.Little WordSize.Bit64 XSMULSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBADP original decoding``() =
+    decode "f0221988" Endian.Big WordSize.Bit32 XSMSUBADP
+    decode "f0221988" Endian.Big WordSize.Bit64 XSMSUBADP
+    decode "881922f0" Endian.Little WordSize.Bit64 XSMSUBADP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBASP original decoding``() =
+    decode "f0221888" Endian.Big WordSize.Bit32 XSMSUBASP
+    decode "f0221888" Endian.Big WordSize.Bit64 XSMSUBASP
+    decode "881822f0" Endian.Little WordSize.Bit64 XSMSUBASP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBMDP original decoding``() =
+    decode "f02219c8" Endian.Big WordSize.Bit32 XSMSUBMDP
+    decode "f02219c8" Endian.Big WordSize.Bit64 XSMSUBMDP
+    decode "c81922f0" Endian.Little WordSize.Bit64 XSMSUBMDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSMSUBMSP original decoding``() =
+    decode "f02218c8" Endian.Big WordSize.Bit32 XSMSUBMSP
+    decode "f02218c8" Endian.Big WordSize.Bit64 XSMSUBMSP
+    decode "c81822f0" Endian.Little WordSize.Bit64 XSMSUBMSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNABSDP original decoding``() =
+    decode "f0201da4" Endian.Big WordSize.Bit32 XSNABSDP
+    decode "f0201da4" Endian.Big WordSize.Bit64 XSNABSDP
+    decode "a41d20f0" Endian.Little WordSize.Bit64 XSNABSDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNEGDP original decoding``() =
+    decode "f0201de4" Endian.Big WordSize.Bit32 XSNEGDP
+    decode "f0201de4" Endian.Big WordSize.Bit64 XSNEGDP
+    decode "e41d20f0" Endian.Little WordSize.Bit64 XSNEGDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDADP original decoding``() =
+    decode "f0221d08" Endian.Big WordSize.Bit32 XSNMADDADP
+    decode "f0221d08" Endian.Big WordSize.Bit64 XSNMADDADP
+    decode "081d22f0" Endian.Little WordSize.Bit64 XSNMADDADP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDASP original decoding``() =
+    decode "f0221c08" Endian.Big WordSize.Bit32 XSNMADDASP
+    decode "f0221c08" Endian.Big WordSize.Bit64 XSNMADDASP
+    decode "081c22f0" Endian.Little WordSize.Bit64 XSNMADDASP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDMDP original decoding``() =
+    decode "f0221d48" Endian.Big WordSize.Bit32 XSNMADDMDP
+    decode "f0221d48" Endian.Big WordSize.Bit64 XSNMADDMDP
+    decode "481d22f0" Endian.Little WordSize.Bit64 XSNMADDMDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMADDMSP original decoding``() =
+    decode "f0221c48" Endian.Big WordSize.Bit32 XSNMADDMSP
+    decode "f0221c48" Endian.Big WordSize.Bit64 XSNMADDMSP
+    decode "481c22f0" Endian.Little WordSize.Bit64 XSNMADDMSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBADP original decoding``() =
+    decode "f0221d88" Endian.Big WordSize.Bit32 XSNMSUBADP
+    decode "f0221d88" Endian.Big WordSize.Bit64 XSNMSUBADP
+    decode "881d22f0" Endian.Little WordSize.Bit64 XSNMSUBADP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBASP original decoding``() =
+    decode "f0221c88" Endian.Big WordSize.Bit32 XSNMSUBASP
+    decode "f0221c88" Endian.Big WordSize.Bit64 XSNMSUBASP
+    decode "881c22f0" Endian.Little WordSize.Bit64 XSNMSUBASP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBMDP original decoding``() =
+    decode "f0221dc8" Endian.Big WordSize.Bit32 XSNMSUBMDP
+    decode "f0221dc8" Endian.Big WordSize.Bit64 XSNMSUBMDP
+    decode "c81d22f0" Endian.Little WordSize.Bit64 XSNMSUBMDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSNMSUBMSP original decoding``() =
+    decode "f0221cc8" Endian.Big WordSize.Bit32 XSNMSUBMSP
+    decode "f0221cc8" Endian.Big WordSize.Bit64 XSNMSUBMSP
+    decode "c81c22f0" Endian.Little WordSize.Bit64 XSNMSUBMSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPI original decoding``() =
+    decode "f0201924" Endian.Big WordSize.Bit32 XSRDPI
+    decode "f0201924" Endian.Big WordSize.Bit64 XSRDPI
+    decode "241920f0" Endian.Little WordSize.Bit64 XSRDPI
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPIM original decoding``() =
+    decode "f02019e4" Endian.Big WordSize.Bit32 XSRDPIM
+    decode "f02019e4" Endian.Big WordSize.Bit64 XSRDPIM
+    decode "e41920f0" Endian.Little WordSize.Bit64 XSRDPIM
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPIP original decoding``() =
+    decode "f02019a4" Endian.Big WordSize.Bit32 XSRDPIP
+    decode "f02019a4" Endian.Big WordSize.Bit64 XSRDPIP
+    decode "a41920f0" Endian.Little WordSize.Bit64 XSRDPIP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRDPIZ original decoding``() =
+    decode "f0201964" Endian.Big WordSize.Bit32 XSRDPIZ
+    decode "f0201964" Endian.Big WordSize.Bit64 XSRDPIZ
+    decode "641920f0" Endian.Little WordSize.Bit64 XSRDPIZ
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSQRTDP original decoding``() =
+    decode "f020192c" Endian.Big WordSize.Bit32 XSSQRTDP
+    decode "f020192c" Endian.Big WordSize.Bit64 XSSQRTDP
+    decode "2c1920f0" Endian.Little WordSize.Bit64 XSSQRTDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSQRTSP original decoding``() =
+    decode "f020182c" Endian.Big WordSize.Bit32 XSSQRTSP
+    decode "f020182c" Endian.Big WordSize.Bit64 XSSQRTSP
+    decode "2c1820f0" Endian.Little WordSize.Bit64 XSSQRTSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSRSP original decoding``() =
+    decode "f0201c64" Endian.Big WordSize.Bit32 XSRSP
+    decode "f0201c64" Endian.Big WordSize.Bit64 XSRSP
+    decode "641c20f0" Endian.Little WordSize.Bit64 XSRSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSUBDP original decoding``() =
+    decode "f0221940" Endian.Big WordSize.Bit32 XSSUBDP
+    decode "f0221940" Endian.Big WordSize.Bit64 XSSUBDP
+    decode "401922f0" Endian.Little WordSize.Bit64 XSSUBDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XSSUBSP original decoding``() =
+    decode "f0221840" Endian.Big WordSize.Bit32 XSSUBSP
+    decode "f0221840" Endian.Big WordSize.Bit64 XSSUBSP
+    decode "401822f0" Endian.Little WordSize.Bit64 XSSUBSP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVADDDP original decoding``() =
+    decode "f0221b00" Endian.Big WordSize.Bit32 XVADDDP
+    decode "f0221b00" Endian.Big WordSize.Bit64 XVADDDP
+    decode "001b22f0" Endian.Little WordSize.Bit64 XVADDDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGEDP original decoding``() =
+    decode "f0221b98" Endian.Big WordSize.Bit32 XVCMPGEDP
+    decode "f0221b98" Endian.Big WordSize.Bit64 XVCMPGEDP
+    decode "981b22f0" Endian.Little WordSize.Bit64 XVCMPGEDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGEDP. original decoding``() =
+    decode "f0221f98" Endian.Big WordSize.Bit32 XVCMPGEDPdot
+    decode "f0221f98" Endian.Big WordSize.Bit64 XVCMPGEDPdot
+    decode "981f22f0" Endian.Little WordSize.Bit64 XVCMPGEDPdot
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGTDP original decoding``() =
+    decode "f0221b58" Endian.Big WordSize.Bit32 XVCMPGTDP
+    decode "f0221b58" Endian.Big WordSize.Bit64 XVCMPGTDP
+    decode "581b22f0" Endian.Little WordSize.Bit64 XVCMPGTDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCMPGTDP. original decoding``() =
+    decode "f0221f58" Endian.Big WordSize.Bit32 XVCMPGTDPdot
+    decode "f0221f58" Endian.Big WordSize.Bit64 XVCMPGTDPdot
+    decode "581f22f0" Endian.Little WordSize.Bit64 XVCMPGTDPdot
+
+  [<TestMethod>]
+  member _.``[PPC T] XVCVSXWDP original decoding``() =
+    decode "f0201be0" Endian.Big WordSize.Bit32 XVCVSXWDP
+    decode "f0201be0" Endian.Big WordSize.Bit64 XVCVSXWDP
+    decode "e01b20f0" Endian.Little WordSize.Bit64 XVCVSXWDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVDIVDP original decoding``() =
+    decode "f0221bc0" Endian.Big WordSize.Bit32 XVDIVDP
+    decode "f0221bc0" Endian.Big WordSize.Bit64 XVDIVDP
+    decode "c01b22f0" Endian.Little WordSize.Bit64 XVDIVDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVMULDP original decoding``() =
+    decode "f0221b80" Endian.Big WordSize.Bit32 XVMULDP
+    decode "f0221b80" Endian.Big WordSize.Bit64 XVMULDP
+    decode "801b22f0" Endian.Little WordSize.Bit64 XVMULDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVNEGDP original decoding``() =
+    decode "f0201fe4" Endian.Big WordSize.Bit32 XVNEGDP
+    decode "f0201fe4" Endian.Big WordSize.Bit64 XVNEGDP
+    decode "e41f20f0" Endian.Little WordSize.Bit64 XVNEGDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XVSUBDP original decoding``() =
+    decode "f0221b40" Endian.Big WordSize.Bit32 XVSUBDP
+    decode "f0221b40" Endian.Big WordSize.Bit64 XVSUBDP
+    decode "401b22f0" Endian.Little WordSize.Bit64 XVSUBDP
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLAND original decoding``() =
+    decode "f0221c10" Endian.Big WordSize.Bit32 XXLAND
+    decode "f0221c10" Endian.Big WordSize.Bit64 XXLAND
+    decode "101c22f0" Endian.Little WordSize.Bit64 XXLAND
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLANDC original decoding``() =
+    decode "f0221c50" Endian.Big WordSize.Bit32 XXLANDC
+    decode "f0221c50" Endian.Big WordSize.Bit64 XXLANDC
+    decode "501c22f0" Endian.Little WordSize.Bit64 XXLANDC
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLEQV original decoding``() =
+    decode "f0221dd0" Endian.Big WordSize.Bit32 XXLEQV
+    decode "f0221dd0" Endian.Big WordSize.Bit64 XXLEQV
+    decode "d01d22f0" Endian.Little WordSize.Bit64 XXLEQV
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLNAND original decoding``() =
+    decode "f0221d90" Endian.Big WordSize.Bit32 XXLNAND
+    decode "f0221d90" Endian.Big WordSize.Bit64 XXLNAND
+    decode "901d22f0" Endian.Little WordSize.Bit64 XXLNAND
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLNOR original decoding``() =
+    decode "f0221d10" Endian.Big WordSize.Bit32 XXLNOR
+    decode "f0221d10" Endian.Big WordSize.Bit64 XXLNOR
+    decode "101d22f0" Endian.Little WordSize.Bit64 XXLNOR
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLOR original decoding``() =
+    decode "f0221c90" Endian.Big WordSize.Bit32 XXLOR
+    decode "f0221c90" Endian.Big WordSize.Bit64 XXLOR
+    decode "901c22f0" Endian.Little WordSize.Bit64 XXLOR
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLORC original decoding``() =
+    decode "f0221d50" Endian.Big WordSize.Bit32 XXLORC
+    decode "f0221d50" Endian.Big WordSize.Bit64 XXLORC
+    decode "501d22f0" Endian.Little WordSize.Bit64 XXLORC
+
+  [<TestMethod>]
+  member _.``[PPC T] XXLXOR original decoding``() =
+    decode "f0221cd0" Endian.Big WordSize.Bit32 XXLXOR
+    decode "f0221cd0" Endian.Big WordSize.Bit64 XXLXOR
+    decode "d01c22f0" Endian.Little WordSize.Bit64 XXLXOR
+
+  [<TestMethod>]
+  member _.``[PPC T] XXMRGHW original decoding``() =
+    decode "f0221890" Endian.Big WordSize.Bit32 XXMRGHW
+    decode "f0221890" Endian.Big WordSize.Bit64 XXMRGHW
+    decode "901822f0" Endian.Little WordSize.Bit64 XXMRGHW
+
+  [<TestMethod>]
+  member _.``[PPC T] XXMRGLW original decoding``() =
+    decode "f0221990" Endian.Big WordSize.Bit32 XXMRGLW
+    decode "f0221990" Endian.Big WordSize.Bit64 XXMRGLW
+    decode "901922f0" Endian.Little WordSize.Bit64 XXMRGLW
+
+  [<TestMethod>]
+  member _.``[PPC T] XXPERMDI original decoding``() =
+    decode "f0221950" Endian.Big WordSize.Bit32 XXPERMDI
+    decode "f0221950" Endian.Big WordSize.Bit64 XXPERMDI
+    decode "501922f0" Endian.Little WordSize.Bit64 XXPERMDI
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSEL original decoding``() =
+    decode "f0221930" Endian.Big WordSize.Bit32 XXSEL
+    decode "f0221930" Endian.Big WordSize.Bit64 XXSEL
+    decode "301922f0" Endian.Little WordSize.Bit64 XXSEL
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSLDWI original decoding``() =
+    decode "f0221910" Endian.Big WordSize.Bit32 XXSLDWI
+    decode "f0221910" Endian.Big WordSize.Bit64 XXSLDWI
+    decode "101922f0" Endian.Little WordSize.Bit64 XXSLDWI
+
+  [<TestMethod>]
+  member _.``[PPC T] XXSPLTW original decoding``() =
+    decode "f0211a90" Endian.Big WordSize.Bit32 XXSPLTW
+    decode "f0211a90" Endian.Big WordSize.Bit64 XXSPLTW
+    decode "901a21f0" Endian.Little WordSize.Bit64 XXSPLTW
+
+/// GNU aliases that the decoder itself returns as distinct opcodes.
+[<TestClass>]
+type BackfillAliasParserTests() =
+  let decode hex opcode =
+    for endian in [ Endian.Big; Endian.Little ] do
+      let parser = Parser(WordSize.Bit64, BinReader.Init endian)
+                   :> IInstructionParsable
+      let bytes = ByteArray.ofHexString hex
+      let bytes = if endian = Endian.Big then bytes else Array.rev bytes
+      let ins = parser.Parse(bytes, 0x20100000UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode)
+      Assert.AreEqual<uint32>(4u, ins.Length)
+
+  [<TestMethod>]
+  member _.``[PPC T] BA alias decoding``() =
+    decode "48000006" Opcode.BA
+
+  [<TestMethod>]
+  member _.``[PPC T] BLA alias decoding``() =
+    decode "48000007" Opcode.BLA
+
+  [<TestMethod>]
+  member _.``[PPC T] BCA alias decoding``() =
+    decode "41800006" Opcode.BCA
+
+  [<TestMethod>]
+  member _.``[PPC T] BCLA alias decoding``() =
+    decode "41800007" Opcode.BCLA
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPD alias decoding``() =
+    decode "7d263800" Opcode.CMPD
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPW alias decoding``() =
+    decode "7d063800" Opcode.CMPW
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLD alias decoding``() =
+    decode "7d263840" Opcode.CMPLD
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLW alias decoding``() =
+    decode "7d063840" Opcode.CMPLW
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPDI alias decoding``() =
+    decode "2d26000c" Opcode.CMPDI
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPWI alias decoding``() =
+    decode "2d06000c" Opcode.CMPWI
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLDI alias decoding``() =
+    decode "2926000c" Opcode.CMPLDI
+
+  [<TestMethod>]
+  member _.``[PPC T] CMPLWI alias decoding``() =
+    decode "2906000c" Opcode.CMPLWI
+
+  [<TestMethod>]
+  member _.``[PPC T] CRCLR alias decoding``() =
+    decode "4c631982" Opcode.CRCLR
+
+  [<TestMethod>]
+  member _.``[PPC T] CRMOVE alias decoding``() =
+    decode "4c642382" Opcode.CRMOVE
+
+  [<TestMethod>]
+  member _.``[PPC T] CRNOT alias decoding``() =
+    decode "4c642042" Opcode.CRNOT
+
+  [<TestMethod>]
+  member _.``[PPC T] CRSET alias decoding``() =
+    decode "4c631a42" Opcode.CRSET
+
+  [<TestMethod>]
+  member _.``[PPC T] LI alias decoding``() =
+    decode "38a0000c" Opcode.LI
+
+  [<TestMethod>]
+  member _.``[PPC T] LIS alias decoding``() =
+    decode "3ca0000c" Opcode.LIS
+
+  [<TestMethod>]
+  member _.``[PPC T] LWSYNC alias decoding``() =
+    decode "7c2004ac" Opcode.LWSYNC
+
+  [<TestMethod>]
+  member _.``[PPC T] MFCTR alias decoding``() =
+    decode "7ca902a6" Opcode.MFCTR
+
+  [<TestMethod>]
+  member _.``[PPC T] MFLR alias decoding``() =
+    decode "7ca802a6" Opcode.MFLR
+
+  [<TestMethod>]
+  member _.``[PPC T] MFXER alias decoding``() =
+    decode "7ca102a6" Opcode.MFXER
+
+  [<TestMethod>]
+  member _.``[PPC T] MFTBU alias decoding``() =
+    decode "7cad42a6" Opcode.MFTBU
+
+  [<TestMethod>]
+  member _.``[PPC T] MTCTR alias decoding``() =
+    decode "7ca903a6" Opcode.MTCTR
+
+  [<TestMethod>]
+  member _.``[PPC T] MTLR alias decoding``() =
+    decode "7ca803a6" Opcode.MTLR
+
+  [<TestMethod>]
+  member _.``[PPC T] MTXER alias decoding``() =
+    decode "7ca103a6" Opcode.MTXER
+
+  [<TestMethod>]
+  member _.``[PPC T] MR alias decoding``() =
+    decode "7cc53378" Opcode.MR
+
+  [<TestMethod>]
+  member _.``[PPC T] NOP alias decoding``() =
+    decode "60000000" Opcode.NOP
+
+  [<TestMethod>]
+  member _.``[PPC T] ROTLW alias decoding``() =
+    decode "5cc5383e" Opcode.ROTLW
+
+  [<TestMethod>]
+  member _.``[PPC T] TWEQ alias decoding``() =
+    decode "7c863808" Opcode.TWEQ
+
+  [<TestMethod>]
+  member _.``[PPC T] TWEQI alias decoding``() =
+    decode "0c86000c" Opcode.TWEQI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGE alias decoding``() =
+    decode "7d863808" Opcode.TWGE
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGEI alias decoding``() =
+    decode "0d86000c" Opcode.TWGEI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGT alias decoding``() =
+    decode "7d063808" Opcode.TWGT
+
+  [<TestMethod>]
+  member _.``[PPC T] TWGTI alias decoding``() =
+    decode "0d06000c" Opcode.TWGTI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLE alias decoding``() =
+    decode "7e863808" Opcode.TWLE
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLEI alias decoding``() =
+    decode "0e86000c" Opcode.TWLEI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLGT alias decoding``() =
+    decode "7c263808" Opcode.TWLGT
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLGTI alias decoding``() =
+    decode "0c26000c" Opcode.TWLGTI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLE alias decoding``() =
+    decode "7cc63808" Opcode.TWLLE
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLEI alias decoding``() =
+    decode "0cc6000c" Opcode.TWLLEI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLT alias decoding``() =
+    decode "7c463808" Opcode.TWLLT
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLLTI alias decoding``() =
+    decode "0c46000c" Opcode.TWLLTI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLNL alias decoding``() =
+    decode "7ca63808" Opcode.TWLNL
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLNLI alias decoding``() =
+    decode "0ca6000c" Opcode.TWLNLI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLT alias decoding``() =
+    decode "7e063808" Opcode.TWLT
+
+  [<TestMethod>]
+  member _.``[PPC T] TWLTI alias decoding``() =
+    decode "0e06000c" Opcode.TWLTI
+
+  [<TestMethod>]
+  member _.``[PPC T] TWNE alias decoding``() =
+    decode "7f063808" Opcode.TWNE
+
+  [<TestMethod>]
+  member _.``[PPC T] TWNEI alias decoding``() =
+    decode "0f06000c" Opcode.TWNEI
+
+  [<TestMethod>]
+  member _.``[PPC T] TRAP alias decoding``() =
+    decode "7fe00008" Opcode.TRAP
