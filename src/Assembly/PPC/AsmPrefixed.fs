@@ -68,9 +68,42 @@ let private vectorOps =
         Op.XXSPLTIDP
         Op.XXSPLTIW ]
 
+let private matrixOps =
+  [
+    Op.PMXVBF16GER2, 51u
+    Op.PMXVBF16GER2NN, 242u
+    Op.PMXVBF16GER2NP, 114u
+    Op.PMXVBF16GER2PN, 178u
+    Op.PMXVBF16GER2PP, 50u
+    Op.PMXVF16GER2, 19u
+    Op.PMXVF16GER2NN, 210u
+    Op.PMXVF16GER2NP, 82u
+    Op.PMXVF16GER2PN, 146u
+    Op.PMXVF16GER2PP, 18u
+    Op.PMXVF32GER, 27u
+    Op.PMXVF32GERNN, 218u
+    Op.PMXVF32GERNP, 90u
+    Op.PMXVF32GERPN, 154u
+    Op.PMXVF32GERPP, 26u
+    Op.PMXVF64GER, 59u
+    Op.PMXVF64GERNN, 250u
+    Op.PMXVF64GERNP, 122u
+    Op.PMXVF64GERPN, 186u
+    Op.PMXVF64GERPP, 58u
+    Op.PMXVI16GER2, 75u
+    Op.PMXVI16GER2PP, 107u
+    Op.PMXVI16GER2S, 43u
+    Op.PMXVI16GER2SPP, 42u
+    Op.PMXVI4GER8, 35u
+    Op.PMXVI4GER8PP, 34u
+    Op.PMXVI8GER4, 3u
+    Op.PMXVI8GER4PP, 2u
+    Op.PMXVI8GER4SPP, 99u
+  ] |> Map.ofList
+
 let isPrefixed opcode =
   opcode = Op.PADDI || opcode = Op.PNOP || Map.containsKey opcode accesses
-  || Set.contains opcode vectorOps
+  || Set.contains opcode vectorOps || Map.containsKey opcode matrixOps
 
 /// The displacement must fit the signed 34-bit field before it is split.
 let private displacement (value: int64) =
@@ -187,11 +220,48 @@ let private vectorFields ins =
                  ||| ((n >>> 5) <<< 16) ||| (op <<< 17) ||| (value &&& 0xffffu)
     struct (0x05000000u ||| (value >>> 16), suffix)
 
+/// The masks retain the manual's row, column and product order.
+let private matrixFields ins =
+  let xo = Map.find ins.Opcode matrixOps
+  let double = xo = 58u || xo = 59u || xo = 122u || xo = 186u || xo = 250u
+  let single = xo = 26u || xo = 27u || xo = 90u || xo = 154u || xo = 218u
+  let operands =
+    if double || single then ins.Operands @ [ AsmImm 0UL ] else ins.Operands
+  match operands with
+  | [ AsmReg acc; AsmReg a; AsmReg b; AsmImm x; AsmImm y; AsmImm p ] ->
+    if acc < Register.ACC0 || acc > Register.ACC7 then
+      fail "Expected an accumulator"
+    else
+      ()
+    let at = uint32 (int acc - int Register.ACC0)
+    let na, nb = vsr a, vsr b
+    let overlaps n = n >= 4u * at && n < 4u * at + 4u
+    if overlaps na || overlaps nb || (double && na &&& 1u <> 0u) then
+      fail "Matrix source overlaps the accumulator or an invalid pair"
+    else
+      ()
+    let pb =
+      if xo = 34u || xo = 35u then 8
+      elif xo = 2u || xo = 3u || xo = 99u then 4
+      else 2
+    let masks = (unsigned 4 x <<< 4)
+                ||| (if double then unsigned 2 y <<< 2 else unsigned 4 y)
+    let products = if double || single then 0u else unsigned pb p <<< (16 - pb)
+    let prefix = 0x07900000u ||| masks ||| products
+    let suffix = 0xec000000u ||| (at <<< 23) ||| ((na &&& 31u) <<< 16)
+                 ||| ((nb &&& 31u) <<< 11) ||| (xo <<< 3)
+                 ||| ((na >>> 5) <<< 2) ||| ((nb >>> 5) <<< 1)
+    struct (prefix, suffix)
+  | _ ->
+    wrongOperands ins
+
 /// The prefix precedes the suffix even in little-endian byte order.
 let encode (ins: AsmInsInfo) =
   if ins.Address &&& 63UL > 56UL then fail "Prefix crosses a 64-byte boundary"
   else ()
   match ins.Opcode with
+  | op when Map.containsKey op matrixOps ->
+    matrixFields ins
   | op when Set.contains op vectorOps ->
     vectorFields ins
   | Op.PADDI ->

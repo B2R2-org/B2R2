@@ -2000,6 +2000,35 @@ let opCodeToString = function
   | Op.XXSPLTI32DX -> "xxsplti32dx"
   | Op.XXSPLTIDP -> "xxspltidp"
   | Op.XXSPLTIW -> "xxspltiw"
+  | Op.PMXVBF16GER2 -> "pmxvbf16ger2"
+  | Op.PMXVBF16GER2NN -> "pmxvbf16ger2nn"
+  | Op.PMXVBF16GER2NP -> "pmxvbf16ger2np"
+  | Op.PMXVBF16GER2PN -> "pmxvbf16ger2pn"
+  | Op.PMXVBF16GER2PP -> "pmxvbf16ger2pp"
+  | Op.PMXVF16GER2 -> "pmxvf16ger2"
+  | Op.PMXVF16GER2NN -> "pmxvf16ger2nn"
+  | Op.PMXVF16GER2NP -> "pmxvf16ger2np"
+  | Op.PMXVF16GER2PN -> "pmxvf16ger2pn"
+  | Op.PMXVF16GER2PP -> "pmxvf16ger2pp"
+  | Op.PMXVF32GER -> "pmxvf32ger"
+  | Op.PMXVF32GERNN -> "pmxvf32gernn"
+  | Op.PMXVF32GERNP -> "pmxvf32gernp"
+  | Op.PMXVF32GERPN -> "pmxvf32gerpn"
+  | Op.PMXVF32GERPP -> "pmxvf32gerpp"
+  | Op.PMXVF64GER -> "pmxvf64ger"
+  | Op.PMXVF64GERNN -> "pmxvf64gernn"
+  | Op.PMXVF64GERNP -> "pmxvf64gernp"
+  | Op.PMXVF64GERPN -> "pmxvf64gerpn"
+  | Op.PMXVF64GERPP -> "pmxvf64gerpp"
+  | Op.PMXVI16GER2 -> "pmxvi16ger2"
+  | Op.PMXVI16GER2PP -> "pmxvi16ger2pp"
+  | Op.PMXVI16GER2S -> "pmxvi16ger2s"
+  | Op.PMXVI16GER2SPP -> "pmxvi16ger2spp"
+  | Op.PMXVI4GER8 -> "pmxvi4ger8"
+  | Op.PMXVI4GER8PP -> "pmxvi4ger8pp"
+  | Op.PMXVI8GER4 -> "pmxvi8ger4"
+  | Op.PMXVI8GER4PP -> "pmxvi8ger4pp"
+  | Op.PMXVI8GER4SPP -> "pmxvi8ger4spp"
   | Op.PADDI -> "paddi"
   | Op.PLBZ -> "plbz"
   | Op.PLD -> "pld"
@@ -2206,6 +2235,13 @@ let buildOprs (ins: Instruction) builder =
     oprToString ins opr3 ", " builder
     oprToString ins opr4 ", " builder
     oprToString ins opr5 ", " builder
+  | SixOperands(opr1, opr2, opr3, opr4, opr5, opr6) ->
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
+    oprToString ins opr4 ", " builder
+    oprToString ins opr5 ", " builder
+    oprToString ins opr6 ", " builder
 
 let buildSimpleMnemonic opcode bi addr ins (builder: IDisasmBuilder) =
   let cr = Bits.extract bi 4u 2u |> getCondRegister

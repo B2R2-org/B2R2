@@ -56437,3 +56437,22959 @@ type PrefixedLifterTests() =
 
       |
       """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2 prefixed values``() =
+    oracle "07904033ee021998" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0 VSRL18=0
+      VSRL19=0 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff000000000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=4000000000000000 VSRL19=100000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08d7200c08d7200 VSRL19=c08d7200c08d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c0892800490de800 VSRL19=3801f000c0867000 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021998" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0 VSRL18=0
+      VSRL19=0 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff000000000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=4000000000000000 VSRL19=100000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08d7200c08d7200 VSRL19=c08d7200c08d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c0892800490de800 VSRL19=3801f000c0867000 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2NN prefixed values``() =
+    oracle "07904033ee021f90" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=c00000008bad0bad VSRL19=8bad0bad8bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408d7200408d7200 VSRL19=408d7200408d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408927ffc90de800 VSRL19=b801f00040866fff CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021f90" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=c00000008bad0bad VSRL19=8bad0bad8bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408d7200408d7200 VSRL19=408d7200408d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408927ffc90de800 VSRL19=b801f00040866fff CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2NP prefixed values``() =
+    oracle "07904033ee021b90" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=bfffffff0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408d7200408d7200 VSRL19=408d7200408d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=40892800c90de7ff VSRL19=b801efff40867000 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021b90" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=bfffffff0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408d7200408d7200 VSRL19=408d7200408d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=40892800c90de7ff VSRL19=b801efff40867000 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2PN prefixed values``() =
+    oracle "07904033ee021d90" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=400000008bad0bad VSRL19=8bad0bac8bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08d7200c08d7200 VSRL19=c08d7200c08d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c0892800490de7ff VSRL19=3801efffc0867000 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021d90" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=400000008bad0bad VSRL19=8bad0bac8bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08d7200c08d7200 VSRL19=c08d7200c08d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c0892800490de7ff VSRL19=3801efffc0867000 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2PP prefixed values``() =
+    oracle "07904033ee021990" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=400000010bad0bad VSRL19=bad0bae0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08d7200c08d7200 VSRL19=c08d7200c08d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08927ff490de800 VSRL19=3801f000c0866fff CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021990" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffff0000ffff0000 VSRL19=ffff00000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=400000010bad0bad VSRL19=bad0bae0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffff0000ffff0000 VSRL19=ffff0000ffff0000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08d7200c08d7200 VSRL19=c08d7200c08d7200 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08927ff490de800 VSRL19=3801f000c0866fff CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2 prefixed values``() =
+    oracle "07904033ee021898" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=3272796031416000 VSRL19=32f319e031c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe00000000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=2eff000000000000 CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e21c8c08e21c8 VSRL19=c08e21c8c08e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08e7ca0419c7fa0 VSRL19=3f8301c0c08fe3c0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021898" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=3272796031416000 VSRL19=32f319e031c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe00000000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=2eff000000000000 CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e21c8c08e21c8 VSRL19=c08e21c8c08e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08e7ca0419c7fa0 VSRL19=3f8301c0c08fe3c0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2NN prefixed values``() =
+    oracle "07904033ee021e90" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=b2727960b1416000 VSRL19=b2f319e0b1c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=aeff00008bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e21c8408e21c8 VSRL19=408e21c8408e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408e7c9fc19c7fa0 VSRL19=bf8301c0408fe3bf CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021e90" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=b2727960b1416000 VSRL19=b2f319e0b1c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=aeff00008bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e21c8408e21c8 VSRL19=408e21c8408e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408e7c9fc19c7fa0 VSRL19=bf8301c0408fe3bf CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2NP prefixed values``() =
+    oracle "07904033ee021a90" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=b2727960b1416000 VSRL19=b2f319e0b1c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=aefeffff0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e21c8408e21c8 VSRL19=408e21c8408e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408e7ca0c19c7f9f VSRL19=bf8301bf408fe3c0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021a90" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=b2727960b1416000 VSRL19=b2f319e0b1c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=aefeffff0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e21c8408e21c8 VSRL19=408e21c8408e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408e7ca0c19c7f9f VSRL19=bf8301bf408fe3c0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2PN prefixed values``() =
+    oracle "07904033ee021c90" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=3272796031416000 VSRL19=32f319e031c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=2eff00008bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e21c8c08e21c8 VSRL19=c08e21c8c08e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08e7ca0419c7f9f VSRL19=3f8301bfc08fe3c0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021c90" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=3272796031416000 VSRL19=32f319e031c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0008bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=2eff00008bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e21c8c08e21c8 VSRL19=c08e21c8c08e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08e7ca0419c7f9f VSRL19=3f8301bfc08fe3c0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2PP prefixed values``() =
+    oracle "07904033ee021890" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=3272796031416000 VSRL19=32f319e031c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=2eff00010bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e21c8c08e21c8 VSRL19=c08e21c8c08e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08e7c9f419c7fa0 VSRL19=3f8301c0c08fe3bf CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021890" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=3272796031416000 VSRL19=32f319e031c1e000 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffe000ffffe000 VSRL19=ffffe0000bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=ffe00000ffe00000 VSRL19=2eff00010bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffe000ffffe000 VSRL19=ffffe000ffffe000
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e21c8c08e21c8 VSRL19=c08e21c8c08e21c8 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08e7c9f419c7fa0 VSRL19=3f8301c0c08fe3bf CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GER prefixed values``() =
+    oracle "07900033ee0218d8" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0 VSRL18=0
+      VSRL19=0 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff80000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=417f01bf00000001 CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e38e3c08e38e3 VSRL19=c08e38e3c08e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08cc6a549142233 VSRL19=38075567c08e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8000000080000000 VSRL19=0 CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900033ee0218d8" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0 VSRL18=0
+      VSRL19=0 LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff80000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=417f01bf00000001 CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e38e3c08e38e3 VSRL19=c08e38e3c08e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08cc6a549142233 VSRL19=38075567c08e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8000000080000000 VSRL19=0 CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERNN prefixed values``() =
+    oracle "07900033ee021ed0" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff8bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=c17f01bf8bad0bae CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e38e3408e38e3 VSRL19=408e38e3408e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408cc6a5c9142233 VSRL19=b8075567408e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900033ee021ed0" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff8bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=c17f01bf8bad0bae CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e38e3408e38e3 VSRL19=408e38e3408e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408cc6a5c9142233 VSRL19=b8075567408e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERNP prefixed values``() =
+    oracle "07900033ee021ad0" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff0bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=c17f01bf0bad0bac CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e38e3408e38e3 VSRL19=408e38e3408e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408cc6a5c9142233 VSRL19=b8075567408e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900033ee021ad0" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff0bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=c17f01bf0bad0bac CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=408e38e3408e38e3 VSRL19=408e38e3408e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=408cc6a5c9142233 VSRL19=b8075567408e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERPN prefixed values``() =
+    oracle "07900033ee021cd0" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff8bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=417f01bf8bad0bac CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e38e3c08e38e3 VSRL19=c08e38e3c08e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08cc6a549142233 VSRL19=38075567c08e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900033ee021cd0" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff8bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=417f01bf8bad0bac CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e38e3c08e38e3 VSRL19=c08e38e3c08e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08cc6a549142233 VSRL19=38075567c08e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad8bad0bad VSRL19=8bad0bad8bad0bad CR=42424242
+      XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERPP prefixed values``() =
+    oracle "07900033ee0218d0" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff0bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=417f01bf0bad0bae CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e38e3c08e38e3 VSRL19=c08e38e3c08e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08cc6a549142233 VSRL19=38075567c08e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900033ee0218d0" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=7fffffff0bad0bad CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7fc0ff007fc0ff00 VSRL19=417f01bf0bad0bae CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=c08e38e3c08e38e3 VSRL19=c08e38e3c08e38e3 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=c08cc6a549142233 VSRL19=38075567c08e6822 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GER prefixed values``() =
+    oracle "0790003cee0619d8" Endian.Big """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=0 F19=0
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=0 VSRL17=0 VSRL18=0
+      VSRL19=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=0 F19=0
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=0 VSRL17=0
+      VSRL18=7fffffff80000000 VSRL19=7fffffff80000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=0 F19=0
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=8000000000000000 F19=8000000000000000 VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=8000000000000000
+      VSRL19=8000000000000000 XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0
+      F18=8000000000000000 F19=8000000000000000 VSRL3=123456789abcdef
+      VSRL6=fedcba9876543210 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=1
+      VSRL6=8000000000000000 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790003cee0619d8" Endian.Little """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=0 F19=0
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=0 VSRL17=0 VSRL18=0
+      VSRL19=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=0 F19=0
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=0 VSRL17=0
+      VSRL18=7fffffff80000000 VSRL19=7fffffff80000000 CR=2468ace0
+      XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=0 F19=0
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=8000000000000000 F19=8000000000000000 VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=8000000000000000
+      VSRL19=8000000000000000 XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0
+      F18=8000000000000000 F19=8000000000000000 VSRL3=123456789abcdef
+      VSRL6=fedcba9876543210 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=1
+      VSRL6=8000000000000000 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERNN prefixed values``() =
+    oracle "0790003cee061fd0" Endian.Big """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=123456789abcdef
+      VSRL6=fedcba9876543210 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790003cee061fd0" Endian.Little """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=123456789abcdef
+      VSRL6=fedcba9876543210 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERNP prefixed values``() =
+    oracle "0790003cee061bd0" Endian.Big """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=123456789abcdef VSRL6=fedcba9876543210
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790003cee061bd0" Endian.Little """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=123456789abcdef VSRL6=fedcba9876543210
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERPN prefixed values``() =
+    oracle "0790003cee061dd0" Endian.Big """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=123456789abcdef
+      VSRL6=fedcba9876543210 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790003cee061dd0" Endian.Little """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0
+      F18=8bad0bad0bad0bad F19=8bad0bad0bad0bad VSRL3=123456789abcdef
+      VSRL6=fedcba9876543210 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=8bad0bad0bad0bad VSRL19=8bad0bad0bad0bad CR=f0f0f0f
+      XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=8bad0bad0bad0bad
+      F19=8bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=8bad0bad0bad0bad
+      VSRL19=8bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERPP prefixed values``() =
+    oracle "0790003cee0619d0" Endian.Big """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=123456789abcdef VSRL6=fedcba9876543210
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790003cee0619d0" Endian.Little """
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F3=f0e0d0c0b0a0908 F6=1020304050607 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=706050403020100 VSRL6=8090a0b0c0d0e0f
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1ffffffff F6=7fffffff80000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7fffffff80000000 VSRL6=ffffffff00000001 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F3=1ffffffff F6=7fffffff80000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7fffffff80000000 VSRL6=ffffffff00000001
+      VSRL16=0 VSRL17=0 VSRL18=7fffffff80000000 VSRL19=7fffffff80000000
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F3=1ffff80007fff F6=7fff8000ffff0001 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=7f7f808001010000 VSRL6=7f80ff00017f80ff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=ffffffffffffffff
+      F19=ffffffffffffffff VSRL3=ffffffffffffffff VSRL16=0 VSRL17=0
+      VSRL18=ffffffffffffffff VSRL19=ffffffffffffffff CR=13579bdf
+      XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=aaaaaaaaaaaaaaaa VSRL6=5555555555555555 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F3=aaaaaaaaaaaaaaaa F6=5555555555555555 F16=0 F17=0
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=aaaaaaaaaaaaaaaa
+      VSRL6=5555555555555555 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040 CTR=200fff80
+      FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F3=fedcba9876543210 F6=123456789abcdef F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL3=123456789abcdef VSRL6=fedcba9876543210 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F3=fedcba9876543210 F6=123456789abcdef F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=123456789abcdef VSRL6=fedcba9876543210
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=1 F6=7fffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F3=1 F6=7fffffffffffffff F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL6=8000000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F6=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F6=8000000000000000 F16=0 F17=0 F18=bad0bad0bad0bad
+      F19=bad0bad0bad0bad VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000 LR=20100010
+      CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2 prefixed values``() =
+    oracle "07904033ee021a58" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=325f2c000a0b00 VSRL19=46833c000e0f00 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=100000000 VSRL19=ffffffff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7f800000000000 VSRL19=3f40ff8000000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=e38e1c72e38e1c72 VSRL19=e38e1c72e38e1c72 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ed2f0b280d92ebe8 VSRL19=d927470f6358cf0 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021a58" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=325f2c000a0b00 VSRL19=46833c000e0f00 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=100000000 VSRL19=ffffffff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7f800000000000 VSRL19=3f40ff8000000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=e38e1c72e38e1c72 VSRL19=e38e1c72e38e1c72 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ed2f0b280d92ebe8 VSRL19=d927470f6358cf0 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2PP prefixed values``() =
+    oracle "07904033ee021b58" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bdf6ad90bb716ad VSRL19=bf38ee90bbb1aad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bae0bad0bad VSRL19=bad0bac0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=c2c8bad0bad0bad VSRL19=4aee0b2d0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=ef3b281fef3b281f VSRL19=ef3b281fef3b281f XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=f8dc16d5193ff795 VSRL19=193f801d01e2989d CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021b58" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bdf6ad90bb716ad VSRL19=bf38ee90bbb1aad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bae0bad0bad VSRL19=bad0bac0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=c2c8bad0bad0bad VSRL19=4aee0b2d0bad0bad CR=ffffffff
+      XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=ef3b281fef3b281f VSRL19=ef3b281fef3b281f XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=f8dc16d5193ff795 VSRL19=193f801d01e2989d CR=80000000
+      LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2S prefixed values``() =
+    oracle "07904033ee021958" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=325f2c000a0b00 VSRL19=46833c000e0f00 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=100000000 VSRL19=ffffffff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7f800000000000 VSRL19=3f40ff8000000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=e38e1c72e38e1c72 VSRL19=e38e1c72e38e1c72 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ed2f0b280d92ebe8 VSRL19=d927470f6358cf0 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021958" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=325f2c000a0b00 VSRL19=46833c000e0f00 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=100000000 VSRL19=ffffffff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=7f800000000000 VSRL19=3f40ff8000000000 CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=e38e1c72e38e1c72 VSRL19=e38e1c72e38e1c72 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ed2f0b280d92ebe8 VSRL19=d927470f6358cf0 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2SPP prefixed values``() =
+    oracle "07904033ee021950" Endian.Big """
+      F2=3fc0000040100000 F3=40100000bf400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=3fc0000040100000 F3=40100000bf400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=80000000 F3=800000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=80000000 F3=800000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=0 F17=0 F18=0 F19=0
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=1007fffff F3=7fffff00800000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=80000000000001
+      VSRL3=1007fffff VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=1007fffff F3=7fffff00800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=80000000000001 VSRL3=1007fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bae0bad0bac CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bae0bad0bae CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=3f80000000000000 F3=5f000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=3f80000000000000 F3=5f000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07904033ee021950" Endian.Little """
+      F2=3fc0000040100000 F3=40100000bf400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=3fc0000040100000 F3=40100000bf400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=80000000 F3=800000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=80000000 F3=800000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=0 F17=0 F18=0 F19=0
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=1007fffff F3=7fffff00800000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=80000000000001
+      VSRL3=1007fffff VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=1007fffff F3=7fffff00800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=80000000000001 VSRL3=1007fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bae0bad0bac CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bae0bad0bae CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=3f80000000000000 F3=5f000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=3f80000000000000 F3=5f000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI4GER8 prefixed values``() =
+    oracle "07900133ee021918" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=ffffffec00000000 VSRL19=fffffffc00000000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=100000000 VSRL19=ffffffff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=ffffffe2ffffffe2 VSRL19=ffffffe2ffffffe2 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ffffffc800000008 VSRL19=0 CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900133ee021918" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=ffffffec00000000 VSRL19=fffffffc00000000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=100000000 VSRL19=ffffffff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=ffffffe2ffffffe2 VSRL19=ffffffe2ffffffe2 XER=40080000
+      LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ffffffc800000008 VSRL19=0 CR=80000000 LR=200fffc0 CTR=3
+      FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI4GER8PP prefixed values``() =
+    oracle "07900133ee021910" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0b990bad0bad VSRL19=bad0ba90bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bae0bad0bad VSRL19=bad0bac0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=bad0b8f0bad0b8f VSRL19=bad0b8f0bad0b8f XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=bad0b750bad0bb5 VSRL19=bad0bad0bad0bad CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900133ee021910" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0b990bad0bad VSRL19=bad0ba90bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bae0bad0bad VSRL19=bad0bac0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=bad0b8f0bad0b8f VSRL19=bad0b8f0bad0b8f XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=bad0b750bad0bb5 VSRL19=bad0bad0bad0bad CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI8GER4 prefixed values``() =
+    oracle "07901033ee021818" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=2c00000000 VSRL19=3c00000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffff0100000000 VSRL19=ff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=ffffff8000000000 CR=ffffffff XER=20040000 LR=20100100
+      CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=387200003872 VSRL19=387200003872 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ffffd628ffff9ee8 VSRL19=67000000ef0 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07901033ee021818" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=2c00000000 VSRL19=3c00000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=ffffff0100000000 VSRL19=ff00000000 CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=ffffff8000000000 CR=ffffffff XER=20040000 LR=20100100
+      CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=387200003872 VSRL19=387200003872 XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=ffffd628ffff9ee8 VSRL19=67000000ef0 CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff
+      FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI8GER4PP prefixed values``() =
+    oracle "07901033ee021810" Endian.Big """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bd90bad0bad VSRL19=bad0be90bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0aae0bad0bad VSRL19=bad0cac0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0b2d0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=bad441f0bad441f VSRL19=bad441f0bad441f XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=bace1d50bacaa95 VSRL19=bad121d0bad1a9d CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07901033ee021810" Endian.Little """
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=1020304050607 F3=f0e0d0c0b0a0908 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8090a0b0c0d0e0f VSRL3=706050403020100 VSRL16=0 VSRL17=0
+      VSRL18=bad0bd90bad0bad VSRL19=bad0be90bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffff80000000 F3=1ffffffff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=7fffffff80000000 F3=1ffffffff F16=0 F17=0 F18=0 F19=0
+      VSRL2=ffffffff00000001 VSRL3=7fffffff80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0aae0bad0bad VSRL19=bad0cac0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=7fff8000ffff0001 F3=1ffff80007fff F16=0 F17=0 F18=0 F19=0
+      VSRL2=7f80ff00017f80ff VSRL3=7f7f808001010000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0b2d0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F3=ffffffffffffffff F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=ffffffffffffffff
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000 LR=20100010 FPSCR=3
+      VSCR=1
+      ;
+      F3=ffffffffffffffff F16=0 F17=0 F18=0 F19=0 VSRL3=ffffffffffffffff
+      VSRL16=0 VSRL17=0 VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=5555555555555555 F3=aaaaaaaaaaaaaaaa F16=0 F17=0 F18=0 F19=0
+      VSRL2=5555555555555555 VSRL3=aaaaaaaaaaaaaaaa VSRL16=0 VSRL17=0
+      VSRL18=bad441f0bad441f VSRL19=bad441f0bad441f XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=123456789abcdef F3=fedcba9876543210 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=80000000 LR=200fffc0 CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=123456789abcdef F3=fedcba9876543210 F16=0 F17=0 F18=0 F19=0
+      VSRL2=fedcba9876543210 VSRL3=123456789abcdef VSRL16=0 VSRL17=0
+      VSRL18=bace1d50bacaa95 VSRL19=bad121d0bad1a9d CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7fffffffffffffff F3=1 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=8000000000000000 VSRL3=1
+      VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad
+      VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000 LR=20100100
+      CTR=20100020 FPSCR=20000702
+      ;
+      F2=7fffffffffffffff F3=1 F16=0 F17=0 F18=0 F19=0
+      VSRL2=8000000000000000 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=8000000000000000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL3=1 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=8000000000000000 F16=0 F17=0 F18=0 F19=0 VSRL3=1 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI8GER4SPP prefixed values``() =
+    oracle "07901033ee021b18" Endian.Big """
+      F2=3fc0000040100000 F3=40100000bf400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=3fc0000040100000 F3=40100000bf400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=80000000 F3=800000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=80000000 F3=800000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=0 F17=0 F18=0 F19=0
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=1007fffff F3=7fffff00800000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=80000000000001
+      VSRL3=1007fffff VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=1007fffff F3=7fffff00800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=80000000000001 VSRL3=1007fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bae0bad0cac CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0aae0bad0aae CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=3f80000000000000 F3=5f000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=3f80000000000000 F3=5f000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07901033ee021b18" Endian.Little """
+      F2=3fc0000040100000 F3=40100000bf400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F2=3fc0000040100000 F3=40100000bf400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=bf4000003fc00000 VSRL3=3fc0000040100000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=2468ace0 XER=e00c0000 LR=200fffc0 CTR=2 FPSCR=1
+      ;
+      F2=3f8000003dcccccd F3=3dcccccd40400000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=404000003f800000 VSRL3=3f8000003dcccccd VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=2468ace0 XER=e00c0000
+      LR=200fffc0 CTR=2 FPSCR=1
+      ;
+
+      ;
+
+      |
+      F2=80000000 F3=800000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=ffffffff XER=20040000 LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+      F2=80000000 F3=800000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f80000000000000 VSRL3=80000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=ffffffff XER=20040000
+      LR=20100100 CTR=1 FPSCR=2 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=13579bdf XER=80000000 LR=20100010 FPSCR=3 VSCR=1
+      ;
+      F2=7f800000ff800000 F3=ff8000003f800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=3f8000007f800000 VSRL3=7f800000ff800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=13579bdf XER=80000000
+      LR=20100010 FPSCR=3 VSCR=1
+      ;
+
+      ;
+
+      |
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      XER=40080000 LR=20100040 CTR=200fff80 FPSCR=bff80000
+      ;
+      F2=7fc000003f800000 F3=3f8000007fa00001 F16=0 F17=0 F18=0 F19=0
+      VSRL2=7fa000017fc00000 VSRL3=7fc000003f800000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad XER=40080000 LR=20100040
+      CTR=200fff80 FPSCR=bff80000
+      ;
+
+      ;
+
+      |
+      F2=1007fffff F3=7fffff00800000 F16=bad0bad0bad0bad F17=bad0bad0bad0bad
+      F18=bad0bad0bad0bad F19=bad0bad0bad0bad VSRL2=80000000000001
+      VSRL3=1007fffff VSRL16=bad0bad0bad0bad VSRL17=bad0bad0bad0bad
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+      F2=1007fffff F3=7fffff00800000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=80000000000001 VSRL3=1007fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bae0bad0cac CR=80000000 LR=200fffc0
+      CTR=3 FPSCR=7f001 VSCR=10000
+      ;
+
+      ;
+
+      |
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=f0f0f0f XER=20040000 LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+      F2=7f7fffff7f7fffff F3=7f7fffff40000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=400000007f7fffff VSRL3=7f7fffff7f7fffff VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0aae0bad0aae CR=f0f0f0f XER=20040000
+      LR=20100100 CTR=20100020 FPSCR=20000702
+      ;
+
+      ;
+
+      |
+      F2=3f80000000000000 F3=5f000000 F16=bad0bad0bad0bad
+      F17=bad0bad0bad0bad F18=bad0bad0bad0bad F19=bad0bad0bad0bad
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=bad0bad0bad0bad
+      VSRL17=bad0bad0bad0bad VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad
+      CR=42424242 XER=a0040000 LR=20100010 CTR=ffffffff FPSCR=82024003
+      VSCR=10001
+      ;
+      F2=3f80000000000000 F3=5f000000 F16=0 F17=0 F18=0 F19=0
+      VSRL2=5f0000003f800000 VSRL3=3f80000000000000 VSRL16=0 VSRL17=0
+      VSRL18=bad0bad0bad0bad VSRL19=bad0bad0bad0bad CR=42424242 XER=a0040000
+      LR=20100010 CTR=ffffffff FPSCR=82024003 VSCR=10001
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] Prefixed vector masks and aliases``() =
+    oracle "0500000087e0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffee020304050607 V31B=776655440c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07d7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffee020304050607 V31B=776655440c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff81b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ffad" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07e7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffeeddcc04050607 V31B=776655440c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff82b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ffbd" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07f7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffeeddccbbaa9988 V31B=7766554433221100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff83b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000008be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000018be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000028be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000038be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000048be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000058be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000068be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000078be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000088be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000098be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000108be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000118be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000128be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000138be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000148be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000158be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000168be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000178be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000188be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000198be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000208be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000218be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000228be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000238be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000248be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000258be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000268be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000278be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000288be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000298be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000308be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000318be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000328be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000338be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000348be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000358be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000368be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000378be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000388be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000398be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000408be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000418be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000428be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000438be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000448be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000458be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000468be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000478be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000488be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000498be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000508be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000518be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000528be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000538be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000548be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000558be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000568be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000578be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000588be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000598be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000608be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000618be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000628be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000638be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000648be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000658be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000668be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000678be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000688be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000698be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000708be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000718be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000728be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000738be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000748be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000758be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000768be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000778be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000788be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000798be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000808be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000818be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000828be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000838be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000848be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000858be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000868be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000878be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000888be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000898be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000908be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000918be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000928be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000938be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000948be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000958be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000968be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000978be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000988be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000998be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009a8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009b8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009c8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009d8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009e8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009f8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a08be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a18be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a28be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a38be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a48be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a58be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a68be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a78be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a88be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a98be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000aa8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ab8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ac8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ad8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ae8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000af8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b08be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b18be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b28be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b38be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b48be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b58be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b68be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b78be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b88be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b98be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ba8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bb8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bc8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bd8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000be8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bf8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c08be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c18be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c28be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c38be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c48be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c58be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c68be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c78be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c88be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c98be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ca8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cb8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cc8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cd8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ce8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cf8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d08be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d18be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d28be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d38be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d48be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d58be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d68be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d78be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d88be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d98be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000da8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000db8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000dc8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000dd8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000de8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000df8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e08be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e18be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e28be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e38be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e48be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e58be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e68be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e78be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e88be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e98be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ea8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000eb8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ec8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ed8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ee8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ef8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f08be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f18be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f28be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f38be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f48be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f58be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f68be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f78be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f88be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f98be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fa8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fb8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fc8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fd8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fe8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ff8be0ff9d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a8bff07d7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80fe027c05070503 V31B=f6d5b0937a593c1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a881ff81b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffefdfcfbfaf9f8f
+      V0B=7f6f5f4f3f2f1f0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000008be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000018be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000028be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000038be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000048be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000058be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000068be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000078be0ff8d" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000008bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304 V31B=ff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000018bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=dd00 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000028bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=bb0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000038bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=99000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000048bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=7700000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000058bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=550000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000068bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=33000000000000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000078bff07c7" Endian.Big """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=1100000000000000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000001881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000002881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000003881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000004881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000005881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000006881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000007881ff80b" Endian.Big """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e70000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=0 V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e70000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=8000000080000000 V31B=8000000080000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e70000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=3f8000003f800000 V31B=3f8000003f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e70000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f8000007f800000 V31B=7f8000007f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e72345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7fc123457fc12345 V31B=7fc123457fc12345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e72345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f8123457f812345 V31B=7f8123457f812345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e7ffff" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e50000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=0 V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e50000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=8000000000000000 V31B=8000000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e50000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=3ff0000000000000 V31B=3ff0000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e50000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7ff0000000000000 V31B=7ff0000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e52345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7ff82468a0000000 V31B=7ff82468a0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e52345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7ff02468a0000000 V31B=7ff02468a0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e5ffff" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=ffffffffe0000000 V31B=ffffffffe0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e10000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=4050607 V31B=c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e30000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=1020300000000 V31B=8090a0b00000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e10000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=8000000004050607 V31B=800000000c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e30000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=1020380000000 V31B=8090a0b80000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e10000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=3f80000004050607 V31B=3f8000000c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e30000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102033f800000 V31B=8090a0b3f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e10000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f80000004050607 V31B=7f8000000c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e30000" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102037f800000 V31B=8090a0b7f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e12345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7fc1234504050607 V31B=7fc123450c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e32345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102037fc12345 V31B=8090a0b7fc12345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e12345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f81234504050607 V31B=7f8123450c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e32345" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102037f812345 V31B=8090a0b7f812345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e1ffff" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=ffffffff04050607 V31B=ffffffff0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e3ffff" Endian.Big """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=10203ffffffff V31B=8090a0bffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021998" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021998" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000040580000 F17=4058000040a20000
+      F18=3fc0000040100000 F19=4040000040900000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3fc0000040400000 VSRL17=4010000040900000
+      VSRL18=3f80000040000000 VSRL19=4000000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021998" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021998" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40580000 F17=0 F18=40100000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40400000 VSRL17=0 VSRL18=40000000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021998" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021f90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021f90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0700000c0b40000 F17=c09c0000c0ea0000
+      F18=c0400000c0900000 F19=c0900000c0d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0200000c0a00000 VSRL17=c0500000c0d00000
+      VSRL18=c0000000c0800000 VSRL19=c0400000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021f90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021f90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0b40000 F17=0 F18=c0900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=c0a00000 VSRL17=0 VSRL18=c0800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021f90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021b90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021b90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf400000bf900000 F17=bff00000c0340000 F18=0
+      F19=bfc00000c0100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=bf000000bf800000
+      VSRL17=bfa00000c0200000 VSRL18=0 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021b90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021b90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf900000 F17=0 F18=0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=bf800000 VSRL17=0 VSRL18=0 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021b90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021d90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021d90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f4000003f900000 F17=3ff0000040340000 F18=0
+      F19=3fc0000040100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=3f0000003f800000
+      VSRL17=3fa0000040200000 VSRL18=0 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021d90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021d90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f900000 F17=0 F18=0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=3f800000 VSRL17=0 VSRL18=0 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021d90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021990" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021990" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4070000040b40000 F17=409c000040ea0000
+      F18=4040000040900000 F19=4090000040d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4020000040a00000 VSRL17=4050000040d00000
+      VSRL18=4000000040800000 VSRL19=4040000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021990" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021990" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40b40000 F17=0 F18=40900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40a00000 VSRL17=0 VSRL18=40800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021990" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021898" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021898" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40704000407be000 F17=407be00040840800
+      F18=406880004073c000 F19=4078000040820000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4068800040780000 VSRL17=4073c00040820000
+      VSRL18=4061000040700000 VSRL19=4070000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021898" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021898" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=407be000 F17=0 F18=4073c000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40780000 VSRL17=0 VSRL18=40700000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021898" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021e90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021e90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0a82000c0c5f000 F17=c0adf000c0cc0800
+      F18=c0a44000c0c1e000 F19=c0ac0000c0ca0000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0944000c0bc0000 VSRL17=c099e000c0c20000
+      VSRL18=c0908000c0b80000 VSRL19=c0980000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021e90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021e90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0c5f000 F17=0 F18=c0c1e000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=c0bc0000 VSRL17=0 VSRL18=c0b80000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021e90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021a90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021a90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0104000bfd7c000 F17=c01be000bff02000
+      F18=c0088000bfc78000 F19=c0180000bfe80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0288000bff00000 VSRL17=c033c000c0040000
+      VSRL18=c0210000bfe00000 VSRL19=c0300000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021a90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021a90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfd7c000 F17=0 F18=bfc78000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=bff00000 VSRL17=0 VSRL18=bfe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021a90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021c90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021c90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=401040003fd7c000 F17=401be0003ff02000
+      F18=400880003fc78000 F19=401800003fe80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=402880003ff00000 VSRL17=4033c00040040000
+      VSRL18=402100003fe00000 VSRL19=4030000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021c90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021c90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fd7c000 F17=0 F18=3fc78000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=3ff00000 VSRL17=0 VSRL18=3fe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021c90" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021890" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021890" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40a8200040c5f000 F17=40adf00040cc0800
+      F18=40a4400040c1e000 F19=40ac000040ca0000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4094400040bc0000 VSRL17=4099e00040c20000
+      VSRL18=4090800040b80000 VSRL19=4098000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021890" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021890" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40c5f000 F17=0 F18=40c1e000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40bc0000 VSRL17=0 VSRL18=40b80000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021890" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0218d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000040580000 F17=4058000040a20000
+      F18=3fc0000040100000 F19=4040000040900000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3fc0000040400000 VSRL17=4010000040900000
+      VSRL18=3f80000040000000 VSRL19=4000000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee0218d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=4058000000000000 F18=0
+      F19=4040000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=4010000000000000 VSRL18=0 VSRL19=4000000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee0218d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40580000 F17=0 F18=40100000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40400000 VSRL17=0 VSRL18=40000000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000040580000 F17=4058000040a20000
+      F18=3fc0000040100000 F19=4040000040900000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3fc0000040400000 VSRL17=4010000040900000
+      VSRL18=3f80000040000000 VSRL19=4000000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021ed0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ed0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0700000c0b40000 F17=c09c0000c0ea0000
+      F18=c0400000c0900000 F19=c0900000c0d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0200000c0a00000 VSRL17=c0500000c0d00000
+      VSRL18=c0000000c0800000 VSRL19=c0400000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021ed0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=c09c000000000000 F18=0
+      F19=c090000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=c050000000000000 VSRL18=0 VSRL19=c040000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee021ed0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0b40000 F17=0 F18=c0900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=c0a00000 VSRL17=0 VSRL18=c0800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ed0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0700000c0b40000 F17=c09c0000c0ea0000
+      F18=c0400000c0900000 F19=c0900000c0d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0200000c0a00000 VSRL17=c0500000c0d00000
+      VSRL18=c0000000c0800000 VSRL19=c0400000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021ad0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ad0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf400000bf900000 F17=bff00000c0340000
+      F18=8000000080000000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf000000bf800000 VSRL17=bfa00000c0200000
+      VSRL18=8000000080000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021ad0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bff0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bfa0000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee021ad0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf900000 F17=0 F18=80000000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=bf800000 VSRL17=0 VSRL18=80000000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ad0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf400000bf900000 F17=bff00000c0340000
+      F18=8000000080000000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf000000bf800000 VSRL17=bfa00000c0200000
+      VSRL18=8000000080000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021cd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021cd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f4000003f900000 F17=3ff0000040340000 F18=0
+      F19=3fc0000040100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=3f0000003f800000
+      VSRL17=3fa0000040200000 VSRL18=0 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021cd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3ff0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3fa0000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee021cd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f900000 F17=0 F18=0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=3f800000 VSRL17=0 VSRL18=0 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021cd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f4000003f900000 F17=3ff0000040340000 F18=0
+      F19=3fc0000040100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=3f0000003f800000
+      VSRL17=3fa0000040200000 VSRL18=0 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0218d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4070000040b40000 F17=409c000040ea0000
+      F18=4040000040900000 F19=4090000040d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4020000040a00000 VSRL17=4050000040d00000
+      VSRL18=4000000040800000 VSRL19=4040000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee0218d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=409c000000000000 F18=0
+      F19=4090000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=4050000000000000 VSRL18=0 VSRL19=4040000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee0218d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40b40000 F17=0 F18=40900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40a00000 VSRL17=0 VSRL18=40800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4070000040b40000 F17=409c000040ea0000
+      F18=4040000040900000 F19=4090000040d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4020000040a00000 VSRL17=4050000040d00000
+      VSRL18=4000000040800000 VSRL19=4040000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0619d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f90000080200101 F17=3f50000080100100
+      F18=3f90000080200101 F19=3f50000080100100 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f50000080100100 VSRL17=3f10000080000100
+      VSRL18=3f50000080100100 VSRL19=3f10000080000100 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee0619d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=3f10000080000100 VSRL18=0 VSRL19=3f10000080000100
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee0619d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f90000080200101 F17=0 F18=3f90000080200101
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d8" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f90000080200101 F17=3f50000080100100
+      F18=3f90000080200101 F19=3f50000080100100 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f50000080100100 VSRL17=3f10000080000100
+      VSRL18=3f50000080100100 VSRL19=3f10000080000100 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee061fd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061fd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc2000050140020 F17=bfc0200041102002
+      F18=bfc2000050140020 F19=bfc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf82000050020020 VSRL17=bf80200041000002
+      VSRL18=bf82000050020020 VSRL19=bf80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee061fd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=bf80200041000002 VSRL18=0 VSRL19=bf80200041000002
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee061fd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc2000050140020 F17=0 F18=bfc2000050140020
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061fd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc2000050140020 F17=bfc0200041102002
+      F18=bfc2000050140020 F19=bfc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf82000050020020 VSRL17=bf80200041000002
+      VSRL18=bf82000050020020 VSRL19=bf80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee061bd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061bd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbc00006017ffc0 F17=3fbfc0007e1fbffc
+      F18=3fbc00006017ffc0 F19=3fbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7c00005ffbffc0 VSRL17=3f7fc0007dfffffc
+      VSRL18=3f7c00005ffbffc0 VSRL19=3f7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee061bd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=3f7fc0007dfffffc VSRL18=0 VSRL19=3f7fc0007dfffffc
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee061bd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbc00006017ffc0 F17=0 F18=3fbc00006017ffc0
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061bd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbc00006017ffc0 F17=3fbfc0007e1fbffc
+      F18=3fbc00006017ffc0 F19=3fbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7c00005ffbffc0 VSRL17=3f7fc0007dfffffc
+      VSRL18=3f7c00005ffbffc0 VSRL19=3f7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee061dd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061dd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfbc00006017ffc0 F17=bfbfc0007e1fbffc
+      F18=bfbc00006017ffc0 F19=bfbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf7c00005ffbffc0 VSRL17=bf7fc0007dfffffc
+      VSRL18=bf7c00005ffbffc0 VSRL19=bf7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee061dd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=bf7fc0007dfffffc VSRL18=0 VSRL19=bf7fc0007dfffffc
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee061dd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfbc00006017ffc0 F17=0 F18=bfbc00006017ffc0
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061dd0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfbc00006017ffc0 F17=bfbfc0007e1fbffc
+      F18=bfbc00006017ffc0 F19=bfbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf7c00005ffbffc0 VSRL17=bf7fc0007dfffffc
+      VSRL18=bf7c00005ffbffc0 VSRL19=bf7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0619d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc2000050140020 F17=3fc0200041102002
+      F18=3fc2000050140020 F19=3fc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f82000050020020 VSRL17=3f80200041000002
+      VSRL18=3f82000050020020 VSRL19=3f80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee0619d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=3f80200041000002 VSRL18=0 VSRL19=3f80200041000002
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee0619d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc2000050140020 F17=0 F18=3fc2000050140020
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d0" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc2000050140020 F17=3fc0200041102002
+      F18=3fc2000050140020 F19=3fc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f82000050020020 VSRL17=3f80200041000002
+      VSRL18=3f82000050020020 VSRL19=3f80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021a58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021a58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=fe010000ff3fc00 F17=ff3fc0010080100
+      F18=fd020000fe3f800 F19=ff0000010040000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=fd020000ff00000 VSRL17=fe3f80010040000 VSRL18=fc040000fe00000
+      VSRL19=fe0000010000000 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021a58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021a58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=ff3fc00 F17=0 F18=fe3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=ff00000 VSRL17=0 VSRL18=fe00000 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021a58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021b58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021b58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4fa010005003fc00 F17=4fb3fc0050180100
+      F18=4f9020004ff3f800 F19=4fb0000050140000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4f5020004ff00000 VSRL17=4f63f80050040000
+      VSRL18=4f4040004fe00000 VSRL19=4f60000050000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021b58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021b58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=5003fc00 F17=0 F18=4ff3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=4ff00000 VSRL17=0 VSRL18=4fe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021b58" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021958" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021958" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=fe010000ff3fc00 F17=ff3fc0010080100
+      F18=fd020000fe3f800 F19=ff0000010040000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=fd020000ff00000 VSRL17=fe3f80010040000 VSRL18=fc040000fe00000
+      VSRL19=fe0000010000000 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021958" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021958" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=ff3fc00 F17=0 F18=fe3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=ff00000 VSRL17=0 VSRL18=fe00000 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021958" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021950" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021950" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4fa010005003fc00 F17=4fb3fc0050180100
+      F18=4f9020004ff3f800 F19=4fb0000050140000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4f5020004ff00000 VSRL17=4f63f80050040000
+      VSRL18=4f4040004fe00000 VSRL19=4f60000050000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021950" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021950" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=5003fc00 F17=0 F18=4ff3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=4ff00000 VSRL17=0 VSRL18=4fe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021950" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021918" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790ffffee021918" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=1a00000008 F17=800000011 F18=2a00000004
+      F19=c00000010 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=2a0000000c
+      VSRL17=400000010 VSRL18=4a0000000c VSRL19=c00000010 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021918" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021918" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c F17=0 F18=c F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c VSRL17=0 VSRL18=c VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079001ffee021918" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021910" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790ffffee021910" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0001a40100008 F17=3fc0000840100011
+      F18=3fc0002a40100004 F19=3fc0000c40100010 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80002a4000000c VSRL17=3f80000440000010
+      VSRL18=3f80004a4000000c VSRL19=3f80000c40000010 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021910" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021910" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000c F17=0 F18=4010000c F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=4000000c VSRL17=0 VSRL18=4000000c
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079001ffee021910" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021818" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790f0ffee021818" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=ffffdf8100000bc0 F17=1bc000001100
+      F18=ffffaf81000007c0 F19=fc000001000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=ffffef8100000fc0 VSRL17=17c000001000 VSRL18=ffffcf8100000fc0
+      VSRL19=fc000001000 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021818" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021818" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=fc0 F17=0 F18=fc0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=fc0 VSRL17=0 VSRL18=fc0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079010ffee021818" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021810" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790f0ffee021810" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbfdf8140100bc0 F17=3fc01bc040101100
+      F18=3fbfaf81401007c0 F19=3fc00fc040101000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7fef8140000fc0 VSRL17=3f8017c040001000
+      VSRL18=3f7fcf8140000fc0 VSRL19=3f800fc040001000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021810" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021810" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40100fc0 F17=0 F18=40100fc0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40000fc0 VSRL17=0 VSRL18=40000fc0
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079010ffee021810" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021b18" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790f0ffee021b18" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbfdf8140100bc0 F17=3fc01bc040101100
+      F18=3fbfaf81401007c0 F19=3fc00fc040101000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7fef8140000fc0 VSRL17=3f8017c040001000
+      VSRL18=3f7fcf8140000fc0 VSRL19=3f800fc040001000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021b18" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021b18" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40100fc0 F17=0 F18=40100fc0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40000fc0 VSRL17=0 VSRL18=40000fc0
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079010ffee021b18" Endian.Big """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffee020304050607 V31B=776655440c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07d7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffee020304050607 V31B=776655440c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff81b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ffad" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07e7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffeeddcc04050607 V31B=776655440c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff82b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087e0ffbd" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000087ff07f7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=ffeeddccbbaa9988 V31B=7766554433221100
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000841ff83b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000008be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000018be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000028be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000038be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000048be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000058be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000068be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000078be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee004c01020100 V31B=7644100032001000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000088be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000098be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00dd80baa89888 V31B=122454401220100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000108be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000118be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000128be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000138be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000148be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000158be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1000300000204 V31B=8080a0804040200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000168be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000178be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef004f01020304 V31B=7e4c1a0836041200 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000188be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000198be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01dd83baa89a8c V31B=92a4f4c05260300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500001f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefddcfbbaa9b8c V31B=7f6e5f4c37261300 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000208be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000218be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000228be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000238be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000248be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000258be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10003000000000 V31B=8090a09040502010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000268be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000278be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe007c01020100 V31B=f6d4b09072503010 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000288be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000298be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ddb0baa89888 V31B=81b2e5d441722110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500002f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffeddfcbbaa9988 V31B=f7f6f5d473723110 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000308be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000318be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000328be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000338be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000348be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000358be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11003300000204 V31B=8898aa9844542210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000368be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000378be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000388be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000398be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ddb3baa89a8c V31B=89baefdc45762310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500003f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffddffbbaa9b8c V31B=fffeffdc77763310 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000408be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000418be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000428be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000438be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000448be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000458be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=20004050403 V31B=1000308090c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000468be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000478be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee024c05070503 V31B=764510033a091c0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000488be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000498be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00df80bead9c8b V31B=1234547092b0d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500004f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeedfccbfaf9d8b V31B=776755473b2b1d0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000508be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000518be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000528be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000538be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000548be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000558be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000568be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000578be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef024f05070707 V31B=7e4d1a0b3e0d1e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000588be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000598be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01df83bead9e8f V31B=92b4f4f0d2f0f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefdfcfbfaf9f8f V31B=7f6f5f4f3f2f1f0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000608be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000618be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000628be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000638be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000648be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000658be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10023004050403 V31B=8091a09348592c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000668be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000678be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe027c05070503 V31B=f6d5b0937a593c1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000688be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000698be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10dfb0bead9c8b V31B=81b3e5d7497b2d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500006f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffedffcbfaf9d8b V31B=f7f7f5d77b7b3d1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000708be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000718be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000728be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000738be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000748be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000758be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11023304050607 V31B=8899aa9b4c5d2e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000768be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000778be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff027f05070707 V31B=feddba9b7e5d3e1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000788be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000798be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11dfb3bead9e8f V31B=89bbefdf4d7f2f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500007f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffdfffbfaf9f8f V31B=ffffffdf7f7f3f1f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000808be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000818be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000828be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000838be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000848be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000858be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=200040506070 V31B=208080c0e0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000868be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000878be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee204c41526170 V31B=76441020b280d0e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000888be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000898be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00fd80faf8f8f8 V31B=122456481a2c1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500008f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeefdccfbfaf9f8 V31B=77665564b3a2d1e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000908be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000918be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000928be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000938be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000948be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000958be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1200340506274 V31B=8080a288484c2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000968be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000978be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef204f41526374 V31B=7e4c1a28b684d2e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000988be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000998be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009a8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009b8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009c8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009d8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01fd83faf8fafc V31B=92a4f6c85a6c3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009e8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500009f8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeffdcffbfafbfc V31B=7f6e5f6cb7a6d3e0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a08be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a18be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a28be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a38be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a48be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a58be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10203040506070 V31B=8090a0b0c0d0e0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a68be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a78be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe207c41526170 V31B=f6d4b0b0f2d0f0f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a88be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000a98be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000aa8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ab8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ac8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ad8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10fdb0faf8f8f8 V31B=81b2e5f4c1f2e1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ae8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000af8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefdfcfbfaf9f8 V31B=f7f6f5f4f3f2f1f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b08be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b18be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b28be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b38be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b48be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b58be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11203340506274 V31B=8898aab8c4d4e2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b68be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b78be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff207f41526374 V31B=fedcbab8f6d4f2f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b88be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000b98be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ba8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bb8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bc8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bd8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11fdb3faf8fafc V31B=89baeffcc5f6e3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000be8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000bf8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffffdfffbfafbfc V31B=fffefffcf7f6f3f0 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c08be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c18be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c28be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c38be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c48be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c58be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=220044556473 V31B=100238889ccef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c68be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c78be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ee224c45576573 V31B=76451023ba89dcef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c88be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000c98be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ca8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cb8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cc8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cd8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f00ff80fefdfcfb V31B=123456789abcdef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ce8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000cf8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeffccfffffdfb V31B=77675567bbabddef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d08be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d18be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d28be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d38be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d48be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d58be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1220344556677 V31B=8090a2b8c8dceef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d68be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d78be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ef224f45576777 V31B=7e4d1a2bbe8ddeef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d88be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000d98be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000da8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000db8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000dc8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000dd8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f01ff83fefdfeff V31B=92b4f6f8dafcfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000de8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000df8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffefffcfffffffff V31B=7f6f5f6fbfafdfef LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e08be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e18be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e28be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e38be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e48be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e58be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=10223044556473 V31B=8091a0b3c8d9ecff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e68be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e78be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80fe227c45576573 V31B=f6d5b0b3fad9fcff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e88be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000e98be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ea8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000eb8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ec8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ed8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f10ffb0fefdfcfb V31B=81b3e5f7c9fbedff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ee8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ef8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=fffefffcfffffdfb V31B=f7f7f5f7fbfbfdff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f08be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f18be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f28be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f38be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f48be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f58be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=11223344556677 V31B=8899aabbccddeeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f68be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f78be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=80ff227f45576777 V31B=feddbabbfeddfeff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f88be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000f98be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fa8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fb8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fc8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fd8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=7f11ffb3fefdfeff V31B=89bbefffcdffefff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000fe8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000ff8be0ff9d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a8bff07d7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80fe027c05070503 V31B=f6d5b0937a593c1f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500005a881ff81b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffefdfcfbfaf9f8f
+      V0B=7f6f5f4f3f2f1f0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000008be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=ffeeddccbbaa9988 V31B=7766554433221100 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000018be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000028be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000038be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000048be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000058be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000068be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000078be0ff8d" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V30A=1020304050607 V30B=8090a0b0c0d0e0f V31A=0
+      V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000008bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304 V31B=ff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000018bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=dd00 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000028bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=bb0000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000038bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=99000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000048bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=7700000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000058bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=550000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000068bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=33000000000000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "050000078bff07c7" Endian.Little """
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=1020304050607 V31B=8090a0b0c0d0e0f
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=80ff007f01020304 VSRL31=fedcba9876543210 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=0 V31B=1100000000000000 LR=20100040
+      CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000000881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=ffeeddccbbaa9988
+      V0B=7766554433221100 V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000001881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000002881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000003881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000004881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000005881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000006881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05000007881ff80b" Endian.Little """
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=1020304050607
+      V0B=8090a0b0c0d0e0f V31A=80ff007f01020304 V31B=fedcba9876543210
+      LR=20100040 CTR=20100080 VSCR=10000
+      ;
+      F31=ffeeddccbbaa9988 VSRL31=7766554433221100 V0A=0 V0B=0
+      V31A=80ff007f01020304 V31B=fedcba9876543210 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e70000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=0 V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e70000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=8000000080000000 V31B=8000000080000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e70000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=3f8000003f800000 V31B=3f8000003f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e70000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f8000007f800000 V31B=7f8000007f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e72345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7fc123457fc12345 V31B=7fc123457fc12345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e72345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f8123457f812345 V31B=7f8123457f812345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e7ffff" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=ffffffffffffffff V31B=ffffffffffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e50000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=0 V31B=0 LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e50000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=8000000000000000 V31B=8000000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e50000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=3ff0000000000000 V31B=3ff0000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e50000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7ff0000000000000 V31B=7ff0000000000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e52345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7ff82468a0000000 V31B=7ff82468a0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e52345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7ff02468a0000000 V31B=7ff02468a0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e5ffff" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=ffffffffe0000000 V31B=ffffffffe0000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e10000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=4050607 V31B=c0d0e0f LR=20100040 CTR=20100080 VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500000083e30000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=1020300000000 V31B=8090a0b00000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e10000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=8000000004050607 V31B=800000000c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500800083e30000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=1020380000000 V31B=8090a0b80000000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e10000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=3f80000004050607 V31B=3f8000000c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05003f8083e30000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102033f800000 V31B=8090a0b3f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e10000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f80000004050607 V31B=7f8000000c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8083e30000" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102037f800000 V31B=8090a0b7f800000 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e12345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7fc1234504050607 V31B=7fc123450c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007fc183e32345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102037fc12345 V31B=8090a0b7fc12345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e12345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=7f81234504050607 V31B=7f8123450c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "05007f8183e32345" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=102037f812345 V31B=8090a0b7f812345 LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e1ffff" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=ffffffff04050607 V31B=ffffffff0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0500ffff83e3ffff" Endian.Little """
+      V31A=1020304050607 V31B=8090a0b0c0d0e0f LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+      V31A=10203ffffffff V31B=8090a0bffffffff LR=20100040 CTR=20100080
+      VSCR=10000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021998" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021998" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000040580000 F17=4058000040a20000
+      F18=3fc0000040100000 F19=4040000040900000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3fc0000040400000 VSRL17=4010000040900000
+      VSRL18=3f80000040000000 VSRL19=4000000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021998" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021998" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40580000 F17=0 F18=40100000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40400000 VSRL17=0 VSRL18=40000000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021998" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021f90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021f90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0700000c0b40000 F17=c09c0000c0ea0000
+      F18=c0400000c0900000 F19=c0900000c0d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0200000c0a00000 VSRL17=c0500000c0d00000
+      VSRL18=c0000000c0800000 VSRL19=c0400000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021f90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021f90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0b40000 F17=0 F18=c0900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=c0a00000 VSRL17=0 VSRL18=c0800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021f90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021b90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021b90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf400000bf900000 F17=bff00000c0340000 F18=0
+      F19=bfc00000c0100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=bf000000bf800000
+      VSRL17=bfa00000c0200000 VSRL18=0 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021b90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021b90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf900000 F17=0 F18=0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=bf800000 VSRL17=0 VSRL18=0 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021b90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021d90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021d90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f4000003f900000 F17=3ff0000040340000 F18=0
+      F19=3fc0000040100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=3f0000003f800000
+      VSRL17=3fa0000040200000 VSRL18=0 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021d90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021d90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f900000 F17=0 F18=0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=3f800000 VSRL17=0 VSRL18=0 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021d90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021990" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021990" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4070000040b40000 F17=409c000040ea0000
+      F18=4040000040900000 F19=4090000040d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4020000040a00000 VSRL17=4050000040d00000
+      VSRL18=4000000040800000 VSRL19=4040000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021990" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021990" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40b40000 F17=0 F18=40900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40a00000 VSRL17=0 VSRL18=40800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021990" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021898" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021898" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40704000407be000 F17=407be00040840800
+      F18=406880004073c000 F19=4078000040820000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4068800040780000 VSRL17=4073c00040820000
+      VSRL18=4061000040700000 VSRL19=4070000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021898" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021898" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=407be000 F17=0 F18=4073c000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40780000 VSRL17=0 VSRL18=40700000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021898" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021e90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021e90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0a82000c0c5f000 F17=c0adf000c0cc0800
+      F18=c0a44000c0c1e000 F19=c0ac0000c0ca0000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0944000c0bc0000 VSRL17=c099e000c0c20000
+      VSRL18=c0908000c0b80000 VSRL19=c0980000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021e90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021e90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0c5f000 F17=0 F18=c0c1e000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=c0bc0000 VSRL17=0 VSRL18=c0b80000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021e90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021a90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021a90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0104000bfd7c000 F17=c01be000bff02000
+      F18=c0088000bfc78000 F19=c0180000bfe80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0288000bff00000 VSRL17=c033c000c0040000
+      VSRL18=c0210000bfe00000 VSRL19=c0300000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021a90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021a90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfd7c000 F17=0 F18=bfc78000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=bff00000 VSRL17=0 VSRL18=bfe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021a90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021c90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021c90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=401040003fd7c000 F17=401be0003ff02000
+      F18=400880003fc78000 F19=401800003fe80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=402880003ff00000 VSRL17=4033c00040040000
+      VSRL18=402100003fe00000 VSRL19=4030000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021c90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bfc0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bf80000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021c90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fd7c000 F17=0 F18=3fc78000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=3ff00000 VSRL17=0 VSRL18=3fe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021c90" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc00000c0100000 F17=bfc00000c0100000
+      F18=bfc00000c0100000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf800000c0000000 VSRL17=bf800000c0000000
+      VSRL18=bf800000c0000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021890" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021890" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40a8200040c5f000 F17=40adf00040cc0800
+      F18=40a4400040c1e000 F19=40ac000040ca0000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4094400040bc0000 VSRL17=4099e00040c20000
+      VSRL18=4090800040b80000 VSRL19=4098000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021890" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021890" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40c5f000 F17=0 F18=40c1e000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40bc0000 VSRL17=0 VSRL18=40b80000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021890" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0218d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000040580000 F17=4058000040a20000
+      F18=3fc0000040100000 F19=4040000040900000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3fc0000040400000 VSRL17=4010000040900000
+      VSRL18=3f80000040000000 VSRL19=4000000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee0218d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=4058000000000000 F18=0
+      F19=4040000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=4010000000000000 VSRL18=0 VSRL19=4000000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee0218d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40580000 F17=0 F18=40100000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40400000 VSRL17=0 VSRL18=40000000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000040580000 F17=4058000040a20000
+      F18=3fc0000040100000 F19=4040000040900000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3fc0000040400000 VSRL17=4010000040900000
+      VSRL18=3f80000040000000 VSRL19=4000000040800000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021ed0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ed0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0700000c0b40000 F17=c09c0000c0ea0000
+      F18=c0400000c0900000 F19=c0900000c0d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0200000c0a00000 VSRL17=c0500000c0d00000
+      VSRL18=c0000000c0800000 VSRL19=c0400000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021ed0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=c09c000000000000 F18=0
+      F19=c090000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=c050000000000000 VSRL18=0 VSRL19=c040000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee021ed0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0b40000 F17=0 F18=c0900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=c0a00000 VSRL17=0 VSRL18=c0800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ed0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c0700000c0b40000 F17=c09c0000c0ea0000
+      F18=c0400000c0900000 F19=c0900000c0d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c0200000c0a00000 VSRL17=c0500000c0d00000
+      VSRL18=c0000000c0800000 VSRL19=c0400000c0c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021ad0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ad0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf400000bf900000 F17=bff00000c0340000
+      F18=8000000080000000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf000000bf800000 VSRL17=bfa00000c0200000
+      VSRL18=8000000080000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021ad0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=bff0000000000000 F18=0
+      F19=bfc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=bfa0000000000000 VSRL18=0 VSRL19=bf80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee021ad0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf900000 F17=0 F18=80000000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=bf800000 VSRL17=0 VSRL18=80000000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021ad0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bf400000bf900000 F17=bff00000c0340000
+      F18=8000000080000000 F19=bfc00000c0100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf000000bf800000 VSRL17=bfa00000c0200000
+      VSRL18=8000000080000000 VSRL19=bf800000c0000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021cd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021cd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f4000003f900000 F17=3ff0000040340000 F18=0
+      F19=3fc0000040100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=3f0000003f800000
+      VSRL17=3fa0000040200000 VSRL18=0 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021cd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3ff0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3fa0000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee021cd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f900000 F17=0 F18=0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=3f800000 VSRL17=0 VSRL18=0 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee021cd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f4000003f900000 F17=3ff0000040340000 F18=0
+      F19=3fc0000040100000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=3f0000003f800000
+      VSRL17=3fa0000040200000 VSRL18=0 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0218d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4070000040b40000 F17=409c000040ea0000
+      F18=4040000040900000 F19=4090000040d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4020000040a00000 VSRL17=4050000040d00000
+      VSRL18=4000000040800000 VSRL19=4040000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee0218d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=409c000000000000 F18=0
+      F19=4090000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=4050000000000000 VSRL18=0 VSRL19=4040000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a5ee0218d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40b40000 F17=0 F18=40900000 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40a00000 VSRL17=0 VSRL18=40800000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000ffee0218d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4070000040b40000 F17=409c000040ea0000
+      F18=4040000040900000 F19=4090000040d80000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4020000040a00000 VSRL17=4050000040d00000
+      VSRL18=4000000040800000 VSRL19=4040000040c00000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0619d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f90000080200101 F17=3f50000080100100
+      F18=3f90000080200101 F19=3f50000080100100 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f50000080100100 VSRL17=3f10000080000100
+      VSRL18=3f50000080100100 VSRL19=3f10000080000100 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee0619d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=3f10000080000100 VSRL18=0 VSRL19=3f10000080000100
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee0619d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f90000080200101 F17=0 F18=3f90000080200101
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d8" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3f90000080200101 F17=3f50000080100100
+      F18=3f90000080200101 F19=3f50000080100100 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f50000080100100 VSRL17=3f10000080000100
+      VSRL18=3f50000080100100 VSRL19=3f10000080000100 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee061fd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061fd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc2000050140020 F17=bfc0200041102002
+      F18=bfc2000050140020 F19=bfc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf82000050020020 VSRL17=bf80200041000002
+      VSRL18=bf82000050020020 VSRL19=bf80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee061fd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=bf80200041000002 VSRL18=0 VSRL19=bf80200041000002
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee061fd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc2000050140020 F17=0 F18=bfc2000050140020
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061fd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfc2000050140020 F17=bfc0200041102002
+      F18=bfc2000050140020 F19=bfc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf82000050020020 VSRL17=bf80200041000002
+      VSRL18=bf82000050020020 VSRL19=bf80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee061bd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061bd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbc00006017ffc0 F17=3fbfc0007e1fbffc
+      F18=3fbc00006017ffc0 F19=3fbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7c00005ffbffc0 VSRL17=3f7fc0007dfffffc
+      VSRL18=3f7c00005ffbffc0 VSRL19=3f7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee061bd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=3f7fc0007dfffffc VSRL18=0 VSRL19=3f7fc0007dfffffc
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee061bd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbc00006017ffc0 F17=0 F18=3fbc00006017ffc0
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061bd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbc00006017ffc0 F17=3fbfc0007e1fbffc
+      F18=3fbc00006017ffc0 F19=3fbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7c00005ffbffc0 VSRL17=3f7fc0007dfffffc
+      VSRL18=3f7c00005ffbffc0 VSRL19=3f7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee061dd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061dd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfbc00006017ffc0 F17=bfbfc0007e1fbffc
+      F18=bfbc00006017ffc0 F19=bfbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf7c00005ffbffc0 VSRL17=bf7fc0007dfffffc
+      VSRL18=bf7c00005ffbffc0 VSRL19=bf7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee061dd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=bf7fc0007dfffffc VSRL18=0 VSRL19=bf7fc0007dfffffc
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee061dd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfbc00006017ffc0 F17=0 F18=bfbc00006017ffc0
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee061dd0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=bfbc00006017ffc0 F17=bfbfc0007e1fbffc
+      F18=bfbc00006017ffc0 F19=bfbfc0007e1fbffc VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=bf7c00005ffbffc0 VSRL17=bf7fc0007dfffffc
+      VSRL18=bf7c00005ffbffc0 VSRL19=bf7fc0007dfffffc LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee0619d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc2000050140020 F17=3fc0200041102002
+      F18=3fc2000050140020 F19=3fc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f82000050020020 VSRL17=3f80200041000002
+      VSRL18=3f82000050020020 VSRL19=3f80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900054ee0619d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=3f80200041000002 VSRL18=0 VSRL19=3f80200041000002
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000a8ee0619d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc2000050140020 F17=0 F18=3fc2000050140020
+      F19=0 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0 VSRL17=0
+      VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079000fcee0619d0" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc2000050140020 F17=3fc0200041102002
+      F18=3fc2000050140020 F19=3fc0200041102002 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f82000050020020 VSRL17=3f80200041000002
+      VSRL18=3f82000050020020 VSRL19=3f80200041000002 LR=20100040
+      CTR=20100080 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021a58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021a58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=fe010000ff3fc00 F17=ff3fc0010080100
+      F18=fd020000fe3f800 F19=ff0000010040000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=fd020000ff00000 VSRL17=fe3f80010040000 VSRL18=fc040000fe00000
+      VSRL19=fe0000010000000 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021a58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021a58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=ff3fc00 F17=0 F18=fe3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=ff00000 VSRL17=0 VSRL18=fe00000 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021a58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021b58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021b58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4fa010005003fc00 F17=4fb3fc0050180100
+      F18=4f9020004ff3f800 F19=4fb0000050140000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4f5020004ff00000 VSRL17=4f63f80050040000
+      VSRL18=4f4040004fe00000 VSRL19=4f60000050000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021b58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021b58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=5003fc00 F17=0 F18=4ff3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=4ff00000 VSRL17=0 VSRL18=4fe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021b58" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021958" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021958" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=fe010000ff3fc00 F17=ff3fc0010080100
+      F18=fd020000fe3f800 F19=ff0000010040000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=fd020000ff00000 VSRL17=fe3f80010040000 VSRL18=fc040000fe00000
+      VSRL19=fe0000010000000 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021958" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021958" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=ff3fc00 F17=0 F18=fe3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=ff00000 VSRL17=0 VSRL18=fe00000 VSRL19=0
+      LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021958" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021950" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790c0ffee021950" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4fa010005003fc00 F17=4fb3fc0050180100
+      F18=4f9020004ff3f800 F19=4fb0000050140000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=4f5020004ff00000 VSRL17=4f63f80050040000
+      VSRL18=4f4040004fe00000 VSRL19=4f60000050000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021950" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021950" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=5003fc00 F17=0 F18=4ff3f800 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=4ff00000 VSRL17=0 VSRL18=4fe00000
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079040ffee021950" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021918" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790ffffee021918" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=1a00000008 F17=800000011 F18=2a00000004
+      F19=c00000010 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=2a0000000c
+      VSRL17=400000010 VSRL18=4a0000000c VSRL19=c00000010 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021918" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021918" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=c F17=0 F18=c F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=c VSRL17=0 VSRL18=c VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079001ffee021918" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021910" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790ffffee021910" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0001a40100008 F17=3fc0000840100011
+      F18=3fc0002a40100004 F19=3fc0000c40100010 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80002a4000000c VSRL17=3f80000440000010
+      VSRL18=3f80004a4000000c VSRL19=3f80000c40000010 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021910" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021910" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=4010000c F17=0 F18=4010000c F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=4000000c VSRL17=0 VSRL18=4000000c
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079001ffee021910" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021818" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790f0ffee021818" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=ffffdf8100000bc0 F17=1bc000001100
+      F18=ffffaf81000007c0 F19=fc000001000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=ffffef8100000fc0 VSRL17=17c000001000 VSRL18=ffffcf8100000fc0
+      VSRL19=fc000001000 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021818" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021818" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=fc0 F17=0 F18=fc0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=fc0 VSRL17=0 VSRL18=fc0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079010ffee021818" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021810" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790f0ffee021810" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbfdf8140100bc0 F17=3fc01bc040101100
+      F18=3fbfaf81401007c0 F19=3fc00fc040101000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7fef8140000fc0 VSRL17=3f8017c040001000
+      VSRL18=3f7fcf8140000fc0 VSRL19=3f800fc040001000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021810" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021810" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40100fc0 F17=0 F18=40100fc0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40000fc0 VSRL17=0 VSRL18=40000fc0
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079010ffee021810" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "07900000ee021b18" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=0 F18=0 F19=0 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=0 VSRL17=0 VSRL18=0 VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790f0ffee021b18" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fbfdf8140100bc0 F17=3fc01bc040101100
+      F18=3fbfaf81401007c0 F19=3fc00fc040101000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f7fef8140000fc0 VSRL17=3f8017c040001000
+      VSRL18=3f7fcf8140000fc0 VSRL19=3f800fc040001000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "0790005aee021b18" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=0 F17=3fc0000000000000 F18=0
+      F19=3fc0000000000000 VSRL2=3f80000040000000 VSRL3=3f80000040000000
+      VSRL6=3f80000040000000 VSRL7=3f80000040000000 VSRL16=0
+      VSRL17=3f80000000000000 VSRL18=0 VSRL19=3f80000000000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079080a5ee021b18" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=40100fc0 F17=0 F18=40100fc0 F19=0
+      VSRL2=3f80000040000000 VSRL3=3f80000040000000 VSRL6=3f80000040000000
+      VSRL7=3f80000040000000 VSRL16=40000fc0 VSRL17=0 VSRL18=40000fc0
+      VSRL19=0 LR=20100040 CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
+    oracle "079010ffee021b18" Endian.Little """
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+      F2=3fc0000040100000 F3=3fc0000040100000 F6=3fc0000040100000
+      F7=3fc0000040100000 F16=3fc0000040100000 F17=3fc0000040100000
+      F18=3fc0000040100000 F19=3fc0000040100000 VSRL2=3f80000040000000
+      VSRL3=3f80000040000000 VSRL6=3f80000040000000 VSRL7=3f80000040000000
+      VSRL16=3f80000040000000 VSRL17=3f80000040000000
+      VSRL18=3f80000040000000 VSRL19=3f80000040000000 LR=20100040
+      CTR=20100080
+      ;
+
+      ;
+
+      |
+      """
