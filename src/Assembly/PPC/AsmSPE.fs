@@ -115,7 +115,33 @@ let private logicEncoders () =
     Op.EVSUBIFW, uiRb 518u
     Op.EVXOR, rrr 534u ]
 
+/// The encoders of the "shift" theme.
+let private shiftEncoders () =
+  [ Op.BRINC, rrr 527u
+    Op.EVABS, rr 520u
+    Op.EVCNTLSW, rr 526u
+    Op.EVCNTLZW, rr 525u
+    Op.EVEXTSB, rr 522u
+    Op.EVEXTSH, rr 523u
+    Op.EVMERGEHI, rrr 556u
+    Op.EVMERGEHILO, rrr 558u
+    Op.EVMERGELO, rrr 557u
+    Op.EVMERGELOHI, rrr 559u
+    Op.EVNEG, rr 521u
+    Op.EVRLW, rrr 552u
+    Op.EVRLWI, raUi 554u
+    Op.EVRNDW, rr 524u
+    Op.EVSLW, rrr 548u
+    Op.EVSLWI, raUi 550u
+    Op.EVSPLATFI, si 555u
+    Op.EVSPLATI, si 553u
+    Op.EVSRWIS, raUi 547u
+    Op.EVSRWIU, raUi 546u
+    Op.EVSRWS, rrr 545u
+    Op.EVSRWU, rrr 544u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
-    [ logicEncoders () ]
+    [ logicEncoders ()
+      shiftEncoders () ]

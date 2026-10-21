@@ -2754,6 +2754,50 @@ let translate (ins: Instruction) bld =
     evsubifw ins bld
   | Op.EVXOR ->
     evxor ins bld
+  | Op.BRINC ->
+    brinc ins bld
+  | Op.EVABS ->
+    evabs ins bld
+  | Op.EVCNTLSW ->
+    evcntlsw ins bld
+  | Op.EVCNTLZW ->
+    evcntlzw ins bld
+  | Op.EVEXTSB ->
+    evexts ins bld 8<rt>
+  | Op.EVEXTSH ->
+    evexts ins bld 16<rt>
+  | Op.EVMERGEHI ->
+    evmergehi ins bld
+  | Op.EVMERGEHILO ->
+    evmergehilo ins bld
+  | Op.EVMERGELO ->
+    evmergelo ins bld
+  | Op.EVMERGELOHI ->
+    evmergelohi ins bld
+  | Op.EVNEG ->
+    evneg ins bld
+  | Op.EVRLW ->
+    evrlw ins bld
+  | Op.EVRLWI ->
+    evrlwi ins bld
+  | Op.EVRNDW ->
+    evrndw ins bld
+  | Op.EVSLW ->
+    evslw ins bld
+  | Op.EVSLWI ->
+    evslwi ins bld
+  | Op.EVSPLATFI ->
+    evsplatfi ins bld
+  | Op.EVSPLATI ->
+    evsplati ins bld
+  | Op.EVSRWIS ->
+    evsrwis ins bld
+  | Op.EVSRWIU ->
+    evsrwiu ins bld
+  | Op.EVSRWS ->
+    evsrws ins bld
+  | Op.EVSRWU ->
+    evsrwu ins bld
   (* End of lane S. *)
   | o ->
 #if DEBUG

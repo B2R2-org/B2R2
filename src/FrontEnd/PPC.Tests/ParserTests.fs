@@ -5276,3 +5276,113 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVXOR (Vector XOR)``() =
     EVXOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a16"
+
+  [<TestMethod>]
+  member _.``[PPC] BRINC (Bit Reversed Increment)``() =
+    BRINC ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a0f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVABS (Vector Absolute Value)``() =
+    EVABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a60208"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCNTLSW (Vector Count Leading Signed Bits Word)``() =
+    EVCNTLSW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a6020e"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCNTLZW (Vector Count Leading Zeros Word)``() =
+    EVCNTLZW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a6020d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVEXTSB (Vector Extend Sign Byte)``() =
+    EVEXTSB ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a6020a"
+
+  [<TestMethod>]
+  member _.``[PPC] EVEXTSH (Vector Extend Sign Half Word)``() =
+    EVEXTSH ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a6020b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGEHI (Vector Merge High)``() =
+    EVMERGEHI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a2c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGEHILO (Vector Merge High/Low)``() =
+    EVMERGEHILO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a2e"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGELO (Vector Merge Low)``() =
+    EVMERGELO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a2d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGELOHI (Vector Merge Low/High)``() =
+    EVMERGELOHI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a2f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVNEG (Vector Negate)``() =
+    EVNEG ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a60209"
+
+  [<TestMethod>]
+  member _.``[PPC] EVRLW (Vector Rotate Left Word)``() =
+    EVRLW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a28"
+
+  [<TestMethod>]
+  member _.``[PPC] EVRLWI (Vector Rotate Left Word Immediate)``() =
+    EVRLWI ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
+    |> testEngine "10a6622a"
+
+  [<TestMethod>]
+  member _.``[PPC] EVRNDW (Vector Round Word)``() =
+    EVRNDW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a6020c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSLW (Vector Shift Left Word)``() =
+    EVSLW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a24"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSLWI (Vector Shift Left Word Immediate)``() =
+    EVSLWI ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
+    |> testEngine "10a66226"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSPLATFI (Vector Splat Fractional Immediate)``() =
+    EVSPLATFI ** [ O.Reg R5; O.Imm 0xfffffffffffffffdUL ]
+    |> testEngine "10bd022b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSPLATI (Vector Splat Immediate)``() =
+    EVSPLATI ** [ O.Reg R5; O.Imm 0xfffffffffffffffdUL ]
+    |> testEngine "10bd0229"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWIS (Vector Shift Right Word Immediate Signed)``() =
+    EVSRWIS ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
+    |> testEngine "10a66223"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWIU (Vector Shift Right Word Immediate Unsigned)``() =
+    EVSRWIU ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
+    |> testEngine "10a66222"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWS (Vector Shift Right Word Signed)``() =
+    EVSRWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a21"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWU (Vector Shift Right Word Unsigned)``() =
+    EVSRWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a20"

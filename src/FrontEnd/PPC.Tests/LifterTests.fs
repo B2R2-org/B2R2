@@ -29916,12 +29916,24 @@ type SignalProcessingLifterTests() =
     [ for i in 0 .. 3 ->
         enum<Register> (int first + i), (field >>> (3 - i)) &&& 1UL ]
 
-  /// The cases of a compare word that writes CR2 from RA (r6) and RB (r7).
-  let compare hex table =
+  /// The one-bit registers of a CR field, LT first.
+  let crBits (field: int) = enum<Register> (int CR0_0 + 4 * field)
+
+  /// The cases of a compare word that writes CR field bf from RA (r6) and RB
+  /// (r7).
+  let compare hex bf table =
     for c in rows 4 table do
       let label = $"{c[0]:x} {c[1]:x} {c[2]:x}"
       let given = [ R6, c[0]; R7, c[1]; SPEFSCR, c[2] ]
-      check hex label given (fieldBits CR2_0 c[3])
+      check hex label given (fieldBits (crBits bf) c[3])
+
+  /// The cases of a word that chooses between RA (r6) and RB (r7) by CR field
+  /// bfa: RA, RB and the field, then RT.
+  let select hex bfa table =
+    for c in rows 4 table do
+      let label = $"{c[0]:x} {c[1]:x} {c[2]:x}"
+      let given = [ R5, before; R6, c[0]; R7, c[1] ]
+      check hex label (given @ fieldBits (crBits bfa) c[2]) [ R5, c[3] ]
 
   [<TestMethod>]
   member _.``[PPC] EVADDIW (Vector Add Immediate Word)``() =
@@ -29943,6 +29955,22 @@ type SignalProcessingLifterTests() =
       55555561aaaaaab6 80000000ffffffff f01
       0 3000540000000 c0000000c0000000 80008f00
       300114000000c c0000000c0000000 80008f00
+      """
+    arith "10a03a02" """
+      0 8000ffffaaaaaaaa 7fffffff7fffffff 0
+      8000ffffaaaaaaaa 7fffffff7fffffff 0
+      0 80007fffffff 8000000080000000 80008000
+      80007fffffff 8000000080000000 80008000
+      0 7fff 100000002 40004000
+      7fff 100000002 40004000
+      """
+    arith "10bf3a02" """
+      0 1000100000000 ffffffff00000000 0
+      100200000001f ffffffff00000000 0
+      0 80007fff00000020 80000000ffffffff 80008000
+      8000801e0000003f 80000000ffffffff 80008000
+      0 ffff00010000001f ffffffffffffffff 40004000
+      ffff00200000003e ffffffffffffffff 40004000
       """
 
   [<TestMethod>]
@@ -30164,6 +30192,22 @@ type SignalProcessingLifterTests() =
       0 aaaaaaaa00030005 7fffffff00000001 80008f00
       aaaaaa9e0002fff9 7fffffff00000001 80008f00
       """
+    arith "10a03a06" """
+      0 aaaaaaaa80000000 ffffffff 0
+      aaaaaaaa80000000 ffffffff 0
+      0 800000007fff 0 80008000
+      800000007fff 0 80008000
+      0 2080008000 100000002 40004000
+      2080008000 100000002 40004000
+      """
+    arith "10bf3a06" """
+      0 fffd00058000ffff ffffffff 0
+      fffcffe68000ffe0 ffffffff 0
+      0 10001ffff0001 0 80008000
+      ffe2fffeffe2 0 80008000
+      0 3f00000001 c0000000c0000000 40004000
+      20ffffffe2 c0000000c0000000 40004000
+      """
 
   [<TestMethod>]
   member _.``[PPC] EVXOR (Vector XOR)``() =
@@ -30185,4 +30229,584 @@ type SignalProcessingLifterTests() =
       7ffd7ffa6dcb2987 0 f01
       80007fff00010001 8000ffff8000 0 80008f00
       8000fffffffe8001 0 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] BRINC (Bit Reversed Increment)``() =
+    (* brinc r5, r6, r7 *)
+    arith "10a63a0f" """
+      7fff7fff7fff 800000008000 8000000080000000 0
+      bad0bad7fff8000 8000000080000000 0
+      1f9abcdef0 4000000080008000 ffffffffffffffff 80008000
+      bad0bad9abc0000 ffffffffffffffff 80008000
+      400040007fff7fff ffffffff55555555 7fffffff00000001 40004000
+      bad0bad7fff0000 7fffffff00000001 40004000
+      80007fff7fff 8000ffff00000001 100000002 1
+      bad0bad7fff0000 100000002 1
+      ffffffffffff 30005deadbeef 1234567889abcdef 2
+      bad0badffff0000 1234567889abcdef 2
+      1f00000001 3f00010001 7fffffff00000001 3
+      bad0bad00000000 7fffffff00000001 3
+      7fff7fff00008000 7fffdeadbeef 100000002 f01
+      bad0bad00002000 100000002 f01
+      80009abcdef0 9abcdef0deadbeef 7fffffff7fffffff 80008f00
+      bad0bad9abc3ee0 7fffffff7fffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVABS (Vector Absolute Value)``() =
+    (* evabs r5, r6 *)
+    arith "10a60208" """
+      7fffffff0000003f 0 4000000040000000 0
+      7fffffff0000003f 4000000040000000 0
+      8000ffff80007fff 0 8000000080000000 80008000
+      7fff00017fff8001 8000000080000000 80008000
+      7fffffff55555555 0 7fffffff7fffffff 40004000
+      7fffffff55555555 7fffffff7fffffff 40004000
+      3000500000000 0 7fffffff7fffffff 1
+      3000500000000 7fffffff7fffffff 1
+      ffff800000000020 0 c0000000c0000000 2
+      800000000020 c0000000c0000000 2
+      1f8000ffff 0 c0000000c0000000 3
+      1f7fff0001 c0000000c0000000 3
+      aaaaaaaa80000000 0 ffffffffffffffff f01
+      5555555680000000 ffffffffffffffff f01
+      7fff40004000 0 4000000040000000 80008f00
+      7fff40004000 4000000040000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCNTLSW (Vector Count Leading Signed Bits Word)``() =
+    (* evcntlsw r5, r6 *)
+    arith "10a6020e" """
+      4000000000010001 0 0 0
+      10000000f 0 0
+      fffd000500000000 0 ffffffffffffffff 80008000
+      e00000020 ffffffffffffffff 80008000
+      7fff80000000 0 7fffffff7fffffff 40004000
+      1100000001 7fffffff7fffffff 40004000
+      7fff7fff00007fff 0 4000000040000000 1
+      100000011 4000000040000000 1
+      12345678deadbeef 0 7fffffff00000001 2
+      300000002 7fffffff00000001 2
+      300050000001f 0 8000000080000000 3
+      e0000001b 8000000080000000 3
+      1f80008000 0 7fffffff7fffffff f01
+      1b00000001 7fffffff7fffffff f01
+      ffff800000007fff 0 100000002 80008f00
+      1100000011 100000002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCNTLZW (Vector Count Leading Zeros Word)``() =
+    (* evcntlzw r5, r6 *)
+    arith "10a6020d" """
+      8000800000000000 0 ffffffff00000000 0
+      20 ffffffff00000000 0
+      ffffffff40000000 0 100000002 80008000
+      1 100000002 80008000
+      80008000ffff 0 ffffffffffffffff 40004000
+      1000000000 ffffffffffffffff 40004000
+      80007fff00008000 0 4000000040000000 1
+      10 4000000040000000 1
+      ffff12345678 0 8000000080000000 2
+      1000000003 8000000080000000 2
+      55555555ffff8000 0 7fffffff00000001 3
+      100000000 7fffffff00000001 3
+      7fff00007fff 0 ffffffff f01
+      1100000011 ffffffff f01
+      deadbeef00000000 0 1234567889abcdef 80008f00
+      20 1234567889abcdef 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVEXTSB (Vector Extend Sign Byte)``() =
+    (* evextsb r5, r6 *)
+    arith "10a6020a" """
+      3fdeadbeef 0 4000000040000000 0
+      3fffffffef 4000000040000000 0
+      555555550000003f 0 80000000ffffffff 80008000
+      550000003f 80000000ffffffff 80008000
+      400040007fffffff 0 c0000000c0000000 40004000
+      ffffffff c0000000c0000000 40004000
+      aaaaaaaa7fff8000 0 7fffffff00000001 1
+      ffffffaa00000000 7fffffff00000001 1
+      555555550000003f 0 ffffffff 2
+      550000003f ffffffff 2
+      ffff000180008000 0 8000000080000000 3
+      100000000 8000000080000000 3
+      ffffffff40000000 0 7fffffff7fffffff f01
+      ffffffff00000000 7fffffff7fffffff f01
+      1f40004000 0 ffffffffffffffff 80008f00
+      1f00000000 ffffffffffffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVEXTSH (Vector Extend Sign Half Word)``() =
+    (* evextsh r5, r6 *)
+    arith "10a6020b" """
+      7fff800080007fff 0 c0000000c0000000 0
+      ffff800000007fff c0000000c0000000 0
+      ffff800055555555 0 100000002 80008000
+      ffff800000005555 100000002 80008000
+      1f 0 80000000ffffffff 40004000
+      1f 80000000ffffffff 40004000
+      1fffff0001 0 8000000080000000 1
+      1f00000001 8000000080000000 1
+      55555555ffffffff 0 ffffffffffffffff 2
+      5555ffffffff ffffffffffffffff 2
+      2000000000 0 4000000040000000 3
+      2000000000 4000000040000000 3
+      8000ffff40000000 0 7fffffff00000001 f01
+      ffffffff00000000 7fffffff00000001 f01
+      400000007fff7fff 0 80000000ffffffff 80008f00
+      7fff 80000000ffffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGEHI (Vector Merge High)``() =
+    (* evmergehi r5, r6, r7 *)
+    arith "10a63a2c" """
+      20fffd0005 100010000003f 7fffffff7fffffff 0
+      2000010001 7fffffff7fffffff 0
+      7fff7fff00000020 100017fff8000 8000000080000000 80008000
+      7fff7fff00010001 8000000080000000 80008000
+      1f7fff7fff 1000100000001 1234567889abcdef 40004000
+      1f00010001 1234567889abcdef 40004000
+      9abcdef000030005 9abcdef08000ffff 7fffffff7fffffff 1
+      9abcdef09abcdef0 7fffffff7fffffff 1
+      4000000012345678 40000000aaaaaaaa 1234567889abcdef 2
+      4000000040000000 1234567889abcdef 2
+      80007fff0000001f 4000000000000001 4000000040000000 3
+      80007fff40000000 4000000040000000 3
+      2080007fff deadbeefaaaaaaaa 7fffffff7fffffff f01
+      20deadbeef 7fffffff7fffffff f01
+      12345678ffff8000 aaaaaaaa00030005 4000000040000000 80008f00
+      12345678aaaaaaaa 4000000040000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGEHILO (Vector Merge High/Low)``() =
+    (* evmergehilo r5, r6, r7 *)
+    arith "10a63a2e" """
+      3000512345678 40000000deadbeef ffffffff 0
+      30005deadbeef ffffffff 0
+      800000007fff7fff 4000000012345678 7fffffff7fffffff 80008000
+      8000000012345678 7fffffff7fffffff 80008000
+      aaaaaaaa00008000 80000000ffff8000 c0000000c0000000 40004000
+      aaaaaaaaffff8000 c0000000c0000000 40004000
+      180008000 1f7fff7fff 0 1
+      17fff7fff 0 1
+      80007fff00007fff 7fff7fffffffffff 8000000080000000 2
+      80007fffffffffff 8000000080000000 2
+      8000800040004000 1000100000000 100000002 3
+      8000800000000000 100000002 3
+      8000000012345678 8000ffff0000ffff 1234567889abcdef f01
+      800000000000ffff 1234567889abcdef f01
+      4000400055555555 9abcdef055555555 8000000080000000 80008f00
+      4000400055555555 8000000080000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGELO (Vector Merge Low)``() =
+    (* evmergelo r5, r6, r7 *)
+    arith "10a63a2d" """
+      123456787fffffff 155555555 7fffffff7fffffff 0
+      7fffffff55555555 7fffffff7fffffff 0
+      123456789abcdef0 3000500008000 8000000080000000 80008000
+      9abcdef000008000 8000000080000000 80008000
+      ffff000180008000 8000ffff8000 0 40004000
+      80008000ffff8000 0 40004000
+      1234567880000000 3fffff0001 8000000080000000 1
+      80000000ffff0001 8000000080000000 1
+      ffffffff7fffffff 8000ffff40004000 ffffffff 2
+      7fffffff40004000 ffffffff 2
+      1f80008000 4000400080007fff ffffffff00000000 3
+      8000800080007fff ffffffff00000000 3
+      ffff0001ffffffff 7fff7fffaaaaaaaa 7fffffff00000001 f01
+      ffffffffaaaaaaaa 7fffffff00000001 f01
+      deadbeef00000001 ffff8000ffff 7fffffff00000001 80008f00
+      18000ffff 7fffffff00000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMERGELOHI (Vector Merge Low/High)``() =
+    (* evmergelohi r5, r6, r7 *)
+    arith "10a63a2f" """
+      7fff800055555555 4000000012345678 100000002 0
+      5555555540000000 100000002 0
+      1234567800030005 ffff00030005 80000000ffffffff 80008000
+      300050000ffff 80000000ffffffff 80008000
+      20 4000400040004000 7fffffff7fffffff 40004000
+      2040004000 7fffffff7fffffff 40004000
+      fffd000500000000 fffd000500030005 0 1
+      fffd0005 0 1
+      80007fff8000ffff 3000540004000 7fffffff00000001 2
+      8000ffff00030005 7fffffff00000001 2
+      7fff80008000ffff 180000000 8000000080000000 3
+      8000ffff00000001 8000000080000000 3
+      8000800000010001 80008000aaaaaaaa 4000000040000000 f01
+      1000180008000 4000000040000000 f01
+      8000ffffffff0001 8000ffff00000020 c0000000c0000000 80008f00
+      ffff00018000ffff c0000000c0000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVNEG (Vector Negate)``() =
+    (* evneg r5, r6 *)
+    arith "10a60209" """
+      8000000080008000 0 8000000080000000 0
+      800000007fff8000 8000000080000000 0
+      7fff800000000000 0 c0000000c0000000 80008000
+      8000800000000000 c0000000c0000000 80008000
+      ffffffff80008000 0 1234567889abcdef 40004000
+      17fff8000 1234567889abcdef 40004000
+      9abcdef07fff7fff 0 ffffffff 1
+      6543211080008001 ffffffff 1
+      1000155555555 0 1234567889abcdef 2
+      fffeffffaaaaaaab 1234567889abcdef 2
+      fffd00059abcdef0 0 7fffffff00000001 3
+      2fffb65432110 7fffffff00000001 3
+      7fff7fff12345678 0 7fffffff00000001 f01
+      80008001edcba988 7fffffff00000001 f01
+      deadbeef40000000 0 ffffffffffffffff 80008f00
+      21524111c0000000 ffffffffffffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVRLW (Vector Rotate Left Word)``() =
+    (* evrlw r5, r6, r7 *)
+    arith "10a63a28" """
+      9abcdef000000000 400000009abcdef0 ffffffff00000000 0
+      9abcdef000000000 ffffffff00000000 0
+      7fffffff40004000 80007fff7fff 7fffffff7fffffff 80008000
+      7fffffff20002000 7fffffff7fffffff 80008000
+      deadbeef12345678 100010000ffff ffffffffffffffff 40004000
+      bd5b7ddf091a2b3c ffffffffffffffff 40004000
+      8000800055555555 17fff8000 0 1
+      1000155555555 0 1
+      2040000000 deadbeef00000000 ffffffff00000000 2
+      10000040000000 ffffffff00000000 2
+      55555555ffff0001 8000ffff9abcdef0 ffffffff00000000 3
+      aaaaaaaa0001ffff ffffffff00000000 3
+      800040000000 20ffff8000 ffffffffffffffff f01
+      800040000000 ffffffffffffffff f01
+      7fffffff0000001f 80000000deadbeef 8000000080000000 80008f00
+      7fffffff000f8000 8000000080000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVRLWI (Vector Rotate Left Word Immediate)``() =
+    (* evrlwi r5, r6, 12 *)
+    arith "10a6622a" """
+      8000ffffaaaaaaaa 0 7fffffff00000001 0
+      ffff800aaaaaaaa 7fffffff00000001 0
+      aaaaaaaa00010001 0 7fffffff7fffffff 80008000
+      aaaaaaaa10001000 7fffffff7fffffff 80008000
+      80007fff80007fff 0 4000000040000000 40004000
+      7fff80007fff800 4000000040000000 40004000
+      fffd00050000003f 0 8000000080000000 1
+      d0005fff0003f000 8000000080000000 1
+      80008000ffff 0 8000000080000000 2
+      80000000ffff800 8000000080000000 2
+      7fff7fff7fff8000 0 ffffffffffffffff 3
+      f7fff7fff80007ff ffffffffffffffff 3
+      fffd000540000000 0 c0000000c0000000 f01
+      d0005fff00000400 c0000000c0000000 f01
+      3f00008000 0 ffffffff 80008f00
+      3f00008000000 ffffffff 80008f00
+      """
+    arith "10a6022a" """
+      555555550000ffff 0 ffffffffffffffff 0
+      555555550000ffff ffffffffffffffff 0
+      7fff800080007fff 0 ffffffffffffffff 80008000
+      7fff800080007fff ffffffffffffffff 80008000
+      3f80007fff 0 ffffffff00000000 40004000
+      3f80007fff ffffffff00000000 40004000
+      """
+    arith "10a6fa2a" """
+      fffd0005deadbeef 0 1234567889abcdef 0
+      fffe8002ef56df77 1234567889abcdef 0
+      300057fffffff 0 0 80008000
+      80018002bfffffff 0 80008000
+      8000ffff55555555 0 100000002 40004000
+      c0007fffaaaaaaaa 100000002 40004000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVRNDW (Vector Round Word)``() =
+    (* evrndw r5, r6 *)
+    arith "10a6020c" """
+      ffff40000000 0 0 0
+      1000040000000 0 0
+      40004000ffff0001 0 80000000ffffffff 80008000
+      40000000ffff0000 80000000ffffffff 80008000
+      aaaaaaaa00030005 0 4000000040000000 40004000
+      aaab000000030000 4000000040000000 40004000
+      8000800080000000 0 100000002 1
+      8001000080000000 100000002 1
+      1000100008000 0 ffffffff 2
+      1000000010000 ffffffff 2
+      9abcdef0deadbeef 0 8000000080000000 3
+      9abd0000deae0000 8000000080000000 3
+      400040007fff8000 0 7fffffff00000001 f01
+      4000000080000000 7fffffff00000001 f01
+      400040000000001f 0 7fffffff7fffffff 80008f00
+      4000000000000000 7fffffff7fffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSLW (Vector Shift Left Word)``() =
+    (* evslw r5, r6, r7 *)
+    arith "10a63a24" """
+      ffff80007fffffff 80007fff0000ffff 100000002 0
+      0 100000002 0
+      9abcdef000008000 8000aaaaaaaa 0 80008000
+      9abcdef000000000 0 80008000
+      300050000003f 80007fff12345678 ffffffff00000000 40004000
+      0 ffffffff00000000 40004000
+      ffff55555555 deadbeefffff0001 ffffffff 1
+      aaaaaaaa ffffffff 1
+      7fff00000000 80007fffffff8000 7fffffff00000001 2
+      0 7fffffff00000001 2
+      4000400000008000 80007fff80000000 ffffffffffffffff 3
+      8000 ffffffffffffffff 3
+      8000ffff80008000 17fff8000 0 f01
+      1fffe80008000 0 f01
+      ffff80008000ffff 4000000000008000 8000000080000000 80008f00
+      ffff80008000ffff 8000000080000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSLWI (Vector Shift Left Word Immediate)``() =
+    (* evslwi r5, r6, 12 *)
+    arith "10a66226" """
+      aaaaaaaa12345678 0 80000000ffffffff 0
+      aaaaa00045678000 80000000ffffffff 0
+      80008000fffd0005 0 4000000040000000 80008000
+      8000000d0005000 4000000040000000 80008000
+      fffd000540004000 0 ffffffff00000000 40004000
+      d000500004000000 ffffffff00000000 40004000
+      1234567840000000 0 1234567889abcdef 1
+      4567800000000000 1234567889abcdef 1
+      1000112345678 0 80000000ffffffff 2
+      1000100045678000 80000000ffffffff 2
+      7fff7fff7fff 0 ffffffff00000000 3
+      7fff000f7fff000 ffffffff00000000 3
+      1234567800000000 0 80000000ffffffff f01
+      4567800000000000 80000000ffffffff f01
+      7fffffff00008000 0 ffffffffffffffff 80008f00
+      fffff00008000000 ffffffffffffffff 80008f00
+      """
+    arith "10a60226" """
+      7fff8000ffff8000 0 1234567889abcdef 0
+      7fff8000ffff8000 1234567889abcdef 0
+      7fffffff8000 0 ffffffffffffffff 80008000
+      7fffffff8000 ffffffffffffffff 80008000
+      5555555500010001 0 0 40004000
+      5555555500010001 0 40004000
+      """
+    arith "10a6fa26" """
+      7fffffff 0 80000000ffffffff 0
+      80000000 80000000ffffffff 0
+      17fff7fff 0 ffffffff00000000 80008000
+      8000000080000000 ffffffff00000000 80008000
+      7fffffff7fff7fff 0 c0000000c0000000 40004000
+      8000000080000000 c0000000c0000000 40004000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSPLATFI (Vector Splat Fractional Immediate)``() =
+    (* evsplatfi r5, -3 *)
+    arith "10bd022b" """
+      0 0 ffffffff 0
+      e8000000e8000000 ffffffff 0
+      0 0 7fffffff00000001 80008000
+      e8000000e8000000 7fffffff00000001 80008000
+      0 0 0 40004000
+      e8000000e8000000 0 40004000
+      0 0 7fffffff00000001 1
+      e8000000e8000000 7fffffff00000001 1
+      0 0 4000000040000000 2
+      e8000000e8000000 4000000040000000 2
+      0 0 80000000ffffffff 3
+      e8000000e8000000 80000000ffffffff 3
+      0 0 80000000ffffffff f01
+      e8000000e8000000 80000000ffffffff f01
+      0 0 100000002 80008f00
+      e8000000e8000000 100000002 80008f00
+      """
+    arith "10af022b" """
+      0 0 7fffffff7fffffff 0
+      7800000078000000 7fffffff7fffffff 0
+      0 0 ffffffffffffffff 80008000
+      7800000078000000 ffffffffffffffff 80008000
+      0 0 ffffffffffffffff 40004000
+      7800000078000000 ffffffffffffffff 40004000
+      """
+    arith "10b0022b" """
+      0 0 1234567889abcdef 0
+      8000000080000000 1234567889abcdef 0
+      0 0 8000000080000000 80008000
+      8000000080000000 8000000080000000 80008000
+      0 0 7fffffff00000001 40004000
+      8000000080000000 7fffffff00000001 40004000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSPLATI (Vector Splat Immediate)``() =
+    (* evsplati r5, -3 *)
+    arith "10bd0229" """
+      0 0 7fffffff7fffffff 0
+      fffffffdfffffffd 7fffffff7fffffff 0
+      0 0 4000000040000000 80008000
+      fffffffdfffffffd 4000000040000000 80008000
+      0 0 c0000000c0000000 40004000
+      fffffffdfffffffd c0000000c0000000 40004000
+      0 0 ffffffff 1
+      fffffffdfffffffd ffffffff 1
+      0 0 ffffffffffffffff 2
+      fffffffdfffffffd ffffffffffffffff 2
+      0 0 4000000040000000 3
+      fffffffdfffffffd 4000000040000000 3
+      0 0 1234567889abcdef f01
+      fffffffdfffffffd 1234567889abcdef f01
+      0 0 c0000000c0000000 80008f00
+      fffffffdfffffffd c0000000c0000000 80008f00
+      """
+    arith "10af0229" """
+      0 0 7fffffff00000001 0
+      f0000000f 7fffffff00000001 0
+      0 0 100000002 80008000
+      f0000000f 100000002 80008000
+      0 0 4000000040000000 40004000
+      f0000000f 4000000040000000 40004000
+      """
+    arith "10b00229" """
+      0 0 ffffffff00000000 0
+      fffffff0fffffff0 ffffffff00000000 0
+      0 0 1234567889abcdef 80008000
+      fffffff0fffffff0 1234567889abcdef 80008000
+      0 0 1234567889abcdef 40004000
+      fffffff0fffffff0 1234567889abcdef 40004000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWIS (Vector Shift Right Word Immediate Signed)``() =
+    (* evsrwis r5, r6, 12 *)
+    arith "10a66223" """
+      3f55555555 0 ffffffff 0
+      55555 ffffffff 0
+      100030005 0 0 80008000
+      30 0 80008000
+      ffff80000000 0 100000002 40004000
+      ffff80000 100000002 40004000
+      207fffffff 0 80000000ffffffff 1
+      7ffff 80000000ffffffff 1
+      3f00008000 0 0 2
+      8 0 2
+      80009abcdef0 0 c0000000c0000000 3
+      8fff9abcd c0000000c0000000 3
+      8000000000000001 0 ffffffff f01
+      fff8000000000000 ffffffff f01
+      7fffaaaaaaaa 0 4000000040000000 80008f00
+      7fffaaaaa 4000000040000000 80008f00
+      """
+    arith "10a60223" """
+      ffffffff00030005 0 80000000ffffffff 0
+      ffffffff00030005 80000000ffffffff 0
+      80007fff0000001f 0 7fffffff7fffffff 80008000
+      80007fff0000001f 7fffffff7fffffff 80008000
+      deadbeef 0 ffffffff 40004000
+      deadbeef ffffffff 40004000
+      """
+    arith "10a6fa23" """
+      9abcdef08000ffff 0 ffffffff00000000 0
+      ffffffffffffffff ffffffff00000000 0
+      3f7fffffff 0 7fffffff7fffffff 80008000
+      0 7fffffff7fffffff 80008000
+      8000ffff00010001 0 4000000040000000 40004000
+      ffffffff00000000 4000000040000000 40004000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWIU (Vector Shift Right Word Immediate Unsigned)``() =
+    (* evsrwiu r5, r6, 12 *)
+    arith "10a66222" """
+      aaaaaaaa80008000 0 7fffffff00000001 0
+      aaaaa00080008 7fffffff00000001 0
+      3f40004000 0 1234567889abcdef 80008000
+      40004 1234567889abcdef 80008000
+      40004000ffff8000 0 100000002 40004000
+      40004000ffff8 100000002 40004000
+      aaaaaaaa00000020 0 80000000ffffffff 1
+      aaaaa00000000 80000000ffffffff 1
+      ffff000100000000 0 ffffffffffffffff 2
+      ffff000000000 ffffffffffffffff 2
+      7fff8000fffd0005 0 ffffffffffffffff 3
+      7fff8000fffd0 ffffffffffffffff 3
+      800080009abcdef0 0 8000000080000000 f01
+      800080009abcd 8000000080000000 f01
+      deadbeef00000001 0 ffffffff 80008f00
+      deadb00000000 ffffffff 80008f00
+      """
+    arith "10a60222" """
+      fffd00050000001f 0 ffffffff00000000 0
+      fffd00050000001f ffffffff00000000 0
+      40004000deadbeef 0 4000000040000000 80008000
+      40004000deadbeef 4000000040000000 80008000
+      7fffffff0000003f 0 8000000080000000 40004000
+      7fffffff0000003f 8000000080000000 40004000
+      """
+    arith "10a6fa22" """
+      ffff000180000000 0 c0000000c0000000 0
+      100000001 c0000000c0000000 0
+      7fff7fff0000001f 0 ffffffff 80008000
+      0 ffffffff 80008000
+      20deadbeef 0 8000000080000000 40004000
+      1 8000000080000000 40004000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWS (Vector Shift Right Word Signed)``() =
+    (* evsrws r5, r6, r7 *)
+    arith "10a63a21" """
+      3000555555555 aaaaaaaa12345678 7fffffff7fffffff 0
+      0 7fffffff7fffffff 0
+      ffff0000ffff 300057fff8000 1234567889abcdef 80008000
+      7ff0000ffff 1234567889abcdef 80008000
+      7fff7fff00000020 ffffffff80007fff 8000000080000000 40004000
+      0 8000000080000000 40004000
+      ffff12345678 55555555ffff8000 1234567889abcdef 1
+      12345678 1234567889abcdef 1
+      ffff80009abcdef0 7fff40000000 100000002 2
+      ffffffff9abcdef0 100000002 2
+      8000800080000000 3000555555555 1234567889abcdef 3
+      fc000400fffffc00 1234567889abcdef 3
+      fffd0005fffd0005 1000140000000 100000002 f01
+      fffe8002fffd0005 100000002 f01
+      3f80007fff 7fff0000ffff 7fffffff00000001 80008f00
+      ffffffff 7fffffff00000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSRWU (Vector Shift Right Word Unsigned)``() =
+    (* evsrwu r5, r6, r7 *)
+    arith "10a63a20" """
+      140004000 800080000000ffff 80000000ffffffff 0
+      100000000 80000000ffffffff 0
+      400000008000ffff 1234567800000020 8000000080000000 80008000
+      0 8000000080000000 80008000
+      ffffffff55555555 207fff7fff 1234567889abcdef 40004000
+      0 1234567889abcdef 40004000
+      9abcdef00000003f 80000000001f 80000000ffffffff 1
+      9abcdef000000000 80000000ffffffff 1
+      1deadbeef 1f7fff7fff 80000000ffffffff 2
+      0 80000000ffffffff 2
+      40000000ffff8000 7fff7fff12345678 0 3
+      0 0 3
+      40000000fffd0005 7fffffff00000000 8000000080000000 f01
+      fffd0005 8000000080000000 f01
+      aaaaaaaa12345678 7fff7fffdeadbeef c0000000c0000000 80008f00
+      0 c0000000c0000000 80008f00
       """
