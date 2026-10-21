@@ -55,9 +55,21 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// written number below zero the source wrote.
   let bitLen = WordSize.toRegType isa.WordSize |> int
 
+  /// Whether the source is written in Variable Length Encoding, whose
+  /// instructions are two bytes or four and are stored big-endian whatever the
+  /// data are.
+  let vle = Category.includes Category.VLE (Category.ofISA isa)
+
   /// The table-driven encoders, built here so that they are collected with the
   /// assembler instead of living for as long as the process does.
-  let encoders = lazy (buildEncoderTable bitLen)
+  let encoders = lazy (buildEncoderTable bitLen vle)
+
+  /// How many bytes an instruction takes, which is what the addresses of
+  /// everything after it are counted with.
+  let sizeOf ins = if vle then AsmVLE.size ins else 4
+
+  /// The order the bytes of an instruction are stored in.
+  let endian = if vle then Endian.Big else isa.Endian
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -183,9 +195,10 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     sepBy pOperand operandSeps |>> newInfo opcode |> skipWhitespaces
 
   /// The name of an instruction, which may end in the dot that says it records
-  /// what it did.
+  /// what it did, and which may hold the underscore that tells an instruction
+  /// of Variable Length Encoding from the one it is another encoding of.
   let pMnemonic =
-    many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.')
+    many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.' || c = '_')
     >>= fun token ->
       match Map.tryFind (token.ToLowerInvariant()) opcodes with
       | Some opcode -> preturn opcode
@@ -213,7 +226,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       match runParserOnString statements st "" assembly with
       | Success(result, us, _) ->
         filterInstructionLines result
-        |> assemble encoders us isa.Endian baseAddr
+        |> assemble encoders us endian baseAddr sizeOf
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
       | Failure(str, _, _) ->

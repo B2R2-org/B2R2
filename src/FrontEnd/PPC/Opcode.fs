@@ -1894,5 +1894,12 @@ type Opcode =
   | EFDDIV = 7245
   | EFDMUL = 7246
   | EFDSUB = 7247
+  | SE_BCTR = 8080
+  | SE_BCTRL = 8081
+  | SE_BLR = 8084
+  | SE_BLRL = 8085
+  | SE_ILLEGAL = 8099
+  | SE_ISYNC = 8100
+  | SE_SC = 8116
 
 type internal Op = Opcode

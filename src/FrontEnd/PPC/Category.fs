@@ -62,6 +62,8 @@ type Category =
   /// categories: instructions on 64-bit general registers, in primary opcode
   /// 4, which the category takes from the vector facility.
   | SignalProcessing = 0x10
+  /// Variable Length Encoding, selected per instruction page.
+  | VLE = 0x8
 
 /// Provides functions to read the categories a PowerPC ISA names.
 [<RequireQualifiedAccess>]

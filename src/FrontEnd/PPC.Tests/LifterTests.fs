@@ -42125,3 +42125,186 @@ type SignalProcessingLifterTests() =
       3f80000000000000 4040000000000000 0 20
       0bad0bad0bad0bad 0 30100820
       """
+
+/// <summary>
+/// The instructions of Variable Length Encoding. No reference implementation
+/// runs them -- QEMU has no model of a processor that does -- so each test
+/// asserts what Book VLE defines the instruction to do, and says so. Where an
+/// instruction is the same operation as one of the base encoding, the test
+/// asserts that both lift to the same statements, which is the Power ISA's own
+/// statement that they mean the same.
+/// </summary>
+[<TestClass>]
+type VLELifterTests() =
+  /// 32-bit PowerPC reading Variable Length Encoding.
+  let vle32 =
+    ISA(Architecture.PPC, Endian.Big, WordSize.Bit32, int Category.VLE)
+
+  /// 64-bit PowerPC reading Variable Length Encoding.
+  let vle64 =
+    ISA(Architecture.PPC, Endian.Big, WordSize.Bit64, int Category.VLE)
+
+  /// Both processors that read Variable Length Encoding.
+  let vleTargets = [ vle32; vle64 ]
+
+  /// The processor an ISA names, for a message.
+  let nameOf (isa: ISA) = $"{isa.WordSize}"
+
+  /// The statements one instruction lifts to on the processor an ISA names,
+  /// given as the hex of its bytes in the order a page of code holds them,
+  /// from the address it sits at.
+  let liftedAt (isa: ISA) addr (hex: string) =
+    let reader = BinReader.Init isa.Endian
+    let category = Category.ofISA isa
+    let parser = Parser(isa.WordSize, category, reader) :> IInstructionParsable
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    (parser.Parse(ByteArray.ofHexString hex, addr)).Translate builder
+
+  /// The variable of a register on the processor an ISA names.
+  let var (isa: ISA) r =
+    (RegisterFactory isa :> IRegisterFactory).GetRegVar(Register.toRegID r)
+
+  /// The registers given values, each value at the width of its register.
+  let inputsOf isa given =
+    given
+    |> List.map (fun (r, v: uint64) ->
+      let x = var isa r
+      x, BitVector(v, Expr.typeOf x))
+
+  /// What each register holds after one instruction ran on the processor an
+  /// ISA names, over the registers given values and zero everywhere else.
+  let run isa hex given =
+    let read = IRRunner.run (liftedAt isa 0UL hex) (inputsOf isa given)
+    fun r -> (read (var isa r)).ToUInt64()
+
+  /// Asserts that a run left the expected value, naming the case it ran.
+  let expect (expected: uint64) (actual: uint64) (case: string) =
+    Assert.AreEqual(box expected, box actual, case)
+
+  /// The statements of an instruction without the marks that say where it
+  /// begins and ends, which hold its length.
+  let withoutMarks stmts =
+    Array.filter (function ISMark _ | IEMark _ -> false | _ -> true) stmts
+
+  /// The statements of an instruction written out as text.
+  let bodyOf stmts = stmts |> withoutMarks |> BinIR.PrettyPrinter.ToString
+
+  /// Asserts that an instruction of Variable Length Encoding lifts to the
+  /// statements of the instruction of the base encoding it is another
+  /// encoding of, on the processor an ISA names.
+  let sameAs (isa: ISA) vleHex baseHex =
+    let reference = ISA(Architecture.PPC, Endian.Big, isa.WordSize)
+    let expected = bodyOf (liftedAt reference 0UL baseHex)
+    Assert.AreEqual(box expected,
+                    box (bodyOf (liftedAt isa 0UL vleHex)),
+                    $"{vleHex} {nameOf isa}")
+
+  /// Where a branch goes: the registers after everything it does before it
+  /// goes, the address it goes to, and the kind of jump it makes. Its jump out
+  /// of the instruction is turned into a call that records the target.
+  let taken isa addr hex given =
+    let kinds = ResizeArray()
+    let stmts =
+      liftedAt isa addr hex
+      |> Array.map (function
+        | InterJmp(Target = t; Kind = k) ->
+          kinds.Add k
+          let rt = Expr.typeOf t
+          AST.put (AST.tmpvar rt 900) (AST.app "JUMP" [ t ] rt)
+        | stmt ->
+          stmt)
+    let answer _ args = Some(List.head args)
+    let out = IRRunner.execAnswering answer stmts (inputsOf isa given) []
+    let target =
+      out.Calls |> List.pick (function "JUMP", [ t ] -> Some t | _ -> None)
+    let read r = (out.Read(var isa r)).ToUInt64()
+    read, target.ToUInt64(), List.ofSeq kinds
+
+  /// Asserts the kinds of jump a branch made, which is what says whether it
+  /// is a call, a return or neither.
+  let expectKinds (expected: BinIR.InterJmpKind) kinds =
+    Assert.AreEqual<BinIR.InterJmpKind list>([ expected ], kinds)
+
+  /// <summary>
+  /// se_illegal asks for an Illegal Instruction exception, which is what the
+  /// lift says and all it says.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ILLEGAL raises an illegal instruction``() =
+    for isa in vleTargets do
+      match withoutMarks (liftedAt isa 0UL "0000") with
+      | [| SideEffect(Effect = effect) |] ->
+        Assert.AreEqual<BinIR.SideEffect>(BinIR.SideEffect.UndefinedInstruction,
+                                          effect)
+      | other ->
+        Assert.Fail $"{nameOf isa}: {other}"
+
+  /// <summary>
+  /// se_isync has the semantics of isync, in a halfword. (Book VLE 6.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ISYNC lifts as ISYNC does``() =
+    for isa in vleTargets do sameAs isa "0001" "4c00012c"
+
+  /// <summary>
+  /// se_sc is sc without the LEV field, in a halfword. (Book VLE 4.3)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SC lifts as SC does``() =
+    for isa in vleTargets do sameAs isa "0002" "44000002"
+
+  /// <summary>
+  /// se_blr goes to LR[0:62] || 0b0: it clears only the low bit, where blr
+  /// clears two, because an instruction sits on a halfword. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BLR goes to the address in LR``() =
+    for isa, lr, target in
+      [ vle32, 0x20000003UL, 0x20000002UL
+        vle64, 0x120000003UL, 0x120000002UL ] do
+      let after, went, kinds = taken isa 0x1000UL "0004" [ LR, lr ]
+      expect target went (nameOf isa)
+      expect lr (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.IsRet kinds
+
+  /// <summary>
+  /// se_blrl goes where se_blr does and puts the address two bytes on, that
+  /// of the instruction after it, into LR. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BLRL goes to the address in LR and links``() =
+    for isa, lr, target in
+      [ vle32, 0x20000003UL, 0x20000002UL
+        vle64, 0x120000003UL, 0x120000002UL ] do
+      let after, went, kinds = taken isa 0x1000UL "0005" [ LR, lr ]
+      expect target went (nameOf isa)
+      expect 0x1002UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.IsCall kinds
+
+  /// <summary>
+  /// se_bctr goes to CTR[0:62] || 0b0. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BCTR goes to the address in CTR``() =
+    for isa, ctr, target in
+      [ vle32, 0x20000005UL, 0x20000004UL
+        vle64, 0x120000005UL, 0x120000004UL ] do
+      let after, went, kinds = taken isa 0x1000UL "0006" [ CTR, ctr ]
+      expect target went (nameOf isa)
+      expect ctr (after CTR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.Base kinds
+
+  /// <summary>
+  /// se_bctrl goes where se_bctr does and puts the address two bytes on into
+  /// LR. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BCTRL goes to the address in CTR and links``() =
+    for isa, ctr, target in
+      [ vle32, 0x20000005UL, 0x20000004UL
+        vle64, 0x120000005UL, 0x120000004UL ] do
+      let after, went, kinds = taken isa 0x1000UL "0007" [ CTR, ctr ]
+      expect target went (nameOf isa)
+      expect 0x1002UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.IsCall kinds

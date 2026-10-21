@@ -16,6 +16,7 @@
     <Compile Include="AsmEmbedded.fs" />
     <Compile Include="AsmTransaction.fs" />
     <Compile Include="AsmSPE.fs" />
+    <Compile Include="AsmVLE.fs" />
     <Compile Include="AsmMain.fs" />
     <Compile Include="Assembler.fs" />
   </ItemGroup>
