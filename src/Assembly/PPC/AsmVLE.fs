@@ -260,6 +260,53 @@ let private scaledCompare bitLen unsigned ins =
   | _ ->
     wrongOperands ins
 
+/// An I16A-form instruction: RA and the sixteen-bit number, which is split in
+/// two around the extended opcode, its top five bits where RT would be.
+let private i16a xo ra number =
+  (28u <<< 26) ||| ((number >>> 11) <<< 21) ||| (ra <<< 16) ||| (xo <<< 11)
+  ||| (number &&& 0x7FFu)
+
+/// e_add16i, the D-form instruction that adds a signed number.
+let private add16 bitLen ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Im v ] ->
+    (7u <<< 26) ||| (gpr t <<< 21) ||| (gpr a <<< 16) ||| immediate16 bitLen v
+  | _ ->
+    wrongOperands ins
+
+/// An I16A-form instruction with a signed number.
+let private i16aSigned bitLen xo ins =
+  match ins.Operands with
+  | [ Rg a; Im v ] -> i16a xo (gpr a) (immediate16 bitLen v)
+  | _ -> wrongOperands ins
+
+/// An I16A-form instruction with an unsigned number.
+let private i16aUnsigned xo ins =
+  match ins.Operands with
+  | [ Rg a; Im v ] -> i16a xo (gpr a) (uimmediate16 v)
+  | _ -> wrongOperands ins
+
+/// An I16L-form instruction, which names RT and puts the number's top bits in
+/// the field RA has in the other.
+let private i16l xo ins =
+  match ins.Operands with
+  | [ Rg t; Im v ] ->
+    let n = uimmediate16 v
+    (28u <<< 26) ||| (gpr t <<< 21) ||| ((n >>> 11) <<< 16) ||| (xo <<< 11)
+    ||| (n &&& 0x7FFu)
+  | _ ->
+    wrongOperands ins
+
+/// e_li, whose number of twenty bits is in three pieces.
+let private loadImmediate20 bitLen ins =
+  match ins.Operands with
+  | [ Rg t; Im v ] ->
+    let n = signed 20 (signedValue bitLen v)
+    (28u <<< 26) ||| (gpr t <<< 21) ||| (((n >>> 11) &&& 0x1Fu) <<< 16)
+    ||| (((n >>> 16) &&& 0xFu) <<< 11) ||| (n &&& 0x7FFu)
+  | _ ->
+    wrongOperands ins
+
 /// The instructions of Variable Length Encoding, by what they are called.
 let vleEncoders bitLen =
   [ Op.SE_ILLEGAL, cForm 0x0000u
@@ -365,4 +412,18 @@ let vleEncoders bitLen =
     Op.E_XORIdot, scaledLogical bitLen 0xEu 1u
     Op.E_CMPI, scaledCompare bitLen 0u
     Op.E_CMPLI, scaledCompare bitLen 1u
+    Op.E_ADD16I, add16 bitLen
+    Op.E_LI, loadImmediate20 bitLen
+    Op.E_ADD2Idot, i16aSigned bitLen 0x11u
+    Op.E_ADD2IS, i16aSigned bitLen 0x12u
+    Op.E_CMP16I, i16aSigned bitLen 0x13u
+    Op.E_MULL2I, i16aSigned bitLen 0x14u
+    Op.E_CMPL16I, i16aUnsigned 0x15u
+    Op.E_CMPH16I, i16aSigned bitLen 0x16u
+    Op.E_CMPHL16I, i16aUnsigned 0x17u
+    Op.E_OR2I, i16l 0x18u
+    Op.E_AND2Idot, i16l 0x19u
+    Op.E_OR2IS, i16l 0x1Au
+    Op.E_LIS, i16l 0x1Cu
+    Op.E_AND2ISdot, i16l 0x1Du
     Op.SE_LI, loadImmediate ]

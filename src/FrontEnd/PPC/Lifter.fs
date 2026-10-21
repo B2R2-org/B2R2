@@ -3430,6 +3430,34 @@ let translate (ins: Instruction) bld =
     cmp ins bld true
   | Op.E_CMPLI ->
     cmpl ins bld true
+  | Op.E_ADD16I ->
+    VLELifter.addScaled ins bld false
+  | Op.E_ADD2Idot ->
+    VLELifter.addToRegister ins bld false
+  | Op.E_ADD2IS ->
+    VLELifter.addToRegister ins bld true
+  | Op.E_AND2Idot ->
+    VLELifter.andWithRegister ins bld false
+  | Op.E_AND2ISdot ->
+    VLELifter.andWithRegister ins bld true
+  | Op.E_OR2I ->
+    VLELifter.orWithRegister ins bld false
+  | Op.E_OR2IS ->
+    VLELifter.orWithRegister ins bld true
+  | Op.E_LI ->
+    li ins bld
+  | Op.E_LIS ->
+    VLELifter.loadShifted ins bld
+  | Op.E_MULL2I ->
+    mulli (VLELifter.multiplyRegister ins) bld
+  | Op.E_CMP16I ->
+    cmp (VLELifter.compareInCR0 ins) bld true
+  | Op.E_CMPL16I ->
+    cmpl (VLELifter.compareInCR0 ins) bld true
+  | Op.E_CMPH16I ->
+    VLELifter.compareHalfword ins bld true
+  | Op.E_CMPHL16I ->
+    VLELifter.compareHalfword ins bld false
   (* End of lane L. *)
   | o ->
 #if DEBUG

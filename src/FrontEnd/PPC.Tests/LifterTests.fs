@@ -45375,3 +45375,470 @@ type VLELifterTests() =
       let given = [ R31, r31; XER, xer ]
       let wanted = [ R31, r31; XER, xer; CR3, cr3' ]
       check isa "18ffac9c" given wanted
+
+  /// <summary>
+  /// e_add16i RT,RA,SI puts RA + SI, with SI sign-extended, into RT. RA = r0 is
+  /// the register r0, not zero: the third sample adds to r0. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADD16I adds a 16-bit immediate``() =
+    (* e_add16i r3,r4,100 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcdf54UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x123456dcUL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0x54UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x80000063UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcdf54UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x123456dcUL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0x100000054UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x80000063UL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1c640064" given wanted
+    (* e_add16i r31,r24,-100 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcde8cUL
+    for isa, r24, r31, r31' in
+      [ (vle32, 0x12345678UL, 0x11111111UL, 0x12345614UL)
+        (vle32, 0xfffffff0UL, 0x11111111UL, 0xffffff8cUL)
+        (vle32, 0x7fffffffUL, 0x11111111UL, 0x7fffff9bUL)
+        (vle32, 0x9abcdef0UL, 0x11111111UL, 0x9abcde8cUL)
+        (vle64, 0x12345678UL, 0x11111111UL, 0x12345614UL)
+        (vle64, 0xfffffff0UL, 0x11111111UL, 0xffffff8cUL)
+        (vle64, 0x7fffffffUL, 0x11111111UL, 0x7fffff9bUL)
+        (vle64, w1, 0x11111111UL, w2) ] do
+      let given = [ R24, r24; R31, r31 ]
+      let wanted = [ R24, r24; R31, r31' ]
+      check isa "1ff8ff9c" given wanted
+    (* e_add16i r3,r0,32767 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abd5eefUL
+    for isa, r0, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x11111111UL, 0x1234d677UL)
+        (vle32, 0xfffffff0UL, 0x11111111UL, 0x7fefUL)
+        (vle32, 0x7fffffffUL, 0x11111111UL, 0x80007ffeUL)
+        (vle32, 0x9abcdef0UL, 0x11111111UL, 0x9abd5eefUL)
+        (vle64, 0x12345678UL, 0x11111111UL, 0x1234d677UL)
+        (vle64, 0xfffffff0UL, 0x11111111UL, 0x100007fefUL)
+        (vle64, 0x7fffffffUL, 0x11111111UL, 0x80007ffeUL)
+        (vle64, w1, 0x11111111UL, w2) ] do
+      let given = [ R0, r0; R3, r3 ]
+      let wanted = [ R0, r0; R3, r3' ]
+      check isa "1c607fff" given wanted
+
+  /// <summary>
+  /// e_add2i. RA,SI puts RA + SI, with SI sign-extended, into RA and records it
+  /// in CR0: LT, GT and EQ from a signed comparison of the whole register with
+  /// zero, and SO copied from XER[SO]. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADD2I. adds a 16-bit immediate and records``() =
+    (* e_add2i. r5,-100 *)
+    let w1 = 0xffffffffffffff9cUL
+    let w2 = 0xffffffffffffff38UL
+    for isa, r5, xer, r5', cr0' in
+      [ (vle32, 0x64UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x64UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x9cUL, 0UL, 0x38UL, 0x4UL)
+        (vle32, 0xffffff9cUL, 0UL, 0xffffff38UL, 0x8UL)
+        (vle32, 0x80000000UL, 0UL, 0x7fffff9cUL, 0x4UL)
+        (vle32, 0x64UL, so, 0UL, 0x3UL)
+        (vle32, 0x64UL, so, 0UL, 0x3UL)
+        (vle32, 0x9cUL, so, 0x38UL, 0x5UL)
+        (vle32, 0xffffff9cUL, so, 0xffffff38UL, 0x9UL)
+        (vle32, 0x80000000UL, so, 0x7fffff9cUL, 0x5UL)
+        (vle64, 0x64UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x64UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x9cUL, 0UL, 0x38UL, 0x4UL)
+        (vle64, w1, 0UL, w2, 0x8UL)
+        (vle64, 0x80000000UL, 0UL, 0x7fffff9cUL, 0x4UL)
+        (vle64, 0x64UL, so, 0UL, 0x3UL)
+        (vle64, 0x64UL, so, 0UL, 0x3UL)
+        (vle64, 0x9cUL, so, 0x38UL, 0x5UL)
+        (vle64, w1, so, w2, 0x9UL)
+        (vle64, 0x80000000UL, so, 0x7fffff9cUL, 0x5UL) ] do
+      let given = [ R5, r5; XER, xer ]
+      let wanted = [ R5, r5'; XER, xer; CR0, cr0' ]
+      check isa "73e58f9c" given wanted
+
+  /// <summary>
+  /// e_add2is RA,SI puts RA + (SI || 0x0000), the 32-bit number SI x 65536
+  /// sign-extended, into RA. CR0 is left alone. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADD2IS adds a shifted 16-bit immediate``() =
+    (* e_add2is r6,100 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789b20def0UL
+    for isa, r6, r6' in
+      [ (vle32, 0x12345678UL, 0x12985678UL)
+        (vle32, 0xffff0000UL, 0x630000UL)
+        (vle32, 0x7fff0000UL, 0x80630000UL)
+        (vle32, 0x9abcdef0UL, 0x9b20def0UL)
+        (vle64, 0x12345678UL, 0x12985678UL)
+        (vle64, 0xffff0000UL, 0x100630000UL)
+        (vle64, 0x7fff0000UL, 0x80630000UL)
+        (vle64, w1, w2) ] do
+      let given = [ R6, r6 ]
+      let wanted = [ R6, r6' ]
+      check isa "70069064" given wanted
+    (* e_add2is r6,-1 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abbdef0UL
+    for isa, r6, r6' in
+      [ (vle32, 0x12345678UL, 0x12335678UL)
+        (vle32, 0xffff0000UL, 0xfffe0000UL)
+        (vle32, 0x7fff0000UL, 0x7ffe0000UL)
+        (vle32, 0x9abcdef0UL, 0x9abbdef0UL)
+        (vle64, 0x12345678UL, 0x12335678UL)
+        (vle64, 0xffff0000UL, 0xfffe0000UL)
+        (vle64, 0x7fff0000UL, 0x7ffe0000UL)
+        (vle64, w1, w2) ] do
+      let given = [ R6, r6 ]
+      let wanted = [ R6, r6' ]
+      check isa "73e697ff" given wanted
+
+  /// <summary>
+  /// e_and2i. RT,UI puts RT & UI, with UI zero-extended, into RT and records it
+  /// in CR0 as e_add2i. does. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_AND2I. ANDs with a 16-bit immediate and records``() =
+    (* e_and2i. r7,4660 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r7, xer, r7', cr0' in
+      [ (vle32, 0x12345678UL, 0UL, 0x1230UL, 0x4UL)
+        (vle32, 0xffff0000UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0xffffffffUL, 0UL, 0x1234UL, 0x4UL)
+        (vle32, 0x1234UL, 0UL, 0x1234UL, 0x4UL)
+        (vle32, 0x12345678UL, so, 0x1230UL, 0x5UL)
+        (vle32, 0xffff0000UL, so, 0UL, 0x3UL)
+        (vle32, 0xffffffffUL, so, 0x1234UL, 0x5UL)
+        (vle32, 0x1234UL, so, 0x1234UL, 0x5UL)
+        (vle64, 0x12345678UL, 0UL, 0x1230UL, 0x4UL)
+        (vle64, 0xffff0000UL, 0UL, 0UL, 0x2UL)
+        (vle64, w1, 0UL, 0x1234UL, 0x4UL)
+        (vle64, 0x1234UL, 0UL, 0x1234UL, 0x4UL)
+        (vle64, 0x12345678UL, so, 0x1230UL, 0x5UL)
+        (vle64, 0xffff0000UL, so, 0UL, 0x3UL)
+        (vle64, w1, so, 0x1234UL, 0x5UL)
+        (vle64, 0x1234UL, so, 0x1234UL, 0x5UL) ] do
+      let given = [ R7, r7; XER, xer ]
+      let wanted = [ R7, r7'; XER, xer; CR0, cr0' ]
+      check isa "70e2ca34" given wanted
+
+  /// <summary>
+  /// e_and2is. RT,UI puts RT & (UI || 0x0000), the 32-bit number UI x 65536
+  /// zero-extended, into RT and records it in CR0 as e_add2i. does. (Book VLE
+  /// 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_AND2IS. ANDs a shifted immediate and records``() =
+    (* e_and2is. r7,4660 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r7, xer, r7', cr0' in
+      [ (vle32, 0x12345678UL, 0UL, 0x12340000UL, 0x4UL)
+        (vle32, 0xffffffffUL, 0UL, 0x12340000UL, 0x4UL)
+        (vle32, 0xffffffffUL, 0UL, 0x12340000UL, 0x4UL)
+        (vle32, 0x1234UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x12345678UL, so, 0x12340000UL, 0x5UL)
+        (vle32, 0xffffffffUL, so, 0x12340000UL, 0x5UL)
+        (vle32, 0xffffffffUL, so, 0x12340000UL, 0x5UL)
+        (vle32, 0x1234UL, so, 0UL, 0x3UL)
+        (vle64, 0x12345678UL, 0UL, 0x12340000UL, 0x4UL)
+        (vle64, 0xffffffffUL, 0UL, 0x12340000UL, 0x4UL)
+        (vle64, w1, 0UL, 0x12340000UL, 0x4UL)
+        (vle64, 0x1234UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x12345678UL, so, 0x12340000UL, 0x5UL)
+        (vle64, 0xffffffffUL, so, 0x12340000UL, 0x5UL)
+        (vle64, w1, so, 0x12340000UL, 0x5UL)
+        (vle64, 0x1234UL, so, 0UL, 0x3UL) ] do
+      let given = [ R7, r7; XER, xer ]
+      let wanted = [ R7, r7'; XER, xer; CR0, cr0' ]
+      check isa "70e2ea34" given wanted
+
+  /// <summary>
+  /// e_or2i RT,UI puts RT | UI, with UI zero-extended, into RT. CR0 is left
+  /// alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_OR2I ORs with a 16-bit immediate``() =
+    (* e_or2i r7,4660 *)
+    let w1 = 0x123456789abc0000UL
+    let w2 = 0x123456789abc1234UL
+    for isa, r7, r7' in
+      [ (vle32, 0x12340000UL, 0x12341234UL)
+        (vle32, 0xffff0000UL, 0xffff1234UL)
+        (vle32, 0UL, 0x1234UL)
+        (vle32, 0x9abc0000UL, 0x9abc1234UL)
+        (vle64, 0x12340000UL, 0x12341234UL)
+        (vle64, 0xffff0000UL, 0xffff1234UL)
+        (vle64, 0UL, 0x1234UL)
+        (vle64, w1, w2) ] do
+      let given = [ R7, r7 ]
+      let wanted = [ R7, r7' ]
+      check isa "70e2c234" given wanted
+
+  /// <summary>
+  /// e_or2is RT,UI puts RT | (UI || 0x0000), the 32-bit number UI x 65536 zero-
+  /// extended, into RT. CR0 is left alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_OR2IS ORs with a shifted 16-bit immediate``() =
+    (* e_or2is r7,4660 *)
+    let w1 = 0x123456789abc0000UL
+    for isa, r7, r7' in
+      [ (vle32, 0x1234UL, 0x12341234UL)
+        (vle32, 0xffffUL, 0x1234ffffUL)
+        (vle32, 0UL, 0x12340000UL)
+        (vle32, 0x9abc0000UL, 0x9abc0000UL)
+        (vle64, 0x1234UL, 0x12341234UL)
+        (vle64, 0xffffUL, 0x1234ffffUL)
+        (vle64, 0UL, 0x12340000UL)
+        (vle64, w1, w1) ] do
+      let given = [ R7, r7 ]
+      let wanted = [ R7, r7' ]
+      check isa "70e2d234" given wanted
+
+  /// <summary>
+  /// e_li RT,LI20 puts LI20, sign-extended, into RT, whatever it held. The
+  /// samples are -100000, 100 and 524287. (Book VLE 5.9) It is li for a number
+  /// of 16 bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LI loads a 20-bit immediate``() =
+    (* e_li r3,-100000 *)
+    let w1 = 0xdeadbeef12345678UL
+    let w2 = 0xfffffffffffe7960UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0xfffe7960UL)
+        (vle64, w1, w2) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "706f7160" given wanted
+    (* e_li r3,100 *)
+    let w1 = 0xdeadbeef12345678UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x64UL)
+        (vle64, w1, 0x64UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "70600064" given wanted
+    for isa in vleTargets do sameAs isa "70600064" "38600064"
+    (* e_li r31,524287 *)
+    let w1 = 0xdeadbeef12345678UL
+    for isa, r31, r31' in
+      [ (vle32, 0x12345678UL, 0x7ffffUL)
+        (vle64, w1, 0x7ffffUL) ] do
+      let given = [ R31, r31 ]
+      let wanted = [ R31, r31' ]
+      check isa "73ff3fff" given wanted
+
+  /// <summary>
+  /// e_lis RT,UI puts the 32-bit number UI x 65536, zero-extended, into RT,
+  /// whatever it held. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LIS loads a shifted 16-bit immediate``() =
+    (* e_lis r3,4660 *)
+    let w1 = 0xdeadbeef12345678UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x12340000UL)
+        (vle64, w1, 0x12340000UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "7062e234" given wanted
+
+  /// <summary>
+  /// e_mull2i RA,SI puts the low part of RA x SI, the product as signed numbers
+  /// with SI sign-extended, into RA. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_MULL2I multiplies by a 16-bit immediate``() =
+    (* e_mull2i r4,-5 *)
+    let w1 = 0xffffffffa4fa4fa8UL
+    let w2 = 0xfffffffb00000005UL
+    let w3 = 0xfffffffd80000005UL
+    let w4 = 0x123456789abcdef0UL
+    let w5 = 0xa4fa4fa4fa4fa550UL
+    let w6 = 0xfffffffffffffff1UL
+    for isa, r4, r4' in
+      [ (vle32, 0x12345678UL, 0xa4fa4fa8UL)
+        (vle32, 0xffffffffUL, 0x5UL)
+        (vle32, 0x7fffffffUL, 0x80000005UL)
+        (vle32, 0x9abcdef0UL, 0xfa4fa550UL)
+        (vle32, 0x3UL, 0xfffffff1UL)
+        (vle64, 0x12345678UL, w1)
+        (vle64, 0xffffffffUL, w2)
+        (vle64, 0x7fffffffUL, w3)
+        (vle64, w4, w5)
+        (vle64, 0x3UL, w6) ] do
+      let given = [ R4, r4 ]
+      let wanted = [ R4, r4' ]
+      check isa "73e4a7fb" given wanted
+    for isa in vleTargets do sameAs isa "73e4a7fb" "1c84fffb"
+
+  /// <summary>
+  /// e_cmp16i RA,SI compares the low word of RA with SI, sign-extended to 32
+  /// bits, as signed numbers and puts the result in CR0: LT, GT or EQ, and SO
+  /// copied from XER[SO]. The sample compares with -5. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMP16I compares with a 16-bit immediate``() =
+    (* e_cmp16i r4,-5 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r4, xer, cr0' in
+      [ (vle32, 0xfffffffbUL, 0UL, 0x2UL)
+        (vle32, 0xfffffffcUL, 0UL, 0x4UL)
+        (vle32, 0xfffffffaUL, 0UL, 0x8UL)
+        (vle32, 0x5UL, 0UL, 0x4UL)
+        (vle32, 0xfffffffbUL, 0UL, 0x2UL)
+        (vle32, 0x7fffffffUL, 0UL, 0x4UL)
+        (vle32, 0x80000000UL, 0UL, 0x8UL)
+        (vle32, 0xffffffffUL, 0UL, 0x4UL)
+        (vle32, 0xfffffffbUL, so, 0x3UL)
+        (vle32, 0xfffffffcUL, so, 0x5UL)
+        (vle32, 0xfffffffaUL, so, 0x9UL)
+        (vle32, 0x5UL, so, 0x5UL)
+        (vle32, 0xfffffffbUL, so, 0x3UL)
+        (vle32, 0x7fffffffUL, so, 0x5UL)
+        (vle32, 0x80000000UL, so, 0x9UL)
+        (vle32, 0xffffffffUL, so, 0x5UL)
+        (vle64, 0xfffffffbUL, 0UL, 0x2UL)
+        (vle64, 0xfffffffcUL, 0UL, 0x4UL)
+        (vle64, 0xfffffffaUL, 0UL, 0x8UL)
+        (vle64, 0x5UL, 0UL, 0x4UL)
+        (vle64, 0x1fffffffbUL, 0UL, 0x2UL)
+        (vle64, 0x7fffffffUL, 0UL, 0x4UL)
+        (vle64, 0x80000000UL, 0UL, 0x8UL)
+        (vle64, w1, 0UL, 0x4UL)
+        (vle64, 0xfffffffbUL, so, 0x3UL)
+        (vle64, 0xfffffffcUL, so, 0x5UL)
+        (vle64, 0xfffffffaUL, so, 0x9UL)
+        (vle64, 0x5UL, so, 0x5UL)
+        (vle64, 0x1fffffffbUL, so, 0x3UL)
+        (vle64, 0x7fffffffUL, so, 0x5UL)
+        (vle64, 0x80000000UL, so, 0x9UL)
+        (vle64, w1, so, 0x5UL) ] do
+      let given = [ R4, r4; XER, xer ]
+      let wanted = [ R4, r4; XER, xer; CR0, cr0' ]
+      check isa "73e49ffb" given wanted
+    for isa in vleTargets do sameAs isa "73e49ffb" "2c04fffb"
+
+  /// <summary>
+  /// e_cmph16i RA,SI compares the low halfword of RA with SI as signed numbers
+  /// and puts the result in CR0: LT, GT or EQ, and SO copied from XER[SO]. The
+  /// sample compares with -5. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPH16I compares a halfword with an immediate``() =
+    (* e_cmph16i r4,-5 *)
+    for isa, r4, xer, cr0' in
+      [ (vle32, 0xfffbUL, 0UL, 0x2UL)
+        (vle32, 0xfffcUL, 0UL, 0x4UL)
+        (vle32, 0xfffaUL, 0UL, 0x8UL)
+        (vle32, 0x5UL, 0UL, 0x4UL)
+        (vle32, 0x1fffbUL, 0UL, 0x2UL)
+        (vle32, 0x7fffUL, 0UL, 0x4UL)
+        (vle32, 0x12340000UL, 0UL, 0x4UL)
+        (vle32, 0xfffbUL, so, 0x3UL)
+        (vle32, 0xfffcUL, so, 0x5UL)
+        (vle32, 0xfffaUL, so, 0x9UL)
+        (vle32, 0x5UL, so, 0x5UL)
+        (vle32, 0x1fffbUL, so, 0x3UL)
+        (vle32, 0x7fffUL, so, 0x5UL)
+        (vle32, 0x12340000UL, so, 0x5UL)
+        (vle64, 0xfffbUL, 0UL, 0x2UL)
+        (vle64, 0xfffcUL, 0UL, 0x4UL)
+        (vle64, 0xfffaUL, 0UL, 0x8UL)
+        (vle64, 0x5UL, 0UL, 0x4UL)
+        (vle64, 0x1fffbUL, 0UL, 0x2UL)
+        (vle64, 0x7fffUL, 0UL, 0x4UL)
+        (vle64, 0x12340000UL, 0UL, 0x4UL)
+        (vle64, 0xfffbUL, so, 0x3UL)
+        (vle64, 0xfffcUL, so, 0x5UL)
+        (vle64, 0xfffaUL, so, 0x9UL)
+        (vle64, 0x5UL, so, 0x5UL)
+        (vle64, 0x1fffbUL, so, 0x3UL)
+        (vle64, 0x7fffUL, so, 0x5UL)
+        (vle64, 0x12340000UL, so, 0x5UL) ] do
+      let given = [ R4, r4; XER, xer ]
+      let wanted = [ R4, r4; XER, xer; CR0, cr0' ]
+      check isa "73e4b7fb" given wanted
+
+  /// <summary>
+  /// e_cmphl16i RA,UI compares the low halfword of RA with UI as unsigned
+  /// numbers and puts the result in CR0 as e_cmph16i does. The sample compares
+  /// with 0x8005. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPHL16I compares a halfword, unsigned``() =
+    (* e_cmphl16i r4,32773 *)
+    for isa, r4, xer, cr0' in
+      [ (vle32, 0x8005UL, 0UL, 0x2UL)
+        (vle32, 0x8004UL, 0UL, 0x8UL)
+        (vle32, 0x8006UL, 0UL, 0x4UL)
+        (vle32, 0xffffUL, 0UL, 0x4UL)
+        (vle32, 0x18005UL, 0UL, 0x2UL)
+        (vle32, 0x7fffUL, 0UL, 0x8UL)
+        (vle32, 0x8005UL, so, 0x3UL)
+        (vle32, 0x8004UL, so, 0x9UL)
+        (vle32, 0x8006UL, so, 0x5UL)
+        (vle32, 0xffffUL, so, 0x5UL)
+        (vle32, 0x18005UL, so, 0x3UL)
+        (vle32, 0x7fffUL, so, 0x9UL)
+        (vle64, 0x8005UL, 0UL, 0x2UL)
+        (vle64, 0x8004UL, 0UL, 0x8UL)
+        (vle64, 0x8006UL, 0UL, 0x4UL)
+        (vle64, 0xffffUL, 0UL, 0x4UL)
+        (vle64, 0x18005UL, 0UL, 0x2UL)
+        (vle64, 0x7fffUL, 0UL, 0x8UL)
+        (vle64, 0x8005UL, so, 0x3UL)
+        (vle64, 0x8004UL, so, 0x9UL)
+        (vle64, 0x8006UL, so, 0x5UL)
+        (vle64, 0xffffUL, so, 0x5UL)
+        (vle64, 0x18005UL, so, 0x3UL)
+        (vle64, 0x7fffUL, so, 0x9UL) ] do
+      let given = [ R4, r4; XER, xer ]
+      let wanted = [ R4, r4; XER, xer; CR0, cr0' ]
+      check isa "7204b805" given wanted
+
+  /// <summary>
+  /// e_cmpl16i RA,UI compares the low word of RA with UI, zero-extended to 32
+  /// bits, as unsigned numbers and puts the result in CR0 as e_cmp16i does. The
+  /// sample compares with 0x8005. (Book VLE 5.6)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPL16I compares with an unsigned immediate``() =
+    (* e_cmpl16i r4,32773 *)
+    for isa, r4, xer, cr0' in
+      [ (vle32, 0x8005UL, 0UL, 0x2UL)
+        (vle32, 0x8004UL, 0UL, 0x8UL)
+        (vle32, 0x8006UL, 0UL, 0x4UL)
+        (vle32, 0xffffffffUL, 0UL, 0x4UL)
+        (vle32, 0x8005UL, 0UL, 0x2UL)
+        (vle32, 0x7fffUL, 0UL, 0x8UL)
+        (vle32, 0x8005UL, so, 0x3UL)
+        (vle32, 0x8004UL, so, 0x9UL)
+        (vle32, 0x8006UL, so, 0x5UL)
+        (vle32, 0xffffffffUL, so, 0x5UL)
+        (vle32, 0x8005UL, so, 0x3UL)
+        (vle32, 0x7fffUL, so, 0x9UL)
+        (vle64, 0x8005UL, 0UL, 0x2UL)
+        (vle64, 0x8004UL, 0UL, 0x8UL)
+        (vle64, 0x8006UL, 0UL, 0x4UL)
+        (vle64, 0xffffffffUL, 0UL, 0x4UL)
+        (vle64, 0x100008005UL, 0UL, 0x2UL)
+        (vle64, 0x7fffUL, 0UL, 0x8UL)
+        (vle64, 0x8005UL, so, 0x3UL)
+        (vle64, 0x8004UL, so, 0x9UL)
+        (vle64, 0x8006UL, so, 0x5UL)
+        (vle64, 0xffffffffUL, so, 0x5UL)
+        (vle64, 0x100008005UL, so, 0x3UL)
+        (vle64, 0x7fffUL, so, 0x9UL) ] do
+      let given = [ R4, r4; XER, xer ]
+      let wanted = [ R4, r4; XER, xer; CR0, cr0' ]
+      check isa "7204a805" given wanted
+    for isa in vleTargets do sameAs isa "7204a805" "28048005"

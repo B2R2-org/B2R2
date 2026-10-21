@@ -7232,3 +7232,99 @@ type VLEParserTests() =
     |> testVLEOn WordSize.Bit32 "18ffac9c"
     E_CMPLI ** [ O.Reg CR3; O.Reg R31; O.Imm 0xffffffffffffff9cUL ]
     |> testVLEOn WordSize.Bit64 "18ffac9c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADD16I (add immediate)``() =
+    E_ADD16I ** [ O.Reg R3; O.Reg R4; O.Imm 0x64UL ]
+    |> testVLE "1c640064"
+    E_ADD16I ** [ O.Reg R31; O.Reg R24; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "1ff8ff9c"
+    E_ADD16I ** [ O.Reg R31; O.Reg R24; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "1ff8ff9c"
+    E_ADD16I ** [ O.Reg R3; O.Reg R0; O.Imm 0x7fffUL ]
+    |> testVLE "1c607fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADD2I. (add immediate, 2 operand, record)``() =
+    E_ADD2Idot ** [ O.Reg R5; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "73e58f9c"
+    E_ADD2Idot ** [ O.Reg R5; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "73e58f9c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADD2IS (add immediate shifted, 2 operand)``() =
+    E_ADD2IS ** [ O.Reg R6; O.Imm 0x64UL ]
+    |> testVLE "70069064"
+    E_ADD2IS ** [ O.Reg R6; O.Imm 0xffffffffUL ]
+    |> testVLEOn WordSize.Bit32 "73e697ff"
+    E_ADD2IS ** [ O.Reg R6; O.Imm 0xffffffffffffffffUL ]
+    |> testVLEOn WordSize.Bit64 "73e697ff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_AND2I. (AND immediate, 2 operand, record)``() =
+    E_AND2Idot ** [ O.Reg R7; O.Imm 0x1234UL ]
+    |> testVLE "70e2ca34"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_AND2IS. (AND shifted immediate and record)``() =
+    E_AND2ISdot ** [ O.Reg R7; O.Imm 0x1234UL ]
+    |> testVLE "70e2ea34"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_OR2I (OR immediate, 2 operand)``() =
+    E_OR2I ** [ O.Reg R7; O.Imm 0x1234UL ]
+    |> testVLE "70e2c234"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_OR2IS (OR immediate shifted, 2 operand)``() =
+    E_OR2IS ** [ O.Reg R7; O.Imm 0x1234UL ]
+    |> testVLE "70e2d234"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LI (load immediate)``() =
+    E_LI ** [ O.Reg R3; O.Imm 0xfffe7960UL ]
+    |> testVLEOn WordSize.Bit32 "706f7160"
+    E_LI ** [ O.Reg R3; O.Imm 0xfffffffffffe7960UL ]
+    |> testVLEOn WordSize.Bit64 "706f7160"
+    E_LI ** [ O.Reg R3; O.Imm 0x64UL ]
+    |> testVLE "70600064"
+    E_LI ** [ O.Reg R31; O.Imm 0x7ffffUL ]
+    |> testVLE "73ff3fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LIS (load immediate shifted)``() =
+    E_LIS ** [ O.Reg R3; O.Imm 0x1234UL ]
+    |> testVLE "7062e234"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_MULL2I (multiply low immediate, 2 operand)``() =
+    E_MULL2I ** [ O.Reg R4; O.Imm 0xfffffffbUL ]
+    |> testVLEOn WordSize.Bit32 "73e4a7fb"
+    E_MULL2I ** [ O.Reg R4; O.Imm 0xfffffffffffffffbUL ]
+    |> testVLEOn WordSize.Bit64 "73e4a7fb"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMP16I (compare immediate word)``() =
+    E_CMP16I ** [ O.Reg R4; O.Imm 0xfffffffbUL ]
+    |> testVLEOn WordSize.Bit32 "73e49ffb"
+    E_CMP16I ** [ O.Reg R4; O.Imm 0xfffffffffffffffbUL ]
+    |> testVLEOn WordSize.Bit64 "73e49ffb"
+    E_CMP16I ** [ O.Reg R4; O.Imm 0x7fffUL ]
+    |> testVLE "71e49fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPH16I (compare halfword immediate)``() =
+    E_CMPH16I ** [ O.Reg R4; O.Imm 0xfffffffbUL ]
+    |> testVLEOn WordSize.Bit32 "73e4b7fb"
+    E_CMPH16I ** [ O.Reg R4; O.Imm 0xfffffffffffffffbUL ]
+    |> testVLEOn WordSize.Bit64 "73e4b7fb"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPHL16I (compare halfword logical immediate)``() =
+    E_CMPHL16I ** [ O.Reg R4; O.Imm 0x8005UL ]
+    |> testVLE "7204b805"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPL16I (compare logical immediate word)``() =
+    E_CMPL16I ** [ O.Reg R4; O.Imm 0x8005UL ]
+    |> testVLE "7204a805"

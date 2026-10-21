@@ -323,6 +323,57 @@ let private parseScaled bitLen bin =
   | 0xEu -> logical (pick Op.E_XORI Op.E_XORIdot)
   | _ -> raise ParsingFailureException
 
+/// e_add16i, the only D-form instruction that adds a signed number: its
+/// immediate is sixteen bits sign-extended to the width of a register.
+let private parseAdd16 bitLen bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let si = Bits.signExtend 16 bitLen (uint64 (Bits.extract bin 15u 0u))
+  struct (Op.E_ADD16I, ThreeOperands(rt, ra, OprImm si))
+
+/// e_li, whose twenty-bit number comes in three pieces: bits 17 to 20 are its
+/// highest, bits 11 to 15 the next, and bits 21 to 31 the rest.
+let private parseLoadImmediate20 bitLen bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let high = Bits.extract bin 14u 11u <<< 16
+  let middle = Bits.extract bin 20u 16u <<< 11
+  let li20 = uint64 (high ||| middle ||| Bits.extract bin 10u 0u)
+  struct (Op.E_LI, TwoOperands(rt, OprImm(Bits.signExtend 20 bitLen li20)))
+
+/// The instructions of primary opcode 28 other than e_li, which take a
+/// sixteen-bit number that sits in two pieces: bits 6 to 10 above bits 21 to 31
+/// in the I16A-form, which names RA, and bits 11 to 15 above them in the
+/// I16L-form, which names RT, where RA's place is the number's.
+let private parseImmediate16 bitLen bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let low = Bits.extract bin 10u 0u
+  let aNumber = uint64 ((Bits.extract bin 25u 21u <<< 11) ||| low)
+  let signedA = OprImm(Bits.signExtend 16 bitLen aNumber)
+  let unsignedA = OprImm aNumber
+  let lNumber = uint64 ((Bits.extract bin 20u 16u <<< 11) ||| low)
+  let unsignedL = OprImm lNumber
+  match Bits.extract bin 15u 11u with
+  | 0x11u -> struct (Op.E_ADD2Idot, TwoOperands(ra, signedA))
+  | 0x12u -> struct (Op.E_ADD2IS, TwoOperands(ra, signedA))
+  | 0x13u -> struct (Op.E_CMP16I, TwoOperands(ra, signedA))
+  | 0x14u -> struct (Op.E_MULL2I, TwoOperands(ra, signedA))
+  | 0x15u -> struct (Op.E_CMPL16I, TwoOperands(ra, unsignedA))
+  | 0x16u -> struct (Op.E_CMPH16I, TwoOperands(ra, signedA))
+  | 0x17u -> struct (Op.E_CMPHL16I, TwoOperands(ra, unsignedA))
+  | 0x18u -> struct (Op.E_OR2I, TwoOperands(rt, unsignedL))
+  | 0x19u -> struct (Op.E_AND2Idot, TwoOperands(rt, unsignedL))
+  | 0x1Au -> struct (Op.E_OR2IS, TwoOperands(rt, unsignedL))
+  | 0x1Cu -> struct (Op.E_LIS, TwoOperands(rt, unsignedL))
+  | 0x1Du -> struct (Op.E_AND2ISdot, TwoOperands(rt, unsignedL))
+  | _ -> raise ParsingFailureException
+
+/// The instructions of primary opcode 28, which bit 16 divides into e_li and
+/// the rest.
+let private parseOpcode28 bitLen bin =
+  if Bits.pick bin 15u = 0u then parseLoadImmediate20 bitLen bin
+  else parseImmediate16 bitLen bin
+
 /// The instructions of primary opcode 6: the D8-form, whose byte at bits 16 to
 /// 23 starts with zeros, and the SCI8-form, whose four bits at 16 to 19 do not.
 let private parseOpcode6 bitLen bin =
@@ -334,6 +385,8 @@ let private parse32 bitLen (bin: uint32) =
   match bin >>> 26 with
   | 0x1Eu -> parseBranch32 bitLen bin
   | 0x06u -> parseOpcode6 bitLen bin
+  | 0x07u -> parseAdd16 bitLen bin
+  | 0x1Cu -> parseOpcode28 bitLen bin
   | 0x0Cu -> parseAccess32 Op.E_LBZ (disp16 bin) bin
   | 0x0Du -> parseAccess32 Op.E_STB (disp16 bin) bin
   | 0x0Eu -> parseAccess32 Op.E_LHA (disp16 bin) bin
