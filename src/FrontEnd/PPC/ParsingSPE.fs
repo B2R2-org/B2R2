@@ -116,6 +116,14 @@ let private parseWord bin =
   | 514u -> rbUi Op.EVADDIW bin
   | 516u -> rrr Op.EVSUBFW bin
   | 518u -> uiRb Op.EVSUBIFW bin
+  | 520u -> rr Op.EVABS bin
+  | 521u -> rr Op.EVNEG bin
+  | 522u -> rr Op.EVEXTSB bin
+  | 523u -> rr Op.EVEXTSH bin
+  | 524u -> rr Op.EVRNDW bin
+  | 525u -> rr Op.EVCNTLZW bin
+  | 526u -> rr Op.EVCNTLSW bin
+  | 527u -> rrr Op.BRINC bin
   | 529u -> rrr Op.EVAND bin
   | 530u -> rrr Op.EVANDC bin
   | 534u -> rrr Op.EVXOR bin
@@ -124,6 +132,20 @@ let private parseWord bin =
   | 537u -> rrr Op.EVEQV bin
   | 539u -> rrr Op.EVORC bin
   | 542u -> rrr Op.EVNAND bin
+  | 544u -> rrr Op.EVSRWU bin
+  | 545u -> rrr Op.EVSRWS bin
+  | 546u -> raUi Op.EVSRWIU bin
+  | 547u -> raUi Op.EVSRWIS bin
+  | 548u -> rrr Op.EVSLW bin
+  | 550u -> raUi Op.EVSLWI bin
+  | 552u -> rrr Op.EVRLW bin
+  | 553u -> si Op.EVSPLATI bin
+  | 554u -> raUi Op.EVRLWI bin
+  | 555u -> si Op.EVSPLATFI bin
+  | 556u -> rrr Op.EVMERGEHI bin
+  | 557u -> rrr Op.EVMERGELO bin
+  | 558u -> rrr Op.EVMERGEHILO bin
+  | 559u -> rrr Op.EVMERGELOHI bin
   | _ -> raise ParsingFailureException
 
 /// Whether the categories give primary opcode 4 to the Signal Processing
