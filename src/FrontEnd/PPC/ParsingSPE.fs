@@ -203,6 +203,24 @@ let private parseWord bin =
   | 1068u -> rrr Op.EVMHOUMIA bin
   | 1069u -> rrr Op.EVMHOSMIA bin
   | 1071u -> rrr Op.EVMHOSMFA bin
+  | 1095u -> rrr Op.EVMWHSSF bin
+  | 1096u -> rrr Op.EVMWLUMI bin
+  | 1100u -> rrr Op.EVMWHUMI bin
+  | 1101u -> rrr Op.EVMWHSMI bin
+  | 1103u -> rrr Op.EVMWHSMF bin
+  | 1107u -> rrr Op.EVMWSSF bin
+  | 1112u -> rrr Op.EVMWUMI bin
+  | 1113u -> rrr Op.EVMWSMI bin
+  | 1115u -> rrr Op.EVMWSMF bin
+  | 1127u -> rrr Op.EVMWHSSFA bin
+  | 1128u -> rrr Op.EVMWLUMIA bin
+  | 1132u -> rrr Op.EVMWHUMIA bin
+  | 1133u -> rrr Op.EVMWHSMIA bin
+  | 1135u -> rrr Op.EVMWHSMFA bin
+  | 1139u -> rrr Op.EVMWSSFA bin
+  | 1144u -> rrr Op.EVMWUMIA bin
+  | 1145u -> rrr Op.EVMWSMIA bin
+  | 1147u -> rrr Op.EVMWSMFA bin
   | 1280u -> rrr Op.EVMHEUSIAAW bin
   | 1281u -> rrr Op.EVMHESSIAAW bin
   | 1283u -> rrr Op.EVMHESSFAAW bin
@@ -221,6 +239,14 @@ let private parseWord bin =
   | 1324u -> rrr Op.EVMHOGUMIAA bin
   | 1325u -> rrr Op.EVMHOGSMIAA bin
   | 1327u -> rrr Op.EVMHOGSMFAA bin
+  | 1344u -> rrr Op.EVMWLUSIAAW bin
+  | 1345u -> rrr Op.EVMWLSSIAAW bin
+  | 1352u -> rrr Op.EVMWLUMIAAW bin
+  | 1353u -> rrr Op.EVMWLSMIAAW bin
+  | 1363u -> rrr Op.EVMWSSFAA bin
+  | 1368u -> rrr Op.EVMWUMIAA bin
+  | 1369u -> rrr Op.EVMWSMIAA bin
+  | 1371u -> rrr Op.EVMWSMFAA bin
   | 1408u -> rrr Op.EVMHEUSIANW bin
   | 1409u -> rrr Op.EVMHESSIANW bin
   | 1411u -> rrr Op.EVMHESSFANW bin
@@ -239,6 +265,14 @@ let private parseWord bin =
   | 1452u -> rrr Op.EVMHOGUMIAN bin
   | 1453u -> rrr Op.EVMHOGSMIAN bin
   | 1455u -> rrr Op.EVMHOGSMFAN bin
+  | 1472u -> rrr Op.EVMWLUSIANW bin
+  | 1473u -> rrr Op.EVMWLSSIANW bin
+  | 1480u -> rrr Op.EVMWLUMIANW bin
+  | 1481u -> rrr Op.EVMWLSMIANW bin
+  | 1491u -> rrr Op.EVMWSSFAN bin
+  | 1496u -> rrr Op.EVMWUMIAN bin
+  | 1497u -> rrr Op.EVMWSMIAN bin
+  | 1499u -> rrr Op.EVMWSMFAN bin
   | xo when xo >>> 3 = 79u -> sel Op.EVSEL bin
   | _ -> raise ParsingFailureException
 
