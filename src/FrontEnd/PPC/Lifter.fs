@@ -3372,6 +3372,34 @@ let translate (ins: Instruction) bld =
     stwu ins bld
   | Op.E_STMW ->
     stmw ins bld
+  | Op.E_B ->
+    VLELifter.branch ins bld false
+  | Op.E_BL ->
+    VLELifter.branch ins bld true
+  | Op.E_BC ->
+    VLELifter.branchConditional ins bld false
+  | Op.E_BCL ->
+    VLELifter.branchConditional ins bld true
+  | Op.E_SC ->
+    sideEffects ins bld SysCall
+  | Op.E_CRAND ->
+    crand ins bld
+  | Op.E_CRANDC ->
+    crandc ins bld
+  | Op.E_CREQV ->
+    creqv ins bld
+  | Op.E_CRNAND ->
+    crnand ins bld
+  | Op.E_CRNOR ->
+    crnor ins bld
+  | Op.E_CROR ->
+    cror ins bld
+  | Op.E_CRORC ->
+    crorc ins bld
+  | Op.E_CRXOR ->
+    crxor ins bld
+  | Op.E_MCRF ->
+    mcrf ins bld
   (* End of lane L. *)
   | o ->
 #if DEBUG

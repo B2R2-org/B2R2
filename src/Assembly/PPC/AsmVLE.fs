@@ -114,12 +114,15 @@ let private loadImmediate ins =
   | [ Rg x; Im n ] -> 0x4800u ||| (unsigned 7 n <<< 4) ||| gpr4 x
   | _ -> wrongOperands ins
 
-/// The eight bits a 16-bit branch holds where it counts how far away the place
-/// it names is, in halfwords.
-let private distance8 bitLen (ins: AsmInsInfo) target =
+/// The bits a branch holds where it counts how far away the place it names is,
+/// in halfwords.
+let private distanceIn width bitLen (ins: AsmInsInfo) target =
   let distance = signedValue bitLen (target - ins.Address)
-  if distance % 2L = 0L then signed 8 (distance / 2L)
+  if distance % 2L = 0L then signed width (distance / 2L)
   else fail "a branch cannot reach a place that is not a halfword away"
+
+/// The eight bits of a 16-bit branch.
+let private distance8 bitLen ins target = distanceIn 8 bitLen ins target
 
 /// se_b and se_bl, which differ only in the bit that says they link.
 let private branch16 bitLen value ins =
@@ -165,6 +168,47 @@ let private d8Form xo ins =
     ||| signed 8 (int64 disp)
   | _ ->
     wrongOperands ins
+
+/// e_b and e_bl, whose distance is 24 bits of halfwords with the bit that says
+/// they link below it.
+let private branch32 bitLen link ins =
+  match ins.Operands with
+  | [ Im target ] ->
+    0x78000000u ||| (distanceIn 24 bitLen ins target <<< 1) ||| link
+  | _ ->
+    wrongOperands ins
+
+/// e_bc and e_bcl, which name the counter and the bit to test in two bits, the
+/// bit in four, and a distance of 15 bits of halfwords.
+let private conditionalBranch32 bitLen link ins =
+  match ins.Operands with
+  | [ Im bo; Bit bi; Im target ] when bo <= 3UL && bi < 16u ->
+    0x7A000000u ||| (uint32 bo <<< 20) ||| (bi <<< 16) ||| link
+    ||| (distanceIn 15 bitLen ins target <<< 1)
+  | _ ->
+    wrongOperands ins
+
+/// The instructions that combine two bits of the condition register into a
+/// third.
+let private crLogic xo ins =
+  match ins.Operands with
+  | [ Bit d; Bit a; Bit b ] ->
+    0x7C000000u ||| (d <<< 21) ||| (a <<< 16) ||| (b <<< 11) ||| (xo <<< 1)
+  | _ ->
+    wrongOperands ins
+
+/// e_mcrf, which moves one field of the condition register to another.
+let private moveField ins =
+  match ins.Operands with
+  | [ Rg d; Rg s ] -> 0x7C000020u ||| (crf d <<< 23) ||| (crf s <<< 18)
+  | _ -> wrongOperands ins
+
+/// e_sc, which says the level of its call after its name unless it is zero.
+let private systemCall ins =
+  match ins.Operands with
+  | [] -> 0x7C000048u
+  | [ Im level ] -> 0x7C000048u ||| (unsigned 5 level <<< 11)
+  | _ -> wrongOperands ins
 
 /// The instructions of Variable Length Encoding, by what they are called.
 let vleEncoders bitLen =
@@ -242,4 +286,18 @@ let vleEncoders bitLen =
     Op.E_STWU, d8Form 0x06u
     Op.E_LMW, d8Form 0x08u
     Op.E_STMW, d8Form 0x09u
+    Op.E_B, branch32 bitLen 0u
+    Op.E_BL, branch32 bitLen 1u
+    Op.E_BC, conditionalBranch32 bitLen 0u
+    Op.E_BCL, conditionalBranch32 bitLen 1u
+    Op.E_CRNOR, crLogic 33u
+    Op.E_CRANDC, crLogic 129u
+    Op.E_CRXOR, crLogic 193u
+    Op.E_CRNAND, crLogic 225u
+    Op.E_CRAND, crLogic 257u
+    Op.E_CREQV, crLogic 289u
+    Op.E_CRORC, crLogic 417u
+    Op.E_CROR, crLogic 449u
+    Op.E_MCRF, moveField
+    Op.E_SC, systemCall
     Op.SE_LI, loadImmediate ]
