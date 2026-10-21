@@ -4711,3 +4711,15 @@ type LegacyParserTests() =
   member _.``[PPC] MULLHWU. (legacy halfword multiply)``() =
     MULLHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testLegacyMultiply "10a63b11"
+
+  [<TestMethod>]
+  member _.``[PPC] DLMZB (determine leftmost zero byte)``() =
+    "7cc5389c"
+    ++ (DLMZB ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] DLMZB. (determine leftmost zero byte)``() =
+    "7cc5389d"
+    ++ (DLMZBdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget

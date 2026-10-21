@@ -95,6 +95,17 @@ let private multiplyAccumulateEncoders () =
       accumulate 494u
         (Op.NMACLHWS, Op.NMACLHWSdot) (Op.NMACLHWSO, Op.NMACLHWSOdot) ]
 
+/// An "rA, rS, rB" in primary opcode 31, its eleven low bits given whole.
+let private rasb rest ins =
+  match ins.Operands with
+  | [ Rg a; Rg s; Rg b ] -> word 31u (gpr s) (gpr a) (gpr b) rest
+  | _ -> wrongOperands ins
+
+/// The Legacy Move Assist instructions.
+let private moveAssistEncoders () =
+  [ Op.DLMZB, rasb (78u <<< 1)
+    Op.DLMZBdot, rasb ((78u <<< 1) ||| 1u) ]
+
 /// Every instruction of the categories Power ISA 3.1 dropped.
 let legacyEncoders () =
-  multiplyAccumulateEncoders ()
+  multiplyAccumulateEncoders () @ moveAssistEncoders ()

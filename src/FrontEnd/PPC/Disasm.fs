@@ -1629,6 +1629,8 @@ let opCodeToString = function
   | Op.NMACLHWSOdot -> "nmaclhwso."
   | Op.NMACLHWSdot -> "nmaclhws."
   | Op.NMACLHWdot -> "nmaclhw."
+  | Op.DLMZB -> "dlmzb"
+  | Op.DLMZBdot -> "dlmzb."
   | _ -> Terminator.impossible ()
 
 let condToString = function

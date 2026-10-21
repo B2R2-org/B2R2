@@ -27419,6 +27419,38 @@ type LegacyLifterTests() =
         Assert.AreEqual(box xerAfter, box (after XER), case)
         Assert.AreEqual(box field, box (cr0 after), case)
 
+  /// The operand sets every dlmzb runs over: rS, rB and XER. They are the
+  /// oracle's seeds: no null byte; a null as the first, third and fourth byte
+  /// of rS and as the second, third and fourth byte of rB; every byte null;
+  /// the byte count of XER already set; the first byte of each word null.
+  let dlmzbSeeds =
+    [ 0x11223344UL, 0x55667788UL, 0x0UL
+      0x112233UL, 0x44556677UL, 0xe0000000UL
+      0x11220033UL, 0x44556677UL, 0x20000000UL
+      0x11223300UL, 0x44556677UL, 0x80000000UL
+      0x11223344UL, 0x55006677UL, 0x40000000UL
+      0x11223344UL, 0x55660077UL, 0x0UL
+      0x11223344UL, 0x55667700UL, 0x20000000UL
+      0x0UL, 0x0UL, 0xa0000000UL
+      0x11223344UL, 0x55667788UL, 0xe000007fUL
+      0xffUL, 0xff000000UL, 0xfff3ffffUL ]
+
+  /// Runs a dlmzb, rA r5, rS r6, rB r7, over each operand set on every
+  /// target, CR starting clear, and asserts what each outcome says: rA, XER and
+  /// CR0. On a 64-bit processor the high words of rS and rB hold values the
+  /// manual says are not read.
+  let checkDlmzb hex outcomes =
+    for isa in multiplyTargets do
+      let high =
+        if isa.WordSize = WordSize.Bit64 then 0xdeadbeef00000000UL else 0UL
+      for (rs, rb, xer), (ra, xerAfter, field) in
+        List.zip dlmzbSeeds outcomes do
+        let after = run isa hex [ R6, high ||| rs; R7, high ||| rb; XER, xer ]
+        let case = $"{hex} {rs:x} {rb:x} {xer:x} {isa}"
+        Assert.AreEqual(box ra, box (after R5), case)
+        Assert.AreEqual(box xerAfter, box (after XER), case)
+        Assert.AreEqual(box field, box (cr0 after), case)
+
   /// <summary>
   /// macchw rT, rA, rB adds the signed product of rA's low halfword and rB's
   /// high one to rT, the result wrapping at 32 bits. qemu-ppc -cpu 440epx
@@ -29006,3 +29038,44 @@ type LegacyLifterTests() =
         0xffffUL, 0x80000000UL, 0x5UL
         0x0UL, 0xc0000000UL, 0x3UL
         0xffffUL, 0x40000000UL, 0x4UL ]
+
+  /// <summary>
+  /// dlmzb rA, rS, rB puts the number of the leftmost null byte of the low
+  /// words of rS and rB, from 1, or 8 where there is none, into rA and into
+  /// the seven low bits of XER. The expected values are what qemu-ppc -cpu
+  /// 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DLMZB finds the leftmost null byte``() =
+    (* dlmzb r5, r6, r7 *)
+    checkDlmzb "7cc5389c"
+      [ 0x8UL, 0x8UL, 0x0UL
+        0x1UL, 0xe0000001UL, 0x0UL
+        0x3UL, 0x20000003UL, 0x0UL
+        0x4UL, 0x80000004UL, 0x0UL
+        0x6UL, 0x40000006UL, 0x0UL
+        0x7UL, 0x7UL, 0x0UL
+        0x8UL, 0x20000008UL, 0x0UL
+        0x1UL, 0xa0000001UL, 0x0UL
+        0x8UL, 0xe0000008UL, 0x0UL
+        0x1UL, 0xfff3ff81UL, 0x0UL ]
+
+  /// <summary>
+  /// dlmzb. rA, rS, rB does the same and sets CR0: LT where the leftmost null
+  /// byte is in rB, GT where it is in rS, EQ where there is none, and SO from
+  /// XER. The expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DLMZB. finds the leftmost null byte``() =
+    (* dlmzb. r5, r6, r7 *)
+    checkDlmzb "7cc5389d"
+      [ 0x8UL, 0x8UL, 0x2UL
+        0x1UL, 0xe0000001UL, 0x5UL
+        0x3UL, 0x20000003UL, 0x4UL
+        0x4UL, 0x80000004UL, 0x5UL
+        0x6UL, 0x40000006UL, 0x8UL
+        0x7UL, 0x7UL, 0x8UL
+        0x8UL, 0x20000008UL, 0x8UL
+        0x1UL, 0xa0000001UL, 0x5UL
+        0x8UL, 0xe0000008UL, 0x3UL
+        0x1UL, 0xfff3ff81UL, 0x5UL ]
