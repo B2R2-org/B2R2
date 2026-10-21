@@ -93,7 +93,7 @@ module ArchSupport =
     | SH4 ->
       SH4.Parser(reader) :> IInstructionParsable
     | PPC ->
-      PPC.Parser(isa.WordSize, reader) :> IInstructionParsable
+      PPC.Parser(isa, reader) :> IInstructionParsable
     | RISCV ->
       RISCV.Parser(isa, reader) :> IInstructionParsable
     | SPARC ->

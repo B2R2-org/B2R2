@@ -32,6 +32,7 @@ open B2R2.Assembly.PPC.AsmFloat
 open B2R2.Assembly.PPC.AsmVector
 open B2R2.Assembly.PPC.AsmVMX
 open B2R2.Assembly.PPC.AsmVSX
+open B2R2.Assembly.PPC.AsmLegacy
 
 type UserState =
   { /// Label string to the index of the instruction it marks. The index starts
@@ -61,7 +62,8 @@ let buildEncoderTable bitLen =
     floatEncoders ()
     vectorEncoders ()
     vmxEncoders ()
-    vsxEncoders () ]
+    vsxEncoders ()
+    legacyEncoders () ]
   |> List.concat
   |> Map.ofList
 

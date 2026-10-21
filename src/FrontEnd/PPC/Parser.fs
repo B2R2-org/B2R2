@@ -30,8 +30,9 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for PPC instructions. The word size selects the PowerPC
 /// variant, which decides both the width of a register and whether the 64-bit
-/// forms (ld/std, the rotate-doubleword family, and so on) are recognized.
-type Parser(wordSize: WordSize, reader) =
+/// forms (ld/std, the rotate-doubleword family, and so on) are recognized; the
+/// categories decide how the encodings two categories share are read.
+type Parser(wordSize: WordSize, category: Category, reader: IBinReader) =
 
   let rt = WordSize.toRegType wordSize
 
@@ -39,6 +40,14 @@ type Parser(wordSize: WordSize, reader) =
     { new ILiftable with
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
+
+  /// A parser for the server processors' reading of every encoding.
+  new(wordSize: WordSize, reader: IBinReader) =
+    Parser(wordSize, Category.Server, reader)
+
+  /// A parser for the word size and the categories a PowerPC ISA names.
+  new(isa: ISA, reader: IBinReader) =
+    Parser(isa.WordSize, Category.ofISA isa, reader)
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
@@ -49,5 +58,5 @@ type Parser(wordSize: WordSize, reader) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr) =
-      try ParsingMain.parse lifter span reader addr rt :> IInstruction
+      try ParsingMain.parse lifter category span reader addr rt :> IInstruction
       with e when not (Terminator.isCritical e) -> raise ParsingFailureException

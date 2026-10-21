@@ -2721,6 +2721,9 @@ let translate (ins: Instruction) bld =
     setbc ins bld true false
   | Op.SETNBCR ->
     setbc ins bld true true
+  (* Lane E: the categories Power ISA 2.07B has and 3.1 dropped. *)
+  | o when LegacyLifter.lifts o ->
+    LegacyLifter.translate ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o

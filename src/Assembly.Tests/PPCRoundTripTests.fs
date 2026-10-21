@@ -230,6 +230,36 @@ type PPCRoundTripTests() =
       "These instructions no longer encode where the source is 64-bit."
     )
 
+  /// <summary>
+  /// Checks the same of the encodings the categories of an embedded processor
+  /// read differently from a server processor, such as primary opcode 4, which
+  /// the Legacy Integer Multiply-Accumulate category takes from the vector
+  /// facility. Each reading is a processor of its own, so each is swept with a
+  /// parser reading its categories, at both word sizes. A category that
+  /// another lane adds joins the list.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every instruction of the embedded categories encodes``() =
+    let readings = [ Category.LegacyIntegerMultiplyAccumulate ]
+    let reader = BinReader.Init Endian.Little
+    let broken =
+      [ for category in readings do
+          for wordSize, assembler in
+            [ WordSize.Bit32, assembler32; WordSize.Bit64, assembler64 ] do
+            let parser =
+              Parser(wordSize, category, reader) :> IInstructionParsable
+            for probe in PPCSweep.categoryProbes wordSize category do
+              yield brokenSource assembler parser probe.Text ]
+      |> List.choose id
+      |> List.distinct
+      |> List.sort
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These instructions of the embedded categories do not encode."
+    )
+
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
     let wrong =

@@ -28,8 +28,11 @@
     <Compile Include="VSXConvert.fs" />
     <Compile Include="VSXQuad.fs" />
     <Compile Include="VSXMatrix.fs" />
+    <Compile Include="LegacyLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
+    <Compile Include="Category.fs" />
+    <Compile Include="ParsingLegacy.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
