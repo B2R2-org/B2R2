@@ -267,10 +267,41 @@ let private parseSystemCall bin =
   | 0u -> struct (Op.E_SC, NoOperand)
   | elev -> struct (Op.E_SC, OneOperand(OprImm(uint64 elev)))
 
+/// An X-form rotate or shift, with RA before RS and a register or immediate.
+let private parseRotate immediate plain dot bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let n = Bits.extract bin 15u 11u
+  let shift = if immediate then OprImm(uint64 n) else getRegister n |> OprReg
+  let op = if Bits.pick bin 0u = 0u then plain else dot
+  struct (op, ThreeOperands(ra, rs, shift))
+
+/// The M-form's two masks, rotation count, and two registers.
+let private parseMasked bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let imm hi lo = Bits.extract bin hi lo |> uint64 |> OprImm
+  let op = if Bits.pick bin 0u = 0u then Op.E_RLWIMI else Op.E_RLWINM
+  struct (op, FiveOperands(ra, rs, imm 15u 11u, imm 10u 6u, imm 5u 1u))
+
+/// The halfword comparisons name a condition field and two GPRs.
+let private parseHalfCompare op bin =
+  if bin &&& 0x00600001u <> 0u then raise ParsingFailureException else ()
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  struct (op, ThreeOperands(bf, ra, rb))
+
 /// The instructions of primary opcode 31 that exist only in VLE, which the ten
 /// bits of the extended opcode tell apart. The rest are the base encoding's.
 let private parseOpcode31 bin =
   match Bits.extract bin 10u 1u with
+  | 14u -> ValueSome(parseHalfCompare Op.E_CMPH bin)
+  | 46u -> ValueSome(parseHalfCompare Op.E_CMPHL bin)
+  | 56u -> ValueSome(parseRotate true Op.E_SLWI Op.E_SLWIdot bin)
+  | 568u -> ValueSome(parseRotate true Op.E_SRWI Op.E_SRWIdot bin)
+  | 280u -> ValueSome(parseRotate false Op.E_RLW Op.E_RLWdot bin)
+  | 312u -> ValueSome(parseRotate true Op.E_RLWI Op.E_RLWIdot bin)
   | 16u -> ValueSome(parseMCRF bin)
   | 33u -> ValueSome(parseCRLogic Op.E_CRNOR bin)
   | 36u -> ValueSome(parseSystemCall bin)
@@ -383,6 +414,7 @@ let private parseOpcode6 bitLen bin =
 /// The instructions that fill two halfwords and are not the base encoding.
 let private parse32 bitLen (bin: uint32) =
   match bin >>> 26 with
+  | 0x1Du -> parseMasked bin
   | 0x1Eu -> parseBranch32 bitLen bin
   | 0x06u -> parseOpcode6 bitLen bin
   | 0x07u -> parseAdd16 bitLen bin
@@ -416,7 +448,7 @@ let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
       | ValueSome(struct (opcode, operands)) ->
         Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)
       | ValueNone ->
-        raise ParsingFailureException
+        ParsingMain.parse lifter category span reader addr rt
     | _ ->
       let struct (opcode, operands) = parse32 (int rt) bin
       Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)

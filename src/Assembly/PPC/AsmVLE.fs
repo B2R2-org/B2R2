@@ -308,6 +308,36 @@ let private loadImmediate20 bitLen ins =
     wrongOperands ins
 
 /// The instructions of Variable Length Encoding, by what they are called.
+/// The X-form rotates or shifts, with a five-bit count or GPR.
+let private rotateForm immediate xo rc ins =
+  match ins.Operands with
+  | [ Rg a; Rg s; count ] ->
+    let n =
+      match immediate, count with
+      | true, Im n -> unsigned 5 n
+      | false, Rg r -> gpr r
+      | _ -> wrongOperands ins
+    word 31u (gpr s) (gpr a) n ((xo <<< 1) ||| rc)
+  | _ ->
+    wrongOperands ins
+
+/// The mask bounds and count of the M-form are five bits each.
+let private maskedForm bit ins =
+  match ins.Operands with
+  | [ Rg a; Rg s; Im sh; Im mb; Im me ] ->
+    let low = (unsigned 5 mb <<< 6) ||| (unsigned 5 me <<< 1) ||| bit
+    word 29u (gpr s) (gpr a) (unsigned 5 sh) low
+  | _ ->
+    wrongOperands ins
+
+/// The condition field and two GPRs of a halfword comparison.
+let private halfCompare xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] ->
+    word 31u (crf f <<< 2) (gpr a) (gpr b) (xo <<< 1)
+  | _ ->
+    wrongOperands ins
+
 let vleEncoders bitLen =
   [ Op.SE_ILLEGAL, cForm 0x0000u
     Op.SE_ISYNC, cForm 0x0001u
@@ -426,4 +456,16 @@ let vleEncoders bitLen =
     Op.E_OR2IS, i16l 0x1Au
     Op.E_LIS, i16l 0x1Cu
     Op.E_AND2ISdot, i16l 0x1Du
+    Op.E_CMPH, halfCompare 14u
+    Op.E_CMPHL, halfCompare 46u
+    Op.E_RLW, rotateForm false 280u 0u
+    Op.E_RLWdot, rotateForm false 280u 1u
+    Op.E_RLWI, rotateForm true 312u 0u
+    Op.E_RLWIdot, rotateForm true 312u 1u
+    Op.E_RLWIMI, maskedForm 0u
+    Op.E_RLWINM, maskedForm 1u
+    Op.E_SLWI, rotateForm true 56u 0u
+    Op.E_SLWIdot, rotateForm true 56u 1u
+    Op.E_SRWI, rotateForm true 568u 0u
+    Op.E_SRWIdot, rotateForm true 568u 1u
     Op.SE_LI, loadImmediate ]

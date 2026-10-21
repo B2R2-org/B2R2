@@ -3458,6 +3458,30 @@ let translate (ins: Instruction) bld =
     VLELifter.compareHalfword ins bld true
   | Op.E_CMPHL16I ->
     VLELifter.compareHalfword ins bld false
+  | Op.E_CMPH ->
+    VLELifter.compareHalfword ins bld true
+  | Op.E_CMPHL ->
+    VLELifter.compareHalfword ins bld false
+  | Op.E_RLW ->
+    VLELifter.rotateWord ins bld false
+  | Op.E_RLWdot ->
+    VLELifter.rotateWord ins bld true
+  | Op.E_RLWI ->
+    VLELifter.rotateWord ins bld false
+  | Op.E_RLWIdot ->
+    VLELifter.rotateWord ins bld true
+  | Op.E_RLWIMI ->
+    rlwimi ins false bld
+  | Op.E_RLWINM ->
+    rlwinm ins false bld
+  | Op.E_SLWI ->
+    VLELifter.shiftWord ins bld true false
+  | Op.E_SLWIdot ->
+    VLELifter.shiftWord ins bld true true
+  | Op.E_SRWI ->
+    VLELifter.shiftWord ins bld false false
+  | Op.E_SRWIdot ->
+    VLELifter.shiftWord ins bld false true
   (* End of lane L. *)
   | o ->
 #if DEBUG
