@@ -110,6 +110,18 @@ type LifterTests() =
     let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) memory
     (fun r -> (outcome.Read(var isa r)).ToUInt64()), outcome.Memory
 
+  /// Loads transfer an SNaN without quieting it or recording an exception.
+  let checkSingleLoadNaN hex update =
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let bytes = [ 0x7fuy; 0x80uy; 0uy; 1uy ]
+      let bytes = if isa.Endian = Endian.Big then bytes else List.rev bytes
+      let memory = [ 0x2008UL, List.toArray bytes ]
+      let given = [ R6, 0x2000UL; R7, 8UL; FPSCR, 0x80UL ]
+      let after, _ = exec isa hex given memory
+      expect 0x7ff0000020000000UL (after F1) (nameOf isa)
+      expect 0x80UL (after FPSCR) (nameOf isa)
+      expect (if update then 0x2008UL else 0x2000UL) (after R6) hex
+
   /// The bits of a double.
   let bits (d: float) = BitConverter.DoubleToUInt64Bits d
 
@@ -554,6 +566,22 @@ type LifterTests() =
       false
     with e when e.Message.EndsWith effect ->
       true
+
+  [<TestMethod>]
+  member _.``[PPC] LFS preserves a signaling NaN``() =
+    checkSingleLoadNaN "c0260008" false
+
+  [<TestMethod>]
+  member _.``[PPC] LFSU preserves a signaling NaN``() =
+    checkSingleLoadNaN "c4260008" true
+
+  [<TestMethod>]
+  member _.``[PPC] LFSX preserves a signaling NaN``() =
+    checkSingleLoadNaN "7c263c2e" false
+
+  [<TestMethod>]
+  member _.``[PPC] LFSUX preserves a signaling NaN``() =
+    checkSingleLoadNaN "7c263c6e" true
 
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps

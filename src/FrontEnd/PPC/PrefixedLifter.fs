@@ -81,22 +81,7 @@ let storeInteger ins (bld: ILowUIRBuilder) width =
     loadNative bld width ea := AST.xtlo width (transOpr bld (targetOf ins))
   }
 
-let doubleOfSingle bld word =
-  let w = tmpVar bld 32<rt>
-  let res = tmpVar bld 64<rt>
-  append bld {
-    w := word
-    let isNaN =
-      (w .& numU32 0x7f800000u 32<rt> == numU32 0x7f800000u 32<rt>)
-      .& (w .& numU32 0x007fffffu 32<rt> != AST.num0 32<rt>)
-    let w64 = AST.zext 64<rt> w
-    let nan =
-      ((w64 .& numU64 0x80000000UL 64<rt>) << numI32 32 64<rt>)
-      .| numU64 0x7ff0000000000000UL 64<rt>
-      .| ((w64 .& numU64 0x007fffffUL 64<rt>) << numI32 29 64<rt>)
-    res := AST.ite isNaN nan (AST.cast CastKind.FloatCast 64<rt> w)
-  }
-  res
+let doubleOfSingle bld word = GeneralLifter.doubleOfSingle bld word
 
 /// Floating-point singles widen exactly; NaN payloads retain their bits.
 let loadFloat ins (bld: ILowUIRBuilder) single vector =
