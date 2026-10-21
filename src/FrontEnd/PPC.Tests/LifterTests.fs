@@ -32075,3 +32075,1147 @@ type SignalProcessingLifterTests() =
       7fffffffffff 20200078 8 3fcc3ea58b477565 64016b470517fadb
       ffffffff8b477565 64016b470517fadb
       """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMFAA (Multiply Half Words, Even, Guarded,...)``() =
+    (* evmhegsmfaa r5, r6, r7 *)
+    arith "10a63d2b" """
+      8000800080008000 8000800080008000 0 0
+      80000000 80000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffffffffffff 7fffffffffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffffffffffe0001 7ffffffffffe0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000000010000 8000000000010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1 1 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffc fffffffefffffffc 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffefffffffe 7ffffffefffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      17ffe0003 17ffe0003 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMFAN (Multiply Half Words, Even, Guarded,...)``() =
+    (* evmhegsmfan r5, r6, r7 *)
+    arith "10a63dab" """
+      8000800080008000 8000800080008000 0 0
+      ffffffff80000000 ffffffff80000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7ffffffeffffffff 7ffffffeffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff0001fffd 7fffffff0001fffd 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      80000000ffff0000 80000000ffff0000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffd fffffffffffffffd 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff00000000 ffffffff00000000 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffdfffffffe 7ffffffdfffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8001ffff 8001ffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMIAA (Multiply Half Words, Even, Guarded,...)``() =
+    (* evmhegsmiaa r5, r6, r7 *)
+    arith "10a63d29" """
+      8000800080008000 8000800080008000 0 0
+      40000000 40000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffffbfffffff 7fffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffffbfff0000 7fffffffbfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000040008000 8000000040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffd fffffffefffffffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffebffffffe 7ffffffebffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      13fff0002 13fff0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMIAN (Multiply Half Words, Even, Guarded,...)``() =
+    (* evmhegsmian r5, r6, r7 *)
+    arith "10a63da9" """
+      8000800080008000 8000800080008000 0 0
+      ffffffffc0000000 ffffffffc0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff3fffffff 7fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff4000fffe 7fffffff4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      80000000bfff8000 80000000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffe fffffffffffffffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffeffffffff fffffffeffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffe3ffffffe 7ffffffe3ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0010000 c0010000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGUMIAA (Multiply Half Words, Even, Guarded,...)``() =
+    (* evmhegumiaa r5, r6, r7 *)
+    arith "10a63d28" """
+      8000800080008000 8000800080008000 0 0
+      40000000 40000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffffbfffffff 7fffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffffbfff0000 7fffffffbfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      80000000bfff8000 80000000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0000 fffe0000 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff0000fffd ffffffff0000fffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffebffffffe 7ffffffebffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      13fff0002 13fff0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGUMIAN (Multiply Half Words, Even, Guarded,...)``() =
+    (* evmhegumian r5, r6, r7 *)
+    arith "10a63da8" """
+      8000800080008000 8000800080008000 0 0
+      ffffffffc0000000 ffffffffc0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff3fffffff 7fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff4000fffe 7fffffff4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000040008000 8000000040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      ffffffff0001fffe ffffffff0001fffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffeffff fffffffefffeffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffe3ffffffe 7ffffffe3ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0010000 c0010000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMF (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmf r5, r6, r7 *)
+    arith "10a63c0b" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 0 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      8000000080000000 7fffffff7fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7fffffff7fffffff 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      8000000080000000 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7ffe00027ffe0002 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMFA (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmfa r5, r6, r7 *)
+    arith "10a63c2b" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 8000000080000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      8000000080000000 8000000080000000 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7ffe00027ffe0002 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8001000080010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 200000002 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      8000000080000000 8000000080000000 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7ffe00027ffe0002 7ffe00027ffe0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMFAAW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmfaaw r5, r6, r7 *)
+    arith "10a63d0b" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 8000000080000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      ffffffffffffffff ffffffffffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      fffe0001fffe0001 fffe0001fffe0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      1000000010000 1000000010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffcfffffffc fffffffcfffffffc 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      fffffffefffffffe fffffffefffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7ffe00037ffe0003 7ffe00037ffe0003 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMFANW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmfanw r5, r6, r7 *)
+    arith "10a63d8b" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 8000000080000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      ffffffffffffffff ffffffffffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      1fffd0001fffd 1fffd0001fffd 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      ffff0000ffff0000 ffff0000ffff0000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffdfffffffd fffffffdfffffffd 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      0 0 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      fffffffefffffffe fffffffefffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8001ffff8001ffff 8001ffff8001ffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMI (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmi r5, r6, r7 *)
+    arith "10a63c09" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 0 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 7fffffff7fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 7fffffff7fffffff 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      c0008000c0008000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000000040000000 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00013fff0001 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMIA (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmia r5, r6, r7 *)
+    arith "10a63c29" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 4000000040000000 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 3fff00013fff0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      c0008000c0008000 c0008000c0008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000000040000000 4000000040000000 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00013fff0001 3fff00013fff0001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMIAAW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmiaaw r5, r6, r7 *)
+    arith "10a63d09" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      bfffffffbfffffff bfffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      bfff0000bfff0000 bfff0000bfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      4000800040008000 4000800040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      bffffffebffffffe bffffffebffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00023fff0002 3fff00023fff0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMIANW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhesmianw r5, r6, r7 *)
+    arith "10a63d89" """
+      8000800080008000 8000800080008000 0 0
+      c0000000c0000000 c0000000c0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3ffffffe3ffffffe 3ffffffe3ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0010000c0010000 c0010000c0010000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSF (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhessf r5, r6, r7 *)
+    arith "10a63c03" """
+      8000800080008000 8000800080008000 0 0
+      7fffffff7fffffff 0 c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7fffffff7fffffff 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7ffffffe7ffffffe c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7ffe00027ffe0002 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSFA (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhessfa r5, r6, r7 *)
+    arith "10a63c23" """
+      8000800080008000 8000800080008000 0 0
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7ffe00027ffe0002 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8001000080010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 200000002 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7fffffff7fffffff c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7ffe00027ffe0002 7ffe00027ffe0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSFAAW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhessfaaw r5, r6, r7 *)
+    arith "10a63d03" """
+      8000800080008000 8000800080008000 0 0
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000080000000 8000000080000000 c000c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffcfffffffc fffffffcfffffffc 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7fffffff7fffffff c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7ffe00037ffe0003 7ffe00037ffe0003 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSFANW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhessfanw r5, r6, r7 *)
+    arith "10a63d83" """
+      8000800080008000 8000800080008000 0 0
+      8000000180000001 8000000180000001 c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      0 0 c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      1fffd0001fffd 1fffd0001fffd 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      ffff0000ffff0000 ffff0000ffff0000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffdfffffffd fffffffdfffffffd 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      0 0 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      ffffffffffffffff ffffffffffffffff c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8001ffff8001ffff 8001ffff8001ffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSIAAW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhessiaaw r5, r6, r7 *)
+    arith "10a63d01" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000080000000 8000000080000000 c000c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7fffffff7fffffff c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00023fff0002 3fff00023fff0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSIANW (Multiply Half Words, Even, Signed,...)``() =
+    (* evmhessianw r5, r6, r7 *)
+    arith "10a63d81" """
+      8000800080008000 8000800080008000 0 0
+      c0000000c0000000 c0000000c0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3ffffffe3ffffffe 3ffffffe3ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0010000c0010000 c0010000c0010000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMI (Multiply Half Words, Even, Unsigned,...)``() =
+    (* evmheumi r5, r6, r7 *)
+    arith "10a63c08" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 0 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 7fffffff7fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 7fffffff7fffffff 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      3fff80003fff8000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0001fffe0001 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffff0000ffff fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000000040000000 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00013fff0001 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMIA (Multiply Half Words, Even, Unsigned,...)``() =
+    (* evmheumia r5, r6, r7 *)
+    arith "10a63c28" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 4000000040000000 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 3fff00013fff0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      3fff80003fff8000 3fff80003fff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0001fffe0001 fffe0001fffe0001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffff0000ffff ffff0000ffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000000040000000 4000000040000000 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00013fff0001 3fff00013fff0001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMIAAW (Multiply Half Words, Even, Unsigned,...)``() =
+    (* evmheumiaaw r5, r6, r7 *)
+    arith "10a63d08" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      bfffffffbfffffff bfffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      bfff0000bfff0000 bfff0000bfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0000fffe0000 fffe0000fffe0000 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffd0000fffd fffd0000fffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      bffffffebffffffe bffffffebffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00023fff0002 3fff00023fff0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMIANW (Multiply Half Words, Even, Unsigned,...)``() =
+    (* evmheumianw r5, r6, r7 *)
+    arith "10a63d88" """
+      8000800080008000 8000800080008000 0 0
+      c0000000c0000000 c0000000c0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      4000800040008000 4000800040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1fffe0001fffe 1fffe0001fffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffefffffffeffff fffefffffffeffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3ffffffe3ffffffe 3ffffffe3ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0010000c0010000 c0010000c0010000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUSIAAW (Multiply Half Words, Even, Unsigned,...)``() =
+    (* evmheusiaaw r5, r6, r7 *)
+    arith "10a63d00" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      bfffffffbfffffff bfffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      bfff0000bfff0000 bfff0000bfff0000 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      ffffffffffffffff ffffffffffffffff c000c002
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff c000c003
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      bffffffebffffffe bffffffebffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      3fff00023fff0002 3fff00023fff0002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUSIANW (Multiply Half Words, Even, Unsigned,...)``() =
+    (* evmheusianw r5, r6, r7 *)
+    arith "10a63d80" """
+      8000800080008000 8000800080008000 0 0
+      0 0 c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      4000800040008000 4000800040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1fffe0001fffe 1fffe0001fffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffefffffffeffff fffefffffffeffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3ffffffe3ffffffe 3ffffffe3ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      0 0 c000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMFAA (Multiply Half Words, Odd, Guarded,...)``() =
+    (* evmhogsmfaa r5, r6, r7 *)
+    arith "10a63d2f" """
+      8000800080008000 8000800080008000 0 0
+      80000000 80000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffffffffffff 7fffffffffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffffffffffe0001 7ffffffffffe0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000000010000 8000000000010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1 1 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffc fffffffefffffffc 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffefffe0000 7ffffffefffe0000 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      180000001 180000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMFAN (Multiply Half Words, Odd, Guarded,...)``() =
+    (* evmhogsmfan r5, r6, r7 *)
+    arith "10a63daf" """
+      8000800080008000 8000800080008000 0 0
+      ffffffff80000000 ffffffff80000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7ffffffeffffffff 7ffffffeffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff0001fffd 7fffffff0001fffd 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      80000000ffff0000 80000000ffff0000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffd fffffffffffffffd 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff00000000 ffffffff00000000 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffe0001fffc 7ffffffe0001fffc f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      80000001 80000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMIAA (Multiply Half Words, Odd, Guarded,...)``() =
+    (* evmhogsmiaa r5, r6, r7 *)
+    arith "10a63d2d" """
+      8000800080008000 8000800080008000 0 0
+      40000000 40000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffffbfffffff 7fffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffffbfff0000 7fffffffbfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000040008000 8000000040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffd fffffffefffffffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffebffeffff 7ffffffebffeffff f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      140000001 140000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMIAN (Multiply Half Words, Odd, Guarded,...)``() =
+    (* evmhogsmian r5, r6, r7 *)
+    arith "10a63dad" """
+      8000800080008000 8000800080008000 0 0
+      ffffffffc0000000 ffffffffc0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff3fffffff 7fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff4000fffe 7fffffff4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      80000000bfff8000 80000000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffffffffffe fffffffffffffffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffeffffffff fffffffeffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffe4000fffd 7ffffffe4000fffd f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0000001 c0000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGUMIAA (Multiply Half Words, Odd, Guarded,...)``() =
+    (* evmhogumiaa r5, r6, r7 *)
+    arith "10a63d2c" """
+      8000800080008000 8000800080008000 0 0
+      40000000 40000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffffbfffffff 7fffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffffbfff0000 7fffffffbfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      80000000bfff8000 80000000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0000 fffe0000 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffff0000fffd ffffffff0000fffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffebffeffff 7ffffffebffeffff f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      140000001 140000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGUMIAN (Multiply Half Words, Odd, Guarded,...)``() =
+    (* evmhogumian r5, r6, r7 *)
+    arith "10a63dac" """
+      8000800080008000 8000800080008000 0 0
+      ffffffffc0000000 ffffffffc0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff3fffffff 7fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff4000fffe 7fffffff4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000040008000 8000000040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      ffffffff0001fffe ffffffff0001fffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffeffff fffffffefffeffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffffffe4000fffd 7ffffffe4000fffd f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0000001 c0000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMF (Multiply Half Words, Odd, Signed, Modulo,...)``() =
+    (* evmhosmf r5, r6, r7 *)
+    arith "10a63c0f" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 0 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      8000000080000000 7fffffff7fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7fffffff7fffffff 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffe00027ffe0002 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8000000080000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMFA (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhosmfa r5, r6, r7 *)
+    arith "10a63c2f" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 8000000080000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      8000000080000000 8000000080000000 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7ffe00027ffe0002 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8001000080010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 200000002 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffe00027ffe0002 7ffe00027ffe0002 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8000000080000000 8000000080000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMFAAW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhosmfaaw r5, r6, r7 *)
+    arith "10a63d0f" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 8000000080000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      ffffffffffffffff ffffffffffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      fffe0001fffe0001 fffe0001fffe0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      1000000010000 1000000010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffcfffffffc fffffffcfffffffc 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      fffe0000fffe0000 fffe0000fffe0000 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8000000180000001 8000000180000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMFANW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhosmfanw r5, r6, r7 *)
+    arith "10a63d8f" """
+      8000800080008000 8000800080008000 0 0
+      8000000080000000 8000000080000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      ffffffffffffffff ffffffffffffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      1fffd0001fffd 1fffd0001fffd 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      ffff0000ffff0000 ffff0000ffff0000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffdfffffffd fffffffdfffffffd 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      0 0 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      1fffc0001fffc 1fffc0001fffc f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8000000180000001 8000000180000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMI (Multiply Half Words, Odd, Signed, Modulo,...)``() =
+    (* evmhosmi r5, r6, r7 *)
+    arith "10a63c0d" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 0 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 7fffffff7fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 7fffffff7fffffff 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      c0008000c0008000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3fff00013fff0001 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000040000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMIA (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhosmia r5, r6, r7 *)
+    arith "10a63c2d" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 4000000040000000 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 3fff00013fff0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      c0008000c0008000 c0008000c0008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3fff00013fff0001 3fff00013fff0001 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000040000000 4000000040000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMIAAW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhosmiaaw r5, r6, r7 *)
+    arith "10a63d0d" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      bfffffffbfffffff bfffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      bfff0000bfff0000 bfff0000bfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      4000800040008000 4000800040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      bffeffffbffeffff bffeffffbffeffff f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000140000001 4000000140000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMIANW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhosmianw r5, r6, r7 *)
+    arith "10a63d8d" """
+      8000800080008000 8000800080008000 0 0
+      c0000000c0000000 c0000000c0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000fffd4000fffd 4000fffd4000fffd f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0000001c0000001 c0000001c0000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSF (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhossf r5, r6, r7 *)
+    arith "10a63c07" """
+      8000800080008000 8000800080008000 0 0
+      7fffffff7fffffff 0 c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7fffffff7fffffff 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffe00027ffe0002 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7fffffff7fffffff 100000001 c000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSFA (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhossfa r5, r6, r7 *)
+    arith "10a63c27" """
+      8000800080008000 8000800080008000 0 0
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7ffe00027ffe0002 7ffe00027ffe0002 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8001000080010000 8001000080010000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      200000002 200000002 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffefffffffe fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7ffe00027ffe0002 7ffe00027ffe0002 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7fffffff7fffffff 7fffffff7fffffff c000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSFAAW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhossfaaw r5, r6, r7 *)
+    arith "10a63d07" """
+      8000800080008000 8000800080008000 0 0
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000080000000 8000000080000000 c000c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      100000001 100000001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffcfffffffc fffffffcfffffffc 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7fffffff7fffffff c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      7fffffff7fffffff 7fffffff7fffffff c000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSFANW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhossfanw r5, r6, r7 *)
+    arith "10a63d87" """
+      8000800080008000 8000800080008000 0 0
+      8000000180000001 8000000180000001 c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      0 0 c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      1fffd0001fffd 1fffd0001fffd 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      ffff0000ffff0000 ffff0000ffff0000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffdfffffffd fffffffdfffffffd 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      0 0 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      1fffc0001fffc 1fffc0001fffc f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      8000000280000002 8000000280000002 c000cf00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSIAAW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhossiaaw r5, r6, r7 *)
+    arith "10a63d05" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      7fffffff7fffffff 7fffffff7fffffff c000c000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      8000000080000000 8000000080000000 c000c001
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      0 0 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffffffdfffffffd fffffffdfffffffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      7fffffff7fffffff 7fffffff7fffffff c000cf01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000140000001 4000000140000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSIANW (Multiply Half Words, Odd, Signed,...)``() =
+    (* evmhossianw r5, r6, r7 *)
+    arith "10a63d85" """
+      8000800080008000 8000800080008000 0 0
+      c0000000c0000000 c0000000c0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffffffefffffffe fffffffefffffffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000fffd4000fffd 4000fffd4000fffd f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0000001c0000001 c0000001c0000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMI (Multiply Half Words, Odd, Unsigned,...)``() =
+    (* evmhoumi r5, r6, r7 *)
+    arith "10a63c0c" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 0 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 7fffffff7fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 7fffffff7fffffff 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      3fff80003fff8000 8000000080000000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0001fffe0001 ffffffffffffffff 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffff0000ffff fffffffefffffffe 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3fff00013fff0001 7ffffffe7ffffffe f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000040000000 100000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMIA (Multiply Half Words, Odd, Unsigned,...)``() =
+    (* evmhoumia r5, r6, r7 *)
+    arith "10a63c2c" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      4000000040000000 4000000040000000 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      3fff00013fff0001 3fff00013fff0001 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      3fff80003fff8000 3fff80003fff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0001fffe0001 fffe0001fffe0001 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffff0000ffff ffff0000ffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      3fff00013fff0001 3fff00013fff0001 f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000040000000 4000000040000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMIAAW (Multiply Half Words, Odd, Unsigned,...)``() =
+    (* evmhoumiaaw r5, r6, r7 *)
+    arith "10a63d0c" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      bfffffffbfffffff bfffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      bfff0000bfff0000 bfff0000bfff0000 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      fffe0000fffe0000 fffe0000fffe0000 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffd0000fffd fffd0000fffd 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      bffeffffbffeffff bffeffffbffeffff f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000140000001 4000000140000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMIANW (Multiply Half Words, Odd, Unsigned,...)``() =
+    (* evmhoumianw r5, r6, r7 *)
+    arith "10a63d8c" """
+      8000800080008000 8000800080008000 0 0
+      c0000000c0000000 c0000000c0000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 40004000
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      4000800040008000 4000800040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1fffe0001fffe 1fffe0001fffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffefffffffeffff fffefffffffeffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000fffd4000fffd 4000fffd4000fffd f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      c0000001c0000001 c0000001c0000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUSIAAW (Multiply Half Words, Odd, Unsigned,...)``() =
+    (* evmhousiaaw r5, r6, r7 *)
+    arith "10a63d04" """
+      8000800080008000 8000800080008000 0 0
+      4000000040000000 4000000040000000 0
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      bfffffffbfffffff bfffffffbfffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      bfff0000bfff0000 bfff0000bfff0000 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      bfff8000bfff8000 bfff8000bfff8000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      ffffffffffffffff ffffffffffffffff c000c002
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      ffffffffffffffff ffffffffffffffff c000c003
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      bffeffffbffeffff bffeffffbffeffff f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      4000000140000001 4000000140000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUSIANW (Multiply Half Words, Odd, Unsigned,...)``() =
+    (* evmhousianw r5, r6, r7 *)
+    arith "10a63d84" """
+      8000800080008000 8000800080008000 0 0
+      0 0 c000c000
+      8000800080008000 8000800080008000 7fffffff7fffffff 80008000
+      3fffffff3fffffff 3fffffff3fffffff 80008000
+      7fff7fff7fff7fff 7fff7fff7fff7fff 7fffffff7fffffff 40004000
+      4000fffe4000fffe 4000fffe4000fffe 0
+      7fff7fff7fff7fff 8000800080008000 8000000080000000 1
+      4000800040008000 4000800040008000 1
+      ffffffffffffffff ffffffffffffffff ffffffffffffffff 2
+      1fffe0001fffe 1fffe0001fffe 2
+      1000100010001 ffffffffffffffff fffffffefffffffe 3
+      fffefffffffeffff fffefffffffeffff 3
+      80007fff80007fff 80007fff80007fff 7ffffffe7ffffffe f01
+      4000fffd4000fffd 4000fffd4000fffd f01
+      7fff80007fff8000 7fff80007fff8000 100000001 80008f00
+      0 0 c000cf00
+      """

@@ -32,6 +32,7 @@
     <Compile Include="EmbeddedLifter.fs" />
     <Compile Include="TransactionLifter.fs" />
     <Compile Include="SPELifter.fs" />
+    <Compile Include="SPEMultiplyLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
     <Compile Include="Category.fs" />

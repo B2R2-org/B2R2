@@ -188,10 +188,66 @@ let private memoryEncoders () =
     Op.EVSTWWO, disp 4 829u
     Op.EVSTWWOX, rrr 828u ]
 
+/// The encoders of the "half" theme.
+let private halfEncoders () =
+  [ Op.EVMHEGSMFAA, rrr 1323u
+    Op.EVMHEGSMFAN, rrr 1451u
+    Op.EVMHEGSMIAA, rrr 1321u
+    Op.EVMHEGSMIAN, rrr 1449u
+    Op.EVMHEGUMIAA, rrr 1320u
+    Op.EVMHEGUMIAN, rrr 1448u
+    Op.EVMHESMF, rrr 1035u
+    Op.EVMHESMFA, rrr 1067u
+    Op.EVMHESMFAAW, rrr 1291u
+    Op.EVMHESMFANW, rrr 1419u
+    Op.EVMHESMI, rrr 1033u
+    Op.EVMHESMIA, rrr 1065u
+    Op.EVMHESMIAAW, rrr 1289u
+    Op.EVMHESMIANW, rrr 1417u
+    Op.EVMHESSF, rrr 1027u
+    Op.EVMHESSFA, rrr 1059u
+    Op.EVMHESSFAAW, rrr 1283u
+    Op.EVMHESSFANW, rrr 1411u
+    Op.EVMHESSIAAW, rrr 1281u
+    Op.EVMHESSIANW, rrr 1409u
+    Op.EVMHEUMI, rrr 1032u
+    Op.EVMHEUMIA, rrr 1064u
+    Op.EVMHEUMIAAW, rrr 1288u
+    Op.EVMHEUMIANW, rrr 1416u
+    Op.EVMHEUSIAAW, rrr 1280u
+    Op.EVMHEUSIANW, rrr 1408u
+    Op.EVMHOGSMFAA, rrr 1327u
+    Op.EVMHOGSMFAN, rrr 1455u
+    Op.EVMHOGSMIAA, rrr 1325u
+    Op.EVMHOGSMIAN, rrr 1453u
+    Op.EVMHOGUMIAA, rrr 1324u
+    Op.EVMHOGUMIAN, rrr 1452u
+    Op.EVMHOSMF, rrr 1039u
+    Op.EVMHOSMFA, rrr 1071u
+    Op.EVMHOSMFAAW, rrr 1295u
+    Op.EVMHOSMFANW, rrr 1423u
+    Op.EVMHOSMI, rrr 1037u
+    Op.EVMHOSMIA, rrr 1069u
+    Op.EVMHOSMIAAW, rrr 1293u
+    Op.EVMHOSMIANW, rrr 1421u
+    Op.EVMHOSSF, rrr 1031u
+    Op.EVMHOSSFA, rrr 1063u
+    Op.EVMHOSSFAAW, rrr 1287u
+    Op.EVMHOSSFANW, rrr 1415u
+    Op.EVMHOSSIAAW, rrr 1285u
+    Op.EVMHOSSIANW, rrr 1413u
+    Op.EVMHOUMI, rrr 1036u
+    Op.EVMHOUMIA, rrr 1068u
+    Op.EVMHOUMIAAW, rrr 1292u
+    Op.EVMHOUMIANW, rrr 1420u
+    Op.EVMHOUSIAAW, rrr 1284u
+    Op.EVMHOUSIANW, rrr 1412u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
     [ logicEncoders ()
       shiftEncoders ()
       compareEncoders ()
-      memoryEncoders () ]
+      memoryEncoders ()
+      halfEncoders () ]
