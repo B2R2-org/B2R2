@@ -30,6 +30,7 @@
 module internal B2R2.FrontEnd.PPC.EmbeddedLifter
 
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
@@ -53,19 +54,47 @@ let private lockQuery (ins: Instruction) bld =
     regVar bld Register.CR0_3 := xerSO
   }
 
+/// mfpmr reads a performance monitor register. No event is ever counted here
+/// and no performance monitor is modeled, so every register reads 0.
+let private mfpmr (ins: Instruction) bld =
+  lift bld ins {
+    let struct (rt, _) = transTwoOprs ins bld
+    rt := AST.num0 bld.RegType
+  }
+
 /// Whether this module lifts the opcode.
 let lifts = function
   | Op.DCBLC | Op.DCBLQdot | Op.DCBTLS | Op.DCBTSTLS
-  | Op.ICBLC | Op.ICBLQdot | Op.ICBTLS -> true
+  | Op.ICBLC | Op.ICBLQdot | Op.ICBTLS
+  | Op.DNH | Op.EHPRIV | Op.MBAR | Op.MFDCRUX | Op.MFPMR | Op.MTDCRUX
+  | Op.MTPMR | Op.XNOP -> true
   | _ -> false
 
-/// Lifts an instruction whose opcode this module lifts. The lock set
-/// instructions are hints that may fail to lock ("an unable-to-lock condition
-/// may occur", and then no operation is performed), and the lock clear ones do
-/// nothing where nothing is locked, so none leaves a trace.
+/// <summary>
+/// Lifts an instruction whose opcode this module lifts.
+/// <para>
+/// The lock set instructions are hints that may fail to lock ("an
+/// unable-to-lock condition may occur", and then no operation is performed),
+/// and the lock clear ones do nothing where nothing is locked, so none leaves a
+/// trace. mbar orders storage accesses, and xnop is a no-op that executes, as
+/// the barriers and hints before them. mtpmr writes a performance monitor that
+/// is not modeled. dnh and ehpriv raise an illegal instruction exception: dnh
+/// halts the thread only where an implementation-dependent means has enabled it
+/// and ehpriv, "analogous to a guaranteed illegal instruction encoding",
+/// invokes the hypervisor, which a user-level program has none of. The device
+/// control registers of mfdcrux and mtdcrux are the state of a device that is
+/// not modeled.
+/// </para>
+/// </summary>
 let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Op.DCBLQdot | Op.ICBLQdot ->
     lockQuery ins bld
+  | Op.DNH | Op.EHPRIV ->
+    sideEffects ins bld UndefinedInstruction
+  | Op.MFDCRUX | Op.MTDCRUX ->
+    sideEffects ins bld UnsupportedInstruction
+  | Op.MFPMR ->
+    mfpmr ins bld
   | _ ->
     GeneralLifter.nop ins bld

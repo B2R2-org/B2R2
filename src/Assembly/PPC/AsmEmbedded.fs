@@ -50,6 +50,76 @@ let private cacheLockEncoders () =
     Op.ICBLQdot, cacheLock 198u 1u
     Op.ICBTLS, cacheLock 486u 0u ]
 
+/// mbar, "MO": the five bits 6:10.
+let private mbar ins =
+  match ins.Operands with
+  | [ Im mo ] -> xForm 31u (unsigned 5 mo) 0u 0u 854u 0u
+  | _ -> wrongOperands ins
+
+/// dnh, "DUI, DUIS": five bits 6:10 and the ten bits 11:20.
+let private dnh ins =
+  match ins.Operands with
+  | [ Im dui; Im duis ] ->
+    let duis = unsigned 10 duis
+    xForm 19u (unsigned 5 dui) (duis >>> 5) (duis &&& 0x1Fu) 198u 0u
+  | _ ->
+    wrongOperands ins
+
+/// ehpriv, "OC": the fifteen bits 6:20.
+let private ehpriv ins =
+  match ins.Operands with
+  | [ Im oc ] ->
+    let oc = unsigned 15 oc
+    xForm 31u (oc >>> 10) ((oc >>> 5) &&& 0x1Fu) (oc &&& 0x1Fu) 270u 0u
+  | _ ->
+    wrongOperands ins
+
+/// mfpmr, "rT, PMRN": the number is written in the halves the encoding of a
+/// special register keeps its number in.
+let private mfpmr ins =
+  match ins.Operands with
+  | [ Rg t; Im pmrn ] ->
+    word 31u (gpr t) 0u 0u (specialRegister pmrn ||| (334u <<< 1))
+  | _ ->
+    wrongOperands ins
+
+/// mtpmr, "PMRN, rS".
+let private mtpmr ins =
+  match ins.Operands with
+  | [ Im pmrn; Rg s ] ->
+    word 31u (gpr s) 0u 0u (specialRegister pmrn ||| (462u <<< 1))
+  | _ ->
+    wrongOperands ins
+
+/// mfdcrux, "rT, rA".
+let private mfdcrux ins =
+  match ins.Operands with
+  | [ Rg t; Rg a ] -> xForm 31u (gpr t) (gpr a) 0u 291u 0u
+  | _ -> wrongOperands ins
+
+/// mtdcrux, "rA, rS" as objdump writes it.
+let private mtdcrux ins =
+  match ins.Operands with
+  | [ Rg a; Rg s ] -> xForm 31u (gpr s) (gpr a) 0u 419u 0u
+  | _ -> wrongOperands ins
+
+/// xnop, the no-op whose word is xori 0, 0, 0.
+let private xnop ins =
+  match ins.Operands with
+  | [] -> dForm 26u 0u 0u 0u
+  | _ -> wrongOperands ins
+
+/// The barrier, hint and move instructions of the embedded environment.
+let private miscellaneousEncoders () =
+  [ Op.DNH, dnh
+    Op.EHPRIV, ehpriv
+    Op.MBAR, mbar
+    Op.MFDCRUX, mfdcrux
+    Op.MFPMR, mfpmr
+    Op.MTDCRUX, mtdcrux
+    Op.MTPMR, mtpmr
+    Op.XNOP, xnop ]
+
 /// Every instruction the embedded environment adds.
 let embeddedEncoders () =
-  cacheLockEncoders ()
+  cacheLockEncoders () @ miscellaneousEncoders ()

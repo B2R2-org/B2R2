@@ -1609,5 +1609,13 @@ type Opcode =
   | ICBLC = 6090
   | ICBLQdot = 6091
   | ICBTLS = 6092
+  | DNH = 6093
+  | EHPRIV = 6094
+  | MBAR = 6095
+  | MFDCRUX = 6096
+  | MFPMR = 6097
+  | MTDCRUX = 6098
+  | MTPMR = 6099
+  | XNOP = 6100
 
 type internal Op = Opcode

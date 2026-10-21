@@ -24,12 +24,12 @@
 
 
 /// <summary>
-/// Decodes the instructions the embedded environment adds to primary opcode 31
-/// (Power ISA 2.07B Book III-E): the cache-locking instructions here, and the
-/// ones the other themes of the embedded categories bring. No server
-/// instruction shares their encodings, so they read the same under every
-/// category; ParsingLegacy hands a word here once its own tables are done with
-/// it.
+/// Decodes the instructions the embedded environment adds to primary opcodes
+/// 19 and 31 (Power ISA 2.07B Book II and Book III-E): the cache-locking
+/// instructions, the debug, hypervisor and device moves, and the memory barrier
+/// whose word a server processor reads as eieio. No server instruction shares
+/// the other encodings, so they read the same under every category;
+/// ParsingLegacy hands a word here once its own tables are done with it.
 /// </summary>
 module internal B2R2.FrontEnd.PPC.ParsingEmbedded
 
@@ -51,9 +51,56 @@ let private parseCacheLock opcode record bin =
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (opcode, ThreeOperands(ct, ra, rb))
 
+/// mbar, "MO": the five bits 6:10 hold what the server reading of the word,
+/// eieio, leaves reserved. Everything below them is reserved.
+let private parseMbar bin =
+  if Bits.extract bin 20u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.MBAR, OneOperand(Bits.extract bin 25u 21u |> uint64 |> OprImm))
+
+/// ehpriv, "OC": the fifteen bits 6:20 are the operand code the hypervisor
+/// reads back; bit 31 is reserved.
+let private parseEhpriv bin =
+  if Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.EHPRIV, OneOperand(Bits.extract bin 25u 11u |> uint64 |> OprImm))
+
+/// The number a move to or from a performance monitor register names, whose
+/// two five-bit halves sit in the word the other way round.
+let private pmrNumber bin =
+  Bits.concat (Bits.extract bin 15u 11u) (Bits.extract bin 20u 16u) 5
+
+/// mfpmr and mtpmr, "rT, PMRN" and "PMRN, rS"; bit 31 is reserved.
+let private parsePmrMove opcode bin =
+  let reg = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let pmrn = pmrNumber bin |> uint64 |> OprImm
+  if Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  elif opcode = Op.MFPMR then
+    struct (opcode, TwoOperands(reg, pmrn))
+  else
+    struct (opcode, TwoOperands(pmrn, reg))
+
+/// mfdcrux and mtdcrux, which name the device control register by the number
+/// in rA. Bits 16:20 and 31 are reserved. objdump writes mtdcrux's operands in
+/// the order rA, rS, where the manual writes rS, rA; the operands here are in
+/// objdump's, as the sweep that compares the two reads them.
+let private parseDcrMove opcode bin =
+  let reg = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  if Bits.extract bin 15u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  elif opcode = Op.MFDCRUX then
+    struct (opcode, TwoOperands(reg, ra))
+  else
+    struct (opcode, TwoOperands(ra, reg))
+
 /// The instruction a word of primary opcode 31 is, if it is one of the
-/// embedded categories', by its ten-bit extended opcode.
-let tryParse31 bin =
+/// embedded categories', by its ten-bit extended opcode. The categories decide
+/// the one word the server reading gives another meaning.
+let tryParse31 category bin =
   match Bits.extract bin 10u 1u with
   | 134u ->
     ValueSome(parseCacheLock Op.DCBTSTLS 0u bin)
@@ -63,11 +110,35 @@ let tryParse31 bin =
     ValueSome(parseCacheLock Op.ICBLQdot 1u bin)
   | 230u ->
     ValueSome(parseCacheLock Op.ICBLC 0u bin)
+  | 270u ->
+    ValueSome(parseEhpriv bin)
+  | 291u ->
+    ValueSome(parseDcrMove Op.MFDCRUX bin)
+  | 334u ->
+    ValueSome(parsePmrMove Op.MFPMR bin)
   | 390u ->
     ValueSome(parseCacheLock Op.DCBLC 0u bin)
+  | 419u ->
+    ValueSome(parseDcrMove Op.MTDCRUX bin)
   | 422u ->
     ValueSome(parseCacheLock Op.DCBLQdot 1u bin)
+  | 462u ->
+    ValueSome(parsePmrMove Op.MTPMR bin)
   | 486u ->
     ValueSome(parseCacheLock Op.ICBTLS 0u bin)
+  | 854u when Category.includes Category.Embedded category ->
+    ValueSome(parseMbar bin)
   | _ ->
     ValueNone
+
+/// The instruction a word of primary opcode 19 is, if it is one of the
+/// embedded categories': dnh, "DUI, DUIS", whose bit 31 is reserved.
+let tryParse19 bin =
+  if Bits.extract bin 10u 1u <> 198u then
+    ValueNone
+  elif Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    let dui = Bits.extract bin 25u 21u |> uint64 |> OprImm
+    let duis = Bits.extract bin 20u 11u |> uint64 |> OprImm
+    ValueSome(struct (Op.DNH, TwoOperands(dui, duis)))

@@ -4794,3 +4794,107 @@ type EmbeddedParserTests() =
         "7e263b4d" ] do
       testUnsupported WordSize.Bit32 hex
       testUnsupported WordSize.Bit64 hex
+
+  /// What a word of primary opcode 31 that a server processor reads as eieio
+  /// is on a processor with the embedded environment, and that the two
+  /// readings differ.
+  [<TestMethod>]
+  member _.``[PPC] MBAR (memory barrier)``() =
+    for hex, mo in [ "7c0006ac", 0UL; "7c2006ac", 1UL; "7fe006ac", 31UL ] do
+      testCategory Category.Embedded hex (MBAR ** [ O.Imm mo ])
+      Assert.AreNotEqual<Opcode>(MBAR, serverReading hex)
+    Assert.AreEqual<Opcode>(EIEIO, serverReading "7c0006ac")
+
+  /// mbar's reserved bits are refused, as eieio's are.
+  [<TestMethod>]
+  member _.``[PPC] MBAR with a reserved bit set is refused``() =
+    for hex in [ "7c2106ac"; "7c2006ad"; "7c20f6ac" ] do
+      let isa = isaOf Endian.Big WordSize.Bit32 Category.Embedded
+      Assert.Throws<ParsingFailureException>(fun () -> parse isa hex |> ignore)
+      |> ignore
+
+  [<TestMethod>]
+  member _.``[PPC] DNH (debugger notify halt)``() =
+    "4c20118c"
+    ++ (DNH ** [ O.Imm 1UL; O.Imm 2UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] EHPRIV (embedded hypervisor privilege)``() =
+    "7c00021c"
+    ++ (EHPRIV ** [ O.Imm 0UL ])
+    ||> testEveryTarget
+    "7c002a1c"
+    ++ (EHPRIV ** [ O.Imm 5UL ])
+    ||> testEveryTarget
+    "7ffffa1c"
+    ++ (EHPRIV ** [ O.Imm 0x7fffUL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MFPMR (move from performance monitor register)``() =
+    "7cb0029c"
+    ++ (MFPMR ** [ O.Reg R5; O.Imm 16UL ])
+    ||> testEveryTarget
+    (* pmrn 400 is the two halves 0b01100 and 0b10000 *)
+    "7cb0629c"
+    ++ (MFPMR ** [ O.Reg R5; O.Imm 400UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTPMR (move to performance monitor register)``() =
+    "7cb0039c"
+    ++ (MTPMR ** [ O.Imm 16UL; O.Reg R5 ])
+    ||> testEveryTarget
+    "7cb0639c"
+    ++ (MTPMR ** [ O.Imm 400UL; O.Reg R5 ])
+    ||> testEveryTarget
+
+  /// The operands of mfdcrux are rT, rA.
+  [<TestMethod>]
+  member _.``[PPC] MFDCRUX (move from device control register)``() =
+    "7ca60246"
+    ++ (MFDCRUX ** [ O.Reg R5; O.Reg R6 ])
+    ||> testEveryTarget
+
+  /// objdump writes the operands of mtdcrux rA, rS, the manual rS, rA; the
+  /// word has rS = r6 and rA = r5.
+  [<TestMethod>]
+  member _.``[PPC] MTDCRUX (move to device control register)``() =
+    "7cc50346"
+    ++ (MTDCRUX ** [ O.Reg R5; O.Reg R6 ])
+    ||> testEveryTarget
+
+  /// xnop is xori 0, 0, 0, as nop is ori 0, 0, 0, and any other xori is not.
+  [<TestMethod>]
+  member _.``[PPC] XNOP (executed no-op)``() =
+    "68000000"
+    ++ (XNOP ** [])
+    ||> testEveryTarget
+    "68000001"
+    ++ (XORI ** [ O.Reg R0; O.Reg R0; O.Imm 1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] DCBA (data cache block allocate)``() =
+    "7c063dec"
+    ++ (DCBA ** [ O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MCRXR (move to condition register from XER)``() =
+    "7d800400"
+    ++ (MCRXR ** [ O.Reg CR3 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] ECIWX (external control in word indexed)``() =
+    "7ca63a6c"
+    ++ (ECIWX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] ECOWX (external control out word indexed)``() =
+    "7ca63b6c"
+    ++ (ECOWX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
