@@ -107,7 +107,7 @@ let private suppression old exc =
 /// <summary>
 /// The FPSCR after a DFP instruction: the exception bits of the status word
 /// OR-ed in, the fields the instruction replaces taken from the status word
-/// (FPRF kept where the result was suppressed), FX set where an exception
+/// (FPRF kept where an arithmetic result was suppressed), FX set when a bit
 /// bit turned on, and FEX and VX recomputed.
 /// </summary>
 let private recordStatus bld st (fields: Fields) suppressed =
@@ -117,7 +117,9 @@ let private recordStatus bld st (fields: Fields) suppressed =
   let kept = numU32 (m &&& 0x1f000u) 32<rt>
   let taken = numU32 (m &&& 0x60000u) 32<rt>
   let replaced = (st .& taken) .| (old .& kept)
-  let replaced = AST.ite suppressed replaced (st .& numU32 m 32<rt>)
+  let replaced =
+    if fields = Fields.ConditionFields then st .& numU32 m 32<rt>
+    else AST.ite suppressed replaced (st .& numU32 m 32<rt>)
   let turnedOn = (exc .& AST.not old) != AST.num0 32<rt>
   append bld {
     old := fpscr
