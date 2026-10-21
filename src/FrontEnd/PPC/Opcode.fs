@@ -1602,5 +1602,12 @@ type Opcode =
   | NMACLHWdot = 6083
   | DLMZB = 6084
   | DLMZBdot = 6085
+  | DCBLC = 6086
+  | DCBLQdot = 6087
+  | DCBTLS = 6088
+  | DCBTSTLS = 6089
+  | ICBLC = 6090
+  | ICBLQdot = 6091
+  | ICBTLS = 6092
 
 type internal Op = Opcode

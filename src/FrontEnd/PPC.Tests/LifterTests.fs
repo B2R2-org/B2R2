@@ -27337,14 +27337,10 @@ type FloatLifterTests() =
         expect crField (field out cr2) case
         expect after (out FPSCR) case
 
-/// <summary>
-/// Lane E's lifting tests: the instructions of the Power ISA 2.07B
-/// categories that 3.1 dropped. Every expected value is QEMU's
-/// (optest-powerpc/oracle), unless a test says the manual and QEMU part, or
-/// that QEMU does not run the instruction, in which case it is the manual's.
-/// </summary>
-[<TestClass>]
-type LegacyLifterTests() =
+/// What lane E's lifting tests share: a processor named by the categories it
+/// has, and running what a word lifts to on one over registers and memory.
+[<AutoOpen>]
+module private LaneEShortcut =
   /// A PowerPC ISA of the given byte order and word size whose flags name
   /// the given categories.
   let isaOf endian wordSize (category: Category) =
@@ -27365,16 +27361,24 @@ type LegacyLifterTests() =
   let var (isa: ISA) r =
     (RegisterFactory isa :> IRegisterFactory).GetRegVar(Register.toRegID r)
 
+  /// The registers given values, each value at the width of its register.
+  let inputsOf isa given =
+    given
+    |> List.map (fun (r, v: uint64) ->
+      let x = var isa r
+      x, BitVector(v, Expr.typeOf x))
+
   /// What each register holds after one word ran on the processor an ISA
   /// names, over the registers given values and zero everywhere else.
   let run isa hex given =
-    let inputs =
-      given
-      |> List.map (fun (r, v: uint64) ->
-        let x = var isa r
-        x, BitVector(v, Expr.typeOf x))
-    let read = IRRunner.run (lifted isa hex) inputs
+    let read = IRRunner.run (lifted isa hex) (inputsOf isa given)
     fun r -> (read (var isa r)).ToUInt64()
+
+  /// What run gives, over the bytes of memory given as well, and every byte of
+  /// memory given or written after the run.
+  let exec isa hex given memory =
+    let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) memory
+    (fun r -> (outcome.Read(var isa r)).ToUInt64()), outcome.Memory
 
   /// CR0 as the Power ISA draws a CR field: LT, GT, EQ and SO from the most
   /// significant bit down.
@@ -27382,6 +27386,22 @@ type LegacyLifterTests() =
     (after CR0_0 <<< 3) ||| (after CR0_1 <<< 2) ||| (after CR0_2 <<< 1)
     ||| after CR0_3
 
+  /// Every processor, with the server reading of every encoding: 32-bit
+  /// big-endian, and 64-bit big- and little-endian.
+  let everyProcessor =
+    [ isaOf Endian.Big WordSize.Bit32
+      isaOf Endian.Big WordSize.Bit64
+      isaOf Endian.Little WordSize.Bit64 ]
+    |> List.map (fun isaOn -> isaOn Category.Server)
+
+/// <summary>
+/// Lane E's lifting tests: the instructions of the Power ISA 2.07B
+/// categories that 3.1 dropped. Every expected value is QEMU's
+/// (optest-powerpc/oracle), unless a test says the manual and QEMU part, or
+/// that QEMU does not run the instruction, in which case it is the manual's.
+/// </summary>
+[<TestClass>]
+type LegacyLifterTests() =
   /// The processors a legacy multiply runs on: the 440's own, 32-bit
   /// big-endian, and the 64-bit ones, for which the manual defines the
   /// instructions as well, leaving the high word of rT undefined.
@@ -29079,3 +29099,103 @@ type LegacyLifterTests() =
         0x1UL, 0xa0000001UL, 0x5UL
         0x8UL, 0xe0000008UL, 0x3UL
         0x1UL, 0xfff3ff81UL, 0x5UL ]
+
+/// <summary>
+/// Lifting tests of the instructions the embedded environment adds (Power ISA
+/// 2.07B Book II and Book III-E). qemu-ppc -cpu e500mc (8.2.2) runs only some
+/// of them and no test of these depends on a value it gave: where it runs one,
+/// the test says what it saw; the rest are the manual's.
+/// </summary>
+[<TestClass>]
+type EmbeddedLifterTests() =
+  /// Whether a lifted statement is one of the marks that open and close an
+  /// instruction, and so does nothing.
+  let isMark = function
+    | ISMark _ | IEMark _ -> true
+    | _ -> false
+
+  /// Asserts that a word lifts to nothing but the marks of the instruction, on
+  /// every processor, and that over registers holding values and memory
+  /// holding bytes it leaves all of them as they were.
+  let checkNoTrace hex =
+    for isa in everyProcessor do
+      Assert.IsTrue(Array.forall isMark (lifted isa hex), $"{hex} {isa}")
+      let given = [ R5, 5UL; R6, 0x20200078UL; R7, 8UL; XER, 0xe0000000UL ]
+      let after, memory = exec isa hex given []
+      for r, v in given do
+        Assert.AreEqual(box v, box (after r), $"{hex} {r} {isa}")
+      Assert.AreEqual(box 0, box memory.Count, $"{hex} memory {isa}")
+
+  /// Runs a lock query with CR0 holding every bit set and XER's SO as
+  /// given, and asserts CR0 holds 0b00 || 0 || SO: the block is never locked.
+  let checkQuery hex =
+    for isa in everyProcessor do
+      for xer, field in [ 0UL, 0UL; 0x80000000UL, 1UL; 0x60000000UL, 0UL ] do
+        let given =
+          [ CR0_0, 1UL; CR0_1, 1UL; CR0_2, 1UL; CR0_3, 1UL; XER, xer ]
+        let after = run isa hex given
+        let case = $"{hex} {xer:x} {isa}"
+        Assert.AreEqual(box field, box (cr0 after), case)
+        Assert.AreEqual(box xer, box (after XER), case)
+
+  /// <summary>
+  /// dcblc CT, rA, rB unlocks a block of a cache the model does not have
+  /// locked, and so lifts to nothing. qemu-ppc -cpu e500mc (8.2.2) runs it and
+  /// changes no register or memory.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBLC leaves no trace``() =
+    checkNoTrace "7c263b0c"
+
+  /// <summary>
+  /// dcblq. CT, rA, rB reports whether the block is locked in CR0: 0b00, the
+  /// status (0, where a query cannot be answered, and no lock is ever set),
+  /// and XER's SO. The manual's pseudocode; QEMU has no dcblq. on the e500mc.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBLQ. reports a block that is not locked``() =
+    checkQuery "7c263b4d"
+
+  /// <summary>
+  /// dcbtls CT, rA, rB is a hint to load and lock a block, which may fail to
+  /// lock ("an unable-to-lock condition may occur"), and the model leaves no
+  /// trace. qemu-ppc -cpu e500mc (8.2.2) runs it and changes no register or
+  /// memory (it records the failure in L1CSR0, which nothing here models).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBTLS leaves no trace``() =
+    checkNoTrace "7c46394c"
+
+  /// <summary>
+  /// dcbtstls CT, rA, rB, the same hint for a store. The manual's; QEMU has no
+  /// dcbtstls on the e500mc.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBTSTLS leaves no trace``() =
+    checkNoTrace "7c46390c"
+
+  /// <summary>
+  /// icblc CT, rA, rB unlocks a block of an instruction cache the model does
+  /// not have locked. The manual's; QEMU has no icblc on the e500mc.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ICBLC leaves no trace``() =
+    checkNoTrace "7c2639cc"
+
+  /// <summary>
+  /// icblq. CT, rA, rB reports a block of the instruction cache that is not
+  /// locked in CR0, as dcblq. does. The manual's; QEMU has no icblq. on the
+  /// e500mc.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ICBLQ. reports a block that is not locked``() =
+    checkQuery "7c26398d"
+
+  /// <summary>
+  /// icbtls CT, rA, rB is a hint to load a block into the instruction cache and
+  /// lock it, which may fail to lock. The manual's; QEMU has no icbtls on the
+  /// e500mc.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ICBTLS leaves no trace``() =
+    checkNoTrace "7c463bcc"

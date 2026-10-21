@@ -4723,3 +4723,74 @@ type LegacyParserTests() =
     "7cc5389d"
     ++ (DLMZBdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
     ||> testEveryTarget
+
+/// The instructions the embedded environment adds to primary opcode 31
+/// (Power ISA 2.07B Book II and Book III-E), each word the one binutils
+/// assembles for the processor that has the category (-me500mc, -me6500
+/// where the e500mc has no such instruction). No server instruction has these
+/// encodings, so each is read the same on every processor.
+[<TestClass>]
+type EmbeddedParserTests() =
+  [<TestMethod>]
+  member _.``[PPC] DCBLC (data cache block lock clear)``() =
+    "7c263b0c"
+    ++ (DCBLC ** [ O.Imm 1UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] DCBLQ. (data cache block lock query)``() =
+    "7c263b4d"
+    ++ (DCBLQdot ** [ O.Imm 1UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] DCBTLS (data cache block touch and lock set)``() =
+    "7c46394c"
+    ++ (DCBTLS ** [ O.Imm 2UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] DCBTSTLS (data cache block touch for store, lock set)``() =
+    "7c46390c"
+    ++ (DCBTSTLS ** [ O.Imm 2UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] ICBLC (instruction cache block lock clear)``() =
+    "7c2639cc"
+    ++ (ICBLC ** [ O.Imm 1UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] ICBLQ. (instruction cache block lock query)``() =
+    "7c26398d"
+    ++ (ICBLQdot ** [ O.Imm 1UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] ICBTLS (instruction cache block touch and lock set)``() =
+    "7c463bcc"
+    ++ (ICBTLS ** [ O.Imm 2UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] cache locking with a reserved bit wrong is refused``() =
+    (* bit 6 set; the record bit set on a form without one, and clear on a
+       query, which has one *)
+    for hex in
+      [ "7e263b0c"
+        "7c263b0d"
+        "7c263b4c"
+        "7e46394c"
+        "7c46394d"
+        "7e46390c"
+        "7c46390d"
+        "7e2639cc"
+        "7c2639cd"
+        "7c26398c"
+        "7e26398d"
+        "7e463bcc"
+        "7c463bcd"
+        "7e263b4d" ] do
+      testUnsupported WordSize.Bit32 hex
+      testUnsupported WordSize.Bit64 hex
