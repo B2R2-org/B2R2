@@ -43198,7 +43198,8 @@ type VLELifterTests() =
       let given = [ R3, r3; R4, r4; XER, xer ]
       let wanted = [ R3, r3'; R4, r4; XER, xer' ]
       check isa "4143" given wanted
-    for isa in vleTargets do sameAs isa "4143" "7c632630"
+    (* The server 64-bit form additionally writes ISA 3.0 CA32. *)
+    sameAs vle32 "4143" "7c632630"
 
   /// <summary>
   /// se_slwi RX,UI5 shifts the low word of RX left by UI5 (the sample is 5) and
@@ -44791,7 +44792,8 @@ type VLELifterTests() =
       let given = [ R3, r3; R4, r4; XER, xer ]
       let wanted = [ R3, r3'; R4, r4; XER, xer' ]
       check isa "1864900c" given wanted
-    for isa in vleTargets do sameAs isa "1864900c" "3064000c"
+    (* The server 64-bit form additionally writes ISA 3.0 CA32. *)
+    sameAs vle32 "1864900c" "3064000c"
     (* e_addic r3,r4,-100 *)
     let w1 = 0xffffffffffffffa1UL
     let w2 = 0xffffffffffffff00UL
@@ -44858,7 +44860,8 @@ type VLELifterTests() =
       let given = [ R3, r3; R4, r4; XER, xer ]
       let wanted = [ R3, r3'; R4, r4; XER, xer'; CR0, cr0' ]
       check isa "1864980c" given wanted
-    for isa in vleTargets do sameAs isa "1864980c" "3464000c"
+    (* The server 64-bit form additionally writes ISA 3.0 CA32. *)
+    sameAs vle32 "1864980c" "3464000c"
 
   /// <summary>
   /// e_andi RA,RS,SCI8 puts RS & SCI8 into RA and leaves CR0 alone. RA is the
@@ -45100,7 +45103,8 @@ type VLELifterTests() =
       let given = [ R3, r3; R4, r4; XER, xer ]
       let wanted = [ R3, r3'; R4, r4; XER, xer' ]
       check isa "1864b00c" given wanted
-    for isa in vleTargets do sameAs isa "1864b00c" "2064000c"
+    (* The server 64-bit form additionally writes ISA 3.0 CA32. *)
+    sameAs vle32 "1864b00c" "2064000c"
     (* e_subfic r3,r4,-100 *)
     let w1 = 0xfffffffeffffffa7UL
     let w2 = 0xffffffffffffff97UL
@@ -46361,3 +46365,17 @@ type VLELifterTests() =
       let given = [ R30, r30; R31, r31; XER, xer ]
       let wanted = [ R30, r30; R31, r31; XER, xer; CR3, cr3' ]
       check isa "7d9ff05c" given wanted
+
+  [<TestMethod>]
+  member _.``[PPC VLE] Carry operations preserve reserved XER bits``() =
+    let reserved = 0xc0000UL
+    for isa in vleTargets do
+      let shifted = [ XER, reserved ||| ca ]
+      let given = [ R3, 0x80000001UL; R4, 1UL; XER, reserved ]
+      check isa "4143" given shifted
+      check isa "6a53" given shifted
+      let given = [ R4, 1UL; XER, reserved ]
+      for hex in [ "1864900c"; "1864980c" ] do
+        check isa hex given [ XER, reserved ]
+      for hex in [ "1864b00c"; "1864b80c" ] do
+        check isa hex given shifted
