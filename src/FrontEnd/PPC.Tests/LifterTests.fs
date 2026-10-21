@@ -27455,6 +27455,14 @@ type LegacyLifterTests() =
         Assert.AreEqual(box xerAfter, box (after XER), case)
         Assert.AreEqual(box field, box (cr0 after), case)
 
+  /// The processors dlmzb runs on: the same, with the Legacy Move Assist
+  /// category, which a server processor reads the word of dlmzb without.
+  let moveAssistTargets =
+    [ isaOf Endian.Big WordSize.Bit32
+      isaOf Endian.Big WordSize.Bit64
+      isaOf Endian.Little WordSize.Bit64 ]
+    |> List.map (fun isaOn -> isaOn Category.LegacyMoveAssist)
+
   /// The operand sets every dlmzb runs over: rS, rB and XER. They are the
   /// oracle's seeds: no null byte; a null as the first, third and fourth byte
   /// of rS and as the second, third and fourth byte of rB; every byte null;
@@ -27476,7 +27484,7 @@ type LegacyLifterTests() =
   /// CR0. On a 64-bit processor the high words of rS and rB hold values the
   /// manual says are not read.
   let checkDlmzb hex outcomes =
-    for isa in multiplyTargets do
+    for isa in moveAssistTargets do
       let high =
         if isa.WordSize = WordSize.Bit64 then 0xdeadbeef00000000UL else 0UL
       for (rs, rb, xer), (ra, xerAfter, field) in

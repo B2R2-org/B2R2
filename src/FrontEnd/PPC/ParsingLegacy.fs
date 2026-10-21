@@ -127,12 +127,13 @@ let private parseDlmzb bin =
   let opcode = if Bits.pick bin 0u = 0u then Op.DLMZB else Op.DLMZBdot
   struct (opcode, ThreeOperands(ra, rs, rb))
 
-/// The instructions of primary opcode 31 that no category reads another way,
-/// by the ten-bit extended opcode: dlmzb, what the embedded environment adds
+/// The instructions of primary opcode 31, by the ten-bit extended opcode:
+/// dlmzb, which only the category that has it reads (a server processor reads
+/// its word with rS and rA zero as msgsndu), what the embedded environment adds
 /// and the transactional memory instructions.
 let private parse31 category bitLen bin =
   match Bits.extract bin 10u 1u with
-  | 78u ->
+  | 78u when Category.includes Category.LegacyMoveAssist category ->
     ValueSome(parseDlmzb bin)
   | _ ->
     match ParsingEmbedded.tryParse31 category bitLen bin with
