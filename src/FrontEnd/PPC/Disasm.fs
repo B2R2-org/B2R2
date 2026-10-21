@@ -1638,6 +1638,14 @@ let opCodeToString = function
   | Op.ICBLC -> "icblc"
   | Op.ICBLQdot -> "icblq."
   | Op.ICBTLS -> "icbtls"
+  | Op.DNH -> "dnh"
+  | Op.EHPRIV -> "ehpriv"
+  | Op.MBAR -> "mbar"
+  | Op.MFDCRUX -> "mfdcrux"
+  | Op.MFPMR -> "mfpmr"
+  | Op.MTDCRUX -> "mtdcrux"
+  | Op.MTPMR -> "mtpmr"
+  | Op.XNOP -> "xnop"
   | _ -> Terminator.impossible ()
 
 let condToString = function

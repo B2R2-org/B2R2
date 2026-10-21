@@ -27394,6 +27394,14 @@ module private LaneEShortcut =
       isaOf Endian.Little WordSize.Bit64 ]
     |> List.map (fun isaOn -> isaOn Category.Server)
 
+  /// The same processors with the embedded environment, which reads the word a
+  /// server processor reads as eieio as mbar.
+  let embeddedProcessors =
+    [ isaOf Endian.Big WordSize.Bit32
+      isaOf Endian.Big WordSize.Bit64
+      isaOf Endian.Little WordSize.Bit64 ]
+    |> List.map (fun isaOn -> isaOn Category.Embedded)
+
 /// <summary>
 /// Lane E's lifting tests: the instructions of the Power ISA 2.07B
 /// categories that 3.1 dropped. Every expected value is QEMU's
@@ -29117,14 +29125,30 @@ type EmbeddedLifterTests() =
   /// Asserts that a word lifts to nothing but the marks of the instruction, on
   /// every processor, and that over registers holding values and memory
   /// holding bytes it leaves all of them as they were.
-  let checkNoTrace hex =
-    for isa in everyProcessor do
+  let checkNoTraceOn isas hex =
+    for isa in isas do
       Assert.IsTrue(Array.forall isMark (lifted isa hex), $"{hex} {isa}")
       let given = [ R5, 5UL; R6, 0x20200078UL; R7, 8UL; XER, 0xe0000000UL ]
       let after, memory = exec isa hex given []
       for r, v in given do
         Assert.AreEqual(box v, box (after r), $"{hex} {r} {isa}")
       Assert.AreEqual(box 0, box memory.Count, $"{hex} memory {isa}")
+
+  /// The same on every processor with the server reading of every encoding.
+  let checkNoTrace hex = checkNoTraceOn everyProcessor hex
+
+  /// The big-endian processors, whose byte order is the order of the manual's
+  /// drawings.
+  let bigEndian = everyProcessor |> List.filter (fun i -> i.Endian = Endian.Big)
+
+  /// The side effects a word lifts to on every processor, one list each.
+  let effectsOf hex =
+    [ for isa in everyProcessor ->
+        lifted isa hex
+        |> Array.choose (function
+          | SideEffect(Effect = effect) -> Some effect
+          | _ -> None)
+        |> List.ofArray ]
 
   /// Runs a lock query with CR0 holding every bit set and XER's SO as
   /// given, and asserts CR0 holds 0b00 || 0 || SO: the block is never locked.
@@ -29199,3 +29223,168 @@ type EmbeddedLifterTests() =
   [<TestMethod>]
   member _.``[PPC] ICBTLS leaves no trace``() =
     checkNoTrace "7c463bcc"
+
+  /// <summary>
+  /// mbar MO orders the storage accesses of the program, and nothing the model
+  /// holds changes. qemu-ppc -cpu e500mc and -cpu 440epx (8.2.2) run it with MO
+  /// 0, 1 and 31 and change no register.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MBAR leaves no trace``() =
+    for hex in [ "7c0006ac"; "7c2006ac"; "7fe006ac" ] do
+      checkNoTraceOn embeddedProcessors hex
+
+  /// <summary>
+  /// dnh DUI, DUIS halts the thread where an implementation-dependent means
+  /// has enabled it and otherwise raises an illegal instruction exception,
+  /// which is all a user-level program can reach. qemu-ppc -cpu e500mc (8.2.2)
+  /// raises SIGILL.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DNH raises an illegal instruction exception``() =
+    let expected = box [ B2R2.BinIR.SideEffect.UndefinedInstruction ]
+    for effects in effectsOf "4c20118c" do
+      Assert.AreEqual(expected, box effects)
+
+  /// <summary>
+  /// ehpriv OC generates an Embedded Hypervisor Privilege exception, "analogous
+  /// to a guaranteed illegal instruction encoding", and a user-level program
+  /// has no hypervisor to take it. qemu-ppc -cpu e500mc (8.2.2) raises SIGILL.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] EHPRIV raises an illegal instruction exception``() =
+    let expected = box [ B2R2.BinIR.SideEffect.UndefinedInstruction ]
+    for effects in effectsOf "7c002a1c" do
+      Assert.AreEqual(expected, box effects)
+
+  /// <summary>
+  /// mfpmr rT, PMRN reads a performance monitor register. No event is ever
+  /// counted and no performance monitor is modeled, so rT reads 0 whatever
+  /// the register: a choice the architecture leaves open, which QEMU (it has
+  /// no mfpmr in user mode) cannot confirm.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFPMR reads zero``() =
+    for isa in everyProcessor do
+      for hex in [ "7cb0029c"; "7cb0629c" ] do
+        let after = run isa hex [ R5, 0x1234UL; R6, 7UL ]
+        Assert.AreEqual(box 0UL, box (after R5), $"{hex} {isa}")
+        Assert.AreEqual(box 7UL, box (after R6), $"{hex} {isa}")
+
+  /// <summary>
+  /// mtpmr PMRN, rS writes a performance monitor register that is not modeled,
+  /// and nothing the model holds changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTPMR leaves no trace``() =
+    for hex in [ "7cb0039c"; "7cb0639c" ] do
+      checkNoTrace hex
+
+  /// <summary>
+  /// mfdcrux rT, rA reads the device control register rA names, the state of a
+  /// device that is not modeled, so it is an instruction B2R2 does not lift.
+  /// qemu-ppc -cpu 440epx (8.2.2) raises SIGILL.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFDCRUX is not lifted``() =
+    let expected = box [ B2R2.BinIR.SideEffect.UnsupportedInstruction ]
+    for effects in effectsOf "7ca60246" do
+      Assert.AreEqual(expected, box effects)
+
+  /// <summary>
+  /// mtdcrux rA, rS writes a device control register, the same. qemu-ppc -cpu
+  /// 440epx (8.2.2) raises SIGILL.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTDCRUX is not lifted``() =
+    let expected = box [ B2R2.BinIR.SideEffect.UnsupportedInstruction ]
+    for effects in effectsOf "7cc50346" do
+      Assert.AreEqual(expected, box effects)
+
+  /// <summary>
+  /// xnop is a no-op that executes: it lifts to the marks of the instruction
+  /// alone, where xori 0, 0, 0 would write r0. qemu-ppc -cpu e500mc (8.2.2)
+  /// runs it and changes no register.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XNOP leaves no trace``() =
+    checkNoTrace "68000000"
+
+  /// <summary>
+  /// dcba rA, rB is a hint that the program will store into the block and does
+  /// not care about the rest of it, and leaves no trace. qemu-ppc -cpu e500mc
+  /// and -cpu 440epx (8.2.2) run it and change no register or memory.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBA leaves no trace``() =
+    checkNoTrace "7c063dec"
+
+  /// <summary>
+  /// mcrxr crD copies the SO, OV and CA bits of XER into the first three bits
+  /// of CR field crD, the fourth being the bit XER holds above them, and
+  /// clears them. The seeds keep that reserved bit clear: qemu-ppc -cpu 440epx
+  /// and -cpu e500mc (8.2.2), which supply every expected value, leave it
+  /// alone where the manual's pseudocode copies it and clears it too.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MCRXR copies XER into a CR field``() =
+    (* mcrxr cr3 *)
+    for isa in everyProcessor do
+      for xer, field, xerAfter in
+        [ 0x0UL, 0x0UL, 0x0UL
+          0x80000000UL, 0x8UL, 0x0UL
+          0x40000000UL, 0x4UL, 0x0UL
+          0x20000000UL, 0x2UL, 0x0UL
+          0xe0000000UL, 0xeUL, 0x0UL
+          0x60000000UL, 0x6UL, 0x0UL
+          0xa0000000UL, 0xaUL, 0x0UL
+          0xc0000000UL, 0xcUL, 0x0UL
+          0xe003ffffUL, 0xeUL, 0x3ffffUL ] do
+        for before in [ 0UL; 1UL ] do
+          let given =
+            [ CR3_0, before
+              CR3_1, before
+              CR3_2, before
+              CR3_3, before
+              XER, xer ]
+          let after = run isa "7d800400" given
+          let case = $"{xer:x} {before} {isa}"
+          let nibble =
+            (after CR3_0 <<< 3) ||| (after CR3_1 <<< 2) ||| (after CR3_2 <<< 1)
+            ||| after CR3_3
+          Assert.AreEqual(box field, box nibble, case)
+          Assert.AreEqual(box xerAfter, box (after XER), case)
+
+  /// <summary>
+  /// eciwx rT, rA, rB sends a load word request for (rA|0) + (rB) to the
+  /// device the EAR names and puts the word it returns into the low half of
+  /// rT, the high half 0. The word comes back as one the processor reads from
+  /// memory, so on a big-endian processor it is the four bytes in order; the
+  /// byte order a device returns it in is the device's own, which the manual
+  /// leaves open, so only the big-endian processors are asserted. QEMU 8.2.2
+  /// has no eciwx for the 440 or the e500mc (SIGILL).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ECIWX loads a word``() =
+    (* eciwx r5, r6, r7 *)
+    for isa in bigEndian do
+      let memory = [ 0x2000UL, [| 0x12uy; 0x34uy; 0x56uy; 0x78uy |] ]
+      let given = [ R5, UInt64.MaxValue; R6, 0x1ff8UL; R7, 8UL ]
+      let after, _ = exec isa "7ca63a6c" given memory
+      Assert.AreEqual(box 0x12345678UL, box (after R5), $"{isa}")
+
+  /// <summary>
+  /// ecowx rS, rA, rB sends the low word of rS and a store word request for
+  /// (rA|0) + (rB) to the device the EAR names. The device is memory here, and
+  /// a big-endian processor stores the four bytes in order. QEMU 8.2.2 has no
+  /// ecowx for the 440 or the e500mc (SIGILL).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ECOWX stores a word``() =
+    (* ecowx r5, r6, r7 *)
+    let expected = box [ 0x12uy; 0x34uy; 0x56uy; 0x78uy ]
+    for isa in bigEndian do
+      let given = [ R5, 0xdeadbeef12345678UL; R6, 0x1ff8UL; R7, 8UL ]
+      let _, memory = exec isa "7ca63b6c" given []
+      let bytes = [ for a in 0x2000UL .. 0x2003UL -> memory[a] ]
+      Assert.AreEqual(expected, box bytes, $"{isa}")

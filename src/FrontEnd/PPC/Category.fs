@@ -50,6 +50,10 @@ type Category =
   /// multiply-accumulates of the 405 and 440 cores, which take primary opcode
   /// 4 from the vector facility.
   | LegacyIntegerMultiplyAccumulate = 0x1
+  /// Book III-E, the embedded environment, where the word that is eieio on a
+  /// server processor is mbar, whose MO field the server reading leaves
+  /// reserved.
+  | Embedded = 0x2
 
 /// Provides functions to read the categories a PowerPC ISA names.
 [<RequireQualifiedAccess>]
