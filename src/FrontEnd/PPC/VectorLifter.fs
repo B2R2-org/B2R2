@@ -919,9 +919,9 @@ let private vsxToInt ins bld isWord isSigned =
     res := AST.ite (AST.fle src loLimit) loValue res
     res := AST.ite (AST.fge src hiLimit) hiValue res
     res := AST.ite (IEEE754Double.isNaN src) loValue res
-    (* A word result goes in element 1 of the doubleword, which is its low
-       half; the rest of the register the ISA leaves undefined. *)
-    dh := if isWord then AST.zext 64<rt> (AST.xtlo 32<rt> res) else res
+    (* ISA 3.1 requires a word result in both words of doubleword zero. *)
+    let word = AST.xtlo 32<rt> res
+    dh := if isWord then AST.concat word word else res
     dl := AST.num0 64<rt>
   }
 
@@ -984,7 +984,7 @@ let xscvdpsp ins bld =
     let struct (dh, dl) = vecHalves bld o1
     let struct (bh, _) = vecHalves bld o2
     let single = AST.cast CastKind.FloatCast 32<rt> bh
-    dh := AST.concat single (AST.num0 32<rt>)
+    dh := AST.concat single single
     dl := AST.num0 64<rt>
     setFPRF bld (AST.cast CastKind.FloatCast 64<rt> single)
   }
