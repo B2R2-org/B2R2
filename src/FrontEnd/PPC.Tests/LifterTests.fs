@@ -46530,6 +46530,50 @@ type PrefixedLifterTests() =
         Assert.AreEqual(box value, box actual, $"{hex} {addr} {endian}")
 
   [<TestMethod>]
+  member _.``[PPC] MMA NaN selection follows the arithmetic stages``() =
+    let forms =
+      [ "ee021898", false
+        "ee021890", false
+        "ee021c90", false
+        "ee021a90", false
+        "ee021e90", false
+        "ee021998", true
+        "ee021990", true
+        "ee021d90", true
+        "ee021b90", true
+        "ee021f90", true
+        "0790c0ffee021898", false
+        "0790c0ffee021890", false
+        "0790c0ffee021c90", false
+        "0790c0ffee021a90", false
+        "0790c0ffee021e90", false
+        "0790c0ffee021998", true
+        "0790c0ffee021990", true
+        "0790c0ffee021d90", true
+        "0790c0ffee021b90", true
+        "0790c0ffee021f90", true ]
+    let cases isBF16 =
+      if isBF16 then
+        [ 0x7f803f80UL, 0x00007fc1UL, 0x00000000UL, 0x7fc00000UL
+          0x3f807f80UL, 0x3f800000UL, 0x7fc12345UL, 0x7fc00000UL
+          0x7f807fc2UL, 0x00003f80UL, 0x7fc12345UL, 0x7fc20000UL ]
+      else
+        [ 0x7c003c00UL, 0x00007e01UL, 0x00000000UL, 0x7fc00000UL
+          0x3c007c00UL, 0x3c000000UL, 0x7fc12345UL, 0x7fc00000UL
+          0x7c007e02UL, 0x00003c00UL, 0x7fc12345UL, 0x7fc04000UL ]
+    let pair w = (w <<< 32) ||| w
+    for hex, bf in forms do
+      for x, y, acc, wanted in cases bf do
+        let x, y, acc, wanted = pair x, pair y, pair acc, pair wanted
+        let given =
+          String.concat " "
+            [ $"F2={x:x} VSRL2={x:x}"
+              $"F3={y:x} VSRL3={y:x}"
+              $"F16={acc:x} VSRL16={acc:x}" ]
+        for endian in [ Endian.Big; Endian.Little ] do
+          oracle hex endian $"{given};F16={wanted:x};;"
+
+  [<TestMethod>]
   member _.``[PPC] PADDI prefixed values``() =
     oracle "0600000038a6000c" Endian.Big """
       R5=bad0bad0bad0bad R6=3 LR=20100040 CTR=20100080 VSCR=10000
