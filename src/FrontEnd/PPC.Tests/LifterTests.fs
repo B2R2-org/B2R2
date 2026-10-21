@@ -29803,3 +29803,386 @@ type TransactionLifterTests() =
   [<TestMethod>]
   member _.``[PPC] MTTEXASRU writes the upper word of TEXASR``() =
     checkMoveTo "7ca323a6" TEXASR (fun _ -> 0x9abcdef0fedcba98UL)
+
+(* Lane S: the Signal Processing Engine. *)
+
+/// <summary>
+/// Lane S's lifting tests: the instructions of the Signal Processing Engine,
+/// run on the e500 (a 32-bit processor whose general registers the engine
+/// widens to 64 bits, the high word in R0H-R31H) and on a 64-bit processor
+/// with the engine. Every expected value is what qemu-ppc -cpu e500v2 (QEMU
+/// 8.2.2) left in the register, run through optest-powerpc/oracle over the
+/// same values, unless a test says that the manual and QEMU part, in which
+/// case it is the manual's (deviations/ppc/spe_*.c) -- or that QEMU does not
+/// run the instruction (it raises SIGILL for 90 of the 248), in which case it
+/// is spe/model.py's, a second reading of the manual's pseudocode written
+/// apart from B2R2 and checked against QEMU wherever QEMU runs something.
+/// <para>
+/// A table of cases is hexadecimal numbers, whatever the line breaks between
+/// them: a case of arith is RA, RB, ACC and SPEFSCR as they were given, then
+/// RT, ACC and SPEFSCR as the word left them; a case of compare is RA, RB and
+/// SPEFSCR, then the CR field the word wrote.
+/// </para>
+/// </summary>
+[<TestClass>]
+type SignalProcessingLifterTests() =
+  /// The categories of a processor with the engine.
+  let engine = int Category.SignalProcessing
+
+  /// The e500, a 32-bit processor whose general registers the engine widens
+  /// to 64 bits: the low word is R0-R31 and the high word R0H-R31H.
+  let engine32 = ISA(Architecture.PPC, Endian.Big, WordSize.Bit32, engine)
+
+  /// A 64-bit processor with the engine, whose registers are 64 bits wide to
+  /// begin with.
+  let engine64 = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64, engine)
+
+  /// Both of them.
+  let engines = [ engine32; engine64 ]
+
+  /// What R5 holds before a word that writes it runs, so that a result equal
+  /// to a seed still shows.
+  let before = 0x0bad0bad0bad0badUL
+
+  /// The numbers of a table of cases, a case of the given width at a time.
+  let rows (width: int) (table: string) =
+    table.Split([| ' '; char 10 |], StringSplitOptions.RemoveEmptyEntries)
+    |> Array.map (fun token -> Convert.ToUInt64(token, 16))
+    |> Array.chunkBySize width
+
+  /// The statements one word lifts to on the processor an ISA names. The hex
+  /// is the word as the Power ISA draws it, most significant byte first, and
+  /// both processors here are big-endian.
+  let lifted (isa: ISA) (hex: string) =
+    let reader = BinReader.Init isa.Endian
+    let parser = Parser(isa, reader) :> IInstructionParsable
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    (parser.Parse(ByteArray.ofHexString hex, 0UL)).Translate builder
+
+  /// The variable of a register on the processor an ISA names.
+  let var (isa: ISA) r =
+    (RegisterFactory isa :> IRegisterFactory).GetRegVar(Register.toRegID r)
+
+  /// The register that holds the high word of a general register.
+  let highOf (r: Register) = enum<Register> (int r + int R0H)
+
+  /// Whether a register is one of the 64-bit general registers.
+  let isGeneral (r: Register) = r >= R0 && r <= R31
+
+  /// The registers given values as the processor of an ISA holds them: a
+  /// general register is given as its 64 bits, which a 32-bit processor keeps
+  /// in two.
+  let inputsOf (isa: ISA) given =
+    given
+    |> List.collect (fun (r, v: uint64) ->
+      if isGeneral r && isa.WordSize = WordSize.Bit32 then
+        [ highOf r, v >>> 32; r, v &&& 0xffffffffUL ]
+      else
+        [ r, v ])
+    |> List.map (fun (r, v) ->
+      let x = var isa r
+      x, BitVector(v, Expr.typeOf x))
+
+  /// What a register holds after a run, a general register as its 64 bits.
+  let readBack (isa: ISA) (read: Expr -> BitVector) (r: Register) =
+    let value x = (read (var isa x)).ToUInt64()
+    if isGeneral r && isa.WordSize = WordSize.Bit32 then
+      (value (highOf r) <<< 32) ||| value r
+    else
+      value r
+
+  /// Runs a word on each processor over the registers given, and asserts that
+  /// every register wanted holds its value afterwards.
+  let check (hex: string) (label: string) given wanted =
+    for isa in engines do
+      let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) []
+      for r, v in wanted do
+        let actual = readBack isa outcome.Read r
+        Assert.AreEqual(box v, box actual, $"{hex} {label} {r} {isa.WordSize}")
+
+  /// The cases of a word that reads RA (r6) and RB (r7), the accumulator and
+  /// SPEFSCR and writes RT (r5), the accumulator and SPEFSCR.
+  let arith hex table =
+    for c in rows 7 table do
+      let label = $"{c[0]:x} {c[1]:x} {c[2]:x} {c[3]:x}"
+      let given = [ R5, before; R6, c[0]; R7, c[1]; ACC, c[2]; SPEFSCR, c[3] ]
+      let wanted = [ R5, c[4]; ACC, c[5]; SPEFSCR, c[6] ]
+      check hex label given wanted
+
+  /// The four bits of a CR field as the Power ISA draws them, LT first, in
+  /// the order of the one-bit registers B2R2 keeps them in.
+  let fieldBits (first: Register) (field: uint64) =
+    [ for i in 0 .. 3 ->
+        enum<Register> (int first + i), (field >>> (3 - i)) &&& 1UL ]
+
+  /// The cases of a compare word that writes CR2 from RA (r6) and RB (r7).
+  let compare hex table =
+    for c in rows 4 table do
+      let label = $"{c[0]:x} {c[1]:x} {c[2]:x}"
+      let given = [ R6, c[0]; R7, c[1]; SPEFSCR, c[2] ]
+      check hex label given (fieldBits CR2_0 c[3])
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDIW (Vector Add Immediate Word)``() =
+    (* evaddiw r5, r7, 12 *)
+    arith "10ac3a02" """
+      0 7fffffff7fffffff 100000002 0
+      8000000b8000000b 100000002 0
+      0 3000555555555 1234567889abcdef 80008000
+      3001155555561 1234567889abcdef 80008000
+      0 80007fffaaaaaaaa ffffffff 40004000
+      8000800baaaaaab6 ffffffff 40004000
+      0 1f7fff7fff 4000000040000000 1
+      2b7fff800b 4000000040000000 1
+      0 7fffffff7fffffff 8000000080000000 2
+      8000000b8000000b 8000000080000000 2
+      0 ffff00010000ffff ffffffffffffffff 3
+      ffff000d0001000b ffffffffffffffff 3
+      0 55555555aaaaaaaa 80000000ffffffff f01
+      55555561aaaaaab6 80000000ffffffff f01
+      0 3000540000000 c0000000c0000000 80008f00
+      300114000000c c0000000c0000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDW (Vector Add Word)``() =
+    (* evaddw r5, r6, r7 *)
+    arith "10a63a00" """
+      7fffffff40000000 400040008000ffff ffffffffffffffff 0
+      c0003fffc000ffff ffffffffffffffff 0
+      7fffffff8000 55555555ffff0001 ffffffffffffffff 80008000
+      5555d554fffe8001 ffffffffffffffff 80008000
+      800080008000 80007fff0000ffff 0 40004000
+      8000ffff80017fff 0 40004000
+      1234567800000020 30005aaaaaaaa 80000000ffffffff 1
+      1237567daaaaaaca 80000000ffffffff 1
+      deadbeef40000000 ffff000100000020 0 2
+      deacbef040000020 0 2
+      1f0000003f 1ffffffff ffffffff 3
+      200000003e ffffffff 3
+      fffd00050000ffff 1fffd0005 c0000000c0000000 f01
+      fffd0006fffe0004 c0000000c0000000 f01
+      ffff40000000 10001 80000000ffffffff 80008f00
+      ffff40010001 80000000ffffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVAND (Vector AND)``() =
+    (* evand r5, r6, r7 *)
+    arith "10a63a11" """
+      7fff800012345678 10000003f 1234567889abcdef 0
+      38 1234567889abcdef 0
+      80008000 12345678 ffffffffffffffff 80008000
+      0 ffffffffffffffff 80008000
+      fffd0005aaaaaaaa 2040004000 100000002 40004000
+      0 100000002 40004000
+      80008000 ffff8000 8000000080000000 1
+      80008000 8000000080000000 1
+      9abcdef00000ffff 7fffaaaaaaaa 7fffffff00000001 2
+      5ef00000aaaa 7fffffff00000001 2
+      2055555555 1fffffffff 7fffffff00000001 3
+      55555555 7fffffff00000001 3
+      3f9abcdef0 8000ffff00000001 100000002 f01
+      3f00000000 100000002 f01
+      7fff7fff00007fff 800000000000ffff c0000000c0000000 80008f00
+      7fff c0000000c0000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVANDC (Vector AND with Complement)``() =
+    (* evandc r5, r6, r7 *)
+    arith "10a63a12" """
+      300057fffffff 9abcdef0ffff8000 0 0
+      3000500007fff 0 0
+      80007fff00030005 7fff800080007fff ffffffffffffffff 80008000
+      80007fff00030000 ffffffffffffffff 80008000
+      800000000000ffff ffff9abcdef0 c0000000c0000000 40004000
+      800000000000210f c0000000c0000000 40004000
+      30005ffffffff 7fffdeadbeef 7fffffff7fffffff 1
+      3000021524110 7fffffff7fffffff 1
+      8000800040004000 3f00030005 ffffffff 2
+      8000800040004000 ffffffff 2
+      aaaaaaaa9abcdef0 fffd0005aaaaaaaa 7fffffff7fffffff 3
+      2aaaa10145450 7fffffff7fffffff 3
+      3f7fff8000 100000001 8000000080000000 f01
+      3e7fff8000 8000000080000000 f01
+      ffff8000ffffffff fffd0005 4000000040000000 80008f00
+      ffff80000002fffa 4000000040000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVEQV (Vector Equivalent)``() =
+    (* eveqv r5, r6, r7 *)
+    arith "10a63a19" """
+      400040008000ffff 7fff800000008000 c0000000c0000000 0
+      c0003fff7fff8000 c0000000c0000000 0
+      400000007fff8000 80000000ffff0001 ffffffffffffffff 80008000
+      3fffffff7fff7ffe ffffffffffffffff 80008000
+      9abcdef07fff8000 deadbeefffff0001 ffffffffffffffff 40004000
+      bbee9fe07fff7ffe ffffffffffffffff 40004000
+      17fff7fff ffff000180007fff 7fffffff7fffffff 1
+      ffff0000ffff 7fffffff7fffffff 1
+      100008000 1000140004000 7fffffff7fffffff 2
+      fffeffffbfff3fff 7fffffff7fffffff 2
+      8000000080008000 7fff7ffffffd0005 ffffffffffffffff 3
+      800080027ffa ffffffffffffffff 3
+      10001fffd0005 3000500007fff 1234567889abcdef f01
+      fffdfffb00028005 1234567889abcdef f01
+      ffff0001 ffffffffaaaaaaaa ffffffff00000000 80008f00
+      aaaa5554 ffffffff00000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVNAND (Vector NAND)``() =
+    (* evnand r5, r6, r7 *)
+    arith "10a63a1e" """
+      ffffffff0000001f 800000009abcdef0 0 0
+      7fffffffffffffef 0 0
+      180000000 3fffff8000 ffffffff00000000 80008000
+      fffffffe7fffffff ffffffff00000000 80008000
+      40004000deadbeef 300058000ffff 0 40004000
+      ffffffff7fff4110 0 40004000
+      aaaaaaaaffffffff 7fff7fff00000020 1234567889abcdef 1
+      d555d555ffffffdf 1234567889abcdef 1
+      7fff7fff0000ffff 1f0000ffff ffffffff 2
+      ffffffe0ffff0000 ffffffff 2
+      ffff8000 fffd00050000001f 4000000040000000 3
+      ffffffffffffffff 4000000040000000 3
+      9abcdef0ffff0001 ffffffff80000000 0 f01
+      6543210f7fffffff 0 f01
+      ffff800000030005 4000400000000000 ffffffff 80008f00
+      bfffffffffffffff ffffffff 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVNOR (Vector NOR)``() =
+    (* evnor r5, r6, r7 *)
+    arith "10a63a18" """
+      aaaaaaaa00008000 ffffffff7fffffff 100000002 0
+      80000000 100000002 0
+      7fff8000ffff 8000000080000000 ffffffff 80008000
+      7fff80007fff0000 ffffffff 80008000
+      80007fff8000 300057fff7fff 0 40004000
+      fffc7ffa80000000 0 40004000
+      20ffff0001 800000000000ffff ffffffff00000000 1
+      7fffffdf00000000 ffffffff00000000 1
+      ffff000180008000 4000000040000000 0 2
+      fffe3fff7fff 0 2
+      7fffffff0000ffff fffd000500030005 7fffffff00000001 3
+      fffc0000 7fffffff00000001 3
+      0 3000580007fff 80000000ffffffff f01
+      fffcfffa7fff8000 80000000ffffffff f01
+      1000180008000 deadbeefffffffff 1234567889abcdef 80008f00
+      2152411000000000 1234567889abcdef 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVOR (Vector OR)``() =
+    (* evor r5, r6, r7 *)
+    arith "10a63a17" """
+      8000 800080007fffffff 0 0
+      800080007fffffff 0 0
+      80000000deadbeef deadbeef40000000 7fffffff7fffffff 80008000
+      deadbeefdeadbeef 7fffffff7fffffff 80008000
+      3000540000000 800080008000ffff 0 40004000
+      80038005c000ffff 0 40004000
+      7fffffff7fff8000 1f40004000 7fffffff00000001 1
+      7fffffff7fffc000 7fffffff00000001 1
+      80007fff7fffffff 80007fff00010001 100000002 2
+      80007fff7fffffff 100000002 2
+      7fff80000000003f fffd000512345678 7fffffff00000001 3
+      ffff80051234567f 7fffffff00000001 3
+      800000000000001f 2040000000 c0000000c0000000 f01
+      800000204000001f c0000000c0000000 f01
+      400040008000ffff 80007fff40000000 ffffffff00000000 80008f00
+      c0007fffc000ffff ffffffff00000000 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVORC (Vector OR with Complement)``() =
+    (* evorc r5, r6, r7 *)
+    arith "10a63a1b" """
+      7fffffff00007fff 1f12345678 ffffffff 0
+      ffffffffedcbffff ffffffff 0
+      1234567800010001 7fff7fff80008000 ffffffff 80008000
+      9234d6787fff7fff ffffffff 80008000
+      80008000aaaaaaaa 3000580007fff 7fffffff7fffffff 40004000
+      fffcfffaffffaaaa 7fffffff7fffffff 40004000
+      800000009abcdef0 40000000ffffffff ffffffff00000000 1
+      bfffffff9abcdef0 ffffffff00000000 1
+      555555550000003f aaaaaaaa80007fff c0000000c0000000 2
+      555555557fff803f c0000000c0000000 2
+      aaaaaaaa12345678 1f00000000 c0000000c0000000 3
+      ffffffeaffffffff c0000000c0000000 3
+      555555558000ffff ffff800080008000 4000000040000000 f01
+      55557fffffffffff 4000000040000000 f01
+      7fff7fffffffffff 80008000deadbeef 100000002 80008f00
+      7fff7fffffffffff 100000002 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFW (Vector Subtract from Word)``() =
+    (* evsubfw r5, r6, r7 *)
+    arith "10a63a04" """
+      deadbeef80000000 9abcdef07fffffff c0000000c0000000 0
+      bc0f2001ffffffff c0000000c0000000 0
+      123456788000ffff ffff0001deadbeef 7fffffff7fffffff 80008000
+      edcaa9895eacbef0 7fffffff7fffffff 80008000
+      80007fff12345678 1000180007fff 4000000040000000 40004000
+      800080026dcc2987 4000000040000000 40004000
+      aaaaaaaafffd0005 80007fff00008000 8000000080000000 1
+      d555d55500037ffb 8000000080000000 1
+      aaaaaaaa 80007fff00007fff ffffffffffffffff 2
+      80007fff5555d555 ffffffffffffffff 2
+      9abcdef040004000 9abcdef000008000 ffffffff 3
+      c0004000 ffffffff 3
+      fffffffd0005 2000000000 ffffffff f01
+      ffff00210002fffb ffffffff f01
+      deadbeef00007fff 400040000000003f 0 80008f00
+      61528111ffff8040 0 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBIFW (Vector Subtract Immediate from Word)``() =
+    (* evsubifw r5, 12, r7 *)
+    arith "10ac3a06" """
+      0 ffff0001ffffffff c0000000c0000000 0
+      fffefff5fffffff3 c0000000c0000000 0
+      0 4000400000000020 100000002 80008000
+      40003ff400000014 100000002 80008000
+      0 fffd000500030005 7fffffff00000001 40004000
+      fffcfff90002fff9 7fffffff00000001 40004000
+      0 7fff 4000000040000000 1
+      fffffff400007ff3 4000000040000000 1
+      0 80007fff55555555 4000000040000000 2
+      80007ff355555549 4000000040000000 2
+      0 7fffffffffff8000 1234567889abcdef 3
+      7ffffff3ffff7ff4 1234567889abcdef 3
+      0 800080007fff 8000000080000000 f01
+      7ff480007ff3 8000000080000000 f01
+      0 aaaaaaaa00030005 7fffffff00000001 80008f00
+      aaaaaa9e0002fff9 7fffffff00000001 80008f00
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVXOR (Vector XOR)``() =
+    (* evxor r5, r6, r7 *)
+    arith "10a63a16" """
+      80007fff7fff 300057fff8000 100000002 0
+      380050000ffff 100000002 0
+      ffff00017fffffff 3ffffd0005 7fffffff7fffffff 80008000
+      ffff003e8002fffa 7fffffff7fffffff 80008000
+      ffff00010000001f deadbeefffffffff 0 40004000
+      2152beeeffffffe0 0 40004000
+      800000007fff8000 4000000000000001 0 1
+      c00000007fff8001 0 1
+      deadbeef8000ffff ffff00019abcdef0 1234567889abcdef 2
+      2152beee1abc210f 1234567889abcdef 2
+      10001ffff0001 12345678ffff8000 7fffffff00000001 3
+      1235567900008001 7fffffff00000001 3
+      fffd00057fff7fff 80007fff12345678 0 f01
+      7ffd7ffa6dcb2987 0 f01
+      80007fff00010001 8000ffff8000 0 80008f00
+      8000fffffffe8001 0 80008f00
+      """

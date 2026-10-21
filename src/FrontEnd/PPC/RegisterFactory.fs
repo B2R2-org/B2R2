@@ -254,6 +254,40 @@ type RegisterFactory(isa: ISA) =
   let texasr = AST.var 64<rt> (Register.toRegID TEXASR) "TEXASR"
   let tfhar = AST.var 64<rt> (Register.toRegID TFHAR) "TFHAR"
   let tfiar = AST.var 64<rt> (Register.toRegID TFIAR) "TFIAR"
+  let r0h = AST.var 32<rt> (Register.toRegID R0H) "R0H"
+  let r1h = AST.var 32<rt> (Register.toRegID R1H) "R1H"
+  let r2h = AST.var 32<rt> (Register.toRegID R2H) "R2H"
+  let r3h = AST.var 32<rt> (Register.toRegID R3H) "R3H"
+  let r4h = AST.var 32<rt> (Register.toRegID R4H) "R4H"
+  let r5h = AST.var 32<rt> (Register.toRegID R5H) "R5H"
+  let r6h = AST.var 32<rt> (Register.toRegID R6H) "R6H"
+  let r7h = AST.var 32<rt> (Register.toRegID R7H) "R7H"
+  let r8h = AST.var 32<rt> (Register.toRegID R8H) "R8H"
+  let r9h = AST.var 32<rt> (Register.toRegID R9H) "R9H"
+  let r10h = AST.var 32<rt> (Register.toRegID R10H) "R10H"
+  let r11h = AST.var 32<rt> (Register.toRegID R11H) "R11H"
+  let r12h = AST.var 32<rt> (Register.toRegID R12H) "R12H"
+  let r13h = AST.var 32<rt> (Register.toRegID R13H) "R13H"
+  let r14h = AST.var 32<rt> (Register.toRegID R14H) "R14H"
+  let r15h = AST.var 32<rt> (Register.toRegID R15H) "R15H"
+  let r16h = AST.var 32<rt> (Register.toRegID R16H) "R16H"
+  let r17h = AST.var 32<rt> (Register.toRegID R17H) "R17H"
+  let r18h = AST.var 32<rt> (Register.toRegID R18H) "R18H"
+  let r19h = AST.var 32<rt> (Register.toRegID R19H) "R19H"
+  let r20h = AST.var 32<rt> (Register.toRegID R20H) "R20H"
+  let r21h = AST.var 32<rt> (Register.toRegID R21H) "R21H"
+  let r22h = AST.var 32<rt> (Register.toRegID R22H) "R22H"
+  let r23h = AST.var 32<rt> (Register.toRegID R23H) "R23H"
+  let r24h = AST.var 32<rt> (Register.toRegID R24H) "R24H"
+  let r25h = AST.var 32<rt> (Register.toRegID R25H) "R25H"
+  let r26h = AST.var 32<rt> (Register.toRegID R26H) "R26H"
+  let r27h = AST.var 32<rt> (Register.toRegID R27H) "R27H"
+  let r28h = AST.var 32<rt> (Register.toRegID R28H) "R28H"
+  let r29h = AST.var 32<rt> (Register.toRegID R29H) "R29H"
+  let r30h = AST.var 32<rt> (Register.toRegID R30H) "R30H"
+  let r31h = AST.var 32<rt> (Register.toRegID R31H) "R31H"
+  let acc = AST.var 64<rt> (Register.toRegID ACC) "ACC"
+  let spefscr = AST.var 32<rt> (Register.toRegID SPEFSCR) "SPEFSCR"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -483,6 +517,40 @@ type RegisterFactory(isa: ISA) =
       | Register.TEXASR -> texasr
       | Register.TFHAR -> tfhar
       | Register.TFIAR -> tfiar
+      | Register.R0H -> r0h
+      | Register.R1H -> r1h
+      | Register.R2H -> r2h
+      | Register.R3H -> r3h
+      | Register.R4H -> r4h
+      | Register.R5H -> r5h
+      | Register.R6H -> r6h
+      | Register.R7H -> r7h
+      | Register.R8H -> r8h
+      | Register.R9H -> r9h
+      | Register.R10H -> r10h
+      | Register.R11H -> r11h
+      | Register.R12H -> r12h
+      | Register.R13H -> r13h
+      | Register.R14H -> r14h
+      | Register.R15H -> r15h
+      | Register.R16H -> r16h
+      | Register.R17H -> r17h
+      | Register.R18H -> r18h
+      | Register.R19H -> r19h
+      | Register.R20H -> r20h
+      | Register.R21H -> r21h
+      | Register.R22H -> r22h
+      | Register.R23H -> r23h
+      | Register.R24H -> r24h
+      | Register.R25H -> r25h
+      | Register.R26H -> r26h
+      | Register.R27H -> r27h
+      | Register.R28H -> r28h
+      | Register.R29H -> r29h
+      | Register.R30H -> r30h
+      | Register.R31H -> r31h
+      | Register.ACC -> acc
+      | Register.SPEFSCR -> spefscr
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -698,6 +766,40 @@ type RegisterFactory(isa: ISA) =
       | "texasr" -> texasr
       | "tfhar" -> tfhar
       | "tfiar" -> tfiar
+      | "r0h" -> r0h
+      | "r1h" -> r1h
+      | "r2h" -> r2h
+      | "r3h" -> r3h
+      | "r4h" -> r4h
+      | "r5h" -> r5h
+      | "r6h" -> r6h
+      | "r7h" -> r7h
+      | "r8h" -> r8h
+      | "r9h" -> r9h
+      | "r10h" -> r10h
+      | "r11h" -> r11h
+      | "r12h" -> r12h
+      | "r13h" -> r13h
+      | "r14h" -> r14h
+      | "r15h" -> r15h
+      | "r16h" -> r16h
+      | "r17h" -> r17h
+      | "r18h" -> r18h
+      | "r19h" -> r19h
+      | "r20h" -> r20h
+      | "r21h" -> r21h
+      | "r22h" -> r22h
+      | "r23h" -> r23h
+      | "r24h" -> r24h
+      | "r25h" -> r25h
+      | "r26h" -> r26h
+      | "r27h" -> r27h
+      | "r28h" -> r28h
+      | "r29h" -> r29h
+      | "r30h" -> r30h
+      | "r31h" -> r31h
+      | "acc" -> acc
+      | "spefscr" -> spefscr
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -910,7 +1012,41 @@ type RegisterFactory(isa: ISA) =
          ppr
          texasr
          tfhar
-         tfiar |]
+         tfiar
+         r0h
+         r1h
+         r2h
+         r3h
+         r4h
+         r5h
+         r6h
+         r7h
+         r8h
+         r9h
+         r10h
+         r11h
+         r12h
+         r13h
+         r14h
+         r15h
+         r16h
+         r17h
+         r18h
+         r19h
+         r20h
+         r21h
+         r22h
+         r23h
+         r24h
+         r25h
+         r26h
+         r27h
+         r28h
+         r29h
+         r30h
+         r31h
+         acc
+         spefscr |]
 
     member _.GetGeneralRegVars() =
       [| r0

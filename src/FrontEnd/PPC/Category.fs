@@ -57,6 +57,11 @@ type Category =
   /// Legacy Move Assist, dlmzb of the 405 and 440 cores, whose word is the one
   /// a server processor reads as msgsndu when rS and rA are r0.
   | LegacyMoveAssist = 0x4
+  /// The Signal Processing Engine of the e500, which shares its registers
+  /// and its status register, SPEFSCR, with the embedded floating-point
+  /// categories: instructions on 64-bit general registers, in primary opcode
+  /// 4, which the category takes from the vector facility.
+  | SignalProcessing = 0x10
 
 /// Provides functions to read the categories a PowerPC ISA names.
 [<RequireQualifiedAccess>]

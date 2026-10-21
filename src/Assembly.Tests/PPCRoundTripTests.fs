@@ -289,6 +289,33 @@ type PPCRoundTripTests() =
     )
 
   /// <summary>
+  /// Checks the same of the encodings a processor with the Signal Processing
+  /// Engine reads in primary opcode 4, which every other processor gives to
+  /// the vector facility. Each is disassembled again by a parser reading that
+  /// category, at both word sizes.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every instruction of the signal processing engine encodes``() =
+    let category = Category.SignalProcessing
+    let reader = BinReader.Init Endian.Little
+    let broken =
+      [ for wordSize, assembler in
+          [ WordSize.Bit32, assembler32; WordSize.Bit64, assembler64 ] do
+          let parser =
+            Parser(wordSize, category, reader) :> IInstructionParsable
+          for probe in PPCSweep.categoryProbes wordSize category do
+            yield brokenSource assembler parser probe.Text ]
+      |> List.choose id
+      |> List.distinct
+      |> List.sort
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These instructions of the signal processing engine do not encode."
+    )
+
+  /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
   /// than encoded.
   ///

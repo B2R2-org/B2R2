@@ -35,6 +35,7 @@ open B2R2.Assembly.PPC.AsmVSX
 open B2R2.Assembly.PPC.AsmLegacy
 open B2R2.Assembly.PPC.AsmEmbedded
 open B2R2.Assembly.PPC.AsmTransaction
+open B2R2.Assembly.PPC.AsmSPE
 
 type UserState =
   { /// Label string to the index of the instruction it marks. The index starts
@@ -67,7 +68,8 @@ let buildEncoderTable bitLen =
     vsxEncoders ()
     legacyEncoders ()
     embeddedEncoders ()
-    transactionEncoders bitLen ]
+    transactionEncoders bitLen
+    signalProcessingEncoders () ]
   |> List.concat
   |> Map.ofList
 
