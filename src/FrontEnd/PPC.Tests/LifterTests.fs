@@ -568,6 +568,18 @@ type LifterTests() =
       true
 
   [<TestMethod>]
+  member _.``[PPC] Extended vector division avoids native overflow``() =
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given =
+        [ V2A, 0x8000000080000000UL
+          V2B, 0x8000000080000000UL
+          V3A, UInt64.MaxValue
+          V3B, UInt64.MaxValue
+          VSCR, 0x10001UL ]
+      let after = run isa "10221b8b" given
+      expect 0x10001UL (after VSCR) (nameOf isa)
+
+  [<TestMethod>]
   member _.``[PPC] LFS preserves a signaling NaN``() =
     checkSingleLoadNaN "c0260008" false
 
