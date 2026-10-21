@@ -320,3 +320,48 @@ let evmergelo ins bld = vecMerge ins bld false false
 let evmergehilo ins bld = vecMerge ins bld true false
 
 let evmergelohi ins bld = vecMerge ins bld false true
+
+/// The compares, which write a CR field: whether the high words compare, then
+/// whether the low words do, then either, then both.
+let private vecCompare ins bld (relation: Expr -> Expr -> Expr) =
+  lift bld ins {
+    let struct (bf, ra, rb) = getThreeOprs ins
+    let struct (ah, al) = wordsOf bld ra
+    let struct (bh, bl) = wordsOf bld rb
+    let lt, gt, eq, so =
+      match bf with
+      | OprReg crf -> transCRxToExpr bld crf
+      | _ -> raise InvalidOperandException
+    let struct (ch, cl) = tmpVars2 bld 1<rt>
+    ch := relation ah bh
+    cl := relation al bl
+    lt := ch
+    gt := cl
+    eq := ch .| cl
+    so := ch .& cl
+  }
+
+let evcmpeq ins bld = vecCompare ins bld AST.eq
+
+let evcmpgts ins bld = vecCompare ins bld AST.sgt
+
+let evcmpgtu ins bld = vecCompare ins bld AST.gt
+
+let evcmplts ins bld = vecCompare ins bld AST.slt
+
+let evcmpltu ins bld = vecCompare ins bld AST.lt
+
+/// evsel RT, RA, RB, BFA: each word of RT is that of RA where the matching
+/// bit of CR field BFA (its first bit for the high word, its second for the
+/// low one) is set, and that of RB where it is not.
+let evsel ins bld =
+  lift bld ins {
+    let struct (rt, ra, rb, bfa) = getFourOprs ins
+    let struct (ah, al) = wordsOf bld ra
+    let struct (bh, bl) = wordsOf bld rb
+    let ch, cl, _, _ =
+      match bfa with
+      | OprReg crf -> transCRxToExpr bld crf
+      | _ -> raise InvalidOperandException
+    putWords bld rt (AST.ite ch ah bh) (AST.ite cl al bl)
+  }

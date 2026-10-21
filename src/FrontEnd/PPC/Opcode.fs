@@ -1680,5 +1680,11 @@ type Opcode =
   | EVSRWIU = 7031
   | EVSRWS = 7032
   | EVSRWU = 7033
+  | EVCMPEQ = 7034
+  | EVCMPGTS = 7035
+  | EVCMPGTU = 7036
+  | EVCMPLTS = 7037
+  | EVCMPLTU = 7038
+  | EVSEL = 7039
 
 type internal Op = Opcode

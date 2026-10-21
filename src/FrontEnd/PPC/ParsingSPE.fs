@@ -146,6 +146,12 @@ let private parseWord bin =
   | 557u -> rrr Op.EVMERGELO bin
   | 558u -> rrr Op.EVMERGEHILO bin
   | 559u -> rrr Op.EVMERGELOHI bin
+  | 560u -> crf Op.EVCMPGTU bin
+  | 561u -> crf Op.EVCMPGTS bin
+  | 562u -> crf Op.EVCMPLTU bin
+  | 563u -> crf Op.EVCMPLTS bin
+  | 564u -> crf Op.EVCMPEQ bin
+  | xo when xo >>> 3 = 79u -> sel Op.EVSEL bin
   | _ -> raise ParsingFailureException
 
 /// Whether the categories give primary opcode 4 to the Signal Processing

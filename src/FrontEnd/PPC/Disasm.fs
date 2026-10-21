@@ -1709,6 +1709,12 @@ let opCodeToString = function
   | Op.EVSRWIU -> "evsrwiu"
   | Op.EVSRWS -> "evsrws"
   | Op.EVSRWU -> "evsrwu"
+  | Op.EVCMPEQ -> "evcmpeq"
+  | Op.EVCMPGTS -> "evcmpgts"
+  | Op.EVCMPGTU -> "evcmpgtu"
+  | Op.EVCMPLTS -> "evcmplts"
+  | Op.EVCMPLTU -> "evcmpltu"
+  | Op.EVSEL -> "evsel"
   | _ -> Terminator.impossible ()
 
 let condToString = function

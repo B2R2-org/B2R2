@@ -2798,6 +2798,18 @@ let translate (ins: Instruction) bld =
     evsrws ins bld
   | Op.EVSRWU ->
     evsrwu ins bld
+  | Op.EVCMPEQ ->
+    evcmpeq ins bld
+  | Op.EVCMPGTS ->
+    evcmpgts ins bld
+  | Op.EVCMPGTU ->
+    evcmpgtu ins bld
+  | Op.EVCMPLTS ->
+    evcmplts ins bld
+  | Op.EVCMPLTU ->
+    evcmpltu ins bld
+  | Op.EVSEL ->
+    evsel ins bld
   (* End of lane S. *)
   | o ->
 #if DEBUG

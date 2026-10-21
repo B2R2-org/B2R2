@@ -5386,3 +5386,33 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVSRWU (Vector Shift Right Word Unsigned)``() =
     EVSRWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a20"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPEQ (Vector Compare Equal)``() =
+    EVCMPEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a34"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPGTS (Vector Compare Greater Than Signed)``() =
+    EVCMPGTS ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a31"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPGTU (Vector Compare Greater Than Unsigned)``() =
+    EVCMPGTU ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a30"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPLTS (Vector Compare Less Than Signed)``() =
+    EVCMPLTS ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a33"
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPLTU (Vector Compare Less Than Unsigned)``() =
+    EVCMPLTU ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a32"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSEL (Vector Select)``() =
+    EVSEL ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Reg CR2 ]
+    |> testEngine "10a63a7a"
