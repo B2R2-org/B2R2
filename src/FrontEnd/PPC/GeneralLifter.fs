@@ -591,6 +591,24 @@ let lfiwax ins bld = lfiwx ins bld AST.sext
 
 let lfiwzx ins bld = lfiwx ins bld AST.zext
 
+/// A load widens a single exactly, preserving an SNaN as signaling.
+let doubleOfSingle bld word =
+  let w = tmpVar bld 32<rt>
+  let res = tmpVar bld 64<rt>
+  append bld {
+    w := word
+    let isNaN =
+      (w .& numU32 0x7f800000u 32<rt> == numU32 0x7f800000u 32<rt>)
+      .& (w .& numU32 0x007fffffu 32<rt> != AST.num0 32<rt>)
+    let w64 = AST.zext 64<rt> w
+    let nan =
+      ((w64 .& numU64 0x80000000UL 64<rt>) << numI32 32 64<rt>)
+      .| numU64 0x7ff0000000000000UL 64<rt>
+      .| ((w64 .& numU64 0x007fffffUL 64<rt>) << numI32 29 64<rt>)
+    res := AST.ite isNaN nan (AST.cast CastKind.FloatCast 64<rt> w)
+  }
+  res
+
 let lfs ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
@@ -599,7 +617,7 @@ let lfs ins bld =
     let tmpEA = tmpVar bld bld.RegType
     let v = loadNative bld 32<rt> tmpEA
     tmpEA := ea
-    dst := AST.cast CastKind.FloatCast 64<rt> v
+    dst := doubleOfSingle bld v
   }
 
 let lfsu ins bld =
@@ -610,7 +628,7 @@ let lfsu ins bld =
     let tmpEA = tmpVar bld bld.RegType
     let v = loadNative bld 32<rt> tmpEA
     tmpEA := ea
-    frd := AST.cast CastKind.FloatCast 64<rt> v
+    frd := doubleOfSingle bld v
     ra := tmpEA
   }
 
@@ -622,7 +640,7 @@ let lfsux ins bld =
     let tmpEA = tmpVar bld bld.RegType
     let v = loadNative bld 32<rt> tmpEA
     tmpEA := ea
-    frd := AST.cast CastKind.FloatCast 64<rt> v
+    frd := doubleOfSingle bld v
     ra := tmpEA
   }
 
@@ -634,7 +652,7 @@ let lfsx ins bld =
     let tmpEA = tmpVar bld bld.RegType
     let v = loadNative bld 32<rt> tmpEA
     tmpEA := ea
-    frd := AST.cast CastKind.FloatCast 64<rt> v
+    frd := doubleOfSingle bld v
   }
 
 let lha ins bld =
