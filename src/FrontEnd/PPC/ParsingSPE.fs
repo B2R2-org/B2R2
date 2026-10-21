@@ -151,6 +151,42 @@ let private parseWord bin =
   | 562u -> crf Op.EVCMPLTU bin
   | 563u -> crf Op.EVCMPLTS bin
   | 564u -> crf Op.EVCMPEQ bin
+  | 768u -> rrr Op.EVLDDX bin
+  | 769u -> disp Op.EVLDD 8 bin
+  | 770u -> rrr Op.EVLDWX bin
+  | 771u -> disp Op.EVLDW 8 bin
+  | 772u -> rrr Op.EVLDHX bin
+  | 773u -> disp Op.EVLDH 8 bin
+  | 776u -> rrr Op.EVLHHESPLATX bin
+  | 777u -> disp Op.EVLHHESPLAT 2 bin
+  | 780u -> rrr Op.EVLHHOUSPLATX bin
+  | 781u -> disp Op.EVLHHOUSPLAT 2 bin
+  | 782u -> rrr Op.EVLHHOSSPLATX bin
+  | 783u -> disp Op.EVLHHOSSPLAT 2 bin
+  | 784u -> rrr Op.EVLWHEX bin
+  | 785u -> disp Op.EVLWHE 4 bin
+  | 788u -> rrr Op.EVLWHOUX bin
+  | 789u -> disp Op.EVLWHOU 4 bin
+  | 790u -> rrr Op.EVLWHOSX bin
+  | 791u -> disp Op.EVLWHOS 4 bin
+  | 792u -> rrr Op.EVLWWSPLATX bin
+  | 793u -> disp Op.EVLWWSPLAT 4 bin
+  | 796u -> rrr Op.EVLWHSPLATX bin
+  | 797u -> disp Op.EVLWHSPLAT 4 bin
+  | 800u -> rrr Op.EVSTDDX bin
+  | 801u -> disp Op.EVSTDD 8 bin
+  | 802u -> rrr Op.EVSTDWX bin
+  | 803u -> disp Op.EVSTDW 8 bin
+  | 804u -> rrr Op.EVSTDHX bin
+  | 805u -> disp Op.EVSTDH 8 bin
+  | 816u -> rrr Op.EVSTWHEX bin
+  | 817u -> disp Op.EVSTWHE 4 bin
+  | 820u -> rrr Op.EVSTWHOX bin
+  | 821u -> disp Op.EVSTWHO 4 bin
+  | 824u -> rrr Op.EVSTWWEX bin
+  | 825u -> disp Op.EVSTWWE 4 bin
+  | 828u -> rrr Op.EVSTWWOX bin
+  | 829u -> disp Op.EVSTWWO 4 bin
   | xo when xo >>> 3 = 79u -> sel Op.EVSEL bin
   | _ -> raise ParsingFailureException
 

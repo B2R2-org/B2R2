@@ -29840,6 +29840,14 @@ type SignalProcessingLifterTests() =
   /// Both of them.
   let engines = [ engine32; engine64 ]
 
+  /// The same two processors running little-endian, which no reference here
+  /// runs: their cases are the manual's, read by spe/model.py.
+  let engine32le = ISA(Architecture.PPC, Endian.Little, WordSize.Bit32, engine)
+
+  let engine64le = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64, engine)
+
+  let littleEngines = [ engine32le; engine64le ]
+
   /// What R5 holds before a word that writes it runs, so that a result equal
   /// to a seed still shows.
   let before = 0x0bad0bad0bad0badUL
@@ -29852,13 +29860,15 @@ type SignalProcessingLifterTests() =
 
   /// The statements one word lifts to on the processor an ISA names. The hex
   /// is the word as the Power ISA draws it, most significant byte first, and
-  /// both processors here are big-endian.
+  /// it is laid in memory in the byte order of the ISA.
   let lifted (isa: ISA) (hex: string) =
+    let word = ByteArray.ofHexString hex
+    let bytes = if isa.Endian = Endian.Big then word else Array.rev word
     let reader = BinReader.Init isa.Endian
     let parser = Parser(isa, reader) :> IInstructionParsable
     let regs = RegisterFactory isa :> IRegisterFactory
     let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
-    (parser.Parse(ByteArray.ofHexString hex, 0UL)).Translate builder
+    (parser.Parse(bytes, 0UL)).Translate builder
 
   /// The variable of a register on the processor an ISA names.
   let var (isa: ISA) r =
@@ -29892,14 +29902,38 @@ type SignalProcessingLifterTests() =
     else
       value r
 
-  /// Runs a word on each processor over the registers given, and asserts that
-  /// every register wanted holds its value afterwards.
-  let check (hex: string) (label: string) given wanted =
-    for isa in engines do
-      let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) []
+  /// Where the cases of an access put it: the middle of the window the oracle
+  /// ran them in.
+  let target = 0x20200080UL
+
+  /// The sixteen bytes at target, from the two doublewords a case gives them
+  /// as, in address order.
+  let bytesOf (m0: uint64) (m1: uint64) =
+    let bigEndian (v: uint64) = Array.rev (BitConverter.GetBytes v)
+    Array.append (bigEndian m0) (bigEndian m1)
+
+  /// Runs a word on each processor of a list over the registers and the
+  /// memory given, and asserts that every register wanted holds its value
+  /// afterwards and, for a store, that the bytes at target are the ones it
+  /// left.
+  let checkOn isas (hex: string) (label: string) given memory wanted stored =
+    for isa in isas do
+      let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) memory
       for r, v in wanted do
         let actual = readBack isa outcome.Read r
         Assert.AreEqual(box v, box actual, $"{hex} {label} {r} {isa.WordSize}")
+      stored
+      |> Array.iteri (fun i (b: byte) ->
+        let actual = outcome.Memory[target + uint64 i]
+        let message = $"{hex} {label} byte {i} {isa.WordSize}"
+        Assert.AreEqual(box b, box actual, message))
+
+  /// The same on the big-endian processors.
+  let checkWith hex label given memory wanted stored =
+    checkOn engines hex label given memory wanted stored
+
+  /// The same where the word touches no memory.
+  let check hex label given wanted = checkWith hex label given [] wanted [||]
 
   /// The cases of a word that reads RA (r6) and RB (r7), the accumulator and
   /// SPEFSCR and writes RT (r5), the accumulator and SPEFSCR.
@@ -29915,6 +29949,33 @@ type SignalProcessingLifterTests() =
   let fieldBits (first: Register) (field: uint64) =
     [ for i in 0 .. 3 ->
         enum<Register> (int first + i), (field >>> (3 - i)) &&& 1UL ]
+
+  /// The cases of a load word on the processors of a list: RA (r6), RB (r7)
+  /// and the sixteen bytes at the address it forms, then RT.
+  let loadOn isas hex table =
+    for c in rows 5 table do
+      let label = $"{c[0]:x} {c[1]:x} {c[2]:x} {c[3]:x}"
+      let given = [ R5, before; R6, c[0]; R7, c[1] ]
+      let memory = [ target, bytesOf c[2] c[3] ]
+      checkOn isas hex label given memory [ R5, c[4] ] [||]
+
+  let load hex table = loadOn engines hex table
+
+  let loadLE hex table = loadOn littleEngines hex table
+
+  /// The cases of a store word on the processors of a list: RS (r5), RA
+  /// (r6), RB (r7) and the sixteen bytes at the address it forms, then the
+  /// bytes it left there.
+  let storeOn isas hex table =
+    for c in rows 7 table do
+      let label = $"{c[0]:x} {c[1]:x} {c[2]:x} {c[3]:x} {c[4]:x}"
+      let given = [ R5, c[0]; R6, c[1]; R7, c[2] ]
+      let memory = [ target, bytesOf c[3] c[4] ]
+      checkOn isas hex label given memory [ R5, c[0] ] (bytesOf c[5] c[6])
+
+  let store hex table = storeOn engines hex table
+
+  let storeLE hex table = storeOn littleEngines hex table
 
   /// The one-bit registers of a CR field, LT first.
   let crBits (field: int) = enum<Register> (int CR0_0 + 4 * field)
@@ -29936,7 +29997,7 @@ type SignalProcessingLifterTests() =
       check hex label (given @ fieldBits (crBits bfa) c[2]) [ R5, c[3] ]
 
   [<TestMethod>]
-  member _.``[PPC] EVADDIW (Vector Add Immediate Word)``() =
+  member _.``[PPC] EVADDIW (Add Immediate Word)``() =
     (* evaddiw r5, r7, 12 *)
     arith "10ac3a02" """
       0 7fffffff7fffffff 100000002 0
@@ -29974,7 +30035,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVADDW (Vector Add Word)``() =
+  member _.``[PPC] EVADDW (Add Word)``() =
     (* evaddw r5, r6, r7 *)
     arith "10a63a00" """
       7fffffff40000000 400040008000ffff ffffffffffffffff 0
@@ -29996,7 +30057,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVAND (Vector AND)``() =
+  member _.``[PPC] EVAND (AND)``() =
     (* evand r5, r6, r7 *)
     arith "10a63a11" """
       7fff800012345678 10000003f 1234567889abcdef 0
@@ -30018,7 +30079,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVANDC (Vector AND with Complement)``() =
+  member _.``[PPC] EVANDC (AND with Complement)``() =
     (* evandc r5, r6, r7 *)
     arith "10a63a12" """
       300057fffffff 9abcdef0ffff8000 0 0
@@ -30040,7 +30101,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVEQV (Vector Equivalent)``() =
+  member _.``[PPC] EVEQV (Equivalent)``() =
     (* eveqv r5, r6, r7 *)
     arith "10a63a19" """
       400040008000ffff 7fff800000008000 c0000000c0000000 0
@@ -30062,7 +30123,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVNAND (Vector NAND)``() =
+  member _.``[PPC] EVNAND (NAND)``() =
     (* evnand r5, r6, r7 *)
     arith "10a63a1e" """
       ffffffff0000001f 800000009abcdef0 0 0
@@ -30084,7 +30145,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVNOR (Vector NOR)``() =
+  member _.``[PPC] EVNOR (NOR)``() =
     (* evnor r5, r6, r7 *)
     arith "10a63a18" """
       aaaaaaaa00008000 ffffffff7fffffff 100000002 0
@@ -30106,7 +30167,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVOR (Vector OR)``() =
+  member _.``[PPC] EVOR (OR)``() =
     (* evor r5, r6, r7 *)
     arith "10a63a17" """
       8000 800080007fffffff 0 0
@@ -30128,7 +30189,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVORC (Vector OR with Complement)``() =
+  member _.``[PPC] EVORC (OR with Complement)``() =
     (* evorc r5, r6, r7 *)
     arith "10a63a1b" """
       7fffffff00007fff 1f12345678 ffffffff 0
@@ -30150,7 +30211,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSUBFW (Vector Subtract from Word)``() =
+  member _.``[PPC] EVSUBFW (Subtract from Word)``() =
     (* evsubfw r5, r6, r7 *)
     arith "10a63a04" """
       deadbeef80000000 9abcdef07fffffff c0000000c0000000 0
@@ -30172,7 +30233,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSUBIFW (Vector Subtract Immediate from Word)``() =
+  member _.``[PPC] EVSUBIFW (Subtract Immediate from Word)``() =
     (* evsubifw r5, 12, r7 *)
     arith "10ac3a06" """
       0 ffff0001ffffffff c0000000c0000000 0
@@ -30210,7 +30271,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVXOR (Vector XOR)``() =
+  member _.``[PPC] EVXOR (XOR)``() =
     (* evxor r5, r6, r7 *)
     arith "10a63a16" """
       80007fff7fff 300057fff8000 100000002 0
@@ -30254,7 +30315,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVABS (Vector Absolute Value)``() =
+  member _.``[PPC] EVABS (Absolute Value)``() =
     (* evabs r5, r6 *)
     arith "10a60208" """
       7fffffff0000003f 0 4000000040000000 0
@@ -30276,7 +30337,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCNTLSW (Vector Count Leading Signed Bits Word)``() =
+  member _.``[PPC] EVCNTLSW (Count Leading Signed Bits Word)``() =
     (* evcntlsw r5, r6 *)
     arith "10a6020e" """
       4000000000010001 0 0 0
@@ -30298,7 +30359,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCNTLZW (Vector Count Leading Zeros Word)``() =
+  member _.``[PPC] EVCNTLZW (Count Leading Zeros Word)``() =
     (* evcntlzw r5, r6 *)
     arith "10a6020d" """
       8000800000000000 0 ffffffff00000000 0
@@ -30320,7 +30381,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVEXTSB (Vector Extend Sign Byte)``() =
+  member _.``[PPC] EVEXTSB (Extend Sign Byte)``() =
     (* evextsb r5, r6 *)
     arith "10a6020a" """
       3fdeadbeef 0 4000000040000000 0
@@ -30342,7 +30403,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVEXTSH (Vector Extend Sign Half Word)``() =
+  member _.``[PPC] EVEXTSH (Extend Sign Half Word)``() =
     (* evextsh r5, r6 *)
     arith "10a6020b" """
       7fff800080007fff 0 c0000000c0000000 0
@@ -30364,7 +30425,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGEHI (Vector Merge High)``() =
+  member _.``[PPC] EVMERGEHI (Merge High)``() =
     (* evmergehi r5, r6, r7 *)
     arith "10a63a2c" """
       20fffd0005 100010000003f 7fffffff7fffffff 0
@@ -30386,7 +30447,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGEHILO (Vector Merge High/Low)``() =
+  member _.``[PPC] EVMERGEHILO (Merge High/Low)``() =
     (* evmergehilo r5, r6, r7 *)
     arith "10a63a2e" """
       3000512345678 40000000deadbeef ffffffff 0
@@ -30408,7 +30469,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGELO (Vector Merge Low)``() =
+  member _.``[PPC] EVMERGELO (Merge Low)``() =
     (* evmergelo r5, r6, r7 *)
     arith "10a63a2d" """
       123456787fffffff 155555555 7fffffff7fffffff 0
@@ -30430,7 +30491,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGELOHI (Vector Merge Low/High)``() =
+  member _.``[PPC] EVMERGELOHI (Merge Low/High)``() =
     (* evmergelohi r5, r6, r7 *)
     arith "10a63a2f" """
       7fff800055555555 4000000012345678 100000002 0
@@ -30452,7 +30513,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVNEG (Vector Negate)``() =
+  member _.``[PPC] EVNEG (Negate)``() =
     (* evneg r5, r6 *)
     arith "10a60209" """
       8000000080008000 0 8000000080000000 0
@@ -30474,7 +30535,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVRLW (Vector Rotate Left Word)``() =
+  member _.``[PPC] EVRLW (Rotate Left Word)``() =
     (* evrlw r5, r6, r7 *)
     arith "10a63a28" """
       9abcdef000000000 400000009abcdef0 ffffffff00000000 0
@@ -30496,7 +30557,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVRLWI (Vector Rotate Left Word Immediate)``() =
+  member _.``[PPC] EVRLWI (Rotate Left Word Immediate)``() =
     (* evrlwi r5, r6, 12 *)
     arith "10a6622a" """
       8000ffffaaaaaaaa 0 7fffffff00000001 0
@@ -30534,7 +30595,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVRNDW (Vector Round Word)``() =
+  member _.``[PPC] EVRNDW (Round Word)``() =
     (* evrndw r5, r6 *)
     arith "10a6020c" """
       ffff40000000 0 0 0
@@ -30556,7 +30617,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSLW (Vector Shift Left Word)``() =
+  member _.``[PPC] EVSLW (Shift Left Word)``() =
     (* evslw r5, r6, r7 *)
     arith "10a63a24" """
       ffff80007fffffff 80007fff0000ffff 100000002 0
@@ -30578,7 +30639,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSLWI (Vector Shift Left Word Immediate)``() =
+  member _.``[PPC] EVSLWI (Shift Left Word Immediate)``() =
     (* evslwi r5, r6, 12 *)
     arith "10a66226" """
       aaaaaaaa12345678 0 80000000ffffffff 0
@@ -30616,7 +30677,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSPLATFI (Vector Splat Fractional Immediate)``() =
+  member _.``[PPC] EVSPLATFI (Splat Fractional Immediate)``() =
     (* evsplatfi r5, -3 *)
     arith "10bd022b" """
       0 0 ffffffff 0
@@ -30654,7 +30715,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSPLATI (Vector Splat Immediate)``() =
+  member _.``[PPC] EVSPLATI (Splat Immediate)``() =
     (* evsplati r5, -3 *)
     arith "10bd0229" """
       0 0 7fffffff7fffffff 0
@@ -30692,7 +30753,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWIS (Vector Shift Right Word Immediate Signed)``() =
+  member _.``[PPC] EVSRWIS (Shift Right Word Immediate Signed)``() =
     (* evsrwis r5, r6, 12 *)
     arith "10a66223" """
       3f55555555 0 ffffffff 0
@@ -30730,7 +30791,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWIU (Vector Shift Right Word Immediate Unsigned)``() =
+  member _.``[PPC] EVSRWIU (Shift Right Word Immediate Unsigned)``() =
     (* evsrwiu r5, r6, 12 *)
     arith "10a66222" """
       aaaaaaaa80008000 0 7fffffff00000001 0
@@ -30768,7 +30829,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWS (Vector Shift Right Word Signed)``() =
+  member _.``[PPC] EVSRWS (Shift Right Word Signed)``() =
     (* evsrws r5, r6, r7 *)
     arith "10a63a21" """
       3000555555555 aaaaaaaa12345678 7fffffff7fffffff 0
@@ -30790,7 +30851,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWU (Vector Shift Right Word Unsigned)``() =
+  member _.``[PPC] EVSRWU (Shift Right Word Unsigned)``() =
     (* evsrwu r5, r6, r7 *)
     arith "10a63a20" """
       140004000 800080000000ffff 80000000ffffffff 0
@@ -30812,7 +30873,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPEQ (Vector Compare Equal)``() =
+  member _.``[PPC] EVCMPEQ (Compare Equal)``() =
     (* evcmpeq cr2, r6, r7 *)
     compare "11063a34" 2 """
       80008000ffffffff 3000500000001 0 0
@@ -30836,7 +30897,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPGTS (Vector Compare Greater Than Signed)``() =
+  member _.``[PPC] EVCMPGTS (Compare Greater Than Signed)``() =
     (* evcmpgts cr2, r6, r7 *)
     compare "11063a31" 2 """
       55555555 400000007fff8000 0 0
@@ -30860,7 +30921,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPGTU (Vector Compare Greater Than Unsigned)``() =
+  member _.``[PPC] EVCMPGTU (Compare Greater Than Unsigned)``() =
     (* evcmpgtu cr2, r6, r7 *)
     compare "11063a30" 2 """
       3f55555555 fffd000500000020 0 6
@@ -30884,7 +30945,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPLTS (Vector Compare Less Than Signed)``() =
+  member _.``[PPC] EVCMPLTS (Compare Less Than Signed)``() =
     (* evcmplts cr2, r6, r7 *)
     compare "11063a33" 2 """
       10001fffd0005 aaaaaaaa00008000 0 6
@@ -30908,7 +30969,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPLTU (Vector Compare Less Than Unsigned)``() =
+  member _.``[PPC] EVCMPLTU (Compare Less Than Unsigned)``() =
     (* evcmpltu cr2, r6, r7 *)
     compare "11063a32" 2 """
       800080000000 4000000000010001 0 a
@@ -30932,7 +30993,7 @@ type SignalProcessingLifterTests() =
       """
 
   [<TestMethod>]
-  member _.``[PPC] EVSEL (Vector Select)``() =
+  member _.``[PPC] EVSEL (Select)``() =
     (* evsel r5, r6, r7, cr2 *)
     select "10a63a7a" 2 """
       8000800000010001 ffffffff0000ffff 0 ffffffff0000ffff
@@ -30953,4 +31014,1064 @@ type SignalProcessingLifterTests() =
       7fff800080000000 ffff00017fff7fff 0 ffff00017fff7fff
       ffff800080007fff fffd00050000001f 0 fffd00050000001f
       10001ffff0001 ffff00030005 f 10001ffff0001
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDD (Load Double Word into Double Word)``() =
+    (* evldd r5, 8(r6) *)
+    load "10a60b01" """
+      20200078 0 24279d42b54d96a3 be42a331e6f78ce9 24279d42b54d96a3
+      20200078 0 f2312e7dc43b3310 ad43852bc11b5cf5 f2312e7dc43b3310
+      20200078 0 ed9b5539505ad174 48fb8a2d123eba48 ed9b5539505ad174
+      20200078 0 b232713d3e8871a 2c1495f0ad7c348e b232713d3e8871a
+      20200078 0 29b90a9b56645a7d 7f84f3e63fbba190 29b90a9b56645a7d
+      20200078 0 e85ec06953dd532b 6ff38da935ad0271 e85ec06953dd532b
+      20200078 0 4077efd7c270bdd3 fb9cd7c223d8fe02 4077efd7c270bdd3
+      20200078 0 4c7c6e6e9776f92e a9281595903c706e 4c7c6e6e9776f92e
+      """
+    load "10a60301" """
+      20200080 0 7372b5b31fcc102b 4ec38779626c720e 7372b5b31fcc102b
+      20200080 0 2e1515203a463bb6 b3026a29a927c004 2e1515203a463bb6
+      20200080 0 d77fa24b6ea8c301 61873686285f6c06 d77fa24b6ea8c301
+      """
+    load "10a6fb01" """
+      201fff88 0 6811a9b008c7fe2d 75aa01da01c68c76 6811a9b008c7fe2d
+      201fff88 0 157852eb4011972a 7621e340f9a0da3e 157852eb4011972a
+      201fff88 0 f410cc0cba89e43c 44636c18df427b06 f410cc0cba89e43c
+      """
+    loadLE "10a60b01" """
+      20200078 0 24279d42b54d96a3 be42a331e6f78ce9 a3964db5429d2724
+      20200078 0 f2312e7dc43b3310 ad43852bc11b5cf5 10333bc47d2e31f2
+      20200078 0 ed9b5539505ad174 48fb8a2d123eba48 74d15a5039559bed
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDDX (Load Double Word into Double Word Indexed)``() =
+    (* evlddx r5, r6, r7 *)
+    load "10a63b00" """
+      20200078 8 919d8dad38335ad9 e889862c774ea662 919d8dad38335ad9
+      20200078 8 21e4a2c54c1eed92 3d6a63fd3ff4b1af 21e4a2c54c1eed92
+      20200078 8 34c092200c3c2808 599c5d17927e3c7b 34c092200c3c2808
+      20200078 8 fa204bafbe332044 235ad7992699d1bb fa204bafbe332044
+      20200078 8 6198a031d5469084 7991a8bab5ea227f 6198a031d5469084
+      20200078 8 bb66f804fd4b172a f2b6ef3ad3e10af9 bb66f804fd4b172a
+      20200078 8 9fc676b130d73d40 9674d1277d982876 9fc676b130d73d40
+      20200078 8 c2ee1ba9e8998067 37cc6a9bcd31ee61 c2ee1ba9e8998067
+      """
+    loadLE "10a63b00" """
+      20200078 8 919d8dad38335ad9 e889862c774ea662 d95a3338ad8d9d91
+      20200078 8 21e4a2c54c1eed92 3d6a63fd3ff4b1af 92ed1e4cc5a2e421
+      20200078 8 34c092200c3c2808 599c5d17927e3c7b 8283c0c2092c034
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDH (Load Double into Four Half Words)``() =
+    (* evldh r5, 8(r6) *)
+    load "10a60b05" """
+      20200078 0 7e8fb761ae5f65c3 71f14911a60f4ff5 7e8fb761ae5f65c3
+      20200078 0 c6bb433fcc1ea8c9 bf4c78a8b36c6d6f c6bb433fcc1ea8c9
+      20200078 0 25f17e61b3298ed1 d18012bf27cf39fa 25f17e61b3298ed1
+      20200078 0 fe29266e59a2f6ae 372bd039273095fd fe29266e59a2f6ae
+      20200078 0 f866ffc2f8caf766 245e8a0be8513444 f866ffc2f8caf766
+      20200078 0 715e6871d5de3307 a4b38093e5873c52 715e6871d5de3307
+      20200078 0 475874a54de3638a 14ea1c69801f90a4 475874a54de3638a
+      20200078 0 47838b996a43656c 147fa19922b3031f 47838b996a43656c
+      """
+    load "10a60305" """
+      20200080 0 25493f052cc29776 c7ddf46fd1866f13 25493f052cc29776
+      20200080 0 df2358af5bc6076c bb90a4309e849d26 df2358af5bc6076c
+      20200080 0 df3462c2748b0880 bbf2aaaea2fef9b5 df3462c2748b0880
+      """
+    load "10a6fb05" """
+      201fff88 0 8b7a048349ce8cf4 4ad78386cc8a0cfe 8b7a048349ce8cf4
+      201fff88 0 7935ff66f3e579cb 253a28130bea058b 7935ff66f3e579cb
+      201fff88 0 dee69192266fd3ab 499e74c9d98ae34a dee69192266fd3ab
+      """
+    loadLE "10a60b05" """
+      20200078 0 7e8fb761ae5f65c3 71f14911a60f4ff5 8f7e61b75faec365
+      20200078 0 c6bb433fcc1ea8c9 bf4c78a8b36c6d6f bbc63f431eccc9a8
+      20200078 0 25f17e61b3298ed1 d18012bf27cf39fa f125617e29b3d18e
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDHX (Load Double into Four Half Words Indexed)``() =
+    (* evldhx r5, r6, r7 *)
+    load "10a63b04" """
+      20200078 8 61e7c1ba1fbb4d31 54851f3628f095d2 61e7c1ba1fbb4d31
+      20200078 8 9a2f4beb80b96942 2f38b5e6cabe7086 9a2f4beb80b96942
+      20200078 8 e3cec959a90dde37 bab3766dded967db e3cec959a90dde37
+      20200078 8 632453c445b29782 d76ba70a3508852c 632453c445b29782
+      20200078 8 4d255accbb6c7a7 b6f5d4419a9538cc 4d255accbb6c7a7
+      20200078 8 14c4e89e1de8572e 262393d5f6e3750b 14c4e89e1de8572e
+      20200078 8 3dc50b50d17acfc 54da817728c1e73d 3dc50b50d17acfc
+      20200078 8 7e42a262908bdb97 6db34330f73c4f85 7e42a262908bdb97
+      """
+    loadLE "10a63b04" """
+      20200078 8 61e7c1ba1fbb4d31 54851f3628f095d2 e761bac1bb1f314d
+      20200078 8 9a2f4beb80b96942 2f38b5e6cabe7086 2f9aeb4bb9804269
+      20200078 8 e3cec959a90dde37 bab3766dded967db cee359c90da937de
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDW (Load Double into Two Words)``() =
+    (* evldw r5, 8(r6) *)
+    load "10a60b03" """
+      20200078 0 73602b323eb3debe e7a6b01bc0c2ebaf 73602b323eb3debe
+      20200078 0 b729f487181d5f24 a947a03051ad857a b729f487181d5f24
+      20200078 0 353098f58a038e32 43c41e0a0d68fbee 353098f58a038e32
+      20200078 0 f87a573131284b01 9dd4bf4de8809077 f87a573131284b01
+      20200078 0 2d1c72e308f083a6 c3b6c8b115e08cf5 2d1c72e308f083a6
+      20200078 0 f7b1b21c3c918299 9698feae8c65669e f7b1b21c3c918299
+      20200078 0 d8ea056e17f28da4 ed462d723f2a6b29 d8ea056e17f28da4
+      20200078 0 20ae1d694e9ffffe 8b961e3143e566d0 20ae1d694e9ffffe
+      """
+    load "10a60303" """
+      20200080 0 10a62e2ef5e02a77 dd344d1cfd9ded73 10a62e2ef5e02a77
+      20200080 0 8e11212e4c95790f c5cef487a2b6fc0d 8e11212e4c95790f
+      20200080 0 bdd1ae01522dcea1 2f3a4a23dac8148b bdd1ae01522dcea1
+      """
+    load "10a6fb03" """
+      201fff88 0 76d1e81a57aa1147 d5106f3b59b3d36a 76d1e81a57aa1147
+      201fff88 0 4f1365fa2d0bb24 12e8c75d7d8e59ea 4f1365fa2d0bb24
+      201fff88 0 9ddf3c1f0f13de33 aea559d50d59ee01 9ddf3c1f0f13de33
+      """
+    loadLE "10a60b03" """
+      20200078 0 73602b323eb3debe e7a6b01bc0c2ebaf 322b6073bedeb33e
+      20200078 0 b729f487181d5f24 a947a03051ad857a 87f429b7245f1d18
+      20200078 0 353098f58a038e32 43c41e0a0d68fbee f5983035328e038a
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDWX (Load Double into Two Words Indexed)``() =
+    (* evldwx r5, r6, r7 *)
+    load "10a63b02" """
+      20200078 8 19df9ff5fcb2ade9 dab3deac9b615594 19df9ff5fcb2ade9
+      20200078 8 803f673118da9d69 60263b792a83d7a5 803f673118da9d69
+      20200078 8 46e4c19beb0ffd52 97812317668708c4 46e4c19beb0ffd52
+      20200078 8 ffa5f74ecd9b1b65 af5e2c35cc0efae7 ffa5f74ecd9b1b65
+      20200078 8 c033b4c3a68501c0 ef1dc7ae77ca814a c033b4c3a68501c0
+      20200078 8 e203da30bab106ca ed1b3dfdb288fac8 e203da30bab106ca
+      20200078 8 5e1b370bb4d2a86e 9c2bb44c63c578b1 5e1b370bb4d2a86e
+      20200078 8 d674444d801fd3b2 b8b355ee36f518b6 d674444d801fd3b2
+      """
+    loadLE "10a63b02" """
+      20200078 8 19df9ff5fcb2ade9 dab3deac9b615594 f59fdf19e9adb2fc
+      20200078 8 803f673118da9d69 60263b792a83d7a5 31673f80699dda18
+      20200078 8 46e4c19beb0ffd52 97812317668708c4 9bc1e44652fd0feb
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHESPLAT (Load Half Word into Half Words Even...)``() =
+    (* evlhhesplat r5, 8(r6) *)
+    load "10a62309" """
+      20200078 0 d6a2e78572ffabb6 b54c219fe2bdf957 d6a20000d6a20000
+      20200078 0 67f7f24ee3c9e412 7c5757cdaddeeb64 67f7000067f70000
+      20200078 0 df06d1d7dddbf580 b26ddf2d1f425096 df060000df060000
+      20200078 0 e66399862eb9e355 69521757ede69e5 e6630000e6630000
+      20200078 0 2a3c995bf9f4e04e 36ad925e1c18b49d 2a3c00002a3c0000
+      20200078 0 5cf8422213e5d8f8 e492769e8a287ac 5cf800005cf80000
+      20200078 0 c173943b6359dce2 6177ea5ee32ab4e4 c1730000c1730000
+      20200078 0 ec422e30ed48266d 82fea6788a1a9596 ec420000ec420000
+      """
+    load "10a60309" """
+      20200080 0 50a5368a49cc8260 f8569c4310306d53 50a5000050a50000
+      20200080 0 28407752c09cf2f4 7b25f36f8c7c2552 2840000028400000
+      20200080 0 9425dfaae5db1715 6f0578dc4cdcf961 9425000094250000
+      """
+    load "10a6fb09" """
+      20200042 0 ddddc4cf9652eb6a 799534bfe8e47b6f dddd0000dddd0000
+      20200042 0 461f15aea599e6fc 2fcac9faac89c4e 461f0000461f0000
+      20200042 0 613277c39d7db20e b9b1fcaa533c8844 6132000061320000
+      """
+    loadLE "10a62309" """
+      20200078 0 d6a2e78572ffabb6 b54c219fe2bdf957 a2d60000a2d60000
+      20200078 0 67f7f24ee3c9e412 7c5757cdaddeeb64 f7670000f7670000
+      20200078 0 df06d1d7dddbf580 b26ddf2d1f425096 6df000006df0000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHESPLATX (Load Half Word into Half Words Even...)``() =
+    (* evlhhesplatx r5, r6, r7 *)
+    load "10a63b08" """
+      20200078 8 262b5823f1ddc92e dda3705debfefc34 262b0000262b0000
+      20200078 8 182d4ff15aeb2418 6208dc8fbd2d2697 182d0000182d0000
+      20200078 8 329f1b181c74d53a 7221afb6241f9aba 329f0000329f0000
+      20200078 8 3fc28ccb45ff65b6 18d459863cac8635 3fc200003fc20000
+      20200078 8 5dbd6f813b9ec475 ba7f655b63b8f29b 5dbd00005dbd0000
+      20200078 8 e92f1caf3e3c9955 4f1438a4aa897113 e92f0000e92f0000
+      20200078 8 deb004b17479c796 4f39265e56dd79e6 deb00000deb00000
+      20200078 8 a2e3e8bf9e72dd8 9178e0b7f387a77 a2e00000a2e0000
+      """
+    loadLE "10a63b08" """
+      20200078 8 262b5823f1ddc92e dda3705debfefc34 2b2600002b260000
+      20200078 8 182d4ff15aeb2418 6208dc8fbd2d2697 2d1800002d180000
+      20200078 8 329f1b181c74d53a 7221afb6241f9aba 9f3200009f320000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOSSPLAT (Load Half Word into Half Word Odd...)``() =
+    (* evlhhossplat r5, 8(r6) *)
+    load "10a6230f" """
+      20200078 0 7fd9c2897277feea 1489eb51fcd595f7 7fd900007fd9
+      20200078 0 b83f67547917499a d779868721bab431 ffffb83fffffb83f
+      20200078 0 d6b63f1a4a179142 bcac888830ea6f60 ffffd6b6ffffd6b6
+      20200078 0 5e31364c42530fa6 c1723aedd00aa2d9 5e3100005e31
+      20200078 0 f5179e81247c8def 3a17c7876439b7e9 fffff517fffff517
+      20200078 0 ca9d081a29ae730d e1e51c96d27b337d ffffca9dffffca9d
+      20200078 0 fe11aa5b567b0d01 ff19bb220322bff5 fffffe11fffffe11
+      20200078 0 dcda42965e1c801f 34262afbc3627fc1 ffffdcdaffffdcda
+      """
+    load "10a6030f" """
+      20200080 0 f54392668225b571 7fa0d57be14eeabf fffff543fffff543
+      20200080 0 af46dab8d7573896 93cf6bc1dd5b2e6a ffffaf46ffffaf46
+      20200080 0 b7526703e095a27 fc4b64f9d055e64a b7500000b75
+      """
+    load "10a6fb0f" """
+      20200042 0 43613d3949b4206e fbb1f149b087dcd9 436100004361
+      20200042 0 9985d79051ccf8ca 6bc096f14279ef29 ffff9985ffff9985
+      20200042 0 4990a0b1a8256463 3e9ab4acf47dffb8 499000004990
+      """
+    loadLE "10a6230f" """
+      20200078 0 7fd9c2897277feea 1489eb51fcd595f7 ffffd97fffffd97f
+      20200078 0 b83f67547917499a d779868721bab431 3fb800003fb8
+      20200078 0 d6b63f1a4a179142 bcac888830ea6f60 ffffb6d6ffffb6d6
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOSSPLATX (Load Half Word into Half Word Odd...)``() =
+    (* evlhhossplatx r5, r6, r7 *)
+    load "10a63b0e" """
+      20200078 8 ccf99e1e7febfff9 68607f0f0ea21fb5 ffffccf9ffffccf9
+      20200078 8 c7c21be61d8df0dc 3d153eff51c63e75 ffffc7c2ffffc7c2
+      20200078 8 ff1f26b62a7fd90f 9959f75256d9f6d1 ffffff1fffffff1f
+      20200078 8 ed5b350a3e649b93 dd3c29c2aa5aa7c6 ffffed5bffffed5b
+      20200078 8 844018716748d665 779edb02905b14c8 ffff8440ffff8440
+      20200078 8 29cd0ad9c3ec5c86 561b6177107122f8 29cd000029cd
+      20200078 8 7eda2aa2e951520b e91e534624fea9b 7eda00007eda
+      20200078 8 ca16d86d442c2b12 6d57f5ca97af6fbe ffffca16ffffca16
+      """
+    loadLE "10a63b0e" """
+      20200078 8 ccf99e1e7febfff9 68607f0f0ea21fb5 fffff9ccfffff9cc
+      20200078 8 c7c21be61d8df0dc 3d153eff51c63e75 ffffc2c7ffffc2c7
+      20200078 8 ff1f26b62a7fd90f 9959f75256d9f6d1 1fff00001fff
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOUSPLAT (Load Half Word into Half Word Odd...)``() =
+    (* evlhhousplat r5, 8(r6) *)
+    load "10a6230d" """
+      20200078 0 9ca8499b96fb9921 cc572a8504ec444 9ca800009ca8
+      20200078 0 e0621a370b805a8c 605b44ee6538eb89 e0620000e062
+      20200078 0 8132346e24ebb005 e5523160fb55b773 813200008132
+      20200078 0 673b33f7e69716a0 2aff7eab18fcd528 673b0000673b
+      20200078 0 160e287ea2866e9c 1b40591978441f8a 160e0000160e
+      20200078 0 e0f55e429880e460 da9af1e75e06a5be e0f50000e0f5
+      20200078 0 9606965807d190b7 4883cfdf61990516 960600009606
+      20200078 0 c737f15e6e5c9888 188244298b646c0e c7370000c737
+      """
+    load "10a6030d" """
+      20200080 0 b2c29caaad6d87c5 ac4d3f87cbef529e b2c20000b2c2
+      20200080 0 2b141bdf1c9c5b3b 38e6ee54de9a1523 2b1400002b14
+      20200080 0 938682f8acd43023 e24f969c6283b5e2 938600009386
+      """
+    load "10a6fb0d" """
+      20200042 0 764beccbc6d802a 836cae57a89b7df6 76400000764
+      20200042 0 ae222f32da726017 5269458f86b23e7c ae220000ae22
+      20200042 0 792da90d9d21fdf f309ae5e8d2835da 79200000792
+      """
+    loadLE "10a6230d" """
+      20200078 0 9ca8499b96fb9921 cc572a8504ec444 a89c0000a89c
+      20200078 0 e0621a370b805a8c 605b44ee6538eb89 62e0000062e0
+      20200078 0 8132346e24ebb005 e5523160fb55b773 328100003281
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOUSPLATX (Load Half Word into Half Word Odd...)``() =
+    (* evlhhousplatx r5, r6, r7 *)
+    load "10a63b0c" """
+      20200078 8 59380d600e43cafc f1939653ab7371da 593800005938
+      20200078 8 35026ad360c0a5ea 421aa6115fd71efe 350200003502
+      20200078 8 ba29153bed260276 8cd510c554a5f65c ba290000ba29
+      20200078 8 d1f1253a11d6603a 18e48b68668f8b69 d1f10000d1f1
+      20200078 8 31d82fb33e7860ff 228434ac55f25c03 31d8000031d8
+      20200078 8 c5c5f377252d7f51 7f4dc1461f0c2fe4 c5c50000c5c5
+      20200078 8 98cc95c6991e6758 9b77af9be4902cf9 98cc000098cc
+      20200078 8 ff3807f8f823d9e3 b069230c3a241b4a ff380000ff38
+      """
+    loadLE "10a63b0c" """
+      20200078 8 59380d600e43cafc f1939653ab7371da 385900003859
+      20200078 8 35026ad360c0a5ea 421aa6115fd71efe 23500000235
+      20200078 8 ba29153bed260276 8cd510c554a5f65c 29ba000029ba
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHE (Load Word into Two Half Words Even)``() =
+    (* evlwhe r5, 8(r6) *)
+    load "10a61311" """
+      20200078 0 a0d7fa4edd376525 81d9b542123b0a8c a0d70000fa4e0000
+      20200078 0 e69db45a72873435 4fb3decc7f7dd778 e69d0000b45a0000
+      20200078 0 ad7bfc3d3f2f6e1e eb56b1023c1b4a07 ad7b0000fc3d0000
+      20200078 0 df3272994ad4f33c d9da1888d4178302 df32000072990000
+      20200078 0 9a6fe8e06225d48c b4f70140f1cd1c60 9a6f0000e8e00000
+      20200078 0 6c830f05b5476d9a b5f381019040d983 6c8300000f050000
+      20200078 0 d04c688a8c001aa 741e7d97f4c4d75d d040000c6880000
+      20200078 0 3359e6a721d2f3d2 48d0be419131402 33590000e6a70000
+      """
+    load "10a60311" """
+      20200080 0 e84bbe2fc7adaf72 48ce0fe4bdf37ede e84b0000be2f0000
+      20200080 0 ee67b7e26c3b844d d8db6b0167557d40 ee670000b7e20000
+      20200080 0 6e546a6b39402b9a 7658cadda2c8f302 6e5400006a6b0000
+      """
+    load "10a6fb11" """
+      20200004 0 384222035803a3cd 276bd7ce8260497a 3842000022030000
+      20200004 0 15f26088651ea015 2d065571b9d9a3df 15f2000060880000
+      20200004 0 7b86bd9724b79972 60e6934bf7806b2c 7b860000bd970000
+      """
+    loadLE "10a61311" """
+      20200078 0 a0d7fa4edd376525 81d9b542123b0a8c d7a000004efa0000
+      20200078 0 e69db45a72873435 4fb3decc7f7dd778 9de600005ab40000
+      20200078 0 ad7bfc3d3f2f6e1e eb56b1023c1b4a07 7bad00003dfc0000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHEX (Load Word into Two Half Words Even Indexed)``() =
+    (* evlwhex r5, r6, r7 *)
+    load "10a63b10" """
+      20200078 8 9ec68994258365a6 c03770d40440a814 9ec6000089940000
+      20200078 8 b937761a60515e34 7bc95130764c746 b9370000761a0000
+      20200078 8 cb06cc8badccddbd 7cb097fc9056563d cb060000cc8b0000
+      20200078 8 ec53953cf969e02 1c833f3e4b08df13 ec5000039530000
+      20200078 8 91a8e82d816547cd 6021d5d9e951e8a5 91a80000e82d0000
+      20200078 8 bc6439bba3b06cd7 2d84a3e033340e11 bc64000039bb0000
+      20200078 8 5c5998938e92181a e6428a28bb5c501d 5c59000098930000
+      20200078 8 f69d5f4e71af5ec5 d14b18c98f61c6d9 f69d00005f4e0000
+      """
+    loadLE "10a63b10" """
+      20200078 8 9ec68994258365a6 c03770d40440a814 c69e000094890000
+      20200078 8 b937761a60515e34 7bc95130764c746 37b900001a760000
+      20200078 8 cb06cc8badccddbd 7cb097fc9056563d 6cb00008bcc0000
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOS (Load Word into Two Half Words Odd Signed...)``() =
+    (* evlwhos r5, 8(r6) *)
+    load "10a61317" """
+      20200078 0 9f5421eb198d3cf 41fc96b0f095a8d7 9f50000421e
+      20200078 0 9af78670e7c38b91 eb43a3d762de438c ffff9af7ffff8670
+      20200078 0 eaf73bb96523d435 2f4b7324fa09ba3e ffffeaf700003bb9
+      20200078 0 5601dc02eb2e5f7c 5ba3d586370c568e 5601ffffdc02
+      20200078 0 e3abe119f32d85cf 48d857053fc31184 ffffe3abffffe119
+      20200078 0 c8e505ffb137fb5e 40d83f138f72daa9 ffffc8e5000005ff
+      20200078 0 d20b8d1446d17ab4 cab7d82e53de8a7a ffffd20bffff8d14
+      20200078 0 d0e445978b831962 495a87bdf38ed7bd ffffd0e400004597
+      """
+    load "10a60317" """
+      20200080 0 71af4c49f9f1448b 5b1f67fb23be5fe1 71af00004c49
+      20200080 0 b23ccf2a1c9c3a1 ac6310c76e29bd38 b23ffffccf2
+      20200080 0 877a72f40b0d446b f6b6b02e1470cc7f ffff877a000072f4
+      """
+    load "10a6fb17" """
+      20200004 0 fdc94be2a2e304ca 84a1e093e890858b fffffdc900004be2
+      20200004 0 e6bf9e33b8e187a8 42f5b9caef576d3a ffffe6bfffff9e33
+      20200004 0 2deed459a3b6e310 2fce74daf8dc3398 2deeffffd459
+      """
+    loadLE "10a61317" """
+      20200078 0 9f5421eb198d3cf 41fc96b0f095a8d7 fffff50900001e42
+      20200078 0 9af78670e7c38b91 eb43a3d762de438c fffff79a00007086
+      20200078 0 eaf73bb96523d435 2f4b7324fa09ba3e fffff7eaffffb93b
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOSX (Load Word into Two Half Words Odd Signed...)``() =
+    (* evlwhosx r5, r6, r7 *)
+    load "10a63b16" """
+      20200078 8 ada188bc918e31f1 8e5b31d42f0508b4 ffffada1ffff88bc
+      20200078 8 6da12b6c7d3ddaca e3d9cbd6c54417b9 6da100002b6c
+      20200078 8 54a8582da16c825 67ebca395c3694f6 54affff8582
+      20200078 8 96334cc752d720f7 c21eb714993cb25f ffff963300004cc7
+      20200078 8 ad20a1afa68a9f7f 79bbe311cafab65d ffffad20ffffa1af
+      20200078 8 bceb857a15804e02 c1452c3cd2ca248e ffffbcebffff857a
+      20200078 8 1849d7b39e323164 3a80e2beb4ca4341 1849ffffd7b3
+      20200078 8 42ad771e9120be78 27017bdc59d48148 42ad0000771e
+      """
+    loadLE "10a63b16" """
+      20200078 8 ada188bc918e31f1 8e5b31d42f0508b4 ffffa1adffffbc88
+      20200078 8 6da12b6c7d3ddaca e3d9cbd6c54417b9 ffffa16d00006c2b
+      20200078 8 54a8582da16c825 67ebca395c3694f6 4a05ffff8285
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOU (Load Word into Two Half Words Odd Unsigned...)``() =
+    (* evlwhou r5, 8(r6) *)
+    load "10a61315" """
+      20200078 0 c2e23fe5c04d036a 21dab753bd76d4f0 c2e200003fe5
+      20200078 0 aedd62ffeced03c2 194806d5d92e9bae aedd000062ff
+      20200078 0 b8991f1c532d937d 303fd601c10ff8bd b89900001f1c
+      20200078 0 c784a6b6176ba56 dc9669e631ead5d7 c7800004a6b
+      20200078 0 6d8db9e5d89bb170 35c083843920f84 6d8d0000b9e5
+      20200078 0 a8ef815344e92c44 704d9dc05440f9c3 a8ef00008153
+      20200078 0 1547b6ce6e4aa9f5 b286096a622453f1 15470000b6ce
+      20200078 0 9de3c54152ab6678 32b02832a5da644e 9de30000c541
+      """
+    load "10a60315" """
+      20200080 0 1c6c125848ac24a2 290b09ad0f62227d 1c6c00001258
+      20200080 0 54fcee018ed65f85 347b51fe662f29bc 54fc0000ee01
+      20200080 0 e982e701e7da4827 d0ac0b35e5c5ad8e e9820000e701
+      """
+    load "10a6fb15" """
+      20200004 0 f9f3305622eba98b 75b6c824d886ff12 f9f300003056
+      20200004 0 23bdbd9622c230db d3f4e7ee7c215ca8 23bd0000bd96
+      20200004 0 51c85242e940af8a 9301967808fc8a70 51c800005242
+      """
+    loadLE "10a61315" """
+      20200078 0 c2e23fe5c04d036a 21dab753bd76d4f0 e2c20000e53f
+      20200078 0 aedd62ffeced03c2 194806d5d92e9bae ddae0000ff62
+      20200078 0 b8991f1c532d937d 303fd601c10ff8bd 99b800001c1f
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOUX (Load Word into Two Half Words Odd...)``() =
+    (* evlwhoux r5, r6, r7 *)
+    load "10a63b14" """
+      20200078 8 2888620de90801d4 b945b541ed2b5754 28880000620d
+      20200078 8 5d04fa67d698ff84 bdad5466dd56175f 5d040000fa67
+      20200078 8 8eed28fb205c2fd6 fa4e5f62254f7d58 8eed000028fb
+      20200078 8 f88d4df823dd2485 af58bd185047f99b f88d00004df8
+      20200078 8 52dc67335a0f6cdf 6c9c902467511b4a 52dc00006733
+      20200078 8 cb2d967b83cce36b f1ffb69327c68e4a cb2d0000967b
+      20200078 8 5eec94a0ec65c231 37850d9593a09910 5eec000094a0
+      20200078 8 96fdc93d447ccc37 96c5074764aaa9a 96fd0000c93d
+      """
+    loadLE "10a63b14" """
+      20200078 8 2888620de90801d4 b945b541ed2b5754 882800000d62
+      20200078 8 5d04fa67d698ff84 bdad5466dd56175f 45d000067fa
+      20200078 8 8eed28fb205c2fd6 fa4e5f62254f7d58 ed8e0000fb28
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHSPLAT (Load Word into Two Half Words and Splat)``() =
+    (* evlwhsplat r5, 8(r6) *)
+    load "10a6131d" """
+      20200078 0 5ce31ee5ea355a95 9db670c86d4086ba 5ce35ce31ee51ee5
+      20200078 0 8f8b5ada99f4c72f c0041840d87f0cf8 8f8b8f8b5ada5ada
+      20200078 0 bfe5e4cc36cb7432 7f651014d0496897 bfe5bfe5e4cce4cc
+      20200078 0 9327adc8d7ce39ca 2358f3b0e9bf1d33 93279327adc8adc8
+      20200078 0 b487d94b4e2b83e9 529cede288d0a7cd b487b487d94bd94b
+      20200078 0 673e9195601acfa1 47e98649cb15c11c 673e673e91959195
+      20200078 0 986c9f71f74b354f 9c8fef2f7c09784 986c986c9f719f71
+      20200078 0 478522947b6656cc 2c9f527df8ecc066 4785478522942294
+      """
+    load "10a6031d" """
+      20200080 0 3a07456081729ce9 7682a4e64938b0b5 3a073a0745604560
+      20200080 0 62e6b5326e2862d1 ef01e18d87f45afd 62e662e6b532b532
+      20200080 0 2ae0811164932e83 616adc1a6213a473 2ae02ae081118111
+      """
+    load "10a6fb1d" """
+      20200004 0 46d36cecfc6d1a38 a542e58f6d55fe27 46d346d36cec6cec
+      20200004 0 86688e916e734ed6 6cba9da65734c01c 866886688e918e91
+      20200004 0 11d6ad7c06b1f67b d8ebd84332920bcc 11d611d6ad7cad7c
+      """
+    loadLE "10a6131d" """
+      20200078 0 5ce31ee5ea355a95 9db670c86d4086ba e35ce35ce51ee51e
+      20200078 0 8f8b5ada99f4c72f c0041840d87f0cf8 8b8f8b8fda5ada5a
+      20200078 0 bfe5e4cc36cb7432 7f651014d0496897 e5bfe5bfcce4cce4
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHSPLATX (Load Word into Two Half Words and...)``() =
+    (* evlwhsplatx r5, r6, r7 *)
+    load "10a63b1c" """
+      20200078 8 d5f656edb7eb5a26 ef0f5820b21f4923 d5f6d5f656ed56ed
+      20200078 8 b825ee77f93001bf 8e18ff50d84e6576 b825b825ee77ee77
+      20200078 8 d4d80dd744e0e91 f31d54bf2389a0ae d4d0d4d80dd80dd
+      20200078 8 16b0185e889092a4 d188dba1cdc3ba7d 16b016b0185e185e
+      20200078 8 e4013434219203b4 ae134e661a27744d e401e40134343434
+      20200078 8 662e0460091cc5b1 490dc88d87cfc9a7 662e662e04600460
+      20200078 8 c3a4faee022e27c9 54cb6a3250ed1dd6 c3a4c3a4faeefaee
+      20200078 8 50c37a47f8163445 3e09efc3349e0ca2 50c350c37a477a47
+      """
+    loadLE "10a63b1c" """
+      20200078 8 d5f656edb7eb5a26 ef0f5820b21f4923 f6d5f6d5ed56ed56
+      20200078 8 b825ee77f93001bf 8e18ff50d84e6576 25b825b877ee77ee
+      20200078 8 d4d80dd744e0e91 f31d54bf2389a0ae 4d0d4d0ddd80dd80
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWWSPLAT (Load Word into Word and Splat)``() =
+    (* evlwwsplat r5, 8(r6) *)
+    load "10a61319" """
+      20200078 0 74fec982d93ea14f bbc48383db959b12 74fec98274fec982
+      20200078 0 dcea370572ec8522 a98ca5720ebd190d dcea3705dcea3705
+      20200078 0 67716ad82a90c0ae 6317e36b3af001ca 67716ad867716ad8
+      20200078 0 c6d6f15f0bb74739 e745e342320e1287 c6d6f15fc6d6f15f
+      20200078 0 654054b603bb2bb7 3de6357c15da4dd8 654054b6654054b6
+      20200078 0 4c0392393fcd1358 28f6b08092ceb638 4c0392394c039239
+      20200078 0 e05cf13ab5953ff5 d0be82477bba085d e05cf13ae05cf13a
+      20200078 0 5c97ddc3ccd0b6ca 686a4bf104a50cfb 5c97ddc35c97ddc3
+      """
+    load "10a60319" """
+      20200080 0 73ad069d32deb81e f050e9811923b00e 73ad069d73ad069d
+      20200080 0 c0f69a5d43e8a41b c627b0268588d836 c0f69a5dc0f69a5d
+      20200080 0 96c774c9b00594c9 10ff186b17c90aa2 96c774c996c774c9
+      """
+    load "10a6fb19" """
+      20200004 0 951fd93762ff3fc3 fb347e5c21d853ac 951fd937951fd937
+      20200004 0 193198ac6ad32fd 6faef5f346bba591 193198a0193198a
+      20200004 0 d4e04b76af73df3d c47dd3e6331a0d83 d4e04b76d4e04b76
+      """
+    loadLE "10a61319" """
+      20200078 0 74fec982d93ea14f bbc48383db959b12 82c9fe7482c9fe74
+      20200078 0 dcea370572ec8522 a98ca5720ebd190d 537eadc0537eadc
+      20200078 0 67716ad82a90c0ae 6317e36b3af001ca d86a7167d86a7167
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWWSPLATX (Load Word into Word and Splat Indexed)``() =
+    (* evlwwsplatx r5, r6, r7 *)
+    load "10a63b18" """
+      20200078 8 c5bdd3fefad83cb4 618fff576abb919b c5bdd3fec5bdd3fe
+      20200078 8 1a2dd910dab7422 6cdf033b91b5d0df 1a2dd9101a2dd91
+      20200078 8 4c5596c78907e664 1d265d77d2134872 4c5596c74c5596c7
+      20200078 8 39911f58281d098a 9ead8f20c1e06530 39911f5839911f58
+      20200078 8 c9f81bf672fad523 7b8afdd91ad28c4b c9f81bf6c9f81bf6
+      20200078 8 a164f19a1d40d067 1e92fc3d7673f560 a164f19aa164f19a
+      20200078 8 c37bd3570d9fd088 978f875ce6a17e37 c37bd357c37bd357
+      20200078 8 86ca606e49c6b96e dd9adcbe2ca57e56 86ca606e86ca606e
+      """
+    loadLE "10a63b18" """
+      20200078 8 c5bdd3fefad83cb4 618fff576abb919b fed3bdc5fed3bdc5
+      20200078 8 1a2dd910dab7422 6cdf033b91b5d0df 91dda20191dda201
+      20200078 8 4c5596c78907e664 1d265d77d2134872 c796554cc796554c
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDD (Store Double of Double)``() =
+    (* evstdd r5, 8(r6) *)
+    store "10a60b21" """
+      3f00000020 20200078 0 deaa462dae844113 52dedcbfb3add6ab
+      3f00000020 52dedcbfb3add6ab
+      8000800000008000 20200078 0 9da3e3d8662cab87 9420186c262b8d79
+      8000800000008000 9420186c262b8d79
+      3000555555555 20200078 0 fb3e2f84981fc53d d643c43fa32d751
+      3000555555555 d643c43fa32d751
+      800080007fff7fff 20200078 0 96446d3872ea296 d80fa42929a8d489
+      800080007fff7fff d80fa42929a8d489
+      7fff7fff8000ffff 20200078 0 fab0ea23e039de8e 373054d1f0c0ec20
+      7fff7fff8000ffff 373054d1f0c0ec20
+      8000ffff00030005 20200078 0 cf51c77ff68bfa97 b9674e4819b3f270
+      8000ffff00030005 b9674e4819b3f270
+      10001ffff0001 20200078 0 754b4af050d01ef2 cdd8962fdbe01d94
+      10001ffff0001 cdd8962fdbe01d94
+      8000800080000000 20200078 0 4bf6fecad2a91cd1 3445f7a82173098f
+      8000800080000000 3445f7a82173098f
+      """
+    store "10a60321" """
+      5555555580007fff 20200080 0 4dcee5abe3d930a7 e17323558cac4997
+      5555555580007fff e17323558cac4997
+      80008000aaaaaaaa 20200080 0 c179ea77b9afbee2 54db9e77c0931c36
+      80008000aaaaaaaa 54db9e77c0931c36
+      400000007fffffff 20200080 0 24e462ca460e26fe bda9fdeafc954a18
+      400000007fffffff bda9fdeafc954a18
+      """
+    store "10a6fb21" """
+      7fff80007fff8000 201fff88 0 f964245fd1752250 82b83f25c26c943b
+      7fff80007fff8000 82b83f25c26c943b
+      ffff0001 201fff88 0 4530922228c81904 d10e59d946fadf73
+      ffff0001 d10e59d946fadf73
+      fffd00058000ffff 201fff88 0 c457051b838dca7a 8232d1f461e7eaf4
+      fffd00058000ffff 8232d1f461e7eaf4
+      """
+    storeLE "10a60b21" """
+      3f00000020 20200078 0 deaa462dae844113 52dedcbfb3add6ab
+      200000003f000000 52dedcbfb3add6ab
+      8000800000008000 20200078 0 9da3e3d8662cab87 9420186c262b8d79
+      80000000800080 9420186c262b8d79
+      3000555555555 20200078 0 fb3e2f84981fc53d d643c43fa32d751
+      5555555505000300 d643c43fa32d751
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDDX (Store Double of Double Indexed)``() =
+    (* evstddx r5, r6, r7 *)
+    store "10a63b20" """
+      aaaaaaaaffff0001 20200078 8 a877ffc7f1cd1c65 9df496b277ee5053
+      aaaaaaaaffff0001 9df496b277ee5053
+      fffd000555555555 20200078 8 e696ef91deffc6d2 f95ad72cd5de7de9
+      fffd000555555555 f95ad72cd5de7de9
+      9abcdef000000000 20200078 8 618a9d6f04cac0f2 b92faf23384c837a
+      9abcdef000000000 b92faf23384c837a
+      8000ffff0001 20200078 8 cceb1f0895fdd175 7e0baf75672a9017
+      8000ffff0001 7e0baf75672a9017
+      1000180000000 20200078 8 24ea766ecac213f7 1f4b689c1df3b3d2
+      1000180000000 1f4b689c1df3b3d2
+      fffd000500010001 20200078 8 8234150534a9401a 75f1a1722eebf2cc
+      fffd000500010001 75f1a1722eebf2cc
+      7fff7ffffffd0005 20200078 8 d24f7a06c81948f5 4e2d019a3cd3e0a8
+      7fff7ffffffd0005 4e2d019a3cd3e0a8
+      800000000000001f 20200078 8 98dc6e3629ce13ca 5ff5de18d3533914
+      800000000000001f 5ff5de18d3533914
+      """
+    storeLE "10a63b20" """
+      aaaaaaaaffff0001 20200078 8 a877ffc7f1cd1c65 9df496b277ee5053
+      100ffffaaaaaaaa 9df496b277ee5053
+      fffd000555555555 20200078 8 e696ef91deffc6d2 f95ad72cd5de7de9
+      555555550500fdff f95ad72cd5de7de9
+      9abcdef000000000 20200078 8 618a9d6f04cac0f2 b92faf23384c837a
+      f0debc9a b92faf23384c837a
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDH (Store Double of Four Half Words)``() =
+    (* evstdh r5, 8(r6) *)
+    store "10a60b25" """
+      7fffffffdeadbeef 20200078 0 13cec915082593e6 29b17185626a72b3
+      7fffffffdeadbeef 29b17185626a72b3
+      555555550000001f 20200078 0 d22b7f91c4b7954d 7970390a221af6fc
+      555555550000001f 7970390a221af6fc
+      3f00010001 20200078 0 6ed4285b27d30afb b1692d3180246cc2
+      3f00010001 b1692d3180246cc2
+      1234567800000000 20200078 0 4d235e75f383fdde 8ebfeecbd4fc69fa
+      1234567800000000 8ebfeecbd4fc69fa
+      deadbeef9abcdef0 20200078 0 5862fbe1a24dc899 235cdde3aca8465d
+      deadbeef9abcdef0 235cdde3aca8465d
+      400040007fff7fff 20200078 0 f7185b10e3967628 4cd22f83892316e0
+      400040007fff7fff 4cd22f83892316e0
+      1f7fff8000 20200078 0 77c07433dec6d242 1ad9eec43aa7afb6
+      1f7fff8000 1ad9eec43aa7afb6
+      100017fff8000 20200078 0 d2ff41190e86d113 1013901b95ee83f2
+      100017fff8000 1013901b95ee83f2
+      """
+    store "10a60325" """
+      3f0000ffff 20200080 0 56d7e74ecfb59c80 bde71b3ad3a8b0e6
+      3f0000ffff bde71b3ad3a8b0e6
+      100010000ffff 20200080 0 c4cbec609b56b22a 3b1263d005b47db7
+      100010000ffff 3b1263d005b47db7
+      aaaaaaaa0000001f 20200080 0 d76649f9ff9b25ad d821e3c47fadf966
+      aaaaaaaa0000001f d821e3c47fadf966
+      """
+    store "10a6fb25" """
+      3fffff0001 201fff88 0 93a95ba8f096ad3c 162aa749bac3e86
+      3fffff0001 162aa749bac3e86
+      ffff000100000000 201fff88 0 40c9e47c147bc226 e515357393123213
+      ffff000100000000 e515357393123213
+      8000fffffffd0005 201fff88 0 d701d247fdc17920 a1aefb4f5378de6d
+      8000fffffffd0005 a1aefb4f5378de6d
+      """
+    storeLE "10a60b25" """
+      7fffffffdeadbeef 20200078 0 13cec915082593e6 29b17185626a72b3
+      ff7fffffaddeefbe 29b17185626a72b3
+      555555550000001f 20200078 0 d22b7f91c4b7954d 7970390a221af6fc
+      5555555500001f00 7970390a221af6fc
+      3f00010001 20200078 0 6ed4285b27d30afb b1692d3180246cc2
+      3f0001000100 b1692d3180246cc2
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDHX (Store Double of Four Half Words Indexed)``() =
+    (* evstdhx r5, r6, r7 *)
+    store "10a63b24" """
+      4000400000000020 20200078 8 b693b8dbdd919f3e 5cb5d24ef6aba026
+      4000400000000020 5cb5d24ef6aba026
+      8000800000000001 20200078 8 448d7032698f49e8 c793675df456d27
+      8000800000000001 c793675df456d27
+      ffff80009abcdef0 20200078 8 9e8f0b2691d3ad7e 499ea5c9d1918f39
+      ffff80009abcdef0 499ea5c9d1918f39
+      1f00010001 20200078 8 39c53482d37fa31c c1d97b1ca37969f
+      1f00010001 c1d97b1ca37969f
+      400040007fff8000 20200078 8 eae4ce0d119d673c f887946f6e6c68a6
+      400040007fff8000 f887946f6e6c68a6
+      7fffffff7fff7fff 20200078 8 c49e5ae2a2bc4eb 236529053b7996ea
+      7fffffff7fff7fff 236529053b7996ea
+      ffff000100000001 20200078 8 22ae95e032b10925 da1a4864697bbde7
+      ffff000100000001 da1a4864697bbde7
+      ffff80007fff 20200078 8 4fa7aa344cbed9da d1a222148a5ba68a
+      ffff80007fff d1a222148a5ba68a
+      """
+    storeLE "10a63b24" """
+      4000400000000020 20200078 8 b693b8dbdd919f3e 5cb5d24ef6aba026
+      40004000002000 5cb5d24ef6aba026
+      8000800000000001 20200078 8 448d7032698f49e8 c793675df456d27
+      80008000000100 c793675df456d27
+      ffff80009abcdef0 20200078 8 9e8f0b2691d3ad7e 499ea5c9d1918f39
+      ffff0080bc9af0de 499ea5c9d1918f39
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDW (Store Double of Two Words)``() =
+    (* evstdw r5, 8(r6) *)
+    store "10a60b23" """
+      8000ffff00007fff 20200078 0 4db8b998673a1164 36ed98f61c98d4f2
+      8000ffff00007fff 36ed98f61c98d4f2
+      4000000055555555 20200078 0 6adf4cff011123f8 aa91f2c38a0a2748
+      4000000055555555 aa91f2c38a0a2748
+      555555557fff7fff 20200078 0 173dec2b22891066 d62f96f331081179
+      555555557fff7fff d62f96f331081179
+      80007fff40004000 20200078 0 7a92bf9272fb4575 4fe1dc90af1e7f4a
+      80007fff40004000 4fe1dc90af1e7f4a
+      800080000000003f 20200078 0 a4987c5881f71d3 83415aaf537b0833
+      800080000000003f 83415aaf537b0833
+      aaaaaaaa8000ffff 20200078 0 2a82cbd3cc22029 74e8da30ebfcd97b
+      aaaaaaaa8000ffff 74e8da30ebfcd97b
+      ffff55555555 20200078 0 ad4612b3bb0d3bce 556195cd503f17f4
+      ffff55555555 556195cd503f17f4
+      fffffffd0005 20200078 0 2c5accc9edc00d03 32e331adad9a2bfc
+      fffffffd0005 32e331adad9a2bfc
+      """
+    store "10a60323" """
+      10001deadbeef 20200080 0 7834e2a57e2bd58 5377f3f2b07d7642
+      10001deadbeef 5377f3f2b07d7642
+      8000ffffffffffff 20200080 0 e22760f942cd3cd8 74ba6cc46c6aa904
+      8000ffffffffffff 74ba6cc46c6aa904
+      aaaaaaaa12345678 20200080 0 5ff0439725c73735 5037b2edb15bd611
+      aaaaaaaa12345678 5037b2edb15bd611
+      """
+    store "10a6fb23" """
+      80007fffffff 201fff88 0 7f1a2b1e289007f0 f47d08a284ae63da
+      80007fffffff f47d08a284ae63da
+      8000ffff80000000 201fff88 0 b54588523d8a9f3c c8e9ba71c82c51d0
+      8000ffff80000000 c8e9ba71c82c51d0
+      80008000ffff8000 201fff88 0 1317a870f00916a4 9c14a6b97b6654d6
+      80008000ffff8000 9c14a6b97b6654d6
+      """
+    storeLE "10a60b23" """
+      8000ffff00007fff 20200078 0 4db8b998673a1164 36ed98f61c98d4f2
+      ffff0080ff7f0000 36ed98f61c98d4f2
+      4000000055555555 20200078 0 6adf4cff011123f8 aa91f2c38a0a2748
+      4055555555 aa91f2c38a0a2748
+      555555557fff7fff 20200078 0 173dec2b22891066 d62f96f331081179
+      55555555ff7fff7f d62f96f331081179
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDWX (Store Double of Two Words Indexed)``() =
+    (* evstdwx r5, r6, r7 *)
+    store "10a63b22" """
+      fffd000580007fff 20200078 8 4f6a4ac809a0c033 d9fcee609375fd74
+      fffd000580007fff d9fcee609375fd74
+      deadbeef8000ffff 20200078 8 94d69e63a7ec37af cc26307a5f1679bc
+      deadbeef8000ffff cc26307a5f1679bc
+      123456780000ffff 20200078 8 908aa0d8c8dd447b 9fb6bf815c023705
+      123456780000ffff 9fb6bf815c023705
+      8000000000000001 20200078 8 861a7501aca91219 3259caaf66b810cb
+      8000000000000001 3259caaf66b810cb
+      ffff000100000001 20200078 8 739ce946ddf420bd 5a81ae91a1049522
+      ffff000100000001 5a81ae91a1049522
+      ffff0000001f 20200078 8 5bdba31c90aff97b 7c43fc547e4dca24
+      ffff0000001f 7c43fc547e4dca24
+      ffff800000007fff 20200078 8 cb2dd4a93c9ffcb4 796772832da75cb9
+      ffff800000007fff 796772832da75cb9
+      aaaaaaaaffffffff 20200078 8 6ee75f2491e715ef 7586c1014d6a6262
+      aaaaaaaaffffffff 7586c1014d6a6262
+      """
+    storeLE "10a63b22" """
+      fffd000580007fff 20200078 8 4f6a4ac809a0c033 d9fcee609375fd74
+      500fdffff7f0080 d9fcee609375fd74
+      deadbeef8000ffff 20200078 8 94d69e63a7ec37af cc26307a5f1679bc
+      efbeaddeffff0080 cc26307a5f1679bc
+      123456780000ffff 20200078 8 908aa0d8c8dd447b 9fb6bf815c023705
+      78563412ffff0000 9fb6bf815c023705
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHE (Store Word of Two Half Words from Even)``() =
+    (* evstwhe r5, 8(r6) *)
+    store "10a61331" """
+      8000 20200078 0 5c16172dfffbffa7 ada64f690fec212d
+      fffbffa7 ada64f690fec212d
+      fffd0005deadbeef 20200078 0 6fb785cd7372a8d8 a7c238ab70ae441f
+      fffddead7372a8d8 a7c238ab70ae441f
+      fffd000512345678 20200078 0 213c57050fe21865 1582164db0035e55
+      fffd12340fe21865 1582164db0035e55
+      ffff800000030005 20200078 0 28464717b0c3a851 e5ec93f2a495be5d
+      ffff0003b0c3a851 e5ec93f2a495be5d
+      1fdeadbeef 20200078 0 bc6ae1adcd48eba6 2ad058de3bccf3d9
+      deadcd48eba6 2ad058de3bccf3d9
+      aaaaaaaa 20200078 0 a58b05ed50b9a51 28351e86bf904063
+      aaaad50b9a51 28351e86bf904063
+      8000000080007fff 20200078 0 aefc298926f3460c 4537d74d219b2dac
+      8000800026f3460c 4537d74d219b2dac
+      1234567880000000 20200078 0 74d9cb73b173d74f d397a20852206d03
+      12348000b173d74f d397a20852206d03
+      """
+    store "10a60331" """
+      123456787fffffff 20200080 0 d11fd220ed1b33e 76954bbbe8e7a66e
+      12347fff0ed1b33e 76954bbbe8e7a66e
+      400000000000003f 20200080 0 5f8e3b260e67a5ce a41d0cc4ecf38849
+      400000000e67a5ce a41d0cc4ecf38849
+      7fff7fff9abcdef0 20200080 0 ea7989c09e8f818 d8e0e2e6786a0bc9
+      7fff9abc09e8f818 d8e0e2e6786a0bc9
+      """
+    store "10a6fb31" """
+      400000007fff8000 20200004 0 a5cd74bb9e03fbc6 640128a2615e9464
+      40007fff9e03fbc6 640128a2615e9464
+      8000ffffdeadbeef 20200004 0 28170bcc95d9f287 af41456c351e99d1
+      8000dead95d9f287 af41456c351e99d1
+      7fff7fff40004000 20200004 0 11c437de51f724e1 d83383c663b2f242
+      7fff400051f724e1 d83383c663b2f242
+      """
+    storeLE "10a61331" """
+      8000 20200078 0 5c16172dfffbffa7 ada64f690fec212d
+      fffbffa7 ada64f690fec212d
+      fffd0005deadbeef 20200078 0 6fb785cd7372a8d8 a7c238ab70ae441f
+      fdffadde7372a8d8 a7c238ab70ae441f
+      fffd000512345678 20200078 0 213c57050fe21865 1582164db0035e55
+      fdff34120fe21865 1582164db0035e55
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHEX (Store Word of Two Half Words from Even...)``() =
+    (* evstwhex r5, r6, r7 *)
+    store "10a63b30" """
+      80008000deadbeef 20200078 8 7c080dbd9579d85a d22b65ea64d2afa7
+      8000dead9579d85a d22b65ea64d2afa7
+      12345678ffff8000 20200078 8 2aa55ea91dec3dbe a09cd0987df6c43d
+      1234ffff1dec3dbe a09cd0987df6c43d
+      10000001f 20200078 8 1cba91ff4d9b58fe 8fb33fecdcd1dd6d
+      4d9b58fe 8fb33fecdcd1dd6d
+      80008000ffffffff 20200078 8 cd4f4e9cc38b9d6a 5c58dc9fca24d1a0
+      8000ffffc38b9d6a 5c58dc9fca24d1a0
+      fffd00050000ffff 20200078 8 5a97a6c1591b368e 62c50cf3ef589d18
+      fffd0000591b368e 62c50cf3ef589d18
+      ffff8000ffff 20200078 8 8ef3c89db42903be 9b91857ddd2665b7
+      8000b42903be 9b91857ddd2665b7
+      8000ffffffff0001 20200078 8 c2d989d96b4499c6 ded451ed035bd0d1
+      8000ffff6b4499c6 ded451ed035bd0d1
+      ffffaaaaaaaa 20200078 8 846de952b09f1c1a ddd5ba70f8dfa229
+      aaaab09f1c1a ddd5ba70f8dfa229
+      """
+    storeLE "10a63b30" """
+      80008000deadbeef 20200078 8 7c080dbd9579d85a d22b65ea64d2afa7
+      80adde9579d85a d22b65ea64d2afa7
+      12345678ffff8000 20200078 8 2aa55ea91dec3dbe a09cd0987df6c43d
+      3412ffff1dec3dbe a09cd0987df6c43d
+      10000001f 20200078 8 1cba91ff4d9b58fe 8fb33fecdcd1dd6d
+      4d9b58fe 8fb33fecdcd1dd6d
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHO (Store Word of Two Half Words from Odd)``() =
+    (* evstwho r5, 8(r6) *)
+    store "10a61335" """
+      7fff800080008000 20200078 0 4faecf85fbb69f63 78baa39cd0e896c
+      80008000fbb69f63 78baa39cd0e896c
+      deadbeeffffd0005 20200078 0 c33c4433fd361480 819461a1d2634d2b
+      beef0005fd361480 819461a1d2634d2b
+      8000ffff00007fff 20200078 0 f897be17dea3ddb4 95ba2532f930bee0
+      ffff7fffdea3ddb4 95ba2532f930bee0
+      7fffffff0000001f 20200078 0 b4216511289dd2b1 52e1b2836e847dd4
+      ffff001f289dd2b1 52e1b2836e847dd4
+      8000ffff0000003f 20200078 0 7f55f7e344d16f89 169c0ae31896126d
+      ffff003f44d16f89 169c0ae31896126d
+      deadbeef40000000 20200078 0 9a054e91edda8bbf 3043c832846360f5
+      beef0000edda8bbf 3043c832846360f5
+      ffffffff80007fff 20200078 0 6df5a933ad333ae3 b6c8f6475e089338
+      ffff7fffad333ae3 b6c8f6475e089338
+      aaaaaaaa55555555 20200078 0 a9c34cb918e67724 a22e595949c7179
+      aaaa555518e67724 a22e595949c7179
+      """
+    store "10a60335" """
+      1000112345678 20200080 0 7c329bb76dd8800a 384a85e48ab95d24
+      156786dd8800a 384a85e48ab95d24
+      ffffffff00010001 20200080 0 79e5a8e424b324f9 f487b1d056208c5e
+      ffff000124b324f9 f487b1d056208c5e
+      ffff800012345678 20200080 0 2e62984137b5120a 1f33ae7779209a21
+      8000567837b5120a 1f33ae7779209a21
+      """
+    store "10a6fb35" """
+      1234567840004000 20200004 0 611cc8f277212a73 deff863ab7eda717
+      5678400077212a73 deff863ab7eda717
+      9abcdef0ffff8000 20200004 0 54af65657c22ca06 4d9573e65bbdc3ab
+      def080007c22ca06 4d9573e65bbdc3ab
+      deadbeef00007fff 20200004 0 25fd7626c0f26496 eb042f4abe20b95f
+      beef7fffc0f26496 eb042f4abe20b95f
+      """
+    storeLE "10a61335" """
+      7fff800080008000 20200078 0 4faecf85fbb69f63 78baa39cd0e896c
+      800080fbb69f63 78baa39cd0e896c
+      deadbeeffffd0005 20200078 0 c33c4433fd361480 819461a1d2634d2b
+      efbe0500fd361480 819461a1d2634d2b
+      8000ffff00007fff 20200078 0 f897be17dea3ddb4 95ba2532f930bee0
+      ffffff7fdea3ddb4 95ba2532f930bee0
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHOX (Store Word of Two Half Words from Odd...)``() =
+    (* evstwhox r5, r6, r7 *)
+    store "10a63b34" """
+      fffd000580008000 20200078 8 ae9e7100e09a55e 2a3fb75d4e50de8a
+      580000e09a55e 2a3fb75d4e50de8a
+      8000ffff00007fff 20200078 8 9bcb3977768186bf cc5574522c53fd7d
+      ffff7fff768186bf cc5574522c53fd7d
+      ffff8000ffff8000 20200078 8 d765dd18a79b9b93 75a0bec8e04cf8e5
+      80008000a79b9b93 75a0bec8e04cf8e5
+      40000000ffffffff 20200078 8 8fc720ec526a8837 94105dd16af4da82
+      ffff526a8837 94105dd16af4da82
+      7fff7fff7fffffff 20200078 8 1a30708ba8d0c8c5 5ede23cad83434e7
+      7fffffffa8d0c8c5 5ede23cad83434e7
+      180007fff 20200078 8 55198bd0f4b94bc1 2860289d2957a15e
+      17ffff4b94bc1 2860289d2957a15e
+      1f80007fff 20200078 8 ed5a8fc770ef9e26 e73997c0e1ef593
+      1f7fff70ef9e26 e73997c0e1ef593
+      ffffffffffff0001 20200078 8 508b23b4b31371c2 9591a1b89ee4882f
+      ffff0001b31371c2 9591a1b89ee4882f
+      """
+    storeLE "10a63b34" """
+      fffd000580008000 20200078 8 ae9e7100e09a55e 2a3fb75d4e50de8a
+      50000800e09a55e 2a3fb75d4e50de8a
+      8000ffff00007fff 20200078 8 9bcb3977768186bf cc5574522c53fd7d
+      ffffff7f768186bf cc5574522c53fd7d
+      ffff8000ffff8000 20200078 8 d765dd18a79b9b93 75a0bec8e04cf8e5
+      800080a79b9b93 75a0bec8e04cf8e5
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWE (Store Word of Word from Even)``() =
+    (* evstwwe r5, 8(r6) *)
+    store "10a61339" """
+      100010001 20200078 0 52cbe767179ac4d7 2fc88f1ca8fbe89
+      1179ac4d7 2fc88f1ca8fbe89
+      80007fff00008000 20200078 0 3e3037e7c05b1876 32b66171df9bc5cc
+      80007fffc05b1876 32b66171df9bc5cc
+      17fff7fff 20200078 0 9cbbd770b56a52eb 8d710532a095a95a
+      1b56a52eb 8d710532a095a95a
+      40004000ffffffff 20200078 0 de34aca7e782b5a9 37151e0f0f491af3
+      40004000e782b5a9 37151e0f0f491af3
+      9abcdef0fffd0005 20200078 0 72a3e94750116d8f 1449365419cc7e7f
+      9abcdef050116d8f 1449365419cc7e7f
+      40004000aaaaaaaa 20200078 0 7765ec656b6f6820 44aa48dc8d13ace8
+      400040006b6f6820 44aa48dc8d13ace8
+      3fdeadbeef 20200078 0 ba53c1eba9d5b592 296476fd22374eae
+      3fa9d5b592 296476fd22374eae
+      7fff00030005 20200078 0 7ca445f0bab7f334 5f1977119ce538f4
+      7fffbab7f334 5f1977119ce538f4
+      """
+    store "10a60339" """
+      ffff000140004000 20200080 0 7f312b8d6030566f 1130bf0a4dec53ac
+      ffff00016030566f 1130bf0a4dec53ac
+      800000000001 20200080 0 a01bb05db62fd208 a8fd24f71d95211c
+      8000b62fd208 a8fd24f71d95211c
+      80007fff00000001 20200080 0 6bddb1a17c01e014 bf4e6a8730a8dc62
+      80007fff7c01e014 bf4e6a8730a8dc62
+      """
+    store "10a6fb39" """
+      80007fff80007fff 20200004 0 f9b7761d7a965854 62e2c35c79e86eee
+      80007fff7a965854 62e2c35c79e86eee
+      17fff8000 20200004 0 6513401d0bfed576 6b80c47bfcb14c03
+      10bfed576 6b80c47bfcb14c03
+      ffff40000000 20200004 0 cc83f1383db43308 425b095d4c29b549
+      ffff3db43308 425b095d4c29b549
+      """
+    storeLE "10a61339" """
+      100010001 20200078 0 52cbe767179ac4d7 2fc88f1ca8fbe89
+      1000000179ac4d7 2fc88f1ca8fbe89
+      80007fff00008000 20200078 0 3e3037e7c05b1876 32b66171df9bc5cc
+      ff7f0080c05b1876 32b66171df9bc5cc
+      17fff7fff 20200078 0 9cbbd770b56a52eb 8d710532a095a95a
+      1000000b56a52eb 8d710532a095a95a
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWEX (Store Word of Word from Even Indexed)``() =
+    (* evstwwex r5, r6, r7 *)
+    store "10a63b38" """
+      8000800000000001 20200078 8 c6776508836a43d 2eba3693081c7a8a
+      800080008836a43d 2eba3693081c7a8a
+      ffff00017fff8000 20200078 8 1d3daf104fcad4d7 ea904e39331ed795
+      ffff00014fcad4d7 ea904e39331ed795
+      800000000020 20200078 8 4a9b254ce18862a9 be9bb01e67ac45e6
+      8000e18862a9 be9bb01e67ac45e6
+      123456787fffffff 20200078 8 c57a71b55feb64e6 1e3b053de757fc01
+      123456785feb64e6 1e3b053de757fc01
+      1000140000000 20200078 8 cfc1bb94aa2a4c24 aff834600236f822
+      10001aa2a4c24 aff834600236f822
+      4000000012345678 20200078 8 7ac5ecb21863c75d f04b9f6db56677cd
+      400000001863c75d f04b9f6db56677cd
+      9abcdef00000ffff 20200078 8 5c9f08531ae7576a 6fab3711b7d8b181
+      9abcdef01ae7576a 6fab3711b7d8b181
+      3000512345678 20200078 8 e493647d166e1d50 921048e9d3257078
+      30005166e1d50 921048e9d3257078
+      """
+    storeLE "10a63b38" """
+      8000800000000001 20200078 8 c6776508836a43d 2eba3693081c7a8a
+      8000808836a43d 2eba3693081c7a8a
+      ffff00017fff8000 20200078 8 1d3daf104fcad4d7 ea904e39331ed795
+      100ffff4fcad4d7 ea904e39331ed795
+      800000000020 20200078 8 4a9b254ce18862a9 be9bb01e67ac45e6
+      800000e18862a9 be9bb01e67ac45e6
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWO (Store Word of Word from Odd)``() =
+    (* evstwwo r5, 8(r6) *)
+    store "10a6133d" """
+      7fff40000000 20200078 0 4d2d0b3e317254f4 cc56e606554962cd
+      40000000317254f4 cc56e606554962cd
+      1000140004000 20200078 0 d593f3cb83647e2b 6a9b0193355a7a8b
+      4000400083647e2b 6a9b0193355a7a8b
+      7fff7fff0000003f 20200078 0 575111b9178ab2de 6988f60210b07b81
+      3f178ab2de 6988f60210b07b81
+      123456787fff7fff 20200078 0 364c5e180adf2309 a8947d31dd81477d
+      7fff7fff0adf2309 a8947d31dd81477d
+      5555555500000020 20200078 0 8dc2f476a0e409e9 98f78255cac465e5
+      20a0e409e9 98f78255cac465e5
+      1f55555555 20200078 0 68cd0a6d5f84ae56 3b3f4fd04e72740c
+      555555555f84ae56 3b3f4fd04e72740c
+      80000000ffff8000 20200078 0 2bbe3a5f8f1e624 26f1ee9bd2b6f7d
+      ffff8000f8f1e624 26f1ee9bd2b6f7d
+      80008000ffff0001 20200078 0 23bdbc150c129dd8 73afa7529a458f77
+      ffff00010c129dd8 73afa7529a458f77
+      """
+    store "10a6033d" """
+      300050000003f 20200080 0 87e71d8a1bdac1e3 24da845fc5eb2bb2
+      3f1bdac1e3 24da845fc5eb2bb2
+      fffd00057fff7fff 20200080 0 f2387143d19f022d 5fe6ea4cb66671f6
+      7fff7fffd19f022d 5fe6ea4cb66671f6
+      7fffffff0000ffff 20200080 0 122d3675390792be e8e0956c91690161
+      ffff390792be e8e0956c91690161
+      """
+    store "10a6fb3d" """
+      80000000ffff 20200004 0 c69d5cf40c560960 4fc690791e3abcae
+      ffff0c560960 4fc690791e3abcae
+      20deadbeef 20200004 0 1e515a3c8bdda033 c7889c534563fddb
+      deadbeef8bdda033 c7889c534563fddb
+      ffff000100010001 20200004 0 74c6495287eb2e36 9aca054b97d3ef66
+      1000187eb2e36 9aca054b97d3ef66
+      """
+    storeLE "10a6133d" """
+      7fff40000000 20200078 0 4d2d0b3e317254f4 cc56e606554962cd
+      40317254f4 cc56e606554962cd
+      1000140004000 20200078 0 d593f3cb83647e2b 6a9b0193355a7a8b
+      40004083647e2b 6a9b0193355a7a8b
+      7fff7fff0000003f 20200078 0 575111b9178ab2de 6988f60210b07b81
+      3f000000178ab2de 6988f60210b07b81
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWOX (Store Word of Word from Odd Indexed)``() =
+    (* evstwwox r5, r6, r7 *)
+    store "10a63b3c" """
+      fffffffd0005 20200078 8 a25149bd19d9b909 659643fcf960b78c
+      fffd000519d9b909 659643fcf960b78c
+      ffff00007fff 20200078 8 c1a2ac1d264a98cd a978ed72f5f2793e
+      7fff264a98cd a978ed72f5f2793e
+      7fffffffffff 20200078 8 3fcc3ea58b477565 64016b470517fadb
+      ffffffff8b477565 64016b470517fadb
+      8000800000000001 20200078 8 75bbfac97f74081b 1feb4292f0e7f9eb
+      17f74081b 1feb4292f0e7f9eb
+      ffffffff00030005 20200078 8 4b3c8ebecb1abc64 17c7722fb59a0d8a
+      30005cb1abc64 17c7722fb59a0d8a
+      800000007fff7fff 20200078 8 901ecfa1de1a9f96 5c1de2db22d5d91
+      7fff7fffde1a9f96 5c1de2db22d5d91
+      aaaaaaaaffff8000 20200078 8 6e7da3a712f170ce 8bf11857ce048747
+      ffff800012f170ce 8bf11857ce048747
+      8000ffffaaaaaaaa 20200078 8 801e1e5f1fee28ac 5213f7c4525e3266
+      aaaaaaaa1fee28ac 5213f7c4525e3266
+      """
+    storeLE "10a63b3c" """
+      fffffffd0005 20200078 8 a25149bd19d9b909 659643fcf960b78c
+      500fdff19d9b909 659643fcf960b78c
+      ffff00007fff 20200078 8 c1a2ac1d264a98cd a978ed72f5f2793e
+      ff7f0000264a98cd a978ed72f5f2793e
+      7fffffffffff 20200078 8 3fcc3ea58b477565 64016b470517fadb
+      ffffffff8b477565 64016b470517fadb
       """
