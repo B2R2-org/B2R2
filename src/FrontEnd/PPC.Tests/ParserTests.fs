@@ -5596,3 +5596,263 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVSTWWOX (Store Word of Word from Odd Indexed)``() =
     EVSTWWOX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63b3c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMFAA (Multiply Half Words, Even, Guarded,...)``() =
+    EVMHEGSMFAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d2b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMFAN (Multiply Half Words, Even, Guarded,...)``() =
+    EVMHEGSMFAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dab"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMIAA (Multiply Half Words, Even, Guarded,...)``() =
+    EVMHEGSMIAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d29"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGSMIAN (Multiply Half Words, Even, Guarded,...)``() =
+    EVMHEGSMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63da9"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGUMIAA (Multiply Half Words, Even, Guarded,...)``() =
+    EVMHEGUMIAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d28"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEGUMIAN (Multiply Half Words, Even, Guarded,...)``() =
+    EVMHEGUMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63da8"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMF (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c0b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMFA (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c2b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMFAAW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMFAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d0b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMFANW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMFANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d8b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMI (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c09"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMIA (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c29"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMIAAW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d09"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESMIANW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESMIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d89"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSF (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESSF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c03"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSFA (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESSFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c23"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSFAAW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESSFAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d03"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSFANW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESSFANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d83"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSIAAW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESSIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d01"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHESSIANW (Multiply Half Words, Even, Signed,...)``() =
+    EVMHESSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d81"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMI (Multiply Half Words, Even, Unsigned,...)``() =
+    EVMHEUMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c08"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMIA (Multiply Half Words, Even, Unsigned,...)``() =
+    EVMHEUMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c28"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMIAAW (Multiply Half Words, Even, Unsigned,...)``() =
+    EVMHEUMIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d08"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUMIANW (Multiply Half Words, Even, Unsigned,...)``() =
+    EVMHEUMIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d88"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUSIAAW (Multiply Half Words, Even, Unsigned,...)``() =
+    EVMHEUSIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d00"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHEUSIANW (Multiply Half Words, Even, Unsigned,...)``() =
+    EVMHEUSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d80"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMFAA (Multiply Half Words, Odd, Guarded,...)``() =
+    EVMHOGSMFAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d2f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMFAN (Multiply Half Words, Odd, Guarded,...)``() =
+    EVMHOGSMFAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63daf"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMIAA (Multiply Half Words, Odd, Guarded,...)``() =
+    EVMHOGSMIAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d2d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGSMIAN (Multiply Half Words, Odd, Guarded,...)``() =
+    EVMHOGSMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dad"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGUMIAA (Multiply Half Words, Odd, Guarded,...)``() =
+    EVMHOGUMIAA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d2c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOGUMIAN (Multiply Half Words, Odd, Guarded,...)``() =
+    EVMHOGUMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63dac"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMF (Multiply Half Words, Odd, Signed, Modulo,...)``() =
+    EVMHOSMF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c0f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMFA (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSMFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c2f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMFAAW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSMFAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d0f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMFANW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSMFANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d8f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMI (Multiply Half Words, Odd, Signed, Modulo,...)``() =
+    EVMHOSMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c0d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMIA (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c2d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMIAAW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSMIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d0d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSMIANW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSMIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d8d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSF (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSSF ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c07"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSFA (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSSFA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c27"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSFAAW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSSFAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d07"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSFANW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSSFANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d87"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSIAAW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSSIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d05"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOSSIANW (Multiply Half Words, Odd, Signed,...)``() =
+    EVMHOSSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d85"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMI (Multiply Half Words, Odd, Unsigned,...)``() =
+    EVMHOUMI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c0c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMIA (Multiply Half Words, Odd, Unsigned,...)``() =
+    EVMHOUMIA ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63c2c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMIAAW (Multiply Half Words, Odd, Unsigned,...)``() =
+    EVMHOUMIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d0c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUMIANW (Multiply Half Words, Odd, Unsigned,...)``() =
+    EVMHOUMIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d8c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUSIAAW (Multiply Half Words, Odd, Unsigned,...)``() =
+    EVMHOUSIAAW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d04"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMHOUSIANW (Multiply Half Words, Odd, Unsigned,...)``() =
+    EVMHOUSIANW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63d84"

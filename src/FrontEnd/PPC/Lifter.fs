@@ -43,6 +43,7 @@ open B2R2.FrontEnd.PPC.VectorBitLifter
 open B2R2.FrontEnd.PPC.VectorPermuteLifter
 open B2R2.FrontEnd.PPC.VectorFloatLifter
 open B2R2.FrontEnd.PPC.SPELifter
+open B2R2.FrontEnd.PPC.SPEMultiplyLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -2882,6 +2883,110 @@ let translate (ins: Instruction) bld =
     evstwwo ins bld
   | Op.EVSTWWOX ->
     evstwwo ins bld
+  | Op.EVMHEGSMFAA ->
+    evmhGuarded ins bld Even Signed Fractional AddWhole
+  | Op.EVMHEGSMFAN ->
+    evmhGuarded ins bld Even Signed Fractional SubtractWhole
+  | Op.EVMHEGSMIAA ->
+    evmhGuarded ins bld Even Signed Integer AddWhole
+  | Op.EVMHEGSMIAN ->
+    evmhGuarded ins bld Even Signed Integer SubtractWhole
+  | Op.EVMHEGUMIAA ->
+    evmhGuarded ins bld Even Unsigned Integer AddWhole
+  | Op.EVMHEGUMIAN ->
+    evmhGuarded ins bld Even Unsigned Integer SubtractWhole
+  | Op.EVMHESMF ->
+    evmh ins bld Even Signed Wrap Fractional Plain
+  | Op.EVMHESMFA ->
+    evmh ins bld Even Signed Wrap Fractional ToAccumulator
+  | Op.EVMHESMFAAW ->
+    evmh ins bld Even Signed Wrap Fractional AddWords
+  | Op.EVMHESMFANW ->
+    evmh ins bld Even Signed Wrap Fractional SubtractWords
+  | Op.EVMHESMI ->
+    evmh ins bld Even Signed Wrap Integer Plain
+  | Op.EVMHESMIA ->
+    evmh ins bld Even Signed Wrap Integer ToAccumulator
+  | Op.EVMHESMIAAW ->
+    evmh ins bld Even Signed Wrap Integer AddWords
+  | Op.EVMHESMIANW ->
+    evmh ins bld Even Signed Wrap Integer SubtractWords
+  | Op.EVMHESSF ->
+    evmh ins bld Even Signed Clamp Fractional Plain
+  | Op.EVMHESSFA ->
+    evmh ins bld Even Signed Clamp Fractional ToAccumulator
+  | Op.EVMHESSFAAW ->
+    evmh ins bld Even Signed Clamp Fractional AddWords
+  | Op.EVMHESSFANW ->
+    evmh ins bld Even Signed Clamp Fractional SubtractWords
+  | Op.EVMHESSIAAW ->
+    evmh ins bld Even Signed Clamp Integer AddWords
+  | Op.EVMHESSIANW ->
+    evmh ins bld Even Signed Clamp Integer SubtractWords
+  | Op.EVMHEUMI ->
+    evmh ins bld Even Unsigned Wrap Integer Plain
+  | Op.EVMHEUMIA ->
+    evmh ins bld Even Unsigned Wrap Integer ToAccumulator
+  | Op.EVMHEUMIAAW ->
+    evmh ins bld Even Unsigned Wrap Integer AddWords
+  | Op.EVMHEUMIANW ->
+    evmh ins bld Even Unsigned Wrap Integer SubtractWords
+  | Op.EVMHEUSIAAW ->
+    evmh ins bld Even Unsigned Clamp Integer AddWords
+  | Op.EVMHEUSIANW ->
+    evmh ins bld Even Unsigned Clamp Integer SubtractWords
+  | Op.EVMHOGSMFAA ->
+    evmhGuarded ins bld Odd Signed Fractional AddWhole
+  | Op.EVMHOGSMFAN ->
+    evmhGuarded ins bld Odd Signed Fractional SubtractWhole
+  | Op.EVMHOGSMIAA ->
+    evmhGuarded ins bld Odd Signed Integer AddWhole
+  | Op.EVMHOGSMIAN ->
+    evmhGuarded ins bld Odd Signed Integer SubtractWhole
+  | Op.EVMHOGUMIAA ->
+    evmhGuarded ins bld Odd Unsigned Integer AddWhole
+  | Op.EVMHOGUMIAN ->
+    evmhGuarded ins bld Odd Unsigned Integer SubtractWhole
+  | Op.EVMHOSMF ->
+    evmh ins bld Odd Signed Wrap Fractional Plain
+  | Op.EVMHOSMFA ->
+    evmh ins bld Odd Signed Wrap Fractional ToAccumulator
+  | Op.EVMHOSMFAAW ->
+    evmh ins bld Odd Signed Wrap Fractional AddWords
+  | Op.EVMHOSMFANW ->
+    evmh ins bld Odd Signed Wrap Fractional SubtractWords
+  | Op.EVMHOSMI ->
+    evmh ins bld Odd Signed Wrap Integer Plain
+  | Op.EVMHOSMIA ->
+    evmh ins bld Odd Signed Wrap Integer ToAccumulator
+  | Op.EVMHOSMIAAW ->
+    evmh ins bld Odd Signed Wrap Integer AddWords
+  | Op.EVMHOSMIANW ->
+    evmh ins bld Odd Signed Wrap Integer SubtractWords
+  | Op.EVMHOSSF ->
+    evmh ins bld Odd Signed Clamp Fractional Plain
+  | Op.EVMHOSSFA ->
+    evmh ins bld Odd Signed Clamp Fractional ToAccumulator
+  | Op.EVMHOSSFAAW ->
+    evmh ins bld Odd Signed Clamp Fractional AddWords
+  | Op.EVMHOSSFANW ->
+    evmh ins bld Odd Signed Clamp Fractional SubtractWords
+  | Op.EVMHOSSIAAW ->
+    evmh ins bld Odd Signed Clamp Integer AddWords
+  | Op.EVMHOSSIANW ->
+    evmh ins bld Odd Signed Clamp Integer SubtractWords
+  | Op.EVMHOUMI ->
+    evmh ins bld Odd Unsigned Wrap Integer Plain
+  | Op.EVMHOUMIA ->
+    evmh ins bld Odd Unsigned Wrap Integer ToAccumulator
+  | Op.EVMHOUMIAAW ->
+    evmh ins bld Odd Unsigned Wrap Integer AddWords
+  | Op.EVMHOUMIANW ->
+    evmh ins bld Odd Unsigned Wrap Integer SubtractWords
+  | Op.EVMHOUSIAAW ->
+    evmh ins bld Odd Unsigned Clamp Integer AddWords
+  | Op.EVMHOUSIANW ->
+    evmh ins bld Odd Unsigned Clamp Integer SubtractWords
   (* End of lane S. *)
   | o ->
 #if DEBUG
