@@ -447,6 +447,16 @@ type Register =
   | SPRG3 = 0xF1
   /// Program Priority Register (SPR 896); PPR32 (898) is its upper word.
   | PPR = 0xF2
+  (* Lane E: the Transactional Memory registers. *)
+  /// The Transaction EXception And Status Register, SPR 130 (64 bits, TEXASRU
+  /// being its upper word, SPR 131).
+  | TEXASR = 0xF3
+  /// The Transaction Failure Handler Address Register, SPR 128, where control
+  /// goes when a transaction fails.
+  | TFHAR = 0xF4
+  /// The Transaction Failure Instruction Address Register, SPR 129, the
+  /// address of the instruction that made a transaction fail.
+  | TFIAR = 0xF5
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -684,6 +694,9 @@ module Register =
     | "ctrl" -> Register.CTRL
     | "sprg3" -> Register.SPRG3
     | "ppr" -> Register.PPR
+    | "texasr" -> Register.TEXASR
+    | "tfhar" -> Register.TFHAR
+    | "tfiar" -> Register.TFIAR
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC register.
@@ -920,4 +933,7 @@ module Register =
     | Register.CTRL -> "ctrl"
     | Register.SPRG3 -> "sprg3"
     | Register.PPR -> "ppr"
+    | Register.TEXASR -> "texasr"
+    | Register.TFHAR -> "tfhar"
+    | Register.TFIAR -> "tfiar"
     | _ -> Terminator.impossible ()

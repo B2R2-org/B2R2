@@ -27346,16 +27346,20 @@ module private LaneEShortcut =
   let isaOf endian wordSize (category: Category) =
     ISA(Architecture.PPC, endian, wordSize, int category)
 
-  /// The statements one word lifts to on the processor an ISA names. The hex
-  /// is the word as the Power ISA draws it, most significant byte first.
-  let lifted (isa: ISA) (hex: string) =
+  /// The statements one word at an address lifts to on the processor an ISA
+  /// names. The hex is the word as the Power ISA draws it, most significant
+  /// byte first.
+  let liftedAt (isa: ISA) (address: uint64) (hex: string) =
     let word = ByteArray.ofHexString hex
     let bytes = if isa.Endian = Endian.Big then word else Array.rev word
     let reader = BinReader.Init isa.Endian
     let parser = Parser(isa, reader) :> IInstructionParsable
     let regs = RegisterFactory isa :> IRegisterFactory
     let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
-    (parser.Parse(bytes, 0UL)).Translate builder
+    (parser.Parse(bytes, address)).Translate builder
+
+  /// The statements one word lifts to when it is at address 0.
+  let lifted isa hex = liftedAt isa 0UL hex
 
   /// The variable of a register on the processor an ISA names.
   let var (isa: ISA) r =
@@ -27368,11 +27372,15 @@ module private LaneEShortcut =
       let x = var isa r
       x, BitVector(v, Expr.typeOf x))
 
-  /// What each register holds after one word ran on the processor an ISA
-  /// names, over the registers given values and zero everywhere else.
-  let run isa hex given =
-    let read = IRRunner.run (lifted isa hex) (inputsOf isa given)
+  /// What each register holds after the word at an address ran on the
+  /// processor an ISA names, over the registers given values and zero
+  /// everywhere else.
+  let runAt isa address hex given =
+    let read = IRRunner.run (liftedAt isa address hex) (inputsOf isa given)
     fun r -> (read (var isa r)).ToUInt64()
+
+  /// The same for a word at address 0.
+  let run isa hex given = runAt isa 0UL hex given
 
   /// What run gives, over the bytes of memory given as well, and every byte of
   /// memory given or written after the run.
@@ -29527,3 +29535,162 @@ type EmbeddedLifterTests() =
   [<TestMethod>]
   member _.``[PPC] DSN leaves no trace``() =
     checkNoTrace "7c063bc6"
+
+/// <summary>
+/// Lifting tests of the Transactional Memory instructions (Power ISA 2.07B
+/// Book II chapter 5). B2R2 models a processor that fails every transaction,
+/// as qemu-ppc64 -cpu power8 and power9 (8.2.2) do; the values asserted are
+/// the ones the architecture fixes for that machine, and QEMU's wherever it
+/// agrees with them.
+/// </summary>
+[<TestClass>]
+type TransactionLifterTests() =
+  /// The registers that nothing but tbegin. changes, given values no
+  /// instruction here may disturb, with CR0 set and XER[SO] too, so that a CR0
+  /// that is not written, or that copies SO, shows.
+  let state =
+    [ R5, 7UL
+      R6, 1UL
+      R7, 2UL
+      XER, 0x80000000UL
+      CR0_0, 1UL
+      CR0_1, 1UL
+      CR0_2, 1UL
+      CR0_3, 1UL
+      TEXASR, 0x1234UL
+      TFHAR, 0x5678UL
+      TFIAR, 0x9abcUL ]
+
+  /// Asserts that a word leaves the state above as it was and clears CR0, on
+  /// every processor. The Non-transactional state, which is the only one this
+  /// machine has, gives CR0 the value 0 || MSR[TS] || 0.
+  let checkClearsCR0 hex =
+    for isa in everyProcessor do
+      let after = run isa hex state
+      let isCR0 r = r = CR0_0 || r = CR0_1 || r = CR0_2 || r = CR0_3
+      for r, v in state |> List.filter (fun (r, _) -> not (isCR0 r)) do
+        Assert.AreEqual(box v, box (after r), $"{hex} {r} {isa}")
+      Assert.AreEqual(box 0UL, box (cr0 after), $"{hex} CR0 {isa}")
+
+  /// What tbegin. leaves, at an address: the cause in TEXASR, the failure
+  /// handler in TFHAR (the next instruction), the failing instruction in
+  /// TFIAR, and CR0 set to 0b1010; the registers it does not name are as they
+  /// were.
+  let checkBegin hex texasr =
+    for isa in everyProcessor do
+      let address = 0x20100000UL
+      let after = runAt isa address hex state
+      let case = $"{hex} {isa}"
+      Assert.AreEqual(box texasr, box (after TEXASR), case)
+      Assert.AreEqual(box (address + 4UL), box (after TFHAR), case)
+      Assert.AreEqual(box (address ||| 3UL), box (after TFIAR), case)
+      Assert.AreEqual(box 0b1010UL, box (cr0 after), case)
+      Assert.AreEqual(box 7UL, box (after R5), case)
+      Assert.AreEqual(box 0x80000000UL, box (after XER), case)
+
+  /// <summary>
+  /// tbegin. 0 begins a transaction that fails as it begins, as a processor
+  /// that fails every one does: TEXASR holds the transaction level 1 and the
+  /// failure persistent, nesting overflow, privilege (HV and PR), failure
+  /// summary and exact bits, TFHAR the address of the next instruction, TFIAR
+  /// the address of the tbegin. with the privilege in its low bits, and CR0
+  /// 0b101 || 0 (Book II 5.3.3, "TMHandleFailure"); control falls through to
+  /// TFHAR. QEMU (8.2.2) gives these values where the tbegin. starts a
+  /// translation block, as it does here, and differs on the rest
+  /// (deviations/ppc64/tm_qemu.c): it leaves the transaction level 0 and sets
+  /// CR0 to 0b1011.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TBEGIN. fails the transaction at once``() =
+    (* tbegin. 0 *)
+    checkBegin "7c00051d" 0x0140_0000_3c00_0001UL
+
+  /// <summary>
+  /// tbegin. 1 begins a rollback-only transaction, which also sets TEXASR bit
+  /// 38. QEMU (8.2.2) leaves the bit clear for both forms.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TBEGIN. 1 sets the rollback-only bit``() =
+    (* tbegin. 1 *)
+    checkBegin "7c20051d" 0x0140_0000_3e00_0001UL
+
+  /// <summary>
+  /// tend. A ends the transaction there is none of: CR0 is set to 0 || MSR[TS]
+  /// || 0, which is 0, whatever XER[SO] holds, and nothing else changes. The
+  /// values are QEMU's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TEND. leaves CR0 clear``() =
+    checkClearsCR0 "7c00055d"
+    checkClearsCR0 "7e00055d"
+
+  /// <summary>
+  /// tabort. rA aborts nothing outside a transaction: CR0 is set to 0 and rA
+  /// is not read. QEMU's values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TABORT. leaves CR0 clear``() =
+    checkClearsCR0 "7c05071d"
+
+  /// <summary>
+  /// tabortdc. TO, rA, rB compares and aborts only in a transaction: CR0 is
+  /// set to 0 whether or not the comparison holds (rA 1, rB 2, TO 5). QEMU's
+  /// values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TABORTDC. leaves CR0 clear``() =
+    checkClearsCR0 "7ca63e5d"
+
+  /// <summary>
+  /// tabortdci. TO, rA, SI, the same against an immediate. QEMU's values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TABORTDCI. leaves CR0 clear``() =
+    checkClearsCR0 "7ca6cedd"
+
+  /// <summary>
+  /// tabortwc. TO, rA, rB, the same on the low words. QEMU's values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TABORTWC. leaves CR0 clear``() =
+    checkClearsCR0 "7ca63e1d"
+
+  /// <summary>
+  /// tabortwci. TO, rA, SI, the same against an immediate. QEMU's values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TABORTWCI. leaves CR0 clear``() =
+    checkClearsCR0 "7ca6ce9d"
+
+  /// <summary>
+  /// tsr. L suspends or resumes a transaction there is none of: CR0 is set to
+  /// 0 and nothing else changes. QEMU's values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TSR. leaves CR0 clear``() =
+    checkClearsCR0 "7c0005dd"
+    checkClearsCR0 "7c2005dd"
+
+  /// <summary>
+  /// tcheck BF sets the field BF to TDOOMED || MSR[TS] || 0: the transaction
+  /// state is Non-transactional, and the machine that fails every transaction
+  /// has TDOOMED set. The other fields are untouched. QEMU's value (0b1000).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TCHECK sets a field to doomed``() =
+    (* tcheck cr2 *)
+    for isa in everyProcessor do
+      let given =
+        [ CR2_0, 0UL
+          CR2_1, 1UL
+          CR2_2, 1UL
+          CR2_3, 1UL
+          CR3_0, 1UL
+          CR1_3, 1UL ]
+      let after = run isa "7d00059c" given
+      let field =
+        (after CR2_0 <<< 3) ||| (after CR2_1 <<< 2) ||| (after CR2_2 <<< 1)
+        ||| after CR2_3
+      Assert.AreEqual(box 0b1000UL, box field, $"{isa}")
+      Assert.AreEqual(box 1UL, box (after CR3_0), $"{isa}")
+      Assert.AreEqual(box 1UL, box (after CR1_3), $"{isa}")

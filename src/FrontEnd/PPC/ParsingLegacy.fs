@@ -128,12 +128,16 @@ let private parseDlmzb bin =
   struct (opcode, ThreeOperands(ra, rs, rb))
 
 /// The instructions of primary opcode 31 that no category reads another way,
-/// by the ten-bit extended opcode: dlmzb, and what the embedded environment
-/// adds.
+/// by the ten-bit extended opcode: dlmzb, what the embedded environment adds
+/// and the transactional memory instructions.
 let private parse31 category bitLen bin =
   match Bits.extract bin 10u 1u with
-  | 78u -> ValueSome(parseDlmzb bin)
-  | _ -> ParsingEmbedded.tryParse31 category bitLen bin
+  | 78u ->
+    ValueSome(parseDlmzb bin)
+  | _ ->
+    match ParsingEmbedded.tryParse31 category bitLen bin with
+    | ValueNone -> ParsingTM.tryParse31 bitLen bin
+    | parsed -> parsed
 
 /// The instruction a word is, if it is one this module takes on a processor
 /// implementing the categories given, with registers of bitLen bits.

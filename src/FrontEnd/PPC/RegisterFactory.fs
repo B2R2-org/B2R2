@@ -251,6 +251,9 @@ type RegisterFactory(isa: ISA) =
   let ctrl = AST.var 32<rt> (Register.toRegID CTRL) "CTRL"
   let sprg3 = AST.var rt (Register.toRegID SPRG3) "SPRG3"
   let ppr = AST.var rt (Register.toRegID PPR) "PPR"
+  let texasr = AST.var 64<rt> (Register.toRegID TEXASR) "TEXASR"
+  let tfhar = AST.var 64<rt> (Register.toRegID TFHAR) "TFHAR"
+  let tfiar = AST.var 64<rt> (Register.toRegID TFIAR) "TFIAR"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -477,6 +480,9 @@ type RegisterFactory(isa: ISA) =
       | Register.CTRL -> ctrl
       | Register.SPRG3 -> sprg3
       | Register.PPR -> ppr
+      | Register.TEXASR -> texasr
+      | Register.TFHAR -> tfhar
+      | Register.TFIAR -> tfiar
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -689,6 +695,9 @@ type RegisterFactory(isa: ISA) =
       | "ctrl" -> ctrl
       | "sprg3" -> sprg3
       | "ppr" -> ppr
+      | "texasr" -> texasr
+      | "tfhar" -> tfhar
+      | "tfiar" -> tfiar
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -898,7 +907,10 @@ type RegisterFactory(isa: ISA) =
          amr
          ctrl
          sprg3
-         ppr |]
+         ppr
+         texasr
+         tfhar
+         tfiar |]
 
     member _.GetGeneralRegVars() =
       [| r0
