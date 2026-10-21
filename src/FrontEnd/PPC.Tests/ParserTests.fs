@@ -6905,3 +6905,101 @@ type VLEParserTests() =
     |> testVLE "d135"
     SE_STW ** [ O.Reg R3; O.Mem(4, R0) ]
     |> testVLE "d130"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LBZ (load byte and zero)``() =
+    E_LBZ ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "3064fff8"
+    E_LBZ ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "33e07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LBZU (load byte and zero with update)``() =
+    E_LBZU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186400f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHA (load halfword algebraic)``() =
+    E_LHA ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "3864fff8"
+    E_LHA ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "3be07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHAU (load halfword algebraic with update)``() =
+    E_LHAU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186403f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHZ (load halfword and zero)``() =
+    E_LHZ ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "5864fff8"
+    E_LHZ ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "5be07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHZU (load halfword and zero with update)``() =
+    E_LHZU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186401f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LMW (load multiple word)``() =
+    E_LMW ** [ O.Reg R28; O.Mem(-8, R4) ]
+    |> testVLE "1b8408f8"
+    E_LMW ** [ O.Reg R24; O.Mem(127, R3) ]
+    |> testVLE "1b03087f"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LWZ (load word and zero)``() =
+    E_LWZ ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "5064fff8"
+    E_LWZ ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "53e07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LWZU (load word and zero with update)``() =
+    E_LWZU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186402f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STB (store byte)``() =
+    E_STB ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "3464fff8"
+    E_STB ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "37e07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STBU (store byte with update)``() =
+    E_STBU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186404f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STH (store halfword)``() =
+    E_STH ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "5c64fff8"
+    E_STH ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "5fe07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STHU (store halfword with update)``() =
+    E_STHU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186405f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STMW (store multiple word)``() =
+    E_STMW ** [ O.Reg R28; O.Mem(-8, R4) ]
+    |> testVLE "1b8409f8"
+    E_STMW ** [ O.Reg R24; O.Mem(127, R3) ]
+    |> testVLE "1b03097f"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STW (store word)``() =
+    E_STW ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "5464fff8"
+    E_STW ** [ O.Reg R31; O.Mem(32767, R0) ]
+    |> testVLE "57e07fff"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STWU (store word with update)``() =
+    E_STWU ** [ O.Reg R3; O.Mem(-8, R4) ]
+    |> testVLE "186406f8"

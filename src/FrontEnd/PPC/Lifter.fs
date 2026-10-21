@@ -3340,6 +3340,38 @@ let translate (ins: Instruction) bld =
     VLELifter.storeToBase ins bld 16<rt>
   | Op.SE_STW ->
     VLELifter.storeToBase ins bld 32<rt>
+  | Op.E_LBZ ->
+    lbz ins bld
+  | Op.E_LBZU ->
+    lbzu ins bld
+  | Op.E_LHA ->
+    lha ins bld
+  | Op.E_LHAU ->
+    lhau ins bld
+  | Op.E_LHZ ->
+    lhz ins bld
+  | Op.E_LHZU ->
+    lhzu ins bld
+  | Op.E_LWZ ->
+    lwz ins bld
+  | Op.E_LWZU ->
+    lwzu ins bld
+  | Op.E_LMW ->
+    lmw ins bld
+  | Op.E_STB ->
+    stb ins bld
+  | Op.E_STBU ->
+    stbu ins bld
+  | Op.E_STH ->
+    sth ins bld
+  | Op.E_STHU ->
+    sthu ins bld
+  | Op.E_STW ->
+    stw ins bld
+  | Op.E_STWU ->
+    stwu ins bld
+  | Op.E_STMW ->
+    stmw ins bld
   (* End of lane L. *)
   | o ->
 #if DEBUG

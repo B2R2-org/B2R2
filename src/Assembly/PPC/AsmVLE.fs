@@ -147,6 +147,25 @@ let private accessForm value size ins =
   | _ ->
     wrongOperands ins
 
+/// A load or a store of the D-form: a register and a base register with a
+/// displacement of sixteen bits.
+let private dForm po ins =
+  match ins.Operands with
+  | [ Rg t; Mem(disp, a) ] ->
+    (po <<< 26) ||| (gpr t <<< 21) ||| (gpr a <<< 16) ||| displacement disp
+  | _ ->
+    wrongOperands ins
+
+/// A load or a store of the D8-form: the same with a displacement of eight bits
+/// and a byte that says which instruction it is.
+let private d8Form xo ins =
+  match ins.Operands with
+  | [ Rg t; Mem(disp, a) ] ->
+    (6u <<< 26) ||| (gpr t <<< 21) ||| (gpr a <<< 16) ||| (xo <<< 8)
+    ||| signed 8 (int64 disp)
+  | _ ->
+    wrongOperands ins
+
 /// The instructions of Variable Length Encoding, by what they are called.
 let vleEncoders bitLen =
   [ Op.SE_ILLEGAL, cForm 0x0000u
@@ -207,4 +226,20 @@ let vleEncoders bitLen =
     Op.SE_STH, accessForm 0xB000u 2
     Op.SE_LWZ, accessForm 0xC000u 4
     Op.SE_STW, accessForm 0xD000u 4
+    Op.E_LBZ, dForm 12u
+    Op.E_STB, dForm 13u
+    Op.E_LHA, dForm 14u
+    Op.E_LWZ, dForm 20u
+    Op.E_STW, dForm 21u
+    Op.E_LHZ, dForm 22u
+    Op.E_STH, dForm 23u
+    Op.E_LBZU, d8Form 0x00u
+    Op.E_LHZU, d8Form 0x01u
+    Op.E_LWZU, d8Form 0x02u
+    Op.E_LHAU, d8Form 0x03u
+    Op.E_STBU, d8Form 0x04u
+    Op.E_STHU, d8Form 0x05u
+    Op.E_STWU, d8Form 0x06u
+    Op.E_LMW, d8Form 0x08u
+    Op.E_STMW, d8Form 0x09u
     Op.SE_LI, loadImmediate ]
