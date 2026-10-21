@@ -243,6 +243,7 @@ type PPCRoundTripTests() =
   member _.``Every instruction of the embedded categories encodes``() =
     let readings =
       [ Category.LegacyIntegerMultiplyAccumulate
+        Category.LegacyMoveAssist
         Category.Embedded ]
     let reader = BinReader.Init Endian.Little
     let broken =

@@ -54,6 +54,9 @@ type Category =
   /// server processor is mbar, whose MO field the server reading leaves
   /// reserved.
   | Embedded = 0x2
+  /// Legacy Move Assist, dlmzb of the 405 and 440 cores, whose word is the one
+  /// a server processor reads as msgsndu when rS and rA are r0.
+  | LegacyMoveAssist = 0x4
 
 /// Provides functions to read the categories a PowerPC ISA names.
 [<RequireQualifiedAccess>]

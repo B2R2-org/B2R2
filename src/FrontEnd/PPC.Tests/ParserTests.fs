@@ -4279,6 +4279,13 @@ module private LegacyShortcut =
     let isa = isaOf Endian.Big WordSize.Bit32 Category.Server
     try (parse isa hex).Opcode with :? ParsingFailureException -> InvalOP
 
+  /// Asserts what a word of primary opcode 31 decodes to where the Legacy
+  /// Move Assist category is, and that the server reading, which gives such a
+  /// word with rS and rA zero to msgsndu, is not that.
+  let testMoveAssist hex (opcode, operands) =
+    testCategory Category.LegacyMoveAssist hex (opcode, operands)
+    Assert.AreNotEqual<Opcode>(opcode, serverReading hex)
+
   /// Asserts what a word of primary opcode 4 decodes to where the Legacy
   /// Integer Multiply-Accumulate category takes the opcode, and that the
   /// server reading, which gives it to the vector facility, is not that.
@@ -4714,15 +4721,16 @@ type LegacyParserTests() =
 
   [<TestMethod>]
   member _.``[PPC] DLMZB (determine leftmost zero byte)``() =
-    "7cc5389c"
-    ++ (DLMZB ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
-    ||> testEveryTarget
+    DLMZB ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testMoveAssist "7cc5389c"
+    (* with rS and rA zero it is the word msgsndu is on a server processor *)
+    DLMZB ** [ O.Reg R0; O.Reg R0; O.Reg R7 ]
+    |> testMoveAssist "7c00389c"
 
   [<TestMethod>]
   member _.``[PPC] DLMZB. (determine leftmost zero byte)``() =
-    "7cc5389d"
-    ++ (DLMZBdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
-    ||> testEveryTarget
+    DLMZBdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testMoveAssist "7cc5389d"
 
 /// The instructions the embedded environment adds to primary opcode 31
 /// (Power ISA 2.07B Book II and Book III-E), each word the one binutils
