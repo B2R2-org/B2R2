@@ -149,9 +149,49 @@ let private compareEncoders () =
     Op.EVCMPLTU, cmp 562u
     Op.EVSEL, sel 632u ]
 
+/// The encoders of the "memory" theme.
+let private memoryEncoders () =
+  [ Op.EVLDD, disp 8 769u
+    Op.EVLDDX, rrr 768u
+    Op.EVLDH, disp 8 773u
+    Op.EVLDHX, rrr 772u
+    Op.EVLDW, disp 8 771u
+    Op.EVLDWX, rrr 770u
+    Op.EVLHHESPLAT, disp 2 777u
+    Op.EVLHHESPLATX, rrr 776u
+    Op.EVLHHOSSPLAT, disp 2 783u
+    Op.EVLHHOSSPLATX, rrr 782u
+    Op.EVLHHOUSPLAT, disp 2 781u
+    Op.EVLHHOUSPLATX, rrr 780u
+    Op.EVLWHE, disp 4 785u
+    Op.EVLWHEX, rrr 784u
+    Op.EVLWHOS, disp 4 791u
+    Op.EVLWHOSX, rrr 790u
+    Op.EVLWHOU, disp 4 789u
+    Op.EVLWHOUX, rrr 788u
+    Op.EVLWHSPLAT, disp 4 797u
+    Op.EVLWHSPLATX, rrr 796u
+    Op.EVLWWSPLAT, disp 4 793u
+    Op.EVLWWSPLATX, rrr 792u
+    Op.EVSTDD, disp 8 801u
+    Op.EVSTDDX, rrr 800u
+    Op.EVSTDH, disp 8 805u
+    Op.EVSTDHX, rrr 804u
+    Op.EVSTDW, disp 8 803u
+    Op.EVSTDWX, rrr 802u
+    Op.EVSTWHE, disp 4 817u
+    Op.EVSTWHEX, rrr 816u
+    Op.EVSTWHO, disp 4 821u
+    Op.EVSTWHOX, rrr 820u
+    Op.EVSTWWE, disp 4 825u
+    Op.EVSTWWEX, rrr 824u
+    Op.EVSTWWO, disp 4 829u
+    Op.EVSTWWOX, rrr 828u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
     [ logicEncoders ()
       shiftEncoders ()
-      compareEncoders () ]
+      compareEncoders ()
+      memoryEncoders () ]

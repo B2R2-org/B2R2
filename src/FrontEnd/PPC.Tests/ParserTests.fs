@@ -5218,62 +5218,62 @@ module private SignalProcessingShortcut =
 type SignalProcessingParserTests() =
 
   [<TestMethod>]
-  member _.``[PPC] EVADDIW (Vector Add Immediate Word)``() =
+  member _.``[PPC] EVADDIW (Add Immediate Word)``() =
     EVADDIW ** [ O.Reg R5; O.Reg R7; O.Imm 0xcUL ]
     |> testEngine "10ac3a02"
 
   [<TestMethod>]
-  member _.``[PPC] EVADDW (Vector Add Word)``() =
+  member _.``[PPC] EVADDW (Add Word)``() =
     EVADDW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a00"
 
   [<TestMethod>]
-  member _.``[PPC] EVAND (Vector AND)``() =
+  member _.``[PPC] EVAND (AND)``() =
     EVAND ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a11"
 
   [<TestMethod>]
-  member _.``[PPC] EVANDC (Vector AND with Complement)``() =
+  member _.``[PPC] EVANDC (AND with Complement)``() =
     EVANDC ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a12"
 
   [<TestMethod>]
-  member _.``[PPC] EVEQV (Vector Equivalent)``() =
+  member _.``[PPC] EVEQV (Equivalent)``() =
     EVEQV ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a19"
 
   [<TestMethod>]
-  member _.``[PPC] EVNAND (Vector NAND)``() =
+  member _.``[PPC] EVNAND (NAND)``() =
     EVNAND ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a1e"
 
   [<TestMethod>]
-  member _.``[PPC] EVNOR (Vector NOR)``() =
+  member _.``[PPC] EVNOR (NOR)``() =
     EVNOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a18"
 
   [<TestMethod>]
-  member _.``[PPC] EVOR (Vector OR)``() =
+  member _.``[PPC] EVOR (OR)``() =
     EVOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a17"
 
   [<TestMethod>]
-  member _.``[PPC] EVORC (Vector OR with Complement)``() =
+  member _.``[PPC] EVORC (OR with Complement)``() =
     EVORC ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a1b"
 
   [<TestMethod>]
-  member _.``[PPC] EVSUBFW (Vector Subtract from Word)``() =
+  member _.``[PPC] EVSUBFW (Subtract from Word)``() =
     EVSUBFW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a04"
 
   [<TestMethod>]
-  member _.``[PPC] EVSUBIFW (Vector Subtract Immediate from Word)``() =
+  member _.``[PPC] EVSUBIFW (Subtract Immediate from Word)``() =
     EVSUBIFW ** [ O.Reg R5; O.Imm 0xcUL; O.Reg R7 ]
     |> testEngine "10ac3a06"
 
   [<TestMethod>]
-  member _.``[PPC] EVXOR (Vector XOR)``() =
+  member _.``[PPC] EVXOR (XOR)``() =
     EVXOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a16"
 
@@ -5283,136 +5283,316 @@ type SignalProcessingParserTests() =
     |> testEngine "10a63a0f"
 
   [<TestMethod>]
-  member _.``[PPC] EVABS (Vector Absolute Value)``() =
+  member _.``[PPC] EVABS (Absolute Value)``() =
     EVABS ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a60208"
 
   [<TestMethod>]
-  member _.``[PPC] EVCNTLSW (Vector Count Leading Signed Bits Word)``() =
+  member _.``[PPC] EVCNTLSW (Count Leading Signed Bits Word)``() =
     EVCNTLSW ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a6020e"
 
   [<TestMethod>]
-  member _.``[PPC] EVCNTLZW (Vector Count Leading Zeros Word)``() =
+  member _.``[PPC] EVCNTLZW (Count Leading Zeros Word)``() =
     EVCNTLZW ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a6020d"
 
   [<TestMethod>]
-  member _.``[PPC] EVEXTSB (Vector Extend Sign Byte)``() =
+  member _.``[PPC] EVEXTSB (Extend Sign Byte)``() =
     EVEXTSB ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a6020a"
 
   [<TestMethod>]
-  member _.``[PPC] EVEXTSH (Vector Extend Sign Half Word)``() =
+  member _.``[PPC] EVEXTSH (Extend Sign Half Word)``() =
     EVEXTSH ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a6020b"
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGEHI (Vector Merge High)``() =
+  member _.``[PPC] EVMERGEHI (Merge High)``() =
     EVMERGEHI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a2c"
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGEHILO (Vector Merge High/Low)``() =
+  member _.``[PPC] EVMERGEHILO (Merge High/Low)``() =
     EVMERGEHILO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a2e"
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGELO (Vector Merge Low)``() =
+  member _.``[PPC] EVMERGELO (Merge Low)``() =
     EVMERGELO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a2d"
 
   [<TestMethod>]
-  member _.``[PPC] EVMERGELOHI (Vector Merge Low/High)``() =
+  member _.``[PPC] EVMERGELOHI (Merge Low/High)``() =
     EVMERGELOHI ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a2f"
 
   [<TestMethod>]
-  member _.``[PPC] EVNEG (Vector Negate)``() =
+  member _.``[PPC] EVNEG (Negate)``() =
     EVNEG ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a60209"
 
   [<TestMethod>]
-  member _.``[PPC] EVRLW (Vector Rotate Left Word)``() =
+  member _.``[PPC] EVRLW (Rotate Left Word)``() =
     EVRLW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a28"
 
   [<TestMethod>]
-  member _.``[PPC] EVRLWI (Vector Rotate Left Word Immediate)``() =
+  member _.``[PPC] EVRLWI (Rotate Left Word Immediate)``() =
     EVRLWI ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
     |> testEngine "10a6622a"
 
   [<TestMethod>]
-  member _.``[PPC] EVRNDW (Vector Round Word)``() =
+  member _.``[PPC] EVRNDW (Round Word)``() =
     EVRNDW ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a6020c"
 
   [<TestMethod>]
-  member _.``[PPC] EVSLW (Vector Shift Left Word)``() =
+  member _.``[PPC] EVSLW (Shift Left Word)``() =
     EVSLW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a24"
 
   [<TestMethod>]
-  member _.``[PPC] EVSLWI (Vector Shift Left Word Immediate)``() =
+  member _.``[PPC] EVSLWI (Shift Left Word Immediate)``() =
     EVSLWI ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
     |> testEngine "10a66226"
 
   [<TestMethod>]
-  member _.``[PPC] EVSPLATFI (Vector Splat Fractional Immediate)``() =
+  member _.``[PPC] EVSPLATFI (Splat Fractional Immediate)``() =
     EVSPLATFI ** [ O.Reg R5; O.Imm 0xfffffffffffffffdUL ]
     |> testEngine "10bd022b"
 
   [<TestMethod>]
-  member _.``[PPC] EVSPLATI (Vector Splat Immediate)``() =
+  member _.``[PPC] EVSPLATI (Splat Immediate)``() =
     EVSPLATI ** [ O.Reg R5; O.Imm 0xfffffffffffffffdUL ]
     |> testEngine "10bd0229"
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWIS (Vector Shift Right Word Immediate Signed)``() =
+  member _.``[PPC] EVSRWIS (Shift Right Word Immediate Signed)``() =
     EVSRWIS ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
     |> testEngine "10a66223"
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWIU (Vector Shift Right Word Immediate Unsigned)``() =
+  member _.``[PPC] EVSRWIU (Shift Right Word Immediate Unsigned)``() =
     EVSRWIU ** [ O.Reg R5; O.Reg R6; O.Imm 0xcUL ]
     |> testEngine "10a66222"
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWS (Vector Shift Right Word Signed)``() =
+  member _.``[PPC] EVSRWS (Shift Right Word Signed)``() =
     EVSRWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a21"
 
   [<TestMethod>]
-  member _.``[PPC] EVSRWU (Vector Shift Right Word Unsigned)``() =
+  member _.``[PPC] EVSRWU (Shift Right Word Unsigned)``() =
     EVSRWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63a20"
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPEQ (Vector Compare Equal)``() =
+  member _.``[PPC] EVCMPEQ (Compare Equal)``() =
     EVCMPEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
     |> testEngine "11063a34"
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPGTS (Vector Compare Greater Than Signed)``() =
+  member _.``[PPC] EVCMPGTS (Compare Greater Than Signed)``() =
     EVCMPGTS ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
     |> testEngine "11063a31"
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPGTU (Vector Compare Greater Than Unsigned)``() =
+  member _.``[PPC] EVCMPGTU (Compare Greater Than Unsigned)``() =
     EVCMPGTU ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
     |> testEngine "11063a30"
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPLTS (Vector Compare Less Than Signed)``() =
+  member _.``[PPC] EVCMPLTS (Compare Less Than Signed)``() =
     EVCMPLTS ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
     |> testEngine "11063a33"
 
   [<TestMethod>]
-  member _.``[PPC] EVCMPLTU (Vector Compare Less Than Unsigned)``() =
+  member _.``[PPC] EVCMPLTU (Compare Less Than Unsigned)``() =
     EVCMPLTU ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
     |> testEngine "11063a32"
 
   [<TestMethod>]
-  member _.``[PPC] EVSEL (Vector Select)``() =
+  member _.``[PPC] EVSEL (Select)``() =
     EVSEL ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Reg CR2 ]
     |> testEngine "10a63a7a"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDD (Load Double Word into Double Word)``() =
+    EVLDD ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a60b01"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDDX (Load Double Word into Double Word Indexed)``() =
+    EVLDDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b00"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDH (Load Double into Four Half Words)``() =
+    EVLDH ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a60b05"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDHX (Load Double into Four Half Words Indexed)``() =
+    EVLDHX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b04"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDW (Load Double into Two Words)``() =
+    EVLDW ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a60b03"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLDWX (Load Double into Two Words Indexed)``() =
+    EVLDWX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b02"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHESPLAT (Load Half Word into Half Words Even...)``() =
+    EVLHHESPLAT ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a62309"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHESPLATX (Load Half Word into Half Words Even...)``() =
+    EVLHHESPLATX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b08"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOSSPLAT (Load Half Word into Half Word Odd...)``() =
+    EVLHHOSSPLAT ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a6230f"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOSSPLATX (Load Half Word into Half Word Odd...)``() =
+    EVLHHOSSPLATX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b0e"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOUSPLAT (Load Half Word into Half Word Odd...)``() =
+    EVLHHOUSPLAT ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a6230d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLHHOUSPLATX (Load Half Word into Half Word Odd...)``() =
+    EVLHHOUSPLATX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b0c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHE (Load Word into Two Half Words Even)``() =
+    EVLWHE ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61311"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHEX (Load Word into Two Half Words Even Indexed)``() =
+    EVLWHEX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b10"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOS (Load Word into Two Half Words Odd Signed...)``() =
+    EVLWHOS ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61317"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOSX (Load Word into Two Half Words Odd Signed...)``() =
+    EVLWHOSX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b16"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOU (Load Word into Two Half Words Odd Unsigned...)``() =
+    EVLWHOU ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61315"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHOUX (Load Word into Two Half Words Odd...)``() =
+    EVLWHOUX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b14"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHSPLAT (Load Word into Two Half Words and Splat)``() =
+    EVLWHSPLAT ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a6131d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWHSPLATX (Load Word into Two Half Words and...)``() =
+    EVLWHSPLATX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b1c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWWSPLAT (Load Word into Word and Splat)``() =
+    EVLWWSPLAT ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61319"
+
+  [<TestMethod>]
+  member _.``[PPC] EVLWWSPLATX (Load Word into Word and Splat Indexed)``() =
+    EVLWWSPLATX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b18"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDD (Store Double of Double)``() =
+    EVSTDD ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a60b21"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDDX (Store Double of Double Indexed)``() =
+    EVSTDDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b20"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDH (Store Double of Four Half Words)``() =
+    EVSTDH ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a60b25"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDHX (Store Double of Four Half Words Indexed)``() =
+    EVSTDHX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b24"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDW (Store Double of Two Words)``() =
+    EVSTDW ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a60b23"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTDWX (Store Double of Two Words Indexed)``() =
+    EVSTDWX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b22"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHE (Store Word of Two Half Words from Even)``() =
+    EVSTWHE ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61331"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHEX (Store Word of Two Half Words from Even...)``() =
+    EVSTWHEX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b30"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHO (Store Word of Two Half Words from Odd)``() =
+    EVSTWHO ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61335"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWHOX (Store Word of Two Half Words from Odd...)``() =
+    EVSTWHOX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b34"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWE (Store Word of Word from Even)``() =
+    EVSTWWE ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a61339"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWEX (Store Word of Word from Even Indexed)``() =
+    EVSTWWEX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b38"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWO (Store Word of Word from Odd)``() =
+    EVSTWWO ** [ O.Reg R5; O.Mem(8, R6) ]
+    |> testEngine "10a6133d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSTWWOX (Store Word of Word from Odd Indexed)``() =
+    EVSTWWOX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63b3c"

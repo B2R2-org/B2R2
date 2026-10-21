@@ -365,3 +365,120 @@ let evsel ins bld =
       | _ -> raise InvalidOperandException
     putWords bld rt (AST.ite ch ah bh) (AST.ite cl al bl)
   }
+
+/// The effective address of an access: (RA|0) plus a displacement scaled by
+/// the access, or plus RB.
+let private accessAddress (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(_, mem) -> transEAWithOffset mem bld
+  | ThreeOperands(_, ra, rb) -> transEAWithIndexReg ra rb bld
+  | _ -> raise InvalidOperandException
+
+/// The register a load writes or a store reads, the first operand.
+let private accessRegister (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(reg, _) | ThreeOperands(reg, _, _) -> reg
+  | _ -> raise InvalidOperandException
+
+/// A load of the high and the low word of RT from what a function builds out
+/// of the reads it is given: the number at an offset from EA, of a size, in
+/// the byte order of the processor.
+let private vecLoad (ins: Instruction) bld build =
+  lift bld ins {
+    let ea = tmpVar bld bld.RegType
+    ea := accessAddress ins bld
+    let read off size = loadNative bld size (ea .+ numI32 off bld.RegType)
+    let struct (hi, lo) = build read
+    putWords bld (accessRegister ins) hi lo
+  }
+
+/// A halfword in the top half of a word that is otherwise zero.
+let private upper (half: Expr) = AST.concat half (AST.num0 16<rt>)
+
+let evldd ins bld =
+  vecLoad ins bld (fun read ->
+    let v = read 0 64<rt>
+    struct (AST.xthi 32<rt> v, AST.xtlo 32<rt> v))
+
+let evldw ins bld =
+  vecLoad ins bld (fun read -> struct (read 0 32<rt>, read 4 32<rt>))
+
+let evldh ins bld =
+  vecLoad ins bld (fun read ->
+    let half off = read off 16<rt>
+    struct (AST.concat (half 0) (half 2), AST.concat (half 4) (half 6)))
+
+let evlhhesplat ins bld =
+  vecLoad ins bld (fun read ->
+    let word = upper (read 0 16<rt>)
+    struct (word, word))
+
+let evlhhousplat ins bld =
+  vecLoad ins bld (fun read ->
+    let word = AST.zext 32<rt> (read 0 16<rt>)
+    struct (word, word))
+
+let evlhhossplat ins bld =
+  vecLoad ins bld (fun read ->
+    let word = AST.sext 32<rt> (read 0 16<rt>)
+    struct (word, word))
+
+let evlwhe ins bld =
+  vecLoad ins bld (fun read ->
+    struct (upper (read 0 16<rt>), upper (read 2 16<rt>)))
+
+let evlwhou ins bld =
+  vecLoad ins bld (fun read ->
+    struct (AST.zext 32<rt> (read 0 16<rt>), AST.zext 32<rt> (read 2 16<rt>)))
+
+let evlwhos ins bld =
+  vecLoad ins bld (fun read ->
+    struct (AST.sext 32<rt> (read 0 16<rt>), AST.sext 32<rt> (read 2 16<rt>)))
+
+let evlwwsplat ins bld =
+  vecLoad ins bld (fun read ->
+    let word = read 0 32<rt>
+    struct (word, word))
+
+let evlwhsplat ins bld =
+  vecLoad ins bld (fun read ->
+    let h0 = read 0 16<rt>
+    let h1 = read 2 16<rt>
+    struct (AST.concat h0 h0, AST.concat h1 h1))
+
+/// A store of what a function makes of the high and the low word of RS: the
+/// numbers to write, each at an offset from EA, in the byte order of the
+/// processor.
+let private vecStore (ins: Instruction) bld pieces =
+  lift bld ins {
+    let ea = tmpVar bld bld.RegType
+    ea := accessAddress ins bld
+    let struct (hi, lo) = wordsOf bld (accessRegister ins)
+    for off, v in pieces hi lo do
+      loadNative bld (Expr.typeOf v) (ea .+ numI32 off bld.RegType) := v
+  }
+
+let evstdd ins bld =
+  vecStore ins bld (fun hi lo -> [ 0, AST.concat hi lo ])
+
+let evstdw ins bld =
+  vecStore ins bld (fun hi lo -> [ 0, hi; 4, lo ])
+
+let evstdh ins bld =
+  vecStore ins bld (fun hi lo ->
+    let half (w: Expr) = AST.xthi 16<rt> w, AST.xtlo 16<rt> w
+    let h0, h1 = half hi
+    let h2, h3 = half lo
+    [ 0, h0; 2, h1; 4, h2; 6, h3 ])
+
+let evstwhe ins bld =
+  vecStore ins bld (fun hi lo ->
+    [ 0, AST.xthi 16<rt> hi; 2, AST.xthi 16<rt> lo ])
+
+let evstwho ins bld =
+  vecStore ins bld (fun hi lo ->
+    [ 0, AST.xtlo 16<rt> hi; 2, AST.xtlo 16<rt> lo ])
+
+let evstwwe ins bld = vecStore ins bld (fun hi _ -> [ 0, hi ])
+
+let evstwwo ins bld = vecStore ins bld (fun _ lo -> [ 0, lo ])
