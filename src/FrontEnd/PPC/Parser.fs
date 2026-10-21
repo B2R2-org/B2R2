@@ -31,10 +31,13 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a parser for PPC instructions. The word size selects the PowerPC
 /// variant, which decides both the width of a register and whether the 64-bit
 /// forms (ld/std, the rotate-doubleword family, and so on) are recognized; the
-/// categories decide how the encodings two categories share are read.
+/// categories decide how the encodings two categories share are read, and
+/// whether the instructions are in Variable Length Encoding at all.
 type Parser(wordSize: WordSize, category: Category, reader: IBinReader) =
 
   let rt = WordSize.toRegType wordSize
+
+  let mutable isVLE = Category.includes Category.VLE category
 
   let lifter =
     { new ILiftable with
@@ -45,18 +48,35 @@ type Parser(wordSize: WordSize, category: Category, reader: IBinReader) =
   new(wordSize: WordSize, reader: IBinReader) =
     Parser(wordSize, Category.Server, reader)
 
-  /// A parser for the word size and the categories a PowerPC ISA names.
+  /// A parser for the word size and categories a PowerPC ISA names.
   new(isa: ISA, reader: IBinReader) =
     Parser(isa.WordSize, Category.ofISA isa, reader)
+
+  /// <summary>
+  /// Whether this parser reads Variable Length Encoding (VLE), which is what
+  /// the categories said until something moves it.
+  ///
+  /// It is settable because the encoding is a property of the page the code
+  /// is in, which the instructions themselves cannot tell a decoder: the
+  /// storage attribute that selects VLE is set by the memory management
+  /// unit, so a caller that knows where the attribute changes tells the
+  /// parser there.
+  /// </summary>
+  member _.IsVLE with get() = isVLE and set v = isVLE <- v
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
-    member _.InstructionAlignment = 4
+    member _.InstructionAlignment = if isVLE then 2 else 4
 
     member this.Parse(bs: byte[], addr) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr) =
-      try ParsingMain.parse lifter category span reader addr rt :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+      try
+        if isVLE then
+          ParsingVLE.parse lifter category span reader addr rt :> IInstruction
+        else
+          ParsingMain.parse lifter category span reader addr rt :> IInstruction
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException

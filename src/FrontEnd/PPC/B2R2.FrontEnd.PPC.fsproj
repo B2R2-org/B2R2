@@ -36,6 +36,7 @@
     <Compile Include="SPEFloatCommon.fs" />
     <Compile Include="SPEFloatArithmetic.fs" />
     <Compile Include="SPEFloatLifter.fs" />
+    <Compile Include="VLELifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
     <Compile Include="Category.fs" />
@@ -44,6 +45,7 @@
     <Compile Include="ParsingLegacy.fs" />
     <Compile Include="ParsingSPE.fs" />
     <Compile Include="ParsingMain.fs" />
+    <Compile Include="ParsingVLE.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

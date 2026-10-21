@@ -3229,6 +3229,22 @@ let translate (ins: Instruction) bld =
   | Op.EFDSUB ->
     SPEFloatLifter.translate ins bld
   (* End of lane S. *)
+  (* Lane L: Variable Length Encoding. *)
+  | Op.SE_ILLEGAL ->
+    VLELifter.illegal ins bld
+  | Op.SE_ISYNC ->
+    nop ins bld
+  | Op.SE_SC ->
+    sideEffects ins bld SysCall
+  | Op.SE_BLR ->
+    VLELifter.branchToRegister ins bld Register.LR false
+  | Op.SE_BLRL ->
+    VLELifter.branchToRegister ins bld Register.LR true
+  | Op.SE_BCTR ->
+    VLELifter.branchToRegister ins bld Register.CTR false
+  | Op.SE_BCTRL ->
+    VLELifter.branchToRegister ins bld Register.CTR true
+  (* End of lane L. *)
   | o ->
 #if DEBUG
          eprintfn "%A" o

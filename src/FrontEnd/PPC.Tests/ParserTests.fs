@@ -6471,3 +6471,139 @@ type SignalProcessingRegisterTests() =
         let expected = if reg = ACC then 64<rt> else 32<rt>
         let actual = factory.GetRegType(Register.toRegID reg)
         Assert.AreEqual(box expected, box actual, $"{reg} {width}")
+
+/// What the tests of Variable Length Encoding check a halfword or two against:
+/// the bytes as a page of VLE code holds them, which are big-endian whatever
+/// the order of the data is.
+[<AutoOpen>]
+module private VLEShortcut =
+  /// A parser of Variable Length Encoding, at a word size.
+  let vleParser wordSz =
+    Parser(wordSz, Category.VLE, BinReader.Init Endian.Big)
+    :> IInstructionParsable
+
+  /// Asserts what the bytes decode to on a processor of the word size, and
+  /// that the instruction takes all of them.
+  let testVLEOn wordSz (hex: string) (opcode: Opcode, operands: Operands) =
+    let bytes = ByteArray.ofHexString hex
+    let ins = (vleParser wordSz).Parse(bytes, 0UL) :?> Instruction
+    Assert.AreEqual<Opcode>(opcode, ins.Opcode)
+    Assert.AreEqual<Operands>(operands, ins.Operands)
+    Assert.AreEqual<uint32>(uint32 bytes.Length, ins.Length)
+
+  /// A form that reads the same on a 32-bit processor and a 64-bit one.
+  let testVLE hex pair =
+    testVLEOn WordSize.Bit32 hex pair
+    testVLEOn WordSize.Bit64 hex pair
+
+  /// Asserts that the bytes are no instruction of VLE.
+  let testVLEUnsupported (hex: string) =
+    let bytes = ByteArray.ofHexString hex
+    Assert.Throws<ParsingFailureException>(fun () ->
+      (vleParser WordSize.Bit32).Parse(bytes, 0UL) |> ignore)
+    |> ignore
+
+/// The instructions of Variable Length Encoding, the second encoding of the
+/// Power ISA, which are one halfword or two. Each word is the one GNU as
+/// writes for the instruction (powerpc-linux-gnu-as -mvle), and B2R2's reading
+/// of it is the one GNU objdump (-M vle) gives it.
+[<TestClass>]
+type VLEParserTests() =
+  /// A parser reads the instructions at the alignment of the encoding it
+  /// reads: a halfword for VLE and a word for the base encoding.
+  [<TestMethod>]
+  member _.``[PPC VLE] The ISA flag selects halfword alignment``() =
+    let reader = BinReader.Init Endian.Big
+    let plain = Parser(WordSize.Bit32, reader) :> IInstructionParsable
+    let vle = vleParser WordSize.Bit32
+    Assert.AreEqual<int>(4, plain.InstructionAlignment)
+    Assert.AreEqual<int>(2, vle.InstructionAlignment)
+    Assert.AreEqual<int>(4, vle.MaxInstructionSize)
+
+  /// The mode is what the ISA said until something moves it, and moving it
+  /// changes how the same bytes are read.
+  [<TestMethod>]
+  member _.``[PPC VLE] A parser can be moved between the encodings``() =
+    let parser = Parser(WordSize.Bit32, BinReader.Init Endian.Big)
+    let parsable = parser :> IInstructionParsable
+    let opcodeOf hex =
+      (parsable.Parse(ByteArray.ofHexString hex, 0UL) :?> Instruction).Opcode
+    Assert.IsFalse parser.IsVLE
+    Assert.AreEqual<Opcode>(MR, opcodeOf "7c832378")
+    Assert.AreEqual<int>(4, parsable.InstructionAlignment)
+    parser.IsVLE <- true
+    Assert.AreEqual<Opcode>(SE_BLR, opcodeOf "0004")
+    Assert.AreEqual<int>(2, parsable.InstructionAlignment)
+    parser.IsVLE <- false
+    Assert.AreEqual<Opcode>(MR, opcodeOf "7c832378")
+
+  /// Nothing in the stream says how long an instruction is but its first
+  /// halfword, so a decoder advances by what each one reports.
+  [<TestMethod>]
+  member _.``[PPC VLE] A stream mixes halfword and word instructions``() =
+    let parser = vleParser WordSize.Bit32
+    (* se_blr, vaddubm v1, v2, v3 and se_isync *)
+    let bytes = ByteArray.ofHexString "0004102218000001"
+    let rec walk offset =
+      if offset >= bytes.Length then
+        []
+      else
+        let span = System.ReadOnlySpan(bytes, offset, bytes.Length - offset)
+        let ins = parser.Parse(span, uint64 offset) :?> Instruction
+        (ins.Opcode, ins.Address, ins.Length) :: walk (offset + int ins.Length)
+    let expected = [ SE_BLR, 0UL, 2u; VADDUBM, 2UL, 4u; SE_ISYNC, 6UL, 2u ]
+    Assert.AreEqual<(Opcode * Addr * uint32) list>(expected, walk 0)
+
+  /// The vector facility has the same encodings in VLE: primary opcode 4 is
+  /// read as it is read outside it.
+  [<TestMethod>]
+  member _.``[PPC VLE] Vector instructions are read as the base encoding``() =
+    testVLE "10221800"
+    <| (VADDUBM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  /// What the Power ISA leaves undefined is refused: the halfwords between the
+  /// control instructions and the opcode space that is reserved.
+  [<TestMethod>]
+  member _.``[PPC VLE] Reserved halfwords are refused``() =
+    for hex in [ "0003"; "000d"; "ffff" ] do
+      testVLEUnsupported hex
+
+  /// A page of VLE code is big-endian, and fetching from it in a
+  /// little-endian mode is an exception of the architecture, so a parser
+  /// given a little-endian reader reads nothing.
+  [<TestMethod>]
+  member _.``[PPC VLE] A little-endian reader is refused``() =
+    let parser =
+      Parser(WordSize.Bit32, Category.VLE, BinReader.Init Endian.Little)
+      :> IInstructionParsable
+    Assert.Throws<ParsingFailureException>(fun () ->
+      parser.Parse([| 4uy; 0uy |], 0UL) |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ILLEGAL (illegal)``() =
+    testVLE "0000" <| (SE_ILLEGAL ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ISYNC (instruction synchronize)``() =
+    testVLE "0001" <| (SE_ISYNC ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SC (system call)``() =
+    testVLE "0002" <| (SE_SC ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BLR (branch to LR)``() =
+    testVLE "0004" <| (SE_BLR ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BLRL (branch to LR and link)``() =
+    testVLE "0005" <| (SE_BLRL ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BCTR (branch to CTR)``() =
+    testVLE "0006" <| (SE_BCTR ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BCTRL (branch to CTR and link)``() =
+    testVLE "0007" <| (SE_BCTRL ** [])

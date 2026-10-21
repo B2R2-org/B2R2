@@ -1923,6 +1923,13 @@ let opCodeToString = function
   | Op.EFDDIV -> "efddiv"
   | Op.EFDMUL -> "efdmul"
   | Op.EFDSUB -> "efdsub"
+  | Op.SE_BCTR -> "se_bctr"
+  | Op.SE_BCTRL -> "se_bctrl"
+  | Op.SE_BLR -> "se_blr"
+  | Op.SE_BLRL -> "se_blrl"
+  | Op.SE_ILLEGAL -> "se_illegal"
+  | Op.SE_ISYNC -> "se_isync"
+  | Op.SE_SC -> "se_sc"
   | _ -> Terminator.impossible ()
 
 let condToString = function
