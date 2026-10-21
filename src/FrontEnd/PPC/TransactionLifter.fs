@@ -104,18 +104,68 @@ let private tcheck (ins: Instruction) bld =
     crd3 := AST.b0
   }
 
+/// The register a move names, and whether it is the upper word of TEXASR.
+let private sprOf = function
+  | Op.MFTFHAR | Op.MTTFHAR -> Register.TFHAR
+  | Op.MFTFIAR | Op.MTTFIAR -> Register.TFIAR
+  | _ -> Register.TEXASR
+
+/// A move from a 64-bit register into one of the processor's width, which
+/// keeps its low bits.
+let private mfspr (ins: Instruction) bld =
+  lift bld ins {
+    let rt = transOneOpr ins bld
+    let value = regVar bld (sprOf ins.Opcode)
+    rt := AST.xtlo bld.RegType value
+  }
+
+/// mftexasru: TEXASRU, the upper word of TEXASR, zero-extended.
+let private mftexasru (ins: Instruction) bld =
+  lift bld ins {
+    let rt = transOneOpr ins bld
+    rt := AST.zext bld.RegType (AST.xthi 32<rt> (regVar bld Register.TEXASR))
+  }
+
+/// A move to a 64-bit register, zero-extended where the source is narrower.
+let private mtspr (ins: Instruction) bld =
+  lift bld ins {
+    let rs = transOneOpr ins bld
+    regVar bld (sprOf ins.Opcode) := AST.zext 64<rt> rs
+  }
+
+/// mttexasru: the low word of rS becomes the upper word of TEXASR.
+let private mttexasru (ins: Instruction) bld =
+  lift bld ins {
+    let rs = transOneOpr ins bld
+    let texasr = regVar bld Register.TEXASR
+    let upper = AST.zext 64<rt> (AST.xtlo 32<rt> rs) << numI32 32 64<rt>
+    texasr := (texasr .& numU64 0xffffffffUL 64<rt>) .| upper
+  }
+
 /// Whether this module lifts the opcode.
 let lifts = function
   | Op.TABORTDCIdot | Op.TABORTDCdot | Op.TABORTWCIdot | Op.TABORTWCdot
-  | Op.TABORTdot | Op.TBEGINdot | Op.TCHECK | Op.TENDdot | Op.TSRdot -> true
+  | Op.TABORTdot | Op.TBEGINdot | Op.TCHECK | Op.TENDdot | Op.TSRdot
+  | Op.MFTEXASR | Op.MFTEXASRU | Op.MFTFHAR | Op.MFTFIAR | Op.MTTEXASR
+  | Op.MTTEXASRU | Op.MTTFHAR | Op.MTTFIAR -> true
   | _ -> false
 
-/// Lifts an instruction whose opcode this module lifts.
+/// Lifts an instruction whose opcode this module lifts. The special registers
+/// of the category may be written only outside a transaction, which is the
+/// only state this machine has.
 let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Op.TBEGINdot ->
     tbegin ins bld
   | Op.TCHECK ->
     tcheck ins bld
+  | Op.MFTFHAR | Op.MFTFIAR | Op.MFTEXASR ->
+    mfspr ins bld
+  | Op.MFTEXASRU ->
+    mftexasru ins bld
+  | Op.MTTFHAR | Op.MTTFIAR | Op.MTTEXASR ->
+    mtspr ins bld
+  | Op.MTTEXASRU ->
+    mttexasru ins bld
   | _ ->
     clearCR0 ins bld

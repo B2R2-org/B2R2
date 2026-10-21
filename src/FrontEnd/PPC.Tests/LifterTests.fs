@@ -29588,6 +29588,43 @@ type TransactionLifterTests() =
       Assert.AreEqual(box 7UL, box (after R5), case)
       Assert.AreEqual(box 0x80000000UL, box (after XER), case)
 
+  /// A value of a 64-bit register as a processor holds it: the whole of it on
+  /// a 64-bit processor, its low word on a 32-bit one.
+  let wideOr (isa: ISA) (wide: uint64) =
+    if isa.WordSize = WordSize.Bit32 then wide &&& 0xffffffffUL else wide
+
+  /// Asserts what a move from a transactional memory register puts in r5 on
+  /// every processor, TEXASR holding 0x9abcdef0fedcba98 and TFHAR and TFIAR
+  /// 0x123456789abcdef0, and that it changes nothing else.
+  let checkMoveFrom hex expected =
+    for isa in everyProcessor do
+      let given =
+        [ TEXASR, 0x9abcdef0fedcba98UL
+          TFHAR, 0x123456789abcdef0UL
+          TFIAR, 0x123456789abcdef0UL
+          R6, 6UL ]
+      let after = run isa hex given
+      let case = $"{hex} {isa}"
+      Assert.AreEqual(box (wideOr isa expected), box (after R5), case)
+      Assert.AreEqual(box 6UL, box (after R6), case)
+      Assert.AreEqual(box 0x9abcdef0fedcba98UL, box (after TEXASR), case)
+
+  /// Asserts what a move to a transactional memory register leaves in it on
+  /// every processor, r5 holding 0x123456789abcdef0 (its low word, on a 32-bit
+  /// processor) and the registers the move does not name as given.
+  let checkMoveTo hex register (expected: ISA -> uint64) =
+    for isa in everyProcessor do
+      let given =
+        [ R5, wideOr isa 0x123456789abcdef0UL
+          TEXASR, 0xfedcba98UL
+          TFHAR, 0x1UL
+          TFIAR, 0x2UL ]
+      let after = run isa hex given
+      let case = $"{hex} {isa}"
+      Assert.AreEqual(box (expected isa), box (after register), case)
+      for r, v in given |> List.filter (fun (r, _) -> r <> register) do
+        Assert.AreEqual(box v, box (after r), $"{case} {r}")
+
   /// <summary>
   /// tbegin. 0 begins a transaction that fails as it begins, as a processor
   /// that fails every one does: TEXASR holds the transaction level 1 and the
@@ -29694,3 +29731,67 @@ type TransactionLifterTests() =
       Assert.AreEqual(box 0b1000UL, box field, $"{isa}")
       Assert.AreEqual(box 1UL, box (after CR3_0), $"{isa}")
       Assert.AreEqual(box 1UL, box (after CR1_3), $"{isa}")
+
+  /// <summary>
+  /// mftfhar rT reads TFHAR, the address a failed transaction continues at.
+  /// The manual's extended mnemonic for mfspr rT, 128; QEMU's value
+  /// (qemu-ppc64 -cpu power9, 8.2.2, reads back what was written).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFTFHAR reads TFHAR``() =
+    checkMoveFrom "7ca022a6" 0x123456789abcdef0UL
+
+  /// <summary>
+  /// mftfiar rT reads TFIAR, the address of the instruction that failed a
+  /// transaction (mfspr rT, 129). QEMU's value.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFTFIAR reads TFIAR``() =
+    checkMoveFrom "7ca122a6" 0x123456789abcdef0UL
+
+  /// <summary>
+  /// mftexasr rT reads TEXASR, the transaction status (mfspr rT, 130). QEMU's
+  /// value.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFTEXASR reads TEXASR``() =
+    checkMoveFrom "7ca222a6" 0x9abcdef0fedcba98UL
+
+  /// <summary>
+  /// mftexasru rT reads TEXASRU, the upper word of TEXASR, into the low word
+  /// of rT (mfspr rT, 131). QEMU's value.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFTEXASRU reads the upper word of TEXASR``() =
+    checkMoveFrom "7ca322a6" 0x9abcdef0UL
+
+  /// <summary>
+  /// mttfhar rS writes TFHAR with rS (mtspr 128, rS). The manual's extended
+  /// mnemonic; QEMU keeps all 64 bits as written.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTTFHAR writes TFHAR``() =
+    checkMoveTo "7ca023a6" TFHAR (fun isa -> wideOr isa 0x123456789abcdef0UL)
+
+  /// <summary>
+  /// mttfiar rS writes TFIAR with rS (mtspr 129, rS). QEMU keeps all 64 bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTTFIAR writes TFIAR``() =
+    checkMoveTo "7ca123a6" TFIAR (fun isa -> wideOr isa 0x123456789abcdef0UL)
+
+  /// <summary>
+  /// mttexasr rS writes TEXASR with rS (mtspr 130, rS). QEMU keeps all 64
+  /// bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTTEXASR writes TEXASR``() =
+    checkMoveTo "7ca223a6" TEXASR (fun isa -> wideOr isa 0x123456789abcdef0UL)
+
+  /// <summary>
+  /// mttexasru rS writes the upper word of TEXASR with the low word of rS
+  /// (mtspr 131, rS) and leaves the lower word. QEMU's value.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTTEXASRU writes the upper word of TEXASR``() =
+    checkMoveTo "7ca323a6" TEXASR (fun _ -> 0x9abcdef0fedcba98UL)

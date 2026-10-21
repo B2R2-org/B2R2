@@ -26,7 +26,7 @@
 /// <summary>
 /// Encodes the instructions of the Transactional Memory category (Power ISA
 /// 2.07B Book II chapter 5), all of primary opcode 31 and all but tcheck with
-/// the record bit set.
+/// the record bit set, and the moves to and from its special registers.
 /// </summary>
 module internal B2R2.Assembly.PPC.AsmTransaction
 
@@ -92,9 +92,27 @@ let private tsr ins =
   | _ ->
     wrongOperands ins
 
+/// A move from or to one of the special registers of the category, "rT" or
+/// "rS", given the extended opcode of mfspr or mtspr and the register's number,
+/// which is written in the halves an SPR's is.
+let private sprMove xo spr ins =
+  match ins.Operands with
+  | [ Rg r ] ->
+    word 31u (gpr r) 0u 0u (specialRegister spr ||| (xo <<< 1))
+  | _ ->
+    wrongOperands ins
+
 /// The transactional memory instructions, at the width a source is read at.
 let transactionEncoders bitLen =
-  [ Op.TABORTDCIdot, abortImmediate bitLen 878u
+  [ Op.MFTEXASR, sprMove 339u 130UL
+    Op.MFTEXASRU, sprMove 339u 131UL
+    Op.MFTFHAR, sprMove 339u 128UL
+    Op.MFTFIAR, sprMove 339u 129UL
+    Op.MTTEXASR, sprMove 467u 130UL
+    Op.MTTEXASRU, sprMove 467u 131UL
+    Op.MTTFHAR, sprMove 467u 128UL
+    Op.MTTFIAR, sprMove 467u 129UL
+    Op.TABORTDCIdot, abortImmediate bitLen 878u
     Op.TABORTDCdot, abortRegister 814u
     Op.TABORTWCIdot, abortImmediate bitLen 846u
     Op.TABORTWCdot, abortRegister 782u

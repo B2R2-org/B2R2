@@ -1666,6 +1666,14 @@ let opCodeToString = function
   | Op.TCHECK -> "tcheck"
   | Op.TENDdot -> "tend."
   | Op.TSRdot -> "tsr."
+  | Op.MFTEXASR -> "mftexasr"
+  | Op.MFTEXASRU -> "mftexasru"
+  | Op.MFTFHAR -> "mftfhar"
+  | Op.MFTFIAR -> "mftfiar"
+  | Op.MTTEXASR -> "mttexasr"
+  | Op.MTTEXASRU -> "mttexasru"
+  | Op.MTTFHAR -> "mttfhar"
+  | Op.MTTFIAR -> "mttfiar"
   | _ -> Terminator.impossible ()
 
 let condToString = function

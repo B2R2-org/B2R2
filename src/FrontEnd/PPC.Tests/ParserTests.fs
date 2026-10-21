@@ -5094,3 +5094,65 @@ type TransactionParserTests() =
         "7e2005dd" ] do
       testUnsupported WordSize.Bit32 hex
       testUnsupported WordSize.Bit64 hex
+
+  [<TestMethod>]
+  member _.``[PPC] MFTFHAR (move from TFHAR)``() =
+    "7ca022a6"
+    ++ (MFTFHAR ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MFTFIAR (move from TFIAR)``() =
+    "7ca122a6"
+    ++ (MFTFIAR ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MFTEXASR (move from TEXASR)``() =
+    "7ca222a6"
+    ++ (MFTEXASR ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MFTEXASRU (move from TEXASRU)``() =
+    "7ca322a6"
+    ++ (MFTEXASRU ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTTFHAR (move to TFHAR)``() =
+    "7ca023a6"
+    ++ (MTTFHAR ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTTFIAR (move to TFIAR)``() =
+    "7ca123a6"
+    ++ (MTTFIAR ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTTEXASR (move to TEXASR)``() =
+    "7ca223a6"
+    ++ (MTTEXASR ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTTEXASRU (move to TEXASRU)``() =
+    "7ca323a6"
+    ++ (MTTEXASRU ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  /// Any other special register is not the category's, and the word is what it
+  /// was: mfspr of SPR 272 and of the XER, and the reserved bit of an mfspr
+  /// of SPR 128, which is refused.
+  [<TestMethod>]
+  member _.``[PPC] only SPRs 128 to 131 are the category's``() =
+    "7cb042a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 272UL ])
+    ||> testEveryTarget
+    "7ca102a6"
+    ++ (MFXER ** [ O.Reg R5 ])
+    ||> testEveryTarget
+    testUnsupported WordSize.Bit32 "7ca022a7"
+    testUnsupported WordSize.Bit64 "7ca022a7"

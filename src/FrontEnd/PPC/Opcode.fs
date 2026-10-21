@@ -1637,5 +1637,13 @@ type Opcode =
   | TCHECK = 6118
   | TENDdot = 6119
   | TSRdot = 6120
+  | MFTEXASR = 6121
+  | MFTEXASRU = 6122
+  | MFTFHAR = 6123
+  | MFTFIAR = 6124
+  | MTTEXASR = 6125
+  | MTTEXASRU = 6126
+  | MTTFHAR = 6127
+  | MTTFIAR = 6128
 
 type internal Op = Opcode
