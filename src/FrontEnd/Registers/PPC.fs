@@ -457,6 +457,81 @@ type Register =
   /// The Transaction Failure Instruction Address Register, SPR 129, the
   /// address of the instruction that made a transaction fail.
   | TFIAR = 0xF5
+  (* Lane S: the Signal Processing Engine. Its general registers are 64
+     bits wide; on a 32-bit processor R0-R31 keep the low word, as the
+     other instructions see them, and the high word is reachable only by the
+     SPE instructions, here as R0H-R31H. *)
+  /// R0H is the high word of the SPE's 64-bit register R0.
+  | R0H = 0x140
+  /// R1H is the high word of the SPE's 64-bit register R1.
+  | R1H = 0x141
+  /// R2H is the high word of the SPE's 64-bit register R2.
+  | R2H = 0x142
+  /// R3H is the high word of the SPE's 64-bit register R3.
+  | R3H = 0x143
+  /// R4H is the high word of the SPE's 64-bit register R4.
+  | R4H = 0x144
+  /// R5H is the high word of the SPE's 64-bit register R5.
+  | R5H = 0x145
+  /// R6H is the high word of the SPE's 64-bit register R6.
+  | R6H = 0x146
+  /// R7H is the high word of the SPE's 64-bit register R7.
+  | R7H = 0x147
+  /// R8H is the high word of the SPE's 64-bit register R8.
+  | R8H = 0x148
+  /// R9H is the high word of the SPE's 64-bit register R9.
+  | R9H = 0x149
+  /// R10H is the high word of the SPE's 64-bit register R10.
+  | R10H = 0x14A
+  /// R11H is the high word of the SPE's 64-bit register R11.
+  | R11H = 0x14B
+  /// R12H is the high word of the SPE's 64-bit register R12.
+  | R12H = 0x14C
+  /// R13H is the high word of the SPE's 64-bit register R13.
+  | R13H = 0x14D
+  /// R14H is the high word of the SPE's 64-bit register R14.
+  | R14H = 0x14E
+  /// R15H is the high word of the SPE's 64-bit register R15.
+  | R15H = 0x14F
+  /// R16H is the high word of the SPE's 64-bit register R16.
+  | R16H = 0x150
+  /// R17H is the high word of the SPE's 64-bit register R17.
+  | R17H = 0x151
+  /// R18H is the high word of the SPE's 64-bit register R18.
+  | R18H = 0x152
+  /// R19H is the high word of the SPE's 64-bit register R19.
+  | R19H = 0x153
+  /// R20H is the high word of the SPE's 64-bit register R20.
+  | R20H = 0x154
+  /// R21H is the high word of the SPE's 64-bit register R21.
+  | R21H = 0x155
+  /// R22H is the high word of the SPE's 64-bit register R22.
+  | R22H = 0x156
+  /// R23H is the high word of the SPE's 64-bit register R23.
+  | R23H = 0x157
+  /// R24H is the high word of the SPE's 64-bit register R24.
+  | R24H = 0x158
+  /// R25H is the high word of the SPE's 64-bit register R25.
+  | R25H = 0x159
+  /// R26H is the high word of the SPE's 64-bit register R26.
+  | R26H = 0x15A
+  /// R27H is the high word of the SPE's 64-bit register R27.
+  | R27H = 0x15B
+  /// R28H is the high word of the SPE's 64-bit register R28.
+  | R28H = 0x15C
+  /// R29H is the high word of the SPE's 64-bit register R29.
+  | R29H = 0x15D
+  /// R30H is the high word of the SPE's 64-bit register R30.
+  | R30H = 0x15E
+  /// R31H is the high word of the SPE's 64-bit register R31.
+  | R31H = 0x15F
+  /// The accumulator, which the SPE's multiply-accumulate instructions read
+  /// and write, 64 bits wide.
+  | ACC = 0x160
+  /// The Signal Processing Embedded Floating-Point Status and Control Register
+  /// (SPR 512), which holds the SPE's overflow flags and the status and
+  /// control of the embedded floating-point categories.
+  | SPEFSCR = 0x161
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -697,6 +772,40 @@ module Register =
     | "texasr" -> Register.TEXASR
     | "tfhar" -> Register.TFHAR
     | "tfiar" -> Register.TFIAR
+    | "r0h" -> Register.R0H
+    | "r1h" -> Register.R1H
+    | "r2h" -> Register.R2H
+    | "r3h" -> Register.R3H
+    | "r4h" -> Register.R4H
+    | "r5h" -> Register.R5H
+    | "r6h" -> Register.R6H
+    | "r7h" -> Register.R7H
+    | "r8h" -> Register.R8H
+    | "r9h" -> Register.R9H
+    | "r10h" -> Register.R10H
+    | "r11h" -> Register.R11H
+    | "r12h" -> Register.R12H
+    | "r13h" -> Register.R13H
+    | "r14h" -> Register.R14H
+    | "r15h" -> Register.R15H
+    | "r16h" -> Register.R16H
+    | "r17h" -> Register.R17H
+    | "r18h" -> Register.R18H
+    | "r19h" -> Register.R19H
+    | "r20h" -> Register.R20H
+    | "r21h" -> Register.R21H
+    | "r22h" -> Register.R22H
+    | "r23h" -> Register.R23H
+    | "r24h" -> Register.R24H
+    | "r25h" -> Register.R25H
+    | "r26h" -> Register.R26H
+    | "r27h" -> Register.R27H
+    | "r28h" -> Register.R28H
+    | "r29h" -> Register.R29H
+    | "r30h" -> Register.R30H
+    | "r31h" -> Register.R31H
+    | "acc" -> Register.ACC
+    | "spefscr" -> Register.SPEFSCR
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC register.
@@ -936,4 +1045,38 @@ module Register =
     | Register.TEXASR -> "texasr"
     | Register.TFHAR -> "tfhar"
     | Register.TFIAR -> "tfiar"
+    | Register.R0H -> "r0h"
+    | Register.R1H -> "r1h"
+    | Register.R2H -> "r2h"
+    | Register.R3H -> "r3h"
+    | Register.R4H -> "r4h"
+    | Register.R5H -> "r5h"
+    | Register.R6H -> "r6h"
+    | Register.R7H -> "r7h"
+    | Register.R8H -> "r8h"
+    | Register.R9H -> "r9h"
+    | Register.R10H -> "r10h"
+    | Register.R11H -> "r11h"
+    | Register.R12H -> "r12h"
+    | Register.R13H -> "r13h"
+    | Register.R14H -> "r14h"
+    | Register.R15H -> "r15h"
+    | Register.R16H -> "r16h"
+    | Register.R17H -> "r17h"
+    | Register.R18H -> "r18h"
+    | Register.R19H -> "r19h"
+    | Register.R20H -> "r20h"
+    | Register.R21H -> "r21h"
+    | Register.R22H -> "r22h"
+    | Register.R23H -> "r23h"
+    | Register.R24H -> "r24h"
+    | Register.R25H -> "r25h"
+    | Register.R26H -> "r26h"
+    | Register.R27H -> "r27h"
+    | Register.R28H -> "r28h"
+    | Register.R29H -> "r29h"
+    | Register.R30H -> "r30h"
+    | Register.R31H -> "r31h"
+    | Register.ACC -> "acc"
+    | Register.SPEFSCR -> "spefscr"
     | _ -> Terminator.impossible ()

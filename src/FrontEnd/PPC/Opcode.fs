@@ -1645,5 +1645,18 @@ type Opcode =
   | MTTEXASRU = 6126
   | MTTFHAR = 6127
   | MTTFIAR = 6128
+  (* Lane S: the Signal Processing Engine. *)
+  | EVADDIW = 7000
+  | EVADDW = 7001
+  | EVAND = 7002
+  | EVANDC = 7003
+  | EVEQV = 7004
+  | EVNAND = 7005
+  | EVNOR = 7006
+  | EVOR = 7007
+  | EVORC = 7008
+  | EVSUBFW = 7009
+  | EVSUBIFW = 7010
+  | EVXOR = 7011
 
 type internal Op = Opcode

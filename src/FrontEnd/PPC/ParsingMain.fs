@@ -4107,7 +4107,10 @@ let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
   let struct (opcode, operands) =
     match ParsingLegacy.tryParse category (int rt) bin with
     | ValueSome parsed -> parsed
-    | ValueNone -> parseInstruction (int rt) bin addr
+    | ValueNone ->
+      match ParsingSPE.tryParse category bin with
+      | ValueSome parsed -> parsed
+      | ValueNone -> parseInstruction (int rt) bin addr
   Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

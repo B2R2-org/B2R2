@@ -1674,6 +1674,19 @@ let opCodeToString = function
   | Op.MTTEXASRU -> "mttexasru"
   | Op.MTTFHAR -> "mttfhar"
   | Op.MTTFIAR -> "mttfiar"
+  (* Lane S: the Signal Processing Engine. *)
+  | Op.EVADDIW -> "evaddiw"
+  | Op.EVADDW -> "evaddw"
+  | Op.EVAND -> "evand"
+  | Op.EVANDC -> "evandc"
+  | Op.EVEQV -> "eveqv"
+  | Op.EVNAND -> "evnand"
+  | Op.EVNOR -> "evnor"
+  | Op.EVOR -> "evor"
+  | Op.EVORC -> "evorc"
+  | Op.EVSUBFW -> "evsubfw"
+  | Op.EVSUBIFW -> "evsubifw"
+  | Op.EVXOR -> "evxor"
   | _ -> Terminator.impossible ()
 
 let condToString = function

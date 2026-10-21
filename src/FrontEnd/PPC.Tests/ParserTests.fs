@@ -5164,3 +5164,115 @@ type TransactionParserTests() =
     ||> testEveryTarget
     testUnsupported WordSize.Bit32 "7ca022a7"
     testUnsupported WordSize.Bit64 "7ca022a7"
+
+(* Lane S: the Signal Processing Engine. *)
+
+/// What lane S's tests read a word as: a processor with the Signal
+/// Processing Engine, which the ISA's flags name.
+[<AutoOpen>]
+module private SignalProcessingShortcut =
+  /// The four processors a word is read on: 32-bit and 64-bit, each in either
+  /// byte order.
+  let processors =
+    [ Endian.Big, WordSize.Bit32
+      Endian.Little, WordSize.Bit32
+      Endian.Big, WordSize.Bit64
+      Endian.Little, WordSize.Bit64 ]
+
+  /// The categories of a processor with the engine.
+  let engine = int Category.SignalProcessing
+
+  /// What a word is on a processor of the given byte order and word size
+  /// whose categories include the Signal Processing Engine.
+  let engineParse (endian: Endian) wordSize (hex: string) =
+    let isa = ISA(Architecture.PPC, endian, wordSize, engine)
+    let word = ByteArray.ofHexString hex
+    let bytes = if endian = Endian.Big then word else Array.rev word
+    let parser = Parser(isa, BinReader.Init endian) :> IInstructionParsable
+    parser.Parse(System.ReadOnlySpan(bytes: byte[]), 0UL) :?> Instruction
+
+  /// What a word is on a server processor, or InvalOP where it is nothing.
+  let serverOpcode (hex: string) =
+    let isa = ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
+    let parser = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    try
+      let span = System.ReadOnlySpan(ByteArray.ofHexString hex)
+      (parser.Parse(span, 0UL) :?> Instruction).Opcode
+    with :? ParsingFailureException ->
+      InvalOP
+
+  /// Asserts what a word decodes to on every processor with the engine, and
+  /// that the server reading, which gives primary opcode 4 to the vector
+  /// facility, is something else.
+  let testEngine (hex: string) (opcode: Opcode, operands: Operands) =
+    for endian, wordSize in processors do
+      let ins = engineParse endian wordSize hex
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode)
+      Assert.AreEqual<Operands>(operands, ins.Operands)
+    Assert.AreNotEqual<Opcode>(opcode, serverOpcode hex)
+
+/// The instructions of the Signal Processing Engine: each word is the one GNU
+/// as encodes for the e500 (objdump -M e500 reads it back), decoded on every
+/// processor with the engine.
+[<TestClass>]
+type SignalProcessingParserTests() =
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDIW (Vector Add Immediate Word)``() =
+    EVADDIW ** [ O.Reg R5; O.Reg R7; O.Imm 0xcUL ]
+    |> testEngine "10ac3a02"
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDW (Vector Add Word)``() =
+    EVADDW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a00"
+
+  [<TestMethod>]
+  member _.``[PPC] EVAND (Vector AND)``() =
+    EVAND ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a11"
+
+  [<TestMethod>]
+  member _.``[PPC] EVANDC (Vector AND with Complement)``() =
+    EVANDC ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a12"
+
+  [<TestMethod>]
+  member _.``[PPC] EVEQV (Vector Equivalent)``() =
+    EVEQV ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a19"
+
+  [<TestMethod>]
+  member _.``[PPC] EVNAND (Vector NAND)``() =
+    EVNAND ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a1e"
+
+  [<TestMethod>]
+  member _.``[PPC] EVNOR (Vector NOR)``() =
+    EVNOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a18"
+
+  [<TestMethod>]
+  member _.``[PPC] EVOR (Vector OR)``() =
+    EVOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a17"
+
+  [<TestMethod>]
+  member _.``[PPC] EVORC (Vector OR with Complement)``() =
+    EVORC ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a1b"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFW (Vector Subtract from Word)``() =
+    EVSUBFW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a04"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBIFW (Vector Subtract Immediate from Word)``() =
+    EVSUBIFW ** [ O.Reg R5; O.Imm 0xcUL; O.Reg R7 ]
+    |> testEngine "10ac3a06"
+
+  [<TestMethod>]
+  member _.``[PPC] EVXOR (Vector XOR)``() =
+    EVXOR ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a16"

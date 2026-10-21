@@ -31,12 +31,14 @@
     <Compile Include="LegacyLifter.fs" />
     <Compile Include="EmbeddedLifter.fs" />
     <Compile Include="TransactionLifter.fs" />
+    <Compile Include="SPELifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
     <Compile Include="Category.fs" />
     <Compile Include="ParsingEmbedded.fs" />
     <Compile Include="ParsingTM.fs" />
     <Compile Include="ParsingLegacy.fs" />
+    <Compile Include="ParsingSPE.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>

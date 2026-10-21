@@ -42,6 +42,7 @@ open B2R2.FrontEnd.PPC.VectorDecimalLifter
 open B2R2.FrontEnd.PPC.VectorBitLifter
 open B2R2.FrontEnd.PPC.VectorPermuteLifter
 open B2R2.FrontEnd.PPC.VectorFloatLifter
+open B2R2.FrontEnd.PPC.SPELifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -2728,6 +2729,32 @@ let translate (ins: Instruction) bld =
     EmbeddedLifter.translate ins bld
   | o when TransactionLifter.lifts o ->
     TransactionLifter.translate ins bld
+  (* Lane S: the Signal Processing Engine. *)
+  | Op.EVADDIW ->
+    evaddiw ins bld
+  | Op.EVADDW ->
+    evaddw ins bld
+  | Op.EVAND ->
+    evand ins bld
+  | Op.EVANDC ->
+    evandc ins bld
+  | Op.EVEQV ->
+    eveqv ins bld
+  | Op.EVNAND ->
+    evnand ins bld
+  | Op.EVNOR ->
+    evnor ins bld
+  | Op.EVOR ->
+    evor ins bld
+  | Op.EVORC ->
+    evorc ins bld
+  | Op.EVSUBFW ->
+    evsubfw ins bld
+  | Op.EVSUBIFW ->
+    evsubifw ins bld
+  | Op.EVXOR ->
+    evxor ins bld
+  (* End of lane S. *)
   | o ->
 #if DEBUG
          eprintfn "%A" o
