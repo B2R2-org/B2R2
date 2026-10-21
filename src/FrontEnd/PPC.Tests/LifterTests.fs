@@ -27124,6 +27124,24 @@ type FloatLifterTests() =
       expect 0x8UL (field after cr2) (nameOf isa)
       expect 0x18000UL (after FPSCR) (nameOf isa)
 
+  [<TestMethod>]
+  member _.``[PPC] DFP compares replace FPCC with invalid enabled``() =
+    let answers = [ "DFPEXC", answerOf (bigint 0x01001000UL) 32<rt> ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex in [ "ed021904"; "fd043104"; "ed021d04"; "fd043504" ] do
+        let given =
+          [ F2, 6UL
+            F3, 7UL
+            F4, 8UL
+            F5, 9UL
+            F6, 10UL
+            F7, 11UL
+            FPSCR, 0x78080UL
+            CR2_0, 1UL ]
+        let after, _ = runDFP isa hex given answers
+        expect 1UL (field after cr2) hex
+        expect 0xe1071080UL (after FPSCR) hex
+
   /// <summary>
   /// The rounding mode in the control byte: drintx with R = 1 reads RMC in
   /// the secondary encoding (RMC 2 is away from zero, 6), drintn with R = 0
