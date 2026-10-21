@@ -517,13 +517,24 @@ module internal IRRunner =
     | BinOpType.FDIV -> Some Div
     | _ -> None
 
+  /// Native-width division must not reach the host's signed overflow trap.
+  let private signedDivide (a: BitVector) (b: BitVector) =
+    let width = int a.Length
+    let min = 1I <<< (width - 1)
+    let minusOne = (1I <<< width) - 1I
+    let overflow = a.ToBigInt() = min && b.ToBigInt() = minusOne
+    if width <= 64 && overflow then
+      raise (System.OverflowException "Unguarded signed division")
+    else
+      BitVector.SDiv(a, b)
+
   let private binOp op (a: BitVector) (b: BitVector) =
     match op with
     | BinOpType.ADD -> BitVector.Add(a, b)
     | BinOpType.SUB -> BitVector.Sub(a, b)
     | BinOpType.MUL -> BitVector.Mul(a, b)
     | BinOpType.DIV -> BitVector.Div(a, b)
-    | BinOpType.SDIV -> BitVector.SDiv(a, b)
+    | BinOpType.SDIV -> signedDivide a b
     | BinOpType.MOD -> BitVector.Modulo(a, b)
     | BinOpType.SMOD -> BitVector.SModulo(a, b)
     | BinOpType.AND -> BitVector.And(a, b)
