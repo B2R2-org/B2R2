@@ -1628,5 +1628,14 @@ type Opcode =
   | STFDDX = 6109
   | STHDX = 6110
   | STWDX = 6111
+  | TABORTDCIdot = 6112
+  | TABORTDCdot = 6113
+  | TABORTWCIdot = 6114
+  | TABORTWCdot = 6115
+  | TABORTdot = 6116
+  | TBEGINdot = 6117
+  | TCHECK = 6118
+  | TENDdot = 6119
+  | TSRdot = 6120
 
 type internal Op = Opcode

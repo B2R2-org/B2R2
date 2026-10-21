@@ -4985,3 +4985,112 @@ type EmbeddedParserTests() =
         "7ca63bc6" ] do
       testUnsupported WordSize.Bit32 hex
       testUnsupported WordSize.Bit64 hex
+
+/// The instructions of the Transactional Memory category (Power ISA 2.07B Book
+/// II chapter 5), each word the one binutils assembles for POWER8. No server
+/// instruction shares their encodings, so each reads the same on every
+/// processor.
+[<TestClass>]
+type TransactionParserTests() =
+  /// A word with a signed five-bit immediate, which reads as the number at the
+  /// width of the processor's registers: the same bits, on each target.
+  let testImmediate hex opcode (ct: uint64) ra (si: int) =
+    for wordSz, endian, wide in
+      [ WordSize.Bit32, Endian.Big, 0xffffffffUL
+        WordSize.Bit64, Endian.Big, 0xffffffffffffffffUL
+        WordSize.Bit64, Endian.Little, 0xffffffffffffffffUL ] do
+      let isa = ISA(Architecture.PPC, endian, wordSz)
+      let bytes = ByteArray.ofHexString hex
+      let inMemory = if endian = Endian.Big then bytes else Array.rev bytes
+      let low = uint64 (si &&& 31)
+      let value = if si < 0 then ((wide <<< 5) &&& wide) ||| low else low
+      let operands = operandsFromArray [ O.Imm ct; O.Reg ra; O.Imm value ]
+      test isa opcode operands inMemory
+
+  [<TestMethod>]
+  member _.``[PPC] TBEGIN. (transaction begin)``() =
+    "7c20051d"
+    ++ (TBEGINdot ** [ O.Imm 1UL ])
+    ||> testEveryTarget
+    "7c00051d"
+    ++ (TBEGINdot ** [ O.Imm 0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] TEND. (transaction end)``() =
+    "7e00055d"
+    ++ (TENDdot ** [ O.Imm 1UL ])
+    ||> testEveryTarget
+    "7c00055d"
+    ++ (TENDdot ** [ O.Imm 0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] TABORT. (transaction abort)``() =
+    "7c05071d"
+    ++ (TABORTdot ** [ O.Reg R5 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] TABORTDC. (transaction abort doubleword conditional)``() =
+    "7ca63e5d"
+    ++ (TABORTDCdot ** [ O.Imm 5UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] TABORTDCI. (abort doubleword conditional immediate)``() =
+    testImmediate "7ca6cedd" TABORTDCIdot 5UL R6 (-7)
+    testImmediate "7ca61edd" TABORTDCIdot 5UL R6 3
+
+  [<TestMethod>]
+  member _.``[PPC] TABORTWC. (transaction abort word conditional)``() =
+    "7ca63e1d"
+    ++ (TABORTWCdot ** [ O.Imm 5UL; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] TABORTWCI. (abort word conditional immediate)``() =
+    testImmediate "7ca6ce9d" TABORTWCIdot 5UL R6 (-7)
+    testImmediate "7ca61e9d" TABORTWCIdot 5UL R6 3
+    testImmediate "7ca6869d" TABORTWCIdot 5UL R6 (-16)
+
+  [<TestMethod>]
+  member _.``[PPC] TCHECK (transaction check)``() =
+    "7d00059c"
+    ++ (TCHECK ** [ O.Reg CR2 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] TSR. (transaction suspend or resume)``() =
+    "7c2005dd"
+    ++ (TSRdot ** [ O.Imm 1UL ])
+    ||> testEveryTarget
+    "7c0005dd"
+    ++ (TSRdot ** [ O.Imm 0UL ])
+    ||> testEveryTarget
+
+  /// A reserved bit set, or a record bit wrong (tcheck has none, every other
+  /// form has one), makes the word nothing.
+  [<TestMethod>]
+  member _.``[PPC] reserved bits of transactional words are checked``() =
+    for hex in
+      [ "7e20051d"
+        "7c20051c"
+        "7c20851d"
+        "7c20055d"
+        "7e00055c"
+        "7c00455d"
+        "7c05871d"
+        "7ca5071d"
+        "7c05071c"
+        "7ca63e5c"
+        "7ca63e1c"
+        "7ca6cedc"
+        "7ca6ce9c"
+        "7d00059d"
+        "7d40059c"
+        "7d00859c"
+        "7c2005dc"
+        "7e2005dd" ] do
+      testUnsupported WordSize.Bit32 hex
+      testUnsupported WordSize.Bit64 hex

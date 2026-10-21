@@ -1657,6 +1657,15 @@ let opCodeToString = function
   | Op.STFDDX -> "stfddx"
   | Op.STHDX -> "sthdx"
   | Op.STWDX -> "stwdx"
+  | Op.TABORTDCIdot -> "tabortdci."
+  | Op.TABORTDCdot -> "tabortdc."
+  | Op.TABORTWCIdot -> "tabortwci."
+  | Op.TABORTWCdot -> "tabortwc."
+  | Op.TABORTdot -> "tabort."
+  | Op.TBEGINdot -> "tbegin."
+  | Op.TCHECK -> "tcheck"
+  | Op.TENDdot -> "tend."
+  | Op.TSRdot -> "tsr."
   | _ -> Terminator.impossible ()
 
 let condToString = function

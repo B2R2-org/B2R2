@@ -2726,6 +2726,8 @@ let translate (ins: Instruction) bld =
     LegacyLifter.translate ins bld
   | o when EmbeddedLifter.lifts o ->
     EmbeddedLifter.translate ins bld
+  | o when TransactionLifter.lifts o ->
+    TransactionLifter.translate ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o
