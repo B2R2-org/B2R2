@@ -221,6 +221,77 @@ let compareHalfword (ins: Instruction) (bld: ILowUIRBuilder) signed =
     so := AST.xthi 1<rt> (regVar bld Register.XER)
   }
 
+/// The address a branch with a displacement goes to: the address of the
+/// instruction plus the displacement, which the operand holds sign-extended to
+/// the width of a register, and which wraps at that width.
+let private branchTarget (ins: Instruction) (bld: ILowUIRBuilder) =
+  match ins.Operands with
+  | OneOperand(OprAddr disp)
+  | ThreeOperands(_, _, OprAddr disp) ->
+    numU64 (ins.Address + disp) bld.RegType
+  | _ ->
+    raise InvalidOperandException
+
+/// The address of the instruction after one, which a branch that links puts in
+/// LR and a branch that does not take goes on to.
+let private nextAddress (ins: Instruction) (bld: ILowUIRBuilder) =
+  numU64 (ins.Address + uint64 ins.Length) bld.RegType
+
+/// A branch to the address a displacement names, which writes the address of
+/// the instruction after it into LR when it links.
+let branch (ins: Instruction) (bld: ILowUIRBuilder) link =
+  lift bld ins {
+    let target = branchTarget ins bld
+    if link then
+      regVar bld Register.LR := nextAddress ins bld
+      AST.interjmp target InterJmpKind.IsCall
+    else
+      AST.interjmp target InterJmpKind.Base
+  }
+
+/// se_bc: a branch to the address a displacement names when the bit of CR0 the
+/// instruction names equals BO16, and on to the next instruction otherwise.
+let branchOnBit (ins: Instruction) (bld: ILowUIRBuilder) =
+  let struct (bo, bi) =
+    match ins.Operands with
+    | ThreeOperands(OprImm bo, OprBI bi, _) -> struct (bo, bi)
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let bit = regVar bld (OperandHelper.getCRbitRegister bi)
+    let target = branchTarget ins bld
+    let next = tmpVar bld bld.RegType
+    next := AST.ite (bit == numU64 bo 1<rt>) target (nextAddress ins bld)
+    AST.interjmp next InterJmpKind.Base
+  }
+
+/// A load of a size from an address that is a base register plus a
+/// displacement, zero-extended into the register it names. The base register
+/// is whichever the instruction names, register 0 included.
+let loadFromBase (ins: Instruction) (bld: ILowUIRBuilder) size =
+  let struct (rz, rx, disp) =
+    match ins.Operands with
+    | TwoOperands(OprReg rz, OprMem(disp, rx)) -> struct (rz, rx, disp)
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let ea = tmpVar bld bld.RegType
+    ea := regVar bld rx .+ numI32 disp bld.RegType
+    regVar bld rz := AST.zext bld.RegType (loadNative bld size ea)
+  }
+
+/// A store of a size to an address that is a base register plus a
+/// displacement, of the low bits of the register it names. The base register
+/// is whichever the instruction names, register 0 included.
+let storeToBase (ins: Instruction) (bld: ILowUIRBuilder) size =
+  let struct (rz, rx, disp) =
+    match ins.Operands with
+    | TwoOperands(OprReg rz, OprMem(disp, rx)) -> struct (rz, rx, disp)
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let ea = tmpVar bld bld.RegType
+    ea := regVar bld rx .+ numI32 disp bld.RegType
+    loadNative bld size ea := AST.xtlo size (regVar bld rz)
+  }
+
 /// se_illegal, which asks for an Illegal Instruction exception.
 let illegal ins bld = sideEffects ins bld UndefinedInstruction
 

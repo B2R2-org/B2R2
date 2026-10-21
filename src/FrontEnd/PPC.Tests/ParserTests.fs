@@ -6830,3 +6830,78 @@ type VLEParserTests() =
   member _.``[PPC VLE] SE_CMPLI (compare logical immediate word)``() =
     SE_CMPLI ** [ O.Reg R3; O.Imm 0x5UL ]
     |> testVLE "2243"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_B (branch)``() =
+    SE_B ** [ O.Addr 0x8UL ]
+    |> testVLE "e804"
+    SE_B ** [ O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "e8fc"
+    SE_B ** [ O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "e8fc"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BL (branch and link)``() =
+    SE_BL ** [ O.Addr 0x8UL ]
+    |> testVLE "e904"
+    SE_BL ** [ O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "e9fc"
+    SE_BL ** [ O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "e9fc"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BC (branch conditional)``() =
+    SE_BC ** [ O.Imm 0x1UL; O.BI 2u; O.Addr 0x8UL ]
+    |> testVLE "e604"
+    SE_BC ** [ O.Imm 0x0UL; O.BI 3u; O.Addr 0xfffffff8UL ]
+    |> testVLEOn WordSize.Bit32 "e3fc"
+    SE_BC ** [ O.Imm 0x0UL; O.BI 3u; O.Addr 0xfffffffffffffff8UL ]
+    |> testVLEOn WordSize.Bit64 "e3fc"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LBZ (load byte and zero)``() =
+    SE_LBZ ** [ O.Reg R3; O.Mem(4, R5) ]
+    |> testVLE "8435"
+    SE_LBZ ** [ O.Reg R3; O.Mem(4, R0) ]
+    |> testVLE "8430"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LHZ (load halfword and zero)``() =
+    SE_LHZ ** [ O.Reg R3; O.Mem(4, R5) ]
+    |> testVLE "a235"
+    SE_LHZ ** [ O.Reg R3; O.Mem(4, R0) ]
+    |> testVLE "a230"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LWZ (load word and zero)``() =
+    SE_LWZ ** [ O.Reg R3; O.Mem(4, R5) ]
+    |> testVLE "c135"
+    SE_LWZ ** [ O.Reg R3; O.Mem(4, R0) ]
+    |> testVLE "c130"
+    SE_LWZ ** [ O.Reg R31; O.Mem(60, R24) ]
+    |> testVLE "cff8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_STB (store byte)``() =
+    SE_STB ** [ O.Reg R3; O.Mem(4, R5) ]
+    |> testVLE "9435"
+    SE_STB ** [ O.Reg R3; O.Mem(4, R0) ]
+    |> testVLE "9430"
+    SE_STB ** [ O.Reg R31; O.Mem(15, R24) ]
+    |> testVLE "9ff8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_STH (store halfword)``() =
+    SE_STH ** [ O.Reg R3; O.Mem(4, R5) ]
+    |> testVLE "b235"
+    SE_STH ** [ O.Reg R3; O.Mem(4, R0) ]
+    |> testVLE "b230"
+    SE_STH ** [ O.Reg R31; O.Mem(30, R24) ]
+    |> testVLE "bff8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_STW (store word)``() =
+    SE_STW ** [ O.Reg R3; O.Mem(4, R5) ]
+    |> testVLE "d135"
+    SE_STW ** [ O.Reg R3; O.Mem(4, R0) ]
+    |> testVLE "d130"

@@ -65,6 +65,9 @@ type PPCVLERoundTripTests() =
   static let disasm (parser: IInstructionParsable) (bytes: byte[]) =
     (parser.Parse(bytes, 0UL)).Disasm()
 
+  static let disasm' (parser: IInstructionParsable) (bytes: byte[]) addr =
+    (parser.Parse(bytes, addr)).Disasm()
+
   static let encodeFirst (assembler: ILowerable) text =
     match assembler.Lower text with
     | Ok((_, bytes) :: _) -> Some bytes
@@ -155,5 +158,53 @@ type PPCVLERoundTripTests() =
       (try encodeFirst assembler source with _ -> None).IsSome
     Assert.AreEqual<bool>(false, encodes "se_blr")
     Assert.AreEqual<bool>(true, encodes "nop")
+
+  /// <summary>
+  /// A branch to a label reaches it whichever way it lies, counting the
+  /// distance in bytes whatever mix of two-byte and four-byte instructions lies
+  /// between: the label is above the branch in one source and below it in the
+  /// other, with a halfword and a word between.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A VLE branch to a label reaches it in both directions``() =
+    let branches =
+      [ "se_b L", "se_b"
+        "se_bl L", "se_bl"
+        "se_bc 0x1, 0x4 * cr0 + eq, L", "se_bc 0x1, 0x4 * cr0 + eq," ]
+    let wrong =
+      [ for written, expected in branches do
+          yield expected, $"L:
+  nop
+  se_isync
+  {written}", 2, 6UL, 0UL
+          let above = $"  {written}
+  nop
+  se_isync
+L:
+  nop"
+          yield expected, above, 0, 0UL, 8UL ]
+      |> List.choose (fun (expected, source, index, addr, target) ->
+        match (try assembler32.Lower source with _ -> Error "raised") with
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
+        | Ok encoded ->
+          let bytes = snd (List.item index encoded)
+          let text = try disasm' parser32 bytes addr with _ -> "<undecodable>"
+          if text = $"{expected} 0x{target:x}" then None
+          else Some $"'{expected} L' at 0x{addr:x} became '{text}'")
+    Assert.AreEqual<string>("", String.concat "
+" wrong)
+
+  /// A 16-bit branch counts its distance in eight bits of halfwords, so a label
+  /// farther than that is out of its reach and the source is refused.
+  [<TestMethod>]
+  member _.``A VLE branch to a label out of reach does not encode``() =
+    let padding = String.replicate 200 "  se_isync
+"
+    let source = $"  se_b L
+{padding}L:
+  nop"
+    let encoded = try encodeFirst assembler32 source with _ -> None
+    Assert.AreEqual<bool>(false, encoded.IsSome)
 
 // vim: set tw=80 sts=2 sw=2:

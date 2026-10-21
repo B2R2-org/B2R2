@@ -53,8 +53,10 @@ let private parseControl half =
 
 /// The general register a four-bit field of a 16-bit instruction names, which
 /// reaches r0 to r7 and r24 to r31 and no others.
-let private gpr16 n =
-  getRegister (if n < 8u then n else n + 16u) |> OprReg
+let private gpr16Register n = getRegister (if n < 8u then n else n + 16u)
+
+/// The same as an operand.
+let private gpr16 n = gpr16Register n |> OprReg
 
 /// The "alternate" register a four-bit field names, which is one of r8 to r23.
 let private alternate n = getRegister (n + 8u) |> OprReg
@@ -133,6 +135,38 @@ let private parseLoadImmediate half =
   let ui7 = Bits.extract half 10u 4u |> uint64
   struct (Op.SE_LI, TwoOperands(rx, OprImm ui7))
 
+/// The displacement of a 16-bit branch: its eight bits followed by a zero,
+/// sign-extended to the width of a register.
+let private displacement8 bitLen half =
+  let distance = Bits.extract half 7u 0u <<< 1 |> uint64
+  Bits.signExtend 9 bitLen distance |> uint64 |> OprAddr
+
+/// The 16-bit branches: se_b and se_bl, which differ in the bit that says
+/// whether they link, and se_bc, which tests a bit of CR0.
+let private parseBranch bitLen half =
+  let disp = displacement8 bitLen half
+  if half >>> 9 = 0x74u then
+    let op = if Bits.pick half 8u = 0u then Op.SE_B else Op.SE_BL
+    struct (op, OneOperand disp)
+  else
+    let bo = Bits.pick half 10u |> uint64 |> OprImm
+    let bi = Bits.extract half 9u 8u |> OprBI
+    struct (Op.SE_BC, ThreeOperands(bo, bi, disp))
+
+/// The 16-bit loads and stores, which name RZ above the base register RX and a
+/// displacement of four bits above that, scaled by the size of what they move.
+let private parseAccess half =
+  let rx = gpr16Register (Bits.extract half 3u 0u)
+  let rz = gpr16 (Bits.extract half 7u 4u)
+  let sd4 = int (Bits.extract half 11u 8u)
+  match half >>> 12 with
+  | 0x8u -> struct (Op.SE_LBZ, TwoOperands(rz, OprMem(sd4, rx)))
+  | 0x9u -> struct (Op.SE_STB, TwoOperands(rz, OprMem(sd4, rx)))
+  | 0xAu -> struct (Op.SE_LHZ, TwoOperands(rz, OprMem(sd4 * 2, rx)))
+  | 0xBu -> struct (Op.SE_STH, TwoOperands(rz, OprMem(sd4 * 2, rx)))
+  | 0xCu -> struct (Op.SE_LWZ, TwoOperands(rz, OprMem(sd4 * 4, rx)))
+  | _ -> struct (Op.SE_STW, TwoOperands(rz, OprMem(sd4 * 4, rx)))
+
 /// Whether the byte that begins a halfword is the one of an instruction of two
 /// registers.
 let private isDyadic b =
@@ -140,12 +174,14 @@ let private isDyadic b =
   || (b >= 0x40u && b <= 0x42u) || (b >= 0x44u && b <= 0x47u)
 
 /// The instructions that fill a halfword.
-let private parse16 (half: uint32) =
+let private parse16 bitLen (half: uint32) =
   match half >>> 8 with
   | 0x00u when half < 0x10u -> parseControl half
   | 0x00u -> parseMonadic half
   | b when isDyadic b -> parseDyadic half
   | _ when half >>> 11 = 0x09u -> parseLoadImmediate half
+  | _ when half >>> 12 >= 0x8u && half >>> 12 <= 0xDu -> parseAccess half
+  | _ when half >>> 11 = 0x1Cu || half >>> 9 = 0x74u -> parseBranch bitLen half
   | _ -> parseImmediate5 half
 
 /// The instructions that fill two halfwords and are not the base encoding.
@@ -160,7 +196,7 @@ let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
   if reader.Endianness <> Endian.Big then raise ParsingFailureException else ()
   let first = uint32 (reader.ReadUInt16(span, 0))
   if not (isLong first) then
-    let struct (opcode, operands) = parse16 first
+    let struct (opcode, operands) = parse16 (int rt) first
     Instruction(addr, 2u, opcode, operands, rt, 0UL, lifter)
   else
     let bin = reader.ReadUInt32(span, 0)

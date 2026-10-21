@@ -42265,6 +42265,16 @@ type VLELifterTests() =
         | bits -> bits |> List.fold (fun acc b -> (acc <<< 1) ||| after b) 0UL
       expect v actual $"{hex} {r} {nameOf isa}"
 
+  /// Every bit of a register of the processor an ISA names.
+  let ones (isa: ISA) =
+    if isa.WordSize = WordSize.Bit32 then 0xffffffffUL else UInt64.MaxValue
+
+  /// What run gives, over the bytes of memory given as well, and every byte of
+  /// memory given or written after the run.
+  let execMem isa hex given memory =
+    let out = IRRunner.exec (liftedAt isa 0UL hex) (inputsOf isa given) memory
+    (fun r -> (out.Read(var isa r)).ToUInt64()), out.Memory
+
   /// <summary>
   /// se_illegal asks for an Illegal Instruction exception, which is what the
   /// lift says and all it says.
@@ -43659,3 +43669,168 @@ type VLELifterTests() =
       let wanted = [ R3, r3; XER, xer; CR0, cr0' ]
       check isa "2243" given wanted
     for isa in vleTargets do sameAs isa "2243" "28030005"
+
+  /// <summary>
+  /// se_b goes to the address of the instruction plus BD8 || 0b0 sign-extended:
+  /// the sample is a displacement of 8, the other of -8. The sum is cut to the
+  /// width of a register, so an instruction at the top of a 32-bit address
+  /// space branches to the bottom of it and one in a 64-bit space does not.
+  /// LR is not touched. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_B goes to the address its displacement names``() =
+    for isa, hex, addr, target in
+      [ (vle32, "e804", 0x1000UL, 0x1008UL)
+        (vle64, "e804", 0x1000UL, 0x1008UL)
+        (vle32, "e8fc", 0x1000UL, 0xff8UL)
+        (vle64, "e8fc", 0x1000UL, 0xff8UL)
+        (vle32, "e804", 0xfffffffcUL, 0x4UL)
+        (vle64, "e804", 0xfffffffcUL, 0x100000004UL)
+        (vle32, "e8fc", 0x4UL, 0xfffffffcUL)
+        (vle64, "e8fc", 0x4UL, 0xfffffffffffffffcUL) ] do
+      let after, went, kinds = taken isa addr hex [ LR, 0x5555UL ]
+      expect target went $"{hex} {addr:x} {nameOf isa}"
+      expect 0x5555UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.Base kinds
+
+  /// <summary>
+  /// se_bl goes where se_b does and puts the address of the instruction after
+  /// it, two bytes on, into LR. (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BL goes to its displacement and links``() =
+    for isa, hex, addr, target in
+      [ (vle32, "e904", 0x1000UL, 0x1008UL)
+        (vle64, "e904", 0x1000UL, 0x1008UL)
+        (vle32, "e9fc", 0x1000UL, 0xff8UL)
+        (vle64, "e9fc", 0x1000UL, 0xff8UL) ] do
+      let after, went, kinds = taken isa addr hex [ LR, 0x5555UL ]
+      expect target went $"{hex} {addr:x} {nameOf isa}"
+      expect (addr + 2UL) (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.IsCall kinds
+
+  /// <summary>
+  /// se_bc BO16,BI16,target branches by BD8 || 0b0 when the bit of CR0 that
+  /// BI16 names equals BO16, and falls through to the next instruction, two
+  /// bytes on, otherwise. The first sample branches by 8 when the EQ bit is
+  /// set, the second by -8 when the SO bit is clear. LR is not touched.
+  /// (Book VLE 4.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_BC branches on a bit of CR0``() =
+    for isa, hex, cr0, target in
+      [ (vle32, "e604", 0b0010UL, 0x1008UL)
+        (vle64, "e604", 0b0010UL, 0x1008UL)
+        (vle32, "e604", 0b1101UL, 0x1002UL)
+        (vle64, "e604", 0b1101UL, 0x1002UL)
+        (vle32, "e3fc", 0b1110UL, 0xff8UL)
+        (vle64, "e3fc", 0b1110UL, 0xff8UL)
+        (vle32, "e3fc", 0b0001UL, 0x1002UL)
+        (vle64, "e3fc", 0b0001UL, 0x1002UL) ] do
+      let given = withBits [ CR0, cr0; LR, 0x5555UL ]
+      let after, went, kinds = taken isa 0x1000UL hex given
+      expect target went $"{hex} {cr0:x} {nameOf isa}"
+      expect 0x5555UL (after LR) (nameOf isa)
+      expectKinds BinIR.InterJmpKind.Base kinds
+
+  /// <summary>
+  /// se_lbz RZ,SD4(RX) loads the byte at RX + SD4 and zero-extends it into RZ.
+  /// Register 0 is an ordinary base register here, not the zero that the base
+  /// encoding's loads read in its place: the second sample has RX = r0, which
+  /// holds 0x2000, so it reads the byte at 0x2004. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LBZ loads a byte from RX plus a displacement``() =
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R5, 0x1000UL ]
+      let after, _ = execMem isa "8435" given [ 0x1004UL, [| 0xf1uy |] ]
+      expect 0xf1UL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R0, 0x2000UL ]
+      let after, _ = execMem isa "8430" given [ 0x2004UL, [| 0x7fuy |] ]
+      expect 0x7fUL (after R3) (nameOf isa)
+
+  /// <summary>
+  /// se_lhz RZ,SD4(RX) loads the halfword at RX + SD4, where SD4 is shifted
+  /// left one bit (the sample's field is 2, its displacement 4), and
+  /// zero-extends it into RZ. RX = r0 is an ordinary base register. (Book VLE
+  /// 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LHZ loads a halfword from RX plus a displacement``() =
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R5, 0x1000UL ]
+      let memory = [ 0x1004UL, [| 0xfeuy; 0xdcuy |] ]
+      let after, _ = execMem isa "a235" given memory
+      expect 0xfedcUL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R0, 0x2000UL ]
+      let after, _ = execMem isa "a230" given [ 0x2004UL, [| 0x12uy; 0x34uy |] ]
+      expect 0x1234UL (after R3) (nameOf isa)
+
+  /// <summary>
+  /// se_lwz RZ,SD4(RX) loads the word at RX + SD4, where SD4 is shifted left
+  /// two bits (the sample's field is 1, its displacement 4), and zero-extends
+  /// it into RZ. RX = r0 is an ordinary base register. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LWZ loads a word from RX plus a displacement``() =
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R5, 0x1000UL ]
+      let memory = [ 0x1004UL, [| 0xfeuy; 0xdcuy; 0xbauy; 0x98uy |] ]
+      let after, _ = execMem isa "c135" given memory
+      expect 0xfedcba98UL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R0, 0x2000UL ]
+      let memory = [ 0x2004UL, [| 0x12uy; 0x34uy; 0x56uy; 0x78uy |] ]
+      let after, _ = execMem isa "c130" given memory
+      expect 0x12345678UL (after R3) (nameOf isa)
+
+  /// <summary>
+  /// se_stb RZ,SD4(RX) stores the low byte of RZ at RX + SD4 and touches no
+  /// other byte. RX = r0 is an ordinary base register. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_STB stores a byte at RX plus a displacement``() =
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R5, 0x1000UL ]
+      let _, memory = execMem isa "9435" given []
+      Assert.AreEqual<byte list>([ 0x34uy ], [ memory[0x1004UL] ])
+      expect 1UL (uint64 memory.Count) (nameOf isa)
+      let given = [ R3, 0xaabbccddeeff1234UL; R0, 0x2000UL ]
+      let _, memory = execMem isa "9430" given []
+      Assert.AreEqual<byte list>([ 0x34uy ], [ memory[0x2004UL] ])
+      expect 1UL (uint64 memory.Count) (nameOf isa)
+
+  /// <summary>
+  /// se_sth RZ,SD4(RX) stores the low halfword of RZ at RX + SD4, most
+  /// significant byte first, and touches no other byte. RX = r0 is an
+  /// ordinary base register. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_STH stores a halfword at RX plus a displacement``() =
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R5, 0x1000UL ]
+      let _, memory = execMem isa "b235" given []
+      let written = [ for i in 0UL .. 1UL -> memory[0x1004UL + i] ]
+      Assert.AreEqual<byte list>([ 0x12uy; 0x34uy ], written)
+      expect 2UL (uint64 memory.Count) (nameOf isa)
+      let given = [ R3, 0xaabbccddeeff1234UL; R0, 0x2000UL ]
+      let _, memory = execMem isa "b230" given []
+      let written = [ for i in 0UL .. 1UL -> memory[0x2004UL + i] ]
+      Assert.AreEqual<byte list>([ 0x12uy; 0x34uy ], written)
+
+  /// <summary>
+  /// se_stw RZ,SD4(RX) stores the low word of RZ at RX + SD4, most
+  /// significant byte first, and touches no other byte. RX = r0 is an
+  /// ordinary base register. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_STW stores a word at RX plus a displacement``() =
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R5, 0x1000UL ]
+      let _, memory = execMem isa "d135" given []
+      let written = [ for i in 0UL .. 3UL -> memory[0x1004UL + i] ]
+      Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)
+      expect 4UL (uint64 memory.Count) (nameOf isa)
+      let given = [ R3, 0xaabbccddeeff1234UL; R0, 0x2000UL ]
+      let _, memory = execMem isa "d130" given []
+      let written = [ for i in 0UL .. 3UL -> memory[0x2004UL + i] ]
+      Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)

@@ -114,8 +114,41 @@ let private loadImmediate ins =
   | [ Rg x; Im n ] -> 0x4800u ||| (unsigned 7 n <<< 4) ||| gpr4 x
   | _ -> wrongOperands ins
 
+/// The eight bits a 16-bit branch holds where it counts how far away the place
+/// it names is, in halfwords.
+let private distance8 bitLen (ins: AsmInsInfo) target =
+  let distance = signedValue bitLen (target - ins.Address)
+  if distance % 2L = 0L then signed 8 (distance / 2L)
+  else fail "a branch cannot reach a place that is not a halfword away"
+
+/// se_b and se_bl, which differ only in the bit that says they link.
+let private branch16 bitLen value ins =
+  match ins.Operands with
+  | [ Im target ] -> value ||| distance8 bitLen ins target
+  | _ -> wrongOperands ins
+
+/// se_bc, whose condition is one bit of CR0 and a value for it.
+let private branchOnBit bitLen ins =
+  match ins.Operands with
+  | [ Im bo; Bit bi; Im target ] when bo <= 1UL && bi < 4u ->
+    0xE000u ||| (uint32 bo <<< 10) ||| (bi <<< 8)
+    ||| distance8 bitLen ins target
+  | _ ->
+    wrongOperands ins
+
+/// A load or store of a register at a base register and a displacement that is
+/// a multiple of the size of what it moves, which the encoding keeps in four
+/// bits as that many sizes.
+let private accessForm value size ins =
+  match ins.Operands with
+  | [ Rg z; Mem(disp, x) ] when disp >= 0 && disp % size = 0 ->
+    value ||| (unsigned 4 (uint64 (disp / size)) <<< 8)
+    ||| (gpr4 z <<< 4) ||| gpr4 x
+  | _ ->
+    wrongOperands ins
+
 /// The instructions of Variable Length Encoding, by what they are called.
-let vleEncoders () =
+let vleEncoders bitLen =
   [ Op.SE_ILLEGAL, cForm 0x0000u
     Op.SE_ISYNC, cForm 0x0001u
     Op.SE_SC, cForm 0x0002u
@@ -165,4 +198,13 @@ let vleEncoders () =
     Op.SE_SRWI, riForm 0x6800u
     Op.SE_SRAWI, riForm 0x6A00u
     Op.SE_SLWI, riForm 0x6C00u
+    Op.SE_B, branch16 bitLen 0xE800u
+    Op.SE_BL, branch16 bitLen 0xE900u
+    Op.SE_BC, branchOnBit bitLen
+    Op.SE_LBZ, accessForm 0x8000u 1
+    Op.SE_STB, accessForm 0x9000u 1
+    Op.SE_LHZ, accessForm 0xA000u 2
+    Op.SE_STH, accessForm 0xB000u 2
+    Op.SE_LWZ, accessForm 0xC000u 4
+    Op.SE_STW, accessForm 0xD000u 4
     Op.SE_LI, loadImmediate ]

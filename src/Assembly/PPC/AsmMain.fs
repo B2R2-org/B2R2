@@ -75,7 +75,7 @@ let buildEncoderTable bitLen vle =
     embeddedEncoders ()
     transactionEncoders bitLen
     signalProcessingEncoders ()
-    (if vle then vleEncoders () else []) ]
+    (if vle then vleEncoders bitLen else []) ]
   |> List.concat
   |> Map.ofList
 
