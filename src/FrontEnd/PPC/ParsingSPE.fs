@@ -151,15 +151,81 @@ let private parseWord bin =
   | 562u -> crf Op.EVCMPLTU bin
   | 563u -> crf Op.EVCMPLTS bin
   | 564u -> crf Op.EVCMPEQ bin
+  | 640u -> rrr Op.EVFSADD bin
+  | 641u -> rrr Op.EVFSSUB bin
   | 644u -> rr Op.EVFSABS bin
   | 645u -> rr Op.EVFSNABS bin
   | 646u -> rr Op.EVFSNEG bin
+  | 648u -> rrr Op.EVFSMUL bin
+  | 649u -> rrr Op.EVFSDIV bin
+  | 652u -> crf Op.EVFSCMPGT bin
+  | 653u -> crf Op.EVFSCMPLT bin
+  | 654u -> crf Op.EVFSCMPEQ bin
+  | 656u -> rb Op.EVFSCFUI bin
+  | 657u -> rb Op.EVFSCFSI bin
+  | 658u -> rb Op.EVFSCFUF bin
+  | 659u -> rb Op.EVFSCFSF bin
+  | 660u -> rb Op.EVFSCTUI bin
+  | 661u -> rb Op.EVFSCTSI bin
+  | 662u -> rb Op.EVFSCTUF bin
+  | 663u -> rb Op.EVFSCTSF bin
+  | 664u -> rb Op.EVFSCTUIZ bin
+  | 666u -> rb Op.EVFSCTSIZ bin
+  | 668u -> crf Op.EVFSTSTGT bin
+  | 669u -> crf Op.EVFSTSTLT bin
+  | 670u -> crf Op.EVFSTSTEQ bin
+  | 704u -> rrr Op.EFSADD bin
+  | 705u -> rrr Op.EFSSUB bin
   | 708u -> rr Op.EFSABS bin
   | 709u -> rr Op.EFSNABS bin
   | 710u -> rr Op.EFSNEG bin
+  | 712u -> rrr Op.EFSMUL bin
+  | 713u -> rrr Op.EFSDIV bin
+  | 716u -> crf Op.EFSCMPGT bin
+  | 717u -> crf Op.EFSCMPLT bin
+  | 718u -> crf Op.EFSCMPEQ bin
+  | 719u -> rb Op.EFSCFD bin
+  | 720u -> rb Op.EFSCFUI bin
+  | 721u -> rb Op.EFSCFSI bin
+  | 722u -> rb Op.EFSCFUF bin
+  | 723u -> rb Op.EFSCFSF bin
+  | 724u -> rb Op.EFSCTUI bin
+  | 725u -> rb Op.EFSCTSI bin
+  | 726u -> rb Op.EFSCTUF bin
+  | 727u -> rb Op.EFSCTSF bin
+  | 728u -> rb Op.EFSCTUIZ bin
+  | 730u -> rb Op.EFSCTSIZ bin
+  | 732u -> crf Op.EFSTSTGT bin
+  | 733u -> crf Op.EFSTSTLT bin
+  | 734u -> crf Op.EFSTSTEQ bin
+  | 736u -> rrr Op.EFDADD bin
+  | 737u -> rrr Op.EFDSUB bin
+  | 738u -> rb Op.EFDCFUID bin
+  | 739u -> rb Op.EFDCFSID bin
   | 740u -> rr Op.EFDABS bin
   | 741u -> rr Op.EFDNABS bin
   | 742u -> rr Op.EFDNEG bin
+  | 744u -> rrr Op.EFDMUL bin
+  | 745u -> rrr Op.EFDDIV bin
+  | 746u -> rb Op.EFDCTUIDZ bin
+  | 747u -> rb Op.EFDCTSIDZ bin
+  | 748u -> crf Op.EFDCMPGT bin
+  | 749u -> crf Op.EFDCMPLT bin
+  | 750u -> crf Op.EFDCMPEQ bin
+  | 751u -> rb Op.EFDCFS bin
+  | 752u -> rb Op.EFDCFUI bin
+  | 753u -> rb Op.EFDCFSI bin
+  | 754u -> rb Op.EFDCFUF bin
+  | 755u -> rb Op.EFDCFSF bin
+  | 756u -> rb Op.EFDCTUI bin
+  | 757u -> rb Op.EFDCTSI bin
+  | 758u -> rb Op.EFDCTUF bin
+  | 759u -> rb Op.EFDCTSF bin
+  | 760u -> rb Op.EFDCTUIZ bin
+  | 762u -> rb Op.EFDCTSIZ bin
+  | 764u -> crf Op.EFDTSTGT bin
+  | 765u -> crf Op.EFDTSTLT bin
+  | 766u -> crf Op.EFDTSTEQ bin
   | 768u -> rrr Op.EVLDDX bin
   | 769u -> disp Op.EVLDD 8 bin
   | 770u -> rrr Op.EVLDWX bin

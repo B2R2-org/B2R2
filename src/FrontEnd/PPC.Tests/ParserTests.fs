@@ -6126,3 +6126,348 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVFSNEG (Floating-Point Negate)``() =
     EVFSNEG ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a60286"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCMPEQ (Equal)``() =
+    EFDCMPEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063aee"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCMPGT (Greater Than)``() =
+    EFDCMPGT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063aec"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCMPLT (Less Than)``() =
+    EFDCMPLT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063aed"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDTSTEQ (Floating-Point Double-Precision Test Equal)``() =
+    EFDTSTEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063afe"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDTSTGT (Than)``() =
+    EFDTSTGT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063afc"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDTSTLT (Than)``() =
+    EFDTSTLT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063afd"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCMPEQ (Floating-Point Compare Equal)``() =
+    EFSCMPEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063ace"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCMPGT (Floating-Point Compare Greater Than)``() =
+    EFSCMPGT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063acc"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCMPLT (Floating-Point Compare Less Than)``() =
+    EFSCMPLT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063acd"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSTSTEQ (Floating-Point Test Equal)``() =
+    EFSTSTEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063ade"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSTSTGT (Floating-Point Test Greater Than)``() =
+    EFSTSTGT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063adc"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSTSTLT (Floating-Point Test Less Than)``() =
+    EFSTSTLT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063add"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCMPEQ (Floating-Point Compare Equal)``() =
+    EVFSCMPEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a8e"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCMPGT (Floating-Point Compare Greater Than)``() =
+    EVFSCMPGT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a8c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCMPLT (Floating-Point Compare Less Than)``() =
+    EVFSCMPLT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a8d"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSTSTEQ (Floating-Point Test Equal)``() =
+    EVFSTSTEQ ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a9e"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSTSTGT (Floating-Point Test Greater Than)``() =
+    EVFSTSTGT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a9c"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSTSTLT (Floating-Point Test Less Than)``() =
+    EVFSTSTLT ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ]
+    |> testEngine "11063a9d"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFS (Single-Precision)``() =
+    EFDCFS ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03aef"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFSF (Signed Fraction)``() =
+    EFDCFSF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af3"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFSI (Signed Integer)``() =
+    EFDCFSI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af1"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFSID (Signed Integer Doubleword)``() =
+    EFDCFSID ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ae3"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFUF (Unsigned Fraction)``() =
+    EFDCFUF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af2"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFUI (Unsigned Integer)``() =
+    EFDCFUI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af0"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCFUID (Unsigned Integer Doubleword)``() =
+    EFDCFUID ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ae2"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCFD (Double-Precision)``() =
+    EFSCFD ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03acf"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCFSF (Convert Floating-Point from Signed Fraction)``() =
+    EFSCFSF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad3"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCFSI (Convert Floating-Point from Signed Integer)``() =
+    EFSCFSI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad1"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCFUF (Convert Floating-Point from Unsigned Fraction)``() =
+    EFSCFUF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad2"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCFUI (Convert Floating-Point from Unsigned Integer)``() =
+    EFSCFUI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad0"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCFSF (Convert Floating-Point from Signed Fraction)``() =
+    EVFSCFSF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a93"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCFSI (Convert Floating-Point from Signed Integer)``() =
+    EVFSCFSI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a91"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCFUF (Convert Floating-Point from Unsigned...)``() =
+    EVFSCFUF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a92"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCFUI (Convert Floating-Point from Unsigned Integer)``() =
+    EVFSCFUI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a90"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTSF (Signed Fraction)``() =
+    EFDCTSF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af7"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTSI (Signed Integer)``() =
+    EFDCTSI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af5"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTSIDZ (Signed Integer Doubleword with Round)``() =
+    EFDCTSIDZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03aeb"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTSIZ (Signed Integer with Round toward Zero)``() =
+    EFDCTSIZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03afa"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTUF (Unsigned Fraction)``() =
+    EFDCTUF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af6"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTUI (Unsigned Integer)``() =
+    EFDCTUI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af4"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTUIDZ (Unsigned Integer Doubleword with Round)``() =
+    EFDCTUIDZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03aea"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDCTUIZ (Unsigned Integer with Round toward Zero)``() =
+    EFDCTUIZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03af8"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCTSF (Convert Floating-Point to Signed Fraction)``() =
+    EFSCTSF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad7"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCTSI (Convert Floating-Point to Signed Integer)``() =
+    EFSCTSI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad5"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCTSIZ (Convert Floating-Point to Signed Integer...)``() =
+    EFSCTSIZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ada"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCTUF (Convert Floating-Point to Unsigned Fraction)``() =
+    EFSCTUF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad6"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCTUI (Convert Floating-Point to Unsigned Integer)``() =
+    EFSCTUI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad4"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSCTUIZ (Convert Floating-Point to Unsigned...)``() =
+    EFSCTUIZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03ad8"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCTSF (Convert Floating-Point to Signed Fraction)``() =
+    EVFSCTSF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a97"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCTSI (Convert Floating-Point to Signed Integer)``() =
+    EVFSCTSI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a95"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCTSIZ (Convert Floating-Point to Signed Integer...)``() =
+    EVFSCTSIZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a9a"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCTUF (Convert Floating-Point to Unsigned Fraction)``() =
+    EVFSCTUF ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a96"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCTUI (Convert Floating-Point to Unsigned Integer)``() =
+    EVFSCTUI ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a94"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSCTUIZ (Convert Floating-Point to Unsigned...)``() =
+    EVFSCTUIZ ** [ O.Reg R5; O.Reg R7 ]
+    |> testEngine "10a03a98"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSADD (Floating-Point Add)``() =
+    EFSADD ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ac0"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSDIV (Floating-Point Divide)``() =
+    EFSDIV ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ac9"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSMUL (Floating-Point Multiply)``() =
+    EFSMUL ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ac8"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSSUB (Floating-Point Subtract)``() =
+    EFSSUB ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ac1"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSADD (Floating-Point Add)``() =
+    EVFSADD ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a80"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSDIV (Floating-Point Divide)``() =
+    EVFSDIV ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a89"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSMUL (Floating-Point Multiply)``() =
+    EVFSMUL ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a88"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSSUB (Floating-Point Subtract)``() =
+    EVFSSUB ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63a81"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDADD (Floating-Point Double-Precision Add)``() =
+    EFDADD ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ae0"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDDIV (Floating-Point Double-Precision Divide)``() =
+    EFDDIV ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ae9"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDMUL (Floating-Point Double-Precision Multiply)``() =
+    EFDMUL ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ae8"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDSUB (Floating-Point Double-Precision Subtract)``() =
+    EFDSUB ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63ae1"
+
+/// The engine's extra register widths are part of the register API as well
+/// as of the variables used directly by its lifters.
+[<TestClass>]
+type SignalProcessingRegisterTests() =
+  [<TestMethod>]
+  member _.``[PPC] SPE registers expose their operand widths``() =
+    let high = [ for i in 0 .. 31 -> enum<Register> (int R0H + i) ]
+    for width in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.PPC, Endian.Big, width)
+      let factory = RegisterFactory isa :> IRegisterFactory
+      for reg in high @ [ ACC; SPEFSCR ] do
+        let expected = if reg = ACC then 64<rt> else 32<rt>
+        let actual = factory.GetRegType(Register.toRegID reg)
+        Assert.AreEqual(box expected, box actual, $"{reg} {width}")

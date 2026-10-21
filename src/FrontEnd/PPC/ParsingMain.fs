@@ -4106,7 +4106,8 @@ let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
   let bin = reader.ReadUInt32(span, 0)
   let struct (opcode, operands) =
     match ParsingLegacy.tryParse category (int rt) bin with
-    | ValueSome parsed -> parsed
+    | ValueSome parsed ->
+      parsed
     | ValueNone ->
       match ParsingSPE.tryParse category bin with
       | ValueSome parsed -> parsed
