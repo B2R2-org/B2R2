@@ -161,37 +161,14 @@ let doubleUpdate (ins: Instruction) bld kind =
       VSXFloat.writeLanes bld 64<rt> h l results)
   }
 
-/// The 16-bit value in halfword k (0 the high one) of a word.
-let private halfword (w: Expr) k =
-  if k = 0 then AST.xthi 16<rt> w else AST.xtlo 16<rt> w
-
 /// A bfloat16 as the single it is, a NaN quieted.
 let private widenBF16 (h: Expr) =
   let s = AST.zext 32<rt> h << numI32 16 32<rt>
   let lane = VSXFloat.single
   AST.ite (VSXFloat.isNaNOf lane s) (VSXFloat.quietOf lane s) s
 
-/// <summary>
-/// The NaN an element of a 16-bit update answers with, in POWER's order:
-/// halfword 1 of xA's word, then halfword 0, then halfword 0 and 1 of xB's,
-/// then the element itself where the form accumulates; quieted. Where none
-/// is a NaN but the call answered with one, the default NaN.
-/// </summary>
-let private settleDot widen kind x y acc res =
-  let lane = VSXFloat.single
-  let halves =
-    [ widen (halfword x 1)
-      widen (halfword x 0)
-      widen (halfword y 0)
-      widen (halfword y 1) ]
-  let candidates = if kind = 0 then halves else halves @ [ acc ]
-  let rec firstNaN = function
-    | [] ->
-      AST.ite (VSXFloat.isNaNOf lane res) (VSXFloat.defaultNaNOf lane) res
-    | c :: rest ->
-      let quiet = VSXFloat.quietOf lane c
-      AST.ite (VSXFloat.isNaNOf lane c) quiet (firstNaN rest)
-  firstNaN candidates
+/// Shares the staged NaN priorities of the unprefixed rank-2 updates.
+let private settleDot = VSXMatrix.settleDot
 
 /// <summary>
 /// xvf16ger2 and xvbf16ger2 and their accumulating forms: each element the
