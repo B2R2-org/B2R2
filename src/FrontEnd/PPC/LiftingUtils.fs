@@ -147,6 +147,8 @@ let transOpr (bld: ILowUIRBuilder) = function
     regVar bld reg
   | OprMem(d, b) -> (* FIXME *)
     loadNative bld bld.RegType (regVar bld b .+ numI32 d bld.RegType)
+  | OprMem64 _ ->
+    raise InvalidOperandException
   | OprImm imm ->
     numU64 imm bld.RegType
   | OprAddr addr ->

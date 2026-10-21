@@ -7421,3 +7421,217 @@ type VLEParserTests() =
     |> testVLE "7c642a14"
     LWZX ** [ O.Reg R3; O.Reg R4; O.Reg R5 ]
     |> testVLE "7c64282e"
+
+
+/// Prefixed instructions fetch their prefix and suffix in the selected order.
+[<TestClass>]
+type PrefixedParserTests() =
+  let check hex expected =
+    let words = ByteArray.ofHexString hex |> Array.chunkBySize 4
+    for endian in [ Endian.Big; Endian.Little ] do
+      let bytes =
+        words |> Array.collect (fun w ->
+          if endian = Endian.Big then w else Array.rev w)
+      let reader = BinReader.Init endian
+      let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+      let ins = parser.Parse(bytes, 0x20100000UL) :?> Instruction
+      Assert.AreEqual(box expected, box (ins.Opcode, ins.Operands))
+      Assert.AreEqual<uint32>(8u, ins.Length)
+      let small = Parser(WordSize.Bit32, reader) :> IInstructionParsable
+      Assert.Throws<ParsingFailureException>(fun () ->
+        small.Parse(bytes, 0x20100000UL) |> ignore)
+      |> ignore
+
+  [<TestMethod>]
+  member _.``[PPC] PADDI prefixed decoding``() =
+    let operands =
+      FourOperands(OprReg R5, OprReg R6, OprImm 12UL, OprImm 0UL)
+    check "0600000038a6000c" (PADDI, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLBZ prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R5, OprMem64(8L, R6), OprImm 0UL)
+    check "0600000088a60008" (PLBZ, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLD prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R5, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000e4a60008" (PLD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLFD prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F1, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000c8260008" (PLFD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLFS prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F1, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000c0260008" (PLFS, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLHA prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R5, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000a8a60008" (PLHA, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLHZ prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R5, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000a0a60008" (PLHZ, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLQ prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R10, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000e1460008" (PLQ, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLWA prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R5, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000a4a60008" (PLWA, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLWZ prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R5, OprMem64(8L, R6), OprImm 0UL)
+    check "0600000080a60008" (PLWZ, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLXSD prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg V1A, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000a8260008" (PLXSD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLXSSP prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg V1A, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000ac260008" (PLXSSP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLXV prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F1, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000c8260008" (PLXV, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PLXVP prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F2, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000e8460008" (PLXVP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PNOP prefixed decoding``() =
+    let operands =
+      NoOperand
+    check "0700000000000000" (PNOP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTB prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R8, OprMem64(8L, R6), OprImm 0UL)
+    check "0600000099060008" (PSTB, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTD prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R8, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000f5060008" (PSTD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTFD prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F1, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000d8260008" (PSTFD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTFS prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F1, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000d0260008" (PSTFS, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTH prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R8, OprMem64(8L, R6), OprImm 0UL)
+    check "06000000b1060008" (PSTH, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTQ prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R10, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000f1460008" (PSTQ, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTW prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg R8, OprMem64(8L, R6), OprImm 0UL)
+    check "0600000091060008" (PSTW, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTXSD prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg V1A, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000b8260008" (PSTXSD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTXSSP prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg V1A, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000bc260008" (PSTXSSP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTXV prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F1, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000d8260008" (PSTXV, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PSTXVP prefixed decoding``() =
+    let operands =
+      ThreeOperands(OprReg F2, OprMem64(8L, R6), OprImm 0UL)
+    check "04000000f8460008" (PSTXVP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] Prefixed displacement keeps all 34 bits``() =
+    let max =
+      FourOperands(OprReg R3, OprReg R0, OprImm 0x1ffffffffUL, OprImm 0UL)
+    check "0601ffff3860ffff" (PADDI, max)
+    let negative = OprImm 0xfffffffe00000000UL
+    let min = FourOperands(OprReg R3, OprReg R0, negative, OprImm 1UL)
+    check "0612000038600000" (PADDI, min)
+    let address = OprMem64(8589934591L, R0)
+    let operands = ThreeOperands(OprReg R5, address, OprImm 1UL)
+    check "0611ffff88a0ffff" (PLBZ, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] Invalid prefix combinations are refused``() =
+    let reader = BinReader.Init Endian.Big
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+    for hex in
+      [ "0610000038a6000c"
+        "04000000e1660008"
+        "04000000e14a0008"
+        "0480000088a60008"
+        "0700000048000000"
+        "06000000" ] do
+      Assert.Throws<ParsingFailureException>(fun () ->
+        parser.Parse(ByteArray.ofHexString hex, 0UL) |> ignore)
+      |> ignore
+
+  [<TestMethod>]
+  member _.``[PPC] Prefix cannot cross a 64 byte boundary``() =
+    let reader = BinReader.Init Endian.Big
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString "0600000038a6000c"
+    Assert.AreEqual<int>(8, parser.MaxInstructionSize)
+    Assert.AreEqual<uint32>(8u, parser.Parse(bytes, 56UL).Length)
+    Assert.Throws<ParsingFailureException>(fun () ->
+      parser.Parse(bytes, 60UL) |> ignore)
+    |> ignore

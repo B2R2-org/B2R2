@@ -392,4 +392,71 @@ type PPCRoundTripTests() =
       | Ok [ _; _ ] -> ()
       | Ok _ | Error _ -> Assert.Fail $"'{bad}' left the assembler unusable"
 
+  /// GNU as bytes cover every prefixed storage mnemonic and 34-bit edges.
+  [<TestMethod>]
+  member _.``Prefixed memory encodings match GNU bytes``() =
+    let words =
+      [ "0600000038a6000c"
+        "0600000088a60008"
+        "04000000e4a60008"
+        "06000000c8260008"
+        "06000000c0260008"
+        "06000000a8a60008"
+        "06000000a0a60008"
+        "04000000e1460008"
+        "04000000a4a60008"
+        "0600000080a60008"
+        "04000000a8260008"
+        "04000000ac260008"
+        "04000000c8260008"
+        "04000000e8460008"
+        "0700000000000000"
+        "0600000099060008"
+        "04000000f5060008"
+        "06000000d8260008"
+        "06000000d0260008"
+        "06000000b1060008"
+        "04000000f1460008"
+        "0600000091060008"
+        "04000000b8260008"
+        "04000000bc260008"
+        "04000000d8260008"
+        "04000000f8460008"
+        "0601ffff3860ffff"
+        "0612000038600000"
+        "0611ffff88a0ffff"
+        "04020000f5060000"
+        "04010000ebe60000" ]
+    for endian in [ Endian.Big; Endian.Little ] do
+      let isa = ISA(Architecture.PPC, endian, WordSize.Bit64)
+      let parser = Parser(isa, BinReader.Init endian) :> IInstructionParsable
+      let assembler = Assembler(isa, 0UL) :> ILowerable
+      for hex in words do
+        let bytes =
+          Convert.FromHexString hex |> Array.chunkBySize 4
+          |> Array.collect (fun w ->
+            if endian = Endian.Big then w else Array.rev w)
+        let ins = parser.Parse(bytes, 0UL)
+        let source = ins.Disasm()
+        match assembler.Lower source with
+        | Ok [ _, encoded ] ->
+          let expected = Convert.ToHexString bytes
+          let actual = Convert.ToHexString encoded
+          Assert.AreEqual<string>(expected, actual, source)
+        | _ ->
+          Assert.Fail source
+
+  [<TestMethod>]
+  member _.``Labels account for the prefix and suffix``() =
+    let isa = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let assembler = Assembler(isa, 0UL) :> ILowerable
+    let source = "b target\npaddi r3, r0, 1, 0\ntarget: addi r4, r0, 2"
+    match assembler.Lower source with
+    | Ok [ _, branch; _, prefix; _, last ] ->
+      Assert.AreEqual<string>("4800000C", Convert.ToHexString branch)
+      Assert.AreEqual<int>(8, prefix.Length)
+      Assert.AreEqual<string>("38800002", Convert.ToHexString last)
+    | _ ->
+      Assert.Fail source
+
 // vim: set tw=80 sts=2 sw=2:

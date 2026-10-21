@@ -37,6 +37,8 @@ type Operands =
 and Operand =
   | OprReg of Register
   | OprMem of Disp * Register
+  /// The signed 34-bit displacement of a prefixed storage instruction.
+  | OprMem64 of int64 * Register
   | OprImm of Imm
   | OprAddr of TargetAddr
   | OprBI of uint32
