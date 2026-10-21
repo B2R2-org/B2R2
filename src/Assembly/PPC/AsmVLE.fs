@@ -56,6 +56,64 @@ let private cForm value ins =
   | [] -> value
   | _ -> wrongOperands ins
 
+/// The four bits that name a general register in the 16-bit forms, which reach
+/// r0 to r7 and r24 to r31 only.
+let private gpr4 (reg: Register) =
+  if reg >= Register.R0 && reg <= Register.R7 then uint32 (int reg)
+  elif reg >= Register.R24 && reg <= Register.R31 then uint32 (int reg - 16)
+  else fail $"{reg} is not a register a 16-bit instruction can name"
+
+/// The four bits that name one of the registers r8 to r23, which the two
+/// instructions that move to or from the "alternate" ones reach.
+let private alternate4 (reg: Register) =
+  if reg >= Register.R8 && reg <= Register.R23 then uint32 (int reg - 8)
+  else fail $"{reg} is not an alternate register"
+
+/// An instruction of one register, which sits in the low four bits.
+let private rForm value ins =
+  match ins.Operands with
+  | [ Rg x ] -> value ||| gpr4 x
+  | _ -> wrongOperands ins
+
+/// An instruction of two registers: RX in the low four bits and RY above it.
+let private rrForm value ins =
+  match ins.Operands with
+  | [ Rg x; Rg y ] -> value ||| (gpr4 y <<< 4) ||| gpr4 x
+  | _ -> wrongOperands ins
+
+/// se_mtar, which moves RY to an alternate register named in the low bits.
+let private moveToAlternate ins =
+  match ins.Operands with
+  | [ Rg x; Rg y ] -> 0x0200u ||| (gpr4 y <<< 4) ||| alternate4 x
+  | _ -> wrongOperands ins
+
+/// se_mfar, which moves an alternate register named above RX to RX.
+let private moveFromAlternate ins =
+  match ins.Operands with
+  | [ Rg x; Rg y ] -> 0x0300u ||| (alternate4 y <<< 4) ||| gpr4 x
+  | _ -> wrongOperands ins
+
+/// An instruction of one register and a five-bit number above it.
+let private riForm value ins =
+  match ins.Operands with
+  | [ Rg x; Im n ] -> value ||| (unsigned 5 n <<< 4) ||| gpr4 x
+  | _ -> wrongOperands ins
+
+/// An instruction of one register and a number from 1 to 32, which the
+/// encoding keeps as one less.
+let private roForm value ins =
+  match ins.Operands with
+  | [ Rg x; Im n ] when n >= 1UL && n <= 32UL ->
+    value ||| (unsigned 5 (n - 1UL) <<< 4) ||| gpr4 x
+  | _ ->
+    wrongOperands ins
+
+/// se_li, whose seven-bit number sits above the register.
+let private loadImmediate ins =
+  match ins.Operands with
+  | [ Rg x; Im n ] -> 0x4800u ||| (unsigned 7 n <<< 4) ||| gpr4 x
+  | _ -> wrongOperands ins
+
 /// The instructions of Variable Length Encoding, by what they are called.
 let vleEncoders () =
   [ Op.SE_ILLEGAL, cForm 0x0000u
@@ -64,4 +122,30 @@ let vleEncoders () =
     Op.SE_BLR, cForm 0x0004u
     Op.SE_BLRL, cForm 0x0005u
     Op.SE_BCTR, cForm 0x0006u
-    Op.SE_BCTRL, cForm 0x0007u ]
+    Op.SE_BCTRL, cForm 0x0007u
+    Op.SE_NOT, rForm 0x0020u
+    Op.SE_NEG, rForm 0x0030u
+    Op.SE_MFLR, rForm 0x0080u
+    Op.SE_MTLR, rForm 0x0090u
+    Op.SE_MFCTR, rForm 0x00A0u
+    Op.SE_MTCTR, rForm 0x00B0u
+    Op.SE_EXTZB, rForm 0x00C0u
+    Op.SE_EXTSB, rForm 0x00D0u
+    Op.SE_EXTZH, rForm 0x00E0u
+    Op.SE_EXTSH, rForm 0x00F0u
+    Op.SE_MR, rrForm 0x0100u
+    Op.SE_MTAR, moveToAlternate
+    Op.SE_MFAR, moveFromAlternate
+    Op.SE_ADD, rrForm 0x0400u
+    Op.SE_MULLW, rrForm 0x0500u
+    Op.SE_SUB, rrForm 0x0600u
+    Op.SE_SUBF, rrForm 0x0700u
+    Op.SE_OR, rrForm 0x4400u
+    Op.SE_ANDC, rrForm 0x4500u
+    Op.SE_AND, rrForm 0x4600u
+    Op.SE_ANDdot, rrForm 0x4700u
+    Op.SE_ADDI, roForm 0x2000u
+    Op.SE_SUBI, roForm 0x2400u
+    Op.SE_SUBIdot, roForm 0x2600u
+    Op.SE_ANDI, riForm 0x2E00u
+    Op.SE_LI, loadImmediate ]

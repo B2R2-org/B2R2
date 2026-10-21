@@ -3244,6 +3244,54 @@ let translate (ins: Instruction) bld =
     VLELifter.branchToRegister ins bld Register.CTR false
   | Op.SE_BCTRL ->
     VLELifter.branchToRegister ins bld Register.CTR true
+  | Op.SE_MR | Op.SE_MTAR | Op.SE_MFAR ->
+    mr ins bld
+  | Op.SE_MFLR ->
+    mflr ins bld
+  | Op.SE_MTLR ->
+    mtlr ins bld
+  | Op.SE_MFCTR ->
+    mfctr ins bld
+  | Op.SE_MTCTR ->
+    mtctr ins bld
+  | Op.SE_LI ->
+    li ins bld
+  | Op.SE_EXTSB ->
+    extsb (VLELifter.monadic ins) false bld
+  | Op.SE_EXTSH ->
+    extsh (VLELifter.monadic ins) false bld
+  | Op.SE_EXTZB ->
+    rlwinm (VLELifter.clearLeft ins 24UL) false bld
+  | Op.SE_EXTZH ->
+    rlwinm (VLELifter.clearLeft ins 16UL) false bld
+  | Op.SE_ADD ->
+    add (VLELifter.dyadic ins) false false bld
+  | Op.SE_SUB ->
+    subf (VLELifter.reversed ins) false false bld
+  | Op.SE_SUBF ->
+    subf (VLELifter.dyadic ins) false false bld
+  | Op.SE_MULLW ->
+    mullw (VLELifter.dyadic ins) false false bld
+  | Op.SE_NEG ->
+    neg (VLELifter.monadic ins) false false bld
+  | Op.SE_NOT ->
+    nor (VLELifter.repeated ins) false bld
+  | Op.SE_AND ->
+    andx (VLELifter.dyadic ins) false bld
+  | Op.SE_ANDdot ->
+    andx (VLELifter.dyadic ins) true bld
+  | Op.SE_ANDC ->
+    andc (VLELifter.dyadic ins) false bld
+  | Op.SE_OR ->
+    orx (VLELifter.dyadic ins) false bld
+  | Op.SE_ADDI ->
+    VLELifter.addImmediate ins bld
+  | Op.SE_SUBI ->
+    VLELifter.subtractImmediate ins bld false
+  | Op.SE_SUBIdot ->
+    VLELifter.subtractImmediate ins bld true
+  | Op.SE_ANDI ->
+    VLELifter.andImmediate ins bld
   (* End of lane L. *)
   | o ->
 #if DEBUG

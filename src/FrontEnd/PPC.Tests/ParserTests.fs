@@ -6607,3 +6607,141 @@ type VLEParserTests() =
   [<TestMethod>]
   member _.``[PPC VLE] SE_BCTRL (branch to CTR and link)``() =
     testVLE "0007" <| (SE_BCTRL ** [])
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MR (move register)``() =
+    SE_MR ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0143"
+    SE_MR ** [ O.Reg R30; O.Reg R25 ]
+    |> testVLE "019e"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MTAR (move to alternate register)``() =
+    SE_MTAR ** [ O.Reg R10; O.Reg R4 ]
+    |> testVLE "0242"
+    SE_MTAR ** [ O.Reg R8; O.Reg R31 ]
+    |> testVLE "02f0"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MFAR (move from alternate register)``() =
+    SE_MFAR ** [ O.Reg R3; O.Reg R10 ]
+    |> testVLE "0323"
+    SE_MFAR ** [ O.Reg R24; O.Reg R23 ]
+    |> testVLE "03f8"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MFLR (move from LR)``() =
+    SE_MFLR ** [ O.Reg R3 ]
+    |> testVLE "0083"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MTLR (move to LR)``() =
+    SE_MTLR ** [ O.Reg R3 ]
+    |> testVLE "0093"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MFCTR (move from CTR)``() =
+    SE_MFCTR ** [ O.Reg R3 ]
+    |> testVLE "00a3"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MTCTR (move to CTR)``() =
+    SE_MTCTR ** [ O.Reg R3 ]
+    |> testVLE "00b3"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LI (load immediate)``() =
+    SE_LI ** [ O.Reg R3; O.Imm 0x64UL ]
+    |> testVLE "4e43"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTZB (extend zero byte)``() =
+    SE_EXTZB ** [ O.Reg R3 ]
+    |> testVLE "00c3"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTZH (extend zero halfword)``() =
+    SE_EXTZH ** [ O.Reg R3 ]
+    |> testVLE "00e3"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTSB (extend sign byte)``() =
+    SE_EXTSB ** [ O.Reg R3 ]
+    |> testVLE "00d3"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTSH (extend sign halfword)``() =
+    SE_EXTSH ** [ O.Reg R3 ]
+    |> testVLE "00f3"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ADD (add)``() =
+    SE_ADD ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0443"
+    SE_ADD ** [ O.Reg R31; O.Reg R24 ]
+    |> testVLE "048f"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUB (subtract)``() =
+    SE_SUB ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0643"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUBF (subtract from)``() =
+    SE_SUBF ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0743"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MULLW (multiply low word)``() =
+    SE_MULLW ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "0543"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_NEG (negate)``() =
+    SE_NEG ** [ O.Reg R3 ]
+    |> testVLE "0033"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_NOT (NOT)``() =
+    SE_NOT ** [ O.Reg R3 ]
+    |> testVLE "0023"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_AND (AND)``() =
+    SE_AND ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4643"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_AND. (AND, record)``() =
+    SE_ANDdot ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4743"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ANDC (AND with complement)``() =
+    SE_ANDC ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4543"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_OR (OR)``() =
+    SE_OR ** [ O.Reg R3; O.Reg R4 ]
+    |> testVLE "4443"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ADDI (add immediate)``() =
+    SE_ADDI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2043"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUBI (subtract immediate)``() =
+    SE_SUBI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2443"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUBI. (subtract immediate, record)``() =
+    SE_SUBIdot ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2643"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ANDI (AND immediate)``() =
+    SE_ANDI ** [ O.Reg R3; O.Imm 0x5UL ]
+    |> testVLE "2e53"
