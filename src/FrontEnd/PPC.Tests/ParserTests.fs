@@ -113,12 +113,20 @@ module private Shortcut =
   let operandsFromArray oprList =
     let oprArr = Array.ofList oprList
     match oprArr.Length with
-    | 0 -> NoOperand
-    | 1 -> OneOperand oprArr[0]
-    | 2 -> TwoOperands(oprArr[0], oprArr[1])
-    | 3 -> ThreeOperands(oprArr[0], oprArr[1], oprArr[2])
-    | 4 -> FourOperands(oprArr[0], oprArr[1], oprArr[2], oprArr[3])
-    | _ -> Terminator.futureFeature ()
+    | 0 ->
+      NoOperand
+    | 1 ->
+      OneOperand oprArr[0]
+    | 2 ->
+      TwoOperands(oprArr[0], oprArr[1])
+    | 3 ->
+      ThreeOperands(oprArr[0], oprArr[1], oprArr[2])
+    | 4 ->
+      FourOperands(oprArr[0], oprArr[1], oprArr[2], oprArr[3])
+    | 5 ->
+      FiveOperands(oprArr[0], oprArr[1], oprArr[2], oprArr[3], oprArr[4])
+    | _ ->
+      Terminator.futureFeature ()
 
   let ( ** ) opcode oprList = opcode, operandsFromArray oprList
 
@@ -7328,3 +7336,88 @@ type VLEParserTests() =
   member _.``[PPC VLE] E_CMPL16I (compare logical immediate word)``() =
     E_CMPL16I ** [ O.Reg R4; O.Imm 0x8005UL ]
     |> testVLE "7204a805"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_RLW (rotate left word)``() =
+    E_RLW ** [ O.Reg R3; O.Reg R4; O.Reg R5 ]
+    |> testVLE "7c832a30"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_RLW. (rotate left word, record)``() =
+    E_RLWdot ** [ O.Reg R3; O.Reg R4; O.Reg R5 ]
+    |> testVLE "7c832a31"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_RLWI (rotate left word immediate)``() =
+    E_RLWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL ]
+    |> testVLE "7c832a70"
+    E_RLWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x0UL ]
+    |> testVLE "7c830270"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_RLWI. (rotate left word immediate, record)``() =
+    E_RLWIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL ]
+    |> testVLE "7c832a71"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_RLWIMI (rotate and insert)``() =
+    E_RLWIMI ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL; O.Imm 0x6UL; O.Imm 0x7UL ]
+    |> testVLE "7483298e"
+    E_RLWIMI ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL; O.Imm 0x1cUL; O.Imm 0x3UL ]
+    |> testVLE "74832f06"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_RLWINM (rotate and mask)``() =
+    E_RLWINM ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL; O.Imm 0x6UL; O.Imm 0x7UL ]
+    |> testVLE "7483298f"
+    E_RLWINM ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL; O.Imm 0x1cUL; O.Imm 0x3UL ]
+    |> testVLE "74832f07"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SLWI (shift left word immediate)``() =
+    E_SLWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL ]
+    |> testVLE "7c832870"
+    E_SLWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x0UL ]
+    |> testVLE "7c830070"
+    E_SLWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x1fUL ]
+    |> testVLE "7c83f870"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SLWI. (shift left word immediate, record)``() =
+    E_SLWIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL ]
+    |> testVLE "7c832871"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SRWI (shift right word immediate)``() =
+    E_SRWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL ]
+    |> testVLE "7c832c70"
+    E_SRWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x0UL ]
+    |> testVLE "7c830470"
+    E_SRWI ** [ O.Reg R3; O.Reg R4; O.Imm 0x1fUL ]
+    |> testVLE "7c83fc70"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SRWI. (shift right word immediate, record)``() =
+    E_SRWIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0x5UL ]
+    |> testVLE "7c832c71"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPH (compare halfword)``() =
+    E_CMPH ** [ O.Reg CR1; O.Reg R4; O.Reg R5 ]
+    |> testVLE "7c84281c"
+    E_CMPH ** [ O.Reg CR3; O.Reg R31; O.Reg R30 ]
+    |> testVLE "7d9ff01c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPHL (compare halfword logical)``() =
+    E_CMPHL ** [ O.Reg CR1; O.Reg R4; O.Reg R5 ]
+    |> testVLE "7c84285c"
+    E_CMPHL ** [ O.Reg CR3; O.Reg R31; O.Reg R30 ]
+    |> testVLE "7d9ff05c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] Retains base integer instructions``() =
+    ADD ** [ O.Reg R3; O.Reg R4; O.Reg R5 ]
+    |> testVLE "7c642a14"
+    LWZX ** [ O.Reg R3; O.Reg R4; O.Reg R5 ]
+    |> testVLE "7c64282e"

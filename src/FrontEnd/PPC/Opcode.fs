@@ -2013,4 +2013,17 @@ type Opcode =
   | SE_SUBI = 8128
   | SE_SUBIdot = 8129
 
+  | E_CMPH = 8016
+  | E_CMPHL = 8018
+  | E_RLW = 8049
+  | E_RLWdot = 8050
+  | E_RLWI = 8051
+  | E_RLWIdot = 8052
+  | E_RLWIMI = 8053
+  | E_RLWINM = 8054
+  | E_SLWI = 8056
+  | E_SLWIdot = 8057
+  | E_SRWI = 8058
+  | E_SRWIdot = 8059
+
 type internal Op = Opcode

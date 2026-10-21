@@ -394,6 +394,30 @@ let storeToBase (ins: Instruction) (bld: ILowUIRBuilder) size =
     loadNative bld size ea := AST.xtlo size (regVar bld rz)
   }
 
+/// Rotates the low word, repeating it in both halves on a 64-bit processor.
+let rotateWord (ins: Instruction) (bld: ILowUIRBuilder) record =
+  lift bld ins {
+    let struct (dst, src, count) = transThreeOprs ins bld
+    let n = AST.xtlo 32<rt> count .& numI32 31 32<rt>
+    let result = tmpVar bld 32<rt>
+    result := rotateLeft (AST.xtlo 32<rt> src) n
+    let value =
+      if bld.RegType = 64<rt> then AST.concat result result else result
+    dst := value
+    if record then setCR0Reg bld dst else ()
+  }
+
+/// The word shifts clear the high word, including when the shift is zero.
+let shiftWord (ins: Instruction) (bld: ILowUIRBuilder) left record =
+  lift bld ins {
+    let struct (dst, src, count) = transThreeOprs ins bld
+    let word = AST.xtlo 32<rt> src
+    let n = AST.xtlo 32<rt> count
+    let value = if left then word << n else word >> n
+    dst := AST.zext bld.RegType value
+    if record then setCR0Reg bld dst else ()
+  }
+
 /// se_illegal, which asks for an Illegal Instruction exception.
 let illegal ins bld = sideEffects ins bld UndefinedInstruction
 
