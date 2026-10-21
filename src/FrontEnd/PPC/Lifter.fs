@@ -3322,6 +3322,24 @@ let translate (ins: Instruction) bld =
     VLELifter.compareHalfword ins bld true
   | Op.SE_CMPHL ->
     VLELifter.compareHalfword ins bld false
+  | Op.SE_B ->
+    VLELifter.branch ins bld false
+  | Op.SE_BL ->
+    VLELifter.branch ins bld true
+  | Op.SE_BC ->
+    VLELifter.branchOnBit ins bld
+  | Op.SE_LBZ ->
+    VLELifter.loadFromBase ins bld 8<rt>
+  | Op.SE_LHZ ->
+    VLELifter.loadFromBase ins bld 16<rt>
+  | Op.SE_LWZ ->
+    VLELifter.loadFromBase ins bld 32<rt>
+  | Op.SE_STB ->
+    VLELifter.storeToBase ins bld 8<rt>
+  | Op.SE_STH ->
+    VLELifter.storeToBase ins bld 16<rt>
+  | Op.SE_STW ->
+    VLELifter.storeToBase ins bld 32<rt>
   (* End of lane L. *)
   | o ->
 #if DEBUG
