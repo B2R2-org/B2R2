@@ -25,7 +25,9 @@
 
 /// <summary>
 /// Decodes the instructions of the Transactional Memory category (Power ISA
-/// 2.07B Book II chapter 5), all of primary opcode 31. No server instruction
+/// 2.07B Book II chapter 5), all of primary opcode 31, and the moves to and
+/// from its three special registers, which the manual gives their own
+/// mnemonics. No server instruction
 /// of the ISAs B2R2 reads shares their encodings, so they read the same under
 /// every category; ParsingLegacy hands a word here once its own tables are done
 /// with it.
@@ -106,10 +108,41 @@ let private parseTsr bin =
   else
     raise ParsingFailureException
 
+/// The number a move to or from a special register names, whose two five-bit
+/// halves sit in the word the other way round.
+let private sprNumber bin =
+  Bits.concat (Bits.extract bin 15u 11u) (Bits.extract bin 20u 16u) 5
+
+/// The move from one of the three special registers of the category, or of the
+/// upper word of TEXASR, which the manual's extended mnemonics name: the
+/// register is the one operand, and bit 31 is reserved. Any other special
+/// register is not this module's.
+let private parseSprMove (moves: Opcode[]) bin =
+  let spr = sprNumber bin
+  if spr < 128u || spr > 131u then
+    ValueNone
+  elif Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    let reg = getRegister (Bits.extract bin 25u 21u) |> OprReg
+    ValueSome(struct (moves[int spr - 128], OneOperand reg))
+
+/// The moves from TFHAR, TFIAR, TEXASR and TEXASRU, SPRs 128 to 131.
+let private fromSprs =
+  [| Op.MFTFHAR; Op.MFTFIAR; Op.MFTEXASR; Op.MFTEXASRU |]
+
+/// The moves to them.
+let private toSprs =
+  [| Op.MTTFHAR; Op.MTTFIAR; Op.MTTEXASR; Op.MTTEXASRU |]
+
 /// The instruction a word of primary opcode 31 is, if it is a transactional
 /// one, by its ten-bit extended opcode, at a register width of bitLen bits.
 let tryParse31 bitLen bin =
   match Bits.extract bin 10u 1u with
+  | 339u ->
+    parseSprMove fromSprs bin
+  | 467u ->
+    parseSprMove toSprs bin
   | 654u ->
     ValueSome(parseTbegin bin)
   | 686u ->
