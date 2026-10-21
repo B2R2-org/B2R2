@@ -13,6 +13,7 @@
     <Compile Include="AsmVMX.fs" />
     <Compile Include="AsmVSX.fs" />
     <Compile Include="AsmLegacy.fs" />
+    <Compile Include="AsmEmbedded.fs" />
     <Compile Include="AsmMain.fs" />
     <Compile Include="Assembler.fs" />
   </ItemGroup>

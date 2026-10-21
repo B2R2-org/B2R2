@@ -2724,6 +2724,8 @@ let translate (ins: Instruction) bld =
   (* Lane E: the categories Power ISA 2.07B has and 3.1 dropped. *)
   | o when LegacyLifter.lifts o ->
     LegacyLifter.translate ins bld
+  | o when EmbeddedLifter.lifts o ->
+    EmbeddedLifter.translate ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o
