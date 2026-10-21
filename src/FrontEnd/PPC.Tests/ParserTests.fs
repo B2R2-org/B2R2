@@ -4241,3 +4241,473 @@ type FloatParserTests() =
   member _.``[PPC] DADDQ of an odd register pair is invalid``() =
     testUnsupported WordSize.Bit32 "fc643004"
     testUnsupported WordSize.Bit64 "fc643004"
+
+/// What lane E's tests check a word against: processors whose categories
+/// read it, which the ISA's flags name.
+[<AutoOpen>]
+module private LegacyShortcut =
+  /// A PowerPC ISA of the given byte order and word size whose flags name
+  /// the given categories.
+  let isaOf endian wordSize (category: Category) =
+    ISA(Architecture.PPC, endian, wordSize, int category)
+
+  /// Decodes a word, given most significant byte first, on the processor an
+  /// ISA names.
+  let parse (isa: ISA) (hex: string) =
+    let word = ByteArray.ofHexString hex
+    let bytes = if isa.Endian = Endian.Big then word else Array.rev word
+    let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
+    parser.Parse(System.ReadOnlySpan(bytes: byte[]), 0UL) :?> Instruction
+
+  /// The three processors a word is read on: 32-bit and 64-bit big-endian,
+  /// and 64-bit little-endian.
+  let targets =
+    [ Endian.Big, WordSize.Bit32
+      Endian.Big, WordSize.Bit64
+      Endian.Little, WordSize.Bit64 ]
+
+  /// Asserts what a word decodes to on each target with the categories
+  /// given.
+  let testCategory category hex (opcode: Opcode, operands: Operands) =
+    for endian, wordSize in targets do
+      let ins = parse (isaOf endian wordSize category) hex
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode)
+      Assert.AreEqual<Operands>(operands, ins.Operands)
+
+  /// What a word is on a server processor, or InvalOP where it is nothing.
+  let serverReading hex =
+    let isa = isaOf Endian.Big WordSize.Bit32 Category.Server
+    try (parse isa hex).Opcode with :? ParsingFailureException -> InvalOP
+
+  /// Asserts what a word of primary opcode 4 decodes to where the Legacy
+  /// Integer Multiply-Accumulate category takes the opcode, and that the
+  /// server reading, which gives it to the vector facility, is not that.
+  let testLegacyMultiply hex (opcode, operands) =
+    let category = Category.LegacyIntegerMultiplyAccumulate
+    testCategory category hex (opcode, operands)
+    Assert.AreNotEqual<Opcode>(opcode, serverReading hex)
+
+/// The instructions of the Power ISA 2.07B categories 3.1 dropped: each word
+/// is the one binutils assembles for the processor that has the category
+/// (objdump -M440 for the multiply-accumulates), decoded on every target.
+[<TestClass>]
+type LegacyParserTests() =
+  [<TestMethod>]
+  member _.``[PPC] MACCHW (legacy multiply-accumulate)``() =
+    MACCHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63958"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHW. (legacy multiply-accumulate)``() =
+    MACCHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63959"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWO (legacy multiply-accumulate)``() =
+    MACCHWO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d58"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWO. (legacy multiply-accumulate)``() =
+    MACCHWOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d59"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWS (legacy multiply-accumulate)``() =
+    MACCHWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a639d8"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWS. (legacy multiply-accumulate)``() =
+    MACCHWSdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a639d9"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSO (legacy multiply-accumulate)``() =
+    MACCHWSO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63dd8"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSO. (legacy multiply-accumulate)``() =
+    MACCHWSOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63dd9"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSU (legacy multiply-accumulate)``() =
+    MACCHWSU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63998"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSU. (legacy multiply-accumulate)``() =
+    MACCHWSUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63999"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSUO (legacy multiply-accumulate)``() =
+    MACCHWSUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d98"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSUO. (legacy multiply-accumulate)``() =
+    MACCHWSUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d99"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWU (legacy multiply-accumulate)``() =
+    MACCHWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63918"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWU. (legacy multiply-accumulate)``() =
+    MACCHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63919"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWUO (legacy multiply-accumulate)``() =
+    MACCHWUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d18"
+
+  [<TestMethod>]
+  member _.``[PPC] MACCHWUO. (legacy multiply-accumulate)``() =
+    MACCHWUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d19"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHW (legacy negative multiply-accumulate)``() =
+    NMACCHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a6395c"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHW. (legacy negative multiply-accumulate)``() =
+    NMACCHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a6395d"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWO (legacy negative multiply-accumulate)``() =
+    NMACCHWO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d5c"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWO. (legacy negative multiply-accumulate)``() =
+    NMACCHWOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63d5d"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWS (legacy negative multiply-accumulate)``() =
+    NMACCHWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a639dc"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWS. (legacy negative multiply-accumulate)``() =
+    NMACCHWSdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a639dd"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWSO (legacy negative multiply-accumulate)``() =
+    NMACCHWSO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63ddc"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWSO. (legacy negative multiply-accumulate)``() =
+    NMACCHWSOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63ddd"
+
+  [<TestMethod>]
+  member _.``[PPC] MULCHW (legacy halfword multiply)``() =
+    MULCHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63950"
+
+  [<TestMethod>]
+  member _.``[PPC] MULCHW. (legacy halfword multiply)``() =
+    MULCHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63951"
+
+  [<TestMethod>]
+  member _.``[PPC] MULCHWU (legacy halfword multiply)``() =
+    MULCHWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63910"
+
+  [<TestMethod>]
+  member _.``[PPC] MULCHWU. (legacy halfword multiply)``() =
+    MULCHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63911"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHW (legacy multiply-accumulate)``() =
+    MACHHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63858"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHW. (legacy multiply-accumulate)``() =
+    MACHHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63859"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWO (legacy multiply-accumulate)``() =
+    MACHHWO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c58"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWO. (legacy multiply-accumulate)``() =
+    MACHHWOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c59"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWS (legacy multiply-accumulate)``() =
+    MACHHWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a638d8"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWS. (legacy multiply-accumulate)``() =
+    MACHHWSdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a638d9"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSO (legacy multiply-accumulate)``() =
+    MACHHWSO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63cd8"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSO. (legacy multiply-accumulate)``() =
+    MACHHWSOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63cd9"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSU (legacy multiply-accumulate)``() =
+    MACHHWSU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63898"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSU. (legacy multiply-accumulate)``() =
+    MACHHWSUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63899"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSUO (legacy multiply-accumulate)``() =
+    MACHHWSUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c98"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSUO. (legacy multiply-accumulate)``() =
+    MACHHWSUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c99"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWU (legacy multiply-accumulate)``() =
+    MACHHWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63818"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWU. (legacy multiply-accumulate)``() =
+    MACHHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63819"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWUO (legacy multiply-accumulate)``() =
+    MACHHWUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c18"
+
+  [<TestMethod>]
+  member _.``[PPC] MACHHWUO. (legacy multiply-accumulate)``() =
+    MACHHWUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c19"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHW (legacy negative multiply-accumulate)``() =
+    NMACHHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a6385c"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHW. (legacy negative multiply-accumulate)``() =
+    NMACHHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a6385d"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWO (legacy negative multiply-accumulate)``() =
+    NMACHHWO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c5c"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWO. (legacy negative multiply-accumulate)``() =
+    NMACHHWOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63c5d"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWS (legacy negative multiply-accumulate)``() =
+    NMACHHWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a638dc"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWS. (legacy negative multiply-accumulate)``() =
+    NMACHHWSdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a638dd"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWSO (legacy negative multiply-accumulate)``() =
+    NMACHHWSO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63cdc"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWSO. (legacy negative multiply-accumulate)``() =
+    NMACHHWSOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63cdd"
+
+  [<TestMethod>]
+  member _.``[PPC] MULHHW (legacy halfword multiply)``() =
+    MULHHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63850"
+
+  [<TestMethod>]
+  member _.``[PPC] MULHHW. (legacy halfword multiply)``() =
+    MULHHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63851"
+
+  [<TestMethod>]
+  member _.``[PPC] MULHHWU (legacy halfword multiply)``() =
+    MULHHWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63810"
+
+  [<TestMethod>]
+  member _.``[PPC] MULHHWU. (legacy halfword multiply)``() =
+    MULHHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63811"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHW (legacy multiply-accumulate)``() =
+    MACLHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b58"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHW. (legacy multiply-accumulate)``() =
+    MACLHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b59"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWO (legacy multiply-accumulate)``() =
+    MACLHWO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f58"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWO. (legacy multiply-accumulate)``() =
+    MACLHWOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f59"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWS (legacy multiply-accumulate)``() =
+    MACLHWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63bd8"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWS. (legacy multiply-accumulate)``() =
+    MACLHWSdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63bd9"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSO (legacy multiply-accumulate)``() =
+    MACLHWSO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63fd8"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSO. (legacy multiply-accumulate)``() =
+    MACLHWSOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63fd9"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSU (legacy multiply-accumulate)``() =
+    MACLHWSU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b98"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSU. (legacy multiply-accumulate)``() =
+    MACLHWSUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b99"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSUO (legacy multiply-accumulate)``() =
+    MACLHWSUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f98"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSUO. (legacy multiply-accumulate)``() =
+    MACLHWSUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f99"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWU (legacy multiply-accumulate)``() =
+    MACLHWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b18"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWU. (legacy multiply-accumulate)``() =
+    MACLHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b19"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWUO (legacy multiply-accumulate)``() =
+    MACLHWUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f18"
+
+  [<TestMethod>]
+  member _.``[PPC] MACLHWUO. (legacy multiply-accumulate)``() =
+    MACLHWUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f19"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHW (legacy negative multiply-accumulate)``() =
+    NMACLHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b5c"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHW. (legacy negative multiply-accumulate)``() =
+    NMACLHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b5d"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWO (legacy negative multiply-accumulate)``() =
+    NMACLHWO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f5c"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWO. (legacy negative multiply-accumulate)``() =
+    NMACLHWOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63f5d"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWS (legacy negative multiply-accumulate)``() =
+    NMACLHWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63bdc"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWS. (legacy negative multiply-accumulate)``() =
+    NMACLHWSdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63bdd"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWSO (legacy negative multiply-accumulate)``() =
+    NMACLHWSO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63fdc"
+
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWSO. (legacy negative multiply-accumulate)``() =
+    NMACLHWSOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63fdd"
+
+  [<TestMethod>]
+  member _.``[PPC] MULLHW (legacy halfword multiply)``() =
+    MULLHW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b50"
+
+  [<TestMethod>]
+  member _.``[PPC] MULLHW. (legacy halfword multiply)``() =
+    MULLHWdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b51"
+
+  [<TestMethod>]
+  member _.``[PPC] MULLHWU (legacy halfword multiply)``() =
+    MULLHWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b10"
+
+  [<TestMethod>]
+  member _.``[PPC] MULLHWU. (legacy halfword multiply)``() =
+    MULLHWUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testLegacyMultiply "10a63b11"

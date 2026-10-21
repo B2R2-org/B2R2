@@ -4102,9 +4102,12 @@ let private parseInstruction bitLen bin addr =
   | 0x3Fu -> parse3F bin
   | _ -> raise ParsingFailureException
 
-let parse lifter (span: ByteSpan) (reader: IBinReader) addr rt =
+let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
   let bin = reader.ReadUInt32(span, 0)
-  let struct (opcode, operands) = parseInstruction (int rt) bin addr
+  let struct (opcode, operands) =
+    match ParsingLegacy.tryParse category bin with
+    | ValueSome parsed -> parsed
+    | ValueNone -> parseInstruction (int rt) bin addr
   Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

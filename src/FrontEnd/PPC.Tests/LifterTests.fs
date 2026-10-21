@@ -27336,3 +27336,1673 @@ type FloatLifterTests() =
         let case = $"{a:x} {b:x} {fpscr:x} {nameOf isa}"
         expect crField (field out cr2) case
         expect after (out FPSCR) case
+
+/// <summary>
+/// Lane E's lifting tests: the instructions of the Power ISA 2.07B
+/// categories that 3.1 dropped. Every expected value is QEMU's
+/// (optest-powerpc/oracle), unless a test says the manual and QEMU part, or
+/// that QEMU does not run the instruction, in which case it is the manual's.
+/// </summary>
+[<TestClass>]
+type LegacyLifterTests() =
+  /// A PowerPC ISA of the given byte order and word size whose flags name
+  /// the given categories.
+  let isaOf endian wordSize (category: Category) =
+    ISA(Architecture.PPC, endian, wordSize, int category)
+
+  /// The statements one word lifts to on the processor an ISA names. The hex
+  /// is the word as the Power ISA draws it, most significant byte first.
+  let lifted (isa: ISA) (hex: string) =
+    let word = ByteArray.ofHexString hex
+    let bytes = if isa.Endian = Endian.Big then word else Array.rev word
+    let reader = BinReader.Init isa.Endian
+    let parser = Parser(isa, reader) :> IInstructionParsable
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    (parser.Parse(bytes, 0UL)).Translate builder
+
+  /// The variable of a register on the processor an ISA names.
+  let var (isa: ISA) r =
+    (RegisterFactory isa :> IRegisterFactory).GetRegVar(Register.toRegID r)
+
+  /// What each register holds after one word ran on the processor an ISA
+  /// names, over the registers given values and zero everywhere else.
+  let run isa hex given =
+    let inputs =
+      given
+      |> List.map (fun (r, v: uint64) ->
+        let x = var isa r
+        x, BitVector(v, Expr.typeOf x))
+    let read = IRRunner.run (lifted isa hex) inputs
+    fun r -> (read (var isa r)).ToUInt64()
+
+  /// CR0 as the Power ISA draws a CR field: LT, GT, EQ and SO from the most
+  /// significant bit down.
+  let cr0 after =
+    (after CR0_0 <<< 3) ||| (after CR0_1 <<< 2) ||| (after CR0_2 <<< 1)
+    ||| after CR0_3
+
+  /// The processors a legacy multiply runs on: the 440's own, 32-bit
+  /// big-endian, and the 64-bit ones, for which the manual defines the
+  /// instructions as well, leaving the high word of rT undefined.
+  let multiplyTargets =
+    [ isaOf Endian.Big WordSize.Bit32
+      isaOf Endian.Big WordSize.Bit64
+      isaOf Endian.Little WordSize.Bit64 ]
+    |> List.map (fun isaOn -> isaOn Category.LegacyIntegerMultiplyAccumulate)
+
+  /// The operand sets every legacy multiply runs over: rT, rA, rB and XER.
+  /// They are the oracle's seeds: small products; sums past the signed
+  /// maximum and below the signed minimum; a sum past the unsigned maximum;
+  /// SO already set; SO and OV already set with a product of two -2^15; OV
+  /// already set alone.
+  let multiplySeeds =
+    [ 0x10UL, 0x30002UL, 0x50007UL, 0x0UL
+      0x7ffffff0UL, 0x7fff7fffUL, 0x7fff7fffUL, 0x0UL
+      0x80000010UL, 0x80008000UL, 0x7fff7fffUL, 0x0UL
+      0xfffffff0UL, 0xffffffffUL, 0xffffffffUL, 0x0UL
+      0x12345678UL, 0x80000001UL, 0x1ffffUL, 0x80000000UL
+      0x7fffffffUL, 0x8000UL, 0x80000000UL, 0xc0000000UL
+      0xdeadbeefUL, 0xffff0001UL, 0x1ffffUL, 0x40000000UL ]
+
+  /// Runs a legacy multiply, rT r5, rA r6, rB r7, over each operand set on
+  /// every target, CR0 starting clear, and asserts what each outcome says:
+  /// the low word of rT, XER, and CR0. The high word of rT is not asserted:
+  /// the manual leaves it undefined.
+  let checkMultiply hex outcomes =
+    for isa in multiplyTargets do
+      for (rt, ra, rb, xer), (word, xerAfter, field) in
+        List.zip multiplySeeds outcomes do
+        let after = run isa hex [ R5, rt; R6, ra; R7, rb; XER, xer ]
+        let case = $"{hex} {rt:x} {ra:x} {rb:x} {xer:x} {isa}"
+        Assert.AreEqual(box word, box (after R5 &&& 0xffffffffUL), case)
+        Assert.AreEqual(box xerAfter, box (after XER), case)
+        Assert.AreEqual(box field, box (cr0 after), case)
+
+  /// <summary>
+  /// macchw rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, the result wrapping at 32 bits. qemu-ppc -cpu 440epx
+  /// (8.2.2) never writes rT for this form (deviations/ppc440/lma_qemu.c); the
+  /// expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHW accumulates modulo 2^32``() =
+    (* macchw r5, r6, r7 *)
+    checkMultiply "10a63958"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0x40008010UL, 0x0UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0xbfffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// macchw. rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, the result wrapping at 32 bits; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for this
+  /// form (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHW. accumulates modulo 2^32``() =
+    (* macchw. r5, r6, r7 *)
+    checkMultiply "10a63959"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0x40008010UL, 0x0UL, 0x4UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0xbfffffffUL, 0xc0000000UL, 0x9UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// macchwo rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, the result wrapping at 32 bits; OV says whether the exact
+  /// result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2) takes a
+  /// signed sum that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWO accumulates modulo 2^32``() =
+    (* macchwo r5, r6, r7 *)
+    checkMultiply "10a63d58"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0xc0000000UL, 0x0UL
+        0x40008010UL, 0xc0000000UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0xbfffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// macchwo. rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, the result wrapping at 32 bits; OV says whether the exact
+  /// result fit a word and SO keeps it; CR0 compares the word written with
+  /// zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows for
+  /// one that does not, and the other way round (deviations/ppc440/lma_qemu.c);
+  /// the expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWO. accumulates modulo 2^32``() =
+    (* macchwo. r5, r6, r7 *)
+    checkMultiply "10a63d59"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0xc0000000UL, 0x9UL
+        0x40008010UL, 0xc0000000UL, 0x5UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0xbfffffffUL, 0xc0000000UL, 0x9UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// macchws rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, saturating at the signed limits. qemu-ppc -cpu 440epx
+  /// (8.2.2) takes a signed sum that overflows for one that does not, and the
+  /// other way round (deviations/ppc440/lma_qemu.c); the expected values follow
+  /// the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWS accumulates with saturation``() =
+    (* macchws r5, r6, r7 *)
+    checkMultiply "10a639d8"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0x7fffffffUL, 0x0UL, 0x0UL
+        0x80000000UL, 0x0UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// macchws. rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, saturating at the signed limits; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that
+  /// overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWS. accumulates with saturation``() =
+    (* macchws. r5, r6, r7 *)
+    checkMultiply "10a639d9"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0x7fffffffUL, 0x0UL, 0x4UL
+        0x80000000UL, 0x0UL, 0x8UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// macchwso rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, saturating at the signed limits; OV says whether the exact
+  /// result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2) takes a
+  /// signed sum that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSO accumulates with saturation``() =
+    (* macchwso r5, r6, r7 *)
+    checkMultiply "10a63dd8"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0x80000000UL, 0xc0000000UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// macchwso. rT, rA, rB adds the signed product of rA's low halfword and rB's
+  /// high one to rT, saturating at the signed limits; OV says whether the exact
+  /// result fit a word and SO keeps it; CR0 compares the word written with
+  /// zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows for
+  /// one that does not, and the other way round (deviations/ppc440/lma_qemu.c);
+  /// the expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSO. accumulates with saturation``() =
+    (* macchwso. r5, r6, r7 *)
+    checkMultiply "10a63dd9"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0x80000000UL, 0xc0000000UL, 0x9UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// macchwsu rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, saturating at the unsigned limits. The expected
+  /// values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSU accumulates with saturation``() =
+    (* macchwsu r5, r6, r7 *)
+    checkMultiply "10a63998"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0xbfffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// macchwsu. rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, saturating at the unsigned limits; CR0 compares the
+  /// word written with zero. The expected values are what qemu-ppc -cpu 440epx
+  /// (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSU. accumulates with saturation``() =
+    (* macchwsu. r5, r6, r7 *)
+    checkMultiply "10a63999"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffffUL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0xbfffffffUL, 0xc0000000UL, 0x9UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// macchwsuo rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, saturating at the unsigned limits; OV says whether
+  /// the exact result fit a word and SO keeps it. The expected values are what
+  /// qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSUO accumulates with saturation``() =
+    (* macchwsuo r5, r6, r7 *)
+    checkMultiply "10a63d98"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0xc0000000UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0xbfffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// macchwsuo. rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, saturating at the unsigned limits; OV says whether
+  /// the exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. The expected values are what qemu-ppc -cpu 440epx (8.2.2)
+  /// leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWSUO. accumulates with saturation``() =
+    (* macchwsuo. r5, r6, r7 *)
+    checkMultiply "10a63d99"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffffUL, 0xc0000000UL, 0x9UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0xbfffffffUL, 0x80000000UL, 0x9UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// macchwu rT, rA, rB adds the unsigned product of rA's low halfword and rB's
+  /// high one to rT, the result wrapping at 32 bits. qemu-ppc -cpu 440epx
+  /// (8.2.2) never writes rT for this form (deviations/ppc440/lma_qemu.c); the
+  /// expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWU accumulates modulo 2^32``() =
+    (* macchwu r5, r6, r7 *)
+    checkMultiply "10a63918"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xfffdfff1UL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0xbfffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// macchwu. rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, the result wrapping at 32 bits; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for this
+  /// form (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWU. accumulates modulo 2^32``() =
+    (* macchwu. r5, r6, r7 *)
+    checkMultiply "10a63919"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xfffdfff1UL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0xbfffffffUL, 0xc0000000UL, 0x9UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// macchwuo rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, the result wrapping at 32 bits; OV says whether the
+  /// exact result fit a word and SO keeps it. The expected values are what
+  /// qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWUO accumulates modulo 2^32``() =
+    (* macchwuo r5, r6, r7 *)
+    checkMultiply "10a63d18"
+      [ 0x1aUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xfffdfff1UL, 0xc0000000UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0xbfffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// macchwuo. rT, rA, rB adds the unsigned product of rA's low halfword and
+  /// rB's high one to rT, the result wrapping at 32 bits; OV says whether the
+  /// exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. The expected values are what qemu-ppc -cpu 440epx (8.2.2)
+  /// leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACCHWUO. accumulates modulo 2^32``() =
+    (* macchwuo. r5, r6, r7 *)
+    checkMultiply "10a63d19"
+      [ 0x1aUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xfffdfff1UL, 0xc0000000UL, 0x9UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0xbfffffffUL, 0x80000000UL, 0x9UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// nmacchw rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, the result wrapping at 32 bits. qemu-ppc -cpu
+  /// 440epx (8.2.2) never writes rT for this form
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHW subtracts modulo 2^32``() =
+    (* nmacchw r5, r6, r7 *)
+    checkMultiply "10a6395c"
+      [ 0x6UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x3fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// nmacchw. rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, the result wrapping at 32 bits; CR0 compares the
+  /// word written with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for
+  /// this form (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHW. subtracts modulo 2^32``() =
+    (* nmacchw. r5, r6, r7 *)
+    checkMultiply "10a6395d"
+      [ 0x6UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x3fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// nmacchwo rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, the result wrapping at 32 bits; OV says whether the
+  /// exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWO subtracts modulo 2^32``() =
+    (* nmacchwo r5, r6, r7 *)
+    checkMultiply "10a63d5c"
+      [ 0x6UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x3fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// nmacchwo. rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, the result wrapping at 32 bits; OV says whether the
+  /// exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows
+  /// for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWO. subtracts modulo 2^32``() =
+    (* nmacchwo. r5, r6, r7 *)
+    checkMultiply "10a63d5d"
+      [ 0x6UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x3fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// nmacchws rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, saturating at the signed limits. qemu-ppc -cpu
+  /// 440epx (8.2.2) takes a signed sum that overflows for one that does not,
+  /// and the other way round (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWS subtracts with saturation``() =
+    (* nmacchws r5, r6, r7 *)
+    checkMultiply "10a639dc"
+      [ 0x6UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x3fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// nmacchws. rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, saturating at the signed limits; CR0 compares the
+  /// word written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum
+  /// that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWS. subtracts with saturation``() =
+    (* nmacchws. r5, r6, r7 *)
+    checkMultiply "10a639dd"
+      [ 0x6UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x3fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// nmacchwso rT, rA, rB subtracts the signed product of rA's low halfword and
+  /// rB's high one from rT, saturating at the signed limits; OV says whether
+  /// the exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWSO subtracts with saturation``() =
+    (* nmacchwso r5, r6, r7 *)
+    checkMultiply "10a63ddc"
+      [ 0x6UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x3fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// nmacchwso. rT, rA, rB subtracts the signed product of rA's low halfword
+  /// and rB's high one from rT, saturating at the signed limits; OV says
+  /// whether the exact result fit a word and SO keeps it; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that
+  /// overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACCHWSO. subtracts with saturation``() =
+    (* nmacchwso. r5, r6, r7 *)
+    checkMultiply "10a63ddd"
+      [ 0x6UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x3fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// mulchw rT, rA, rB writes the signed product of rA's low halfword and rB's
+  /// high one into rT. The expected values are what qemu-ppc -cpu 440epx
+  /// (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULCHW multiplies two halfwords``() =
+    (* mulchw r5, r6, r7 *)
+    checkMultiply "10a63950"
+      [ 0xaUL, 0x0UL, 0x0UL
+        0x3fff0001UL, 0x0UL, 0x0UL
+        0xc0008000UL, 0x0UL, 0x0UL
+        0x1UL, 0x0UL, 0x0UL
+        0x1UL, 0x80000000UL, 0x0UL
+        0x40000000UL, 0xc0000000UL, 0x0UL
+        0x1UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// mulchw. rT, rA, rB writes the signed product of rA's low halfword and rB's
+  /// high one into rT; CR0 compares the word written with zero. The expected
+  /// values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULCHW. multiplies two halfwords``() =
+    (* mulchw. r5, r6, r7 *)
+    checkMultiply "10a63951"
+      [ 0xaUL, 0x0UL, 0x4UL
+        0x3fff0001UL, 0x0UL, 0x4UL
+        0xc0008000UL, 0x0UL, 0x8UL
+        0x1UL, 0x0UL, 0x4UL
+        0x1UL, 0x80000000UL, 0x5UL
+        0x40000000UL, 0xc0000000UL, 0x5UL
+        0x1UL, 0x40000000UL, 0x4UL ]
+
+  /// <summary>
+  /// mulchwu rT, rA, rB writes the unsigned product of rA's low halfword and
+  /// rB's high one into rT. The expected values are what qemu-ppc -cpu 440epx
+  /// (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULCHWU multiplies two halfwords``() =
+    (* mulchwu r5, r6, r7 *)
+    checkMultiply "10a63910"
+      [ 0xaUL, 0x0UL, 0x0UL
+        0x3fff0001UL, 0x0UL, 0x0UL
+        0x3fff8000UL, 0x0UL, 0x0UL
+        0xfffe0001UL, 0x0UL, 0x0UL
+        0x1UL, 0x80000000UL, 0x0UL
+        0x40000000UL, 0xc0000000UL, 0x0UL
+        0x1UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// mulchwu. rT, rA, rB writes the unsigned product of rA's low halfword and
+  /// rB's high one into rT; CR0 compares the word written with zero. The
+  /// expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULCHWU. multiplies two halfwords``() =
+    (* mulchwu. r5, r6, r7 *)
+    checkMultiply "10a63911"
+      [ 0xaUL, 0x0UL, 0x4UL
+        0x3fff0001UL, 0x0UL, 0x4UL
+        0x3fff8000UL, 0x0UL, 0x4UL
+        0xfffe0001UL, 0x0UL, 0x8UL
+        0x1UL, 0x80000000UL, 0x5UL
+        0x40000000UL, 0xc0000000UL, 0x5UL
+        0x1UL, 0x40000000UL, 0x4UL ]
+
+  /// <summary>
+  /// machhw rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, the result wrapping at 32 bits. qemu-ppc -cpu
+  /// 440epx (8.2.2) never writes rT for this form
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHW accumulates modulo 2^32``() =
+    (* machhw r5, r6, r7 *)
+    checkMultiply "10a63858"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0x40008010UL, 0x0UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x1233d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// machhw. rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, the result wrapping at 32 bits; CR0 compares the
+  /// word written with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for
+  /// this form (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHW. accumulates modulo 2^32``() =
+    (* machhw. r5, r6, r7 *)
+    checkMultiply "10a63859"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0x40008010UL, 0x0UL, 0x4UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x1233d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// machhwo rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, the result wrapping at 32 bits; OV says whether
+  /// the exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWO accumulates modulo 2^32``() =
+    (* machhwo r5, r6, r7 *)
+    checkMultiply "10a63c58"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0xc0000000UL, 0x0UL
+        0x40008010UL, 0xc0000000UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x1233d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// machhwo. rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, the result wrapping at 32 bits; OV says whether
+  /// the exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows
+  /// for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWO. accumulates modulo 2^32``() =
+    (* machhwo. r5, r6, r7 *)
+    checkMultiply "10a63c59"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0xc0000000UL, 0x9UL
+        0x40008010UL, 0xc0000000UL, 0x5UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x1233d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// machhws rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, saturating at the signed limits. qemu-ppc -cpu
+  /// 440epx (8.2.2) takes a signed sum that overflows for one that does not,
+  /// and the other way round (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWS accumulates with saturation``() =
+    (* machhws r5, r6, r7 *)
+    checkMultiply "10a638d8"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0x7fffffffUL, 0x0UL, 0x0UL
+        0x80000000UL, 0x0UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x1233d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// machhws. rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, saturating at the signed limits; CR0 compares
+  /// the word written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed
+  /// sum that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWS. accumulates with saturation``() =
+    (* machhws. r5, r6, r7 *)
+    checkMultiply "10a638d9"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0x7fffffffUL, 0x0UL, 0x4UL
+        0x80000000UL, 0x0UL, 0x8UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x1233d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// machhwso rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, saturating at the signed limits; OV says whether
+  /// the exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSO accumulates with saturation``() =
+    (* machhwso r5, r6, r7 *)
+    checkMultiply "10a63cd8"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0x80000000UL, 0xc0000000UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x1233d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// machhwso. rT, rA, rB adds the signed product of the high halfwords of rA's
+  /// and rB's low words to rT, saturating at the signed limits; OV says whether
+  /// the exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows
+  /// for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSO. accumulates with saturation``() =
+    (* machhwso. r5, r6, r7 *)
+    checkMultiply "10a63cd9"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0x80000000UL, 0xc0000000UL, 0x9UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x1233d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// machhwsu rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, saturating at the unsigned limits. The
+  /// expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSU accumulates with saturation``() =
+    (* machhwsu r5, r6, r7 *)
+    checkMultiply "10a63898"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0x0UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeaebeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// machhwsu. rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, saturating at the unsigned limits; CR0
+  /// compares the word written with zero. The expected values are what qemu-ppc
+  /// -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSU. accumulates with saturation``() =
+    (* machhwsu. r5, r6, r7 *)
+    checkMultiply "10a63899"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffffUL, 0x0UL, 0x8UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeaebeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// machhwsuo rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, saturating at the unsigned limits; OV says
+  /// whether the exact result fit a word and SO keeps it. The expected values
+  /// are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSUO accumulates with saturation``() =
+    (* machhwsuo r5, r6, r7 *)
+    checkMultiply "10a63c98"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0xc0000000UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeaebeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// machhwsuo. rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, saturating at the unsigned limits; OV says
+  /// whether the exact result fit a word and SO keeps it; CR0 compares the word
+  /// written with zero. The expected values are what qemu-ppc -cpu 440epx
+  /// (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWSUO. accumulates with saturation``() =
+    (* machhwsuo. r5, r6, r7 *)
+    checkMultiply "10a63c99"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffffUL, 0xc0000000UL, 0x9UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeaebeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// machhwu rT, rA, rB adds the unsigned product of the high halfwords of rA's
+  /// and rB's low words to rT, the result wrapping at 32 bits. qemu-ppc -cpu
+  /// 440epx (8.2.2) never writes rT for this form
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWU accumulates modulo 2^32``() =
+    (* machhwu r5, r6, r7 *)
+    checkMultiply "10a63818"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xfffdfff1UL, 0x0UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeaebeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// machhwu. rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, the result wrapping at 32 bits; CR0
+  /// compares the word written with zero. qemu-ppc -cpu 440epx (8.2.2) never
+  /// writes rT for this form (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWU. accumulates modulo 2^32``() =
+    (* machhwu. r5, r6, r7 *)
+    checkMultiply "10a63819"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xfffdfff1UL, 0x0UL, 0x8UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeaebeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// machhwuo rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, the result wrapping at 32 bits; OV says
+  /// whether the exact result fit a word and SO keeps it. The expected values
+  /// are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWUO accumulates modulo 2^32``() =
+    (* machhwuo r5, r6, r7 *)
+    checkMultiply "10a63c18"
+      [ 0x1fUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xfffdfff1UL, 0xc0000000UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeaebeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// machhwuo. rT, rA, rB adds the unsigned product of the high halfwords of
+  /// rA's and rB's low words to rT, the result wrapping at 32 bits; OV says
+  /// whether the exact result fit a word and SO keeps it; CR0 compares the word
+  /// written with zero. The expected values are what qemu-ppc -cpu 440epx
+  /// (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACHHWUO. accumulates modulo 2^32``() =
+    (* machhwuo. r5, r6, r7 *)
+    checkMultiply "10a63c19"
+      [ 0x1fUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xfffdfff1UL, 0xc0000000UL, 0x9UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeaebeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// nmachhw rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, the result wrapping at 32 bits. qemu-ppc
+  /// -cpu 440epx (8.2.2) never writes rT for this form
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHW subtracts modulo 2^32``() =
+    (* nmachhw r5, r6, r7 *)
+    checkMultiply "10a6385c"
+      [ 0x1UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// nmachhw. rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, the result wrapping at 32 bits; CR0
+  /// compares the word written with zero. qemu-ppc -cpu 440epx (8.2.2) never
+  /// writes rT for this form (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHW. subtracts modulo 2^32``() =
+    (* nmachhw. r5, r6, r7 *)
+    checkMultiply "10a6385d"
+      [ 0x1UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// nmachhwo rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, the result wrapping at 32 bits; OV says
+  /// whether the exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx
+  /// (8.2.2) takes a signed sum that overflows for one that does not, and the
+  /// other way round (deviations/ppc440/lma_qemu.c); the expected values follow
+  /// the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWO subtracts modulo 2^32``() =
+    (* nmachhwo r5, r6, r7 *)
+    checkMultiply "10a63c5c"
+      [ 0x1UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// nmachhwo. rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, the result wrapping at 32 bits; OV says
+  /// whether the exact result fit a word and SO keeps it; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that
+  /// overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWO. subtracts modulo 2^32``() =
+    (* nmachhwo. r5, r6, r7 *)
+    checkMultiply "10a63c5d"
+      [ 0x1UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// nmachhws rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, saturating at the signed limits. qemu-ppc
+  /// -cpu 440epx (8.2.2) takes a signed sum that overflows for one that does
+  /// not, and the other way round (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWS subtracts with saturation``() =
+    (* nmachhws r5, r6, r7 *)
+    checkMultiply "10a638dc"
+      [ 0x1UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// nmachhws. rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, saturating at the signed limits; CR0
+  /// compares the word written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a
+  /// signed sum that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWS. subtracts with saturation``() =
+    (* nmachhws. r5, r6, r7 *)
+    checkMultiply "10a638dd"
+      [ 0x1UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// nmachhwso rT, rA, rB subtracts the signed product of the high halfwords of
+  /// rA's and rB's low words from rT, saturating at the signed limits; OV says
+  /// whether the exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx
+  /// (8.2.2) takes a signed sum that overflows for one that does not, and the
+  /// other way round (deviations/ppc440/lma_qemu.c); the expected values follow
+  /// the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWSO subtracts with saturation``() =
+    (* nmachhwso r5, r6, r7 *)
+    checkMultiply "10a63cdc"
+      [ 0x1UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x1234d678UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// nmachhwso. rT, rA, rB subtracts the signed product of the high halfwords
+  /// of rA's and rB's low words from rT, saturating at the signed limits; OV
+  /// says whether the exact result fit a word and SO keeps it; CR0 compares the
+  /// word written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum
+  /// that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACHHWSO. subtracts with saturation``() =
+    (* nmachhwso. r5, r6, r7 *)
+    checkMultiply "10a63cdd"
+      [ 0x1UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x1234d678UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// mulhhw rT, rA, rB writes the signed product of the high halfwords of rA's
+  /// and rB's low words into rT. The expected values are what qemu-ppc -cpu
+  /// 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULHHW multiplies two halfwords``() =
+    (* mulhhw r5, r6, r7 *)
+    checkMultiply "10a63850"
+      [ 0xfUL, 0x0UL, 0x0UL
+        0x3fff0001UL, 0x0UL, 0x0UL
+        0xc0008000UL, 0x0UL, 0x0UL
+        0x1UL, 0x0UL, 0x0UL
+        0xffff8000UL, 0x80000000UL, 0x0UL
+        0x0UL, 0xc0000000UL, 0x0UL
+        0xffffffffUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// mulhhw. rT, rA, rB writes the signed product of the high halfwords of rA's
+  /// and rB's low words into rT; CR0 compares the word written with zero. The
+  /// expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULHHW. multiplies two halfwords``() =
+    (* mulhhw. r5, r6, r7 *)
+    checkMultiply "10a63851"
+      [ 0xfUL, 0x0UL, 0x4UL
+        0x3fff0001UL, 0x0UL, 0x4UL
+        0xc0008000UL, 0x0UL, 0x8UL
+        0x1UL, 0x0UL, 0x4UL
+        0xffff8000UL, 0x80000000UL, 0x9UL
+        0x0UL, 0xc0000000UL, 0x3UL
+        0xffffffffUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// mulhhwu rT, rA, rB writes the unsigned product of the high halfwords of
+  /// rA's and rB's low words into rT. The expected values are what qemu-ppc
+  /// -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULHHWU multiplies two halfwords``() =
+    (* mulhhwu r5, r6, r7 *)
+    checkMultiply "10a63810"
+      [ 0xfUL, 0x0UL, 0x0UL
+        0x3fff0001UL, 0x0UL, 0x0UL
+        0x3fff8000UL, 0x0UL, 0x0UL
+        0xfffe0001UL, 0x0UL, 0x0UL
+        0x8000UL, 0x80000000UL, 0x0UL
+        0x0UL, 0xc0000000UL, 0x0UL
+        0xffffUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// mulhhwu. rT, rA, rB writes the unsigned product of the high halfwords of
+  /// rA's and rB's low words into rT; CR0 compares the word written with zero.
+  /// The expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULHHWU. multiplies two halfwords``() =
+    (* mulhhwu. r5, r6, r7 *)
+    checkMultiply "10a63811"
+      [ 0xfUL, 0x0UL, 0x4UL
+        0x3fff0001UL, 0x0UL, 0x4UL
+        0x3fff8000UL, 0x0UL, 0x4UL
+        0xfffe0001UL, 0x0UL, 0x8UL
+        0x8000UL, 0x80000000UL, 0x5UL
+        0x0UL, 0xc0000000UL, 0x3UL
+        0xffffUL, 0x40000000UL, 0x4UL ]
+
+  /// <summary>
+  /// maclhw rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, the result wrapping at 32 bits. qemu-ppc -cpu 440epx (8.2.2)
+  /// never writes rT for this form (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHW accumulates modulo 2^32``() =
+    (* maclhw r5, r6, r7 *)
+    checkMultiply "10a63b58"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0x40008010UL, 0x0UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhw. rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, the result wrapping at 32 bits; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for this form
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHW. accumulates modulo 2^32``() =
+    (* maclhw. r5, r6, r7 *)
+    checkMultiply "10a63b59"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0x40008010UL, 0x0UL, 0x4UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhwo rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, the result wrapping at 32 bits; OV says whether the exact result
+  /// fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2) takes a signed
+  /// sum that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWO accumulates modulo 2^32``() =
+    (* maclhwo r5, r6, r7 *)
+    checkMultiply "10a63f58"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0xc0000000UL, 0x0UL
+        0x40008010UL, 0xc0000000UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhwo. rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, the result wrapping at 32 bits; OV says whether the exact result
+  /// fit a word and SO keeps it; CR0 compares the word written with zero.
+  /// qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows for one
+  /// that does not, and the other way round (deviations/ppc440/lma_qemu.c); the
+  /// expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWO. accumulates modulo 2^32``() =
+    (* maclhwo. r5, r6, r7 *)
+    checkMultiply "10a63f59"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0xc0000000UL, 0x9UL
+        0x40008010UL, 0xc0000000UL, 0x5UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhws rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, saturating at the signed limits. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWS accumulates with saturation``() =
+    (* maclhws r5, r6, r7 *)
+    checkMultiply "10a63bd8"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0x7fffffffUL, 0x0UL, 0x0UL
+        0x80000000UL, 0x0UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhws. rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, saturating at the signed limits; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows
+  /// for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWS. accumulates with saturation``() =
+    (* maclhws. r5, r6, r7 *)
+    checkMultiply "10a63bd9"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0x7fffffffUL, 0x0UL, 0x4UL
+        0x80000000UL, 0x0UL, 0x8UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhwso rT, rA, rB adds the signed product of the low halfwords of rA and
+  /// rB to rT, saturating at the signed limits; OV says whether the exact
+  /// result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2) takes a
+  /// signed sum that overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSO accumulates with saturation``() =
+    (* maclhwso r5, r6, r7 *)
+    checkMultiply "10a63fd8"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0x80000000UL, 0xc0000000UL, 0x0UL
+        0xfffffff1UL, 0x0UL, 0x0UL
+        0x12345677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhwso. rT, rA, rB adds the signed product of the low halfwords of rA
+  /// and rB to rT, saturating at the signed limits; OV says whether the exact
+  /// result fit a word and SO keeps it; CR0 compares the word written with
+  /// zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows for
+  /// one that does not, and the other way round (deviations/ppc440/lma_qemu.c);
+  /// the expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSO. accumulates with saturation``() =
+    (* maclhwso. r5, r6, r7 *)
+    checkMultiply "10a63fd9"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0x80000000UL, 0xc0000000UL, 0x9UL
+        0xfffffff1UL, 0x0UL, 0x8UL
+        0x12345677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhwsu rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, saturating at the unsigned limits. The expected values are
+  /// what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSU accumulates with saturation``() =
+    (* maclhwsu r5, r6, r7 *)
+    checkMultiply "10a63b98"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0x0UL, 0x0UL
+        0x12355677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeaebeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhwsu. rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, saturating at the unsigned limits; CR0 compares the word
+  /// written with zero. The expected values are what qemu-ppc -cpu 440epx
+  /// (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSU. accumulates with saturation``() =
+    (* maclhwsu. r5, r6, r7 *)
+    checkMultiply "10a63b99"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffffUL, 0x0UL, 0x8UL
+        0x12355677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeaebeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhwsuo rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, saturating at the unsigned limits; OV says whether the exact
+  /// result fit a word and SO keeps it. The expected values are what qemu-ppc
+  /// -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSUO accumulates with saturation``() =
+    (* maclhwsuo r5, r6, r7 *)
+    checkMultiply "10a63f98"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0xc0000000UL, 0x0UL
+        0x12355677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeaebeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhwsuo. rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, saturating at the unsigned limits; OV says whether the exact
+  /// result fit a word and SO keeps it; CR0 compares the word written with
+  /// zero. The expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWSUO. accumulates with saturation``() =
+    (* maclhwsuo. r5, r6, r7 *)
+    checkMultiply "10a63f99"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffffUL, 0xc0000000UL, 0x9UL
+        0x12355677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeaebeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhwu rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, the result wrapping at 32 bits. qemu-ppc -cpu 440epx (8.2.2)
+  /// never writes rT for this form (deviations/ppc440/lma_qemu.c); the expected
+  /// values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWU accumulates modulo 2^32``() =
+    (* maclhwu r5, r6, r7 *)
+    checkMultiply "10a63b18"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xfffdfff1UL, 0x0UL, 0x0UL
+        0x12355677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeaebeeeUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhwu. rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, the result wrapping at 32 bits; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for this
+  /// form (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWU. accumulates modulo 2^32``() =
+    (* maclhwu. r5, r6, r7 *)
+    checkMultiply "10a63b19"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xfffdfff1UL, 0x0UL, 0x8UL
+        0x12355677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeaebeeeUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// maclhwuo rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, the result wrapping at 32 bits; OV says whether the exact
+  /// result fit a word and SO keeps it. The expected values are what qemu-ppc
+  /// -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWUO accumulates modulo 2^32``() =
+    (* maclhwuo r5, r6, r7 *)
+    checkMultiply "10a63f18"
+      [ 0x1eUL, 0x0UL, 0x0UL
+        0xbffefff1UL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xfffdfff1UL, 0xc0000000UL, 0x0UL
+        0x12355677UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeaebeeeUL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// maclhwuo. rT, rA, rB adds the unsigned product of the low halfwords of rA
+  /// and rB to rT, the result wrapping at 32 bits; OV says whether the exact
+  /// result fit a word and SO keeps it; CR0 compares the word written with
+  /// zero. The expected values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MACLHWUO. accumulates modulo 2^32``() =
+    (* maclhwuo. r5, r6, r7 *)
+    checkMultiply "10a63f19"
+      [ 0x1eUL, 0x0UL, 0x4UL
+        0xbffefff1UL, 0x0UL, 0x8UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xfffdfff1UL, 0xc0000000UL, 0x9UL
+        0x12355677UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeaebeeeUL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// nmaclhw rT, rA, rB subtracts the signed product of the low halfwords of rA
+  /// and rB from rT, the result wrapping at 32 bits. qemu-ppc -cpu 440epx
+  /// (8.2.2) never writes rT for this form (deviations/ppc440/lma_qemu.c); the
+  /// expected values follow the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHW subtracts modulo 2^32``() =
+    (* nmaclhw r5, r6, r7 *)
+    checkMultiply "10a63b5c"
+      [ 0x2UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// nmaclhw. rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, the result wrapping at 32 bits; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) never writes rT for this
+  /// form (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHW. subtracts modulo 2^32``() =
+    (* nmaclhw. r5, r6, r7 *)
+    checkMultiply "10a63b5d"
+      [ 0x2UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// nmaclhwo rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, the result wrapping at 32 bits; OV says whether the
+  /// exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWO subtracts modulo 2^32``() =
+    (* nmaclhwo r5, r6, r7 *)
+    checkMultiply "10a63f5c"
+      [ 0x2UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// nmaclhwo. rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, the result wrapping at 32 bits; OV says whether the
+  /// exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows
+  /// for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWO. subtracts modulo 2^32``() =
+    (* nmaclhwo. r5, r6, r7 *)
+    checkMultiply "10a63f5d"
+      [ 0x2UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// nmaclhws rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, saturating at the signed limits. qemu-ppc -cpu 440epx
+  /// (8.2.2) takes a signed sum that overflows for one that does not, and the
+  /// other way round (deviations/ppc440/lma_qemu.c); the expected values follow
+  /// the manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWS subtracts with saturation``() =
+    (* nmaclhws r5, r6, r7 *)
+    checkMultiply "10a63bdc"
+      [ 0x2UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0xc0000000UL, 0x0UL
+        0xdeadbef0UL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// nmaclhws. rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, saturating at the signed limits; CR0 compares the word
+  /// written with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that
+  /// overflows for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWS. subtracts with saturation``() =
+    (* nmaclhws. r5, r6, r7 *)
+    checkMultiply "10a63bdd"
+      [ 0x2UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0xc0000000UL, 0x5UL
+        0xdeadbef0UL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// nmaclhwso rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, saturating at the signed limits; OV says whether the
+  /// exact result fit a word and SO keeps it. qemu-ppc -cpu 440epx (8.2.2)
+  /// takes a signed sum that overflows for one that does not, and the other way
+  /// round (deviations/ppc440/lma_qemu.c); the expected values follow the
+  /// manual's pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWSO subtracts with saturation``() =
+    (* nmaclhwso r5, r6, r7 *)
+    checkMultiply "10a63fdc"
+      [ 0x2UL, 0x0UL, 0x0UL
+        0x4000ffefUL, 0x0UL, 0x0UL
+        0xbfff8010UL, 0x0UL, 0x0UL
+        0xffffffefUL, 0x0UL, 0x0UL
+        0x12345679UL, 0x80000000UL, 0x0UL
+        0x7fffffffUL, 0x80000000UL, 0x0UL
+        0xdeadbef0UL, 0x0UL, 0x0UL ]
+
+  /// <summary>
+  /// nmaclhwso. rT, rA, rB subtracts the signed product of the low halfwords of
+  /// rA and rB from rT, saturating at the signed limits; OV says whether the
+  /// exact result fit a word and SO keeps it; CR0 compares the word written
+  /// with zero. qemu-ppc -cpu 440epx (8.2.2) takes a signed sum that overflows
+  /// for one that does not, and the other way round
+  /// (deviations/ppc440/lma_qemu.c); the expected values follow the manual's
+  /// pseudocode.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] NMACLHWSO. subtracts with saturation``() =
+    (* nmaclhwso. r5, r6, r7 *)
+    checkMultiply "10a63fdd"
+      [ 0x2UL, 0x0UL, 0x4UL
+        0x4000ffefUL, 0x0UL, 0x4UL
+        0xbfff8010UL, 0x0UL, 0x8UL
+        0xffffffefUL, 0x0UL, 0x8UL
+        0x12345679UL, 0x80000000UL, 0x5UL
+        0x7fffffffUL, 0x80000000UL, 0x5UL
+        0xdeadbef0UL, 0x0UL, 0x8UL ]
+
+  /// <summary>
+  /// mullhw rT, rA, rB writes the signed product of the low halfwords of rA and
+  /// rB into rT. The expected values are what qemu-ppc -cpu 440epx (8.2.2)
+  /// leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULLHW multiplies two halfwords``() =
+    (* mullhw r5, r6, r7 *)
+    checkMultiply "10a63b50"
+      [ 0xeUL, 0x0UL, 0x0UL
+        0x3fff0001UL, 0x0UL, 0x0UL
+        0xc0008000UL, 0x0UL, 0x0UL
+        0x1UL, 0x0UL, 0x0UL
+        0xffffffffUL, 0x80000000UL, 0x0UL
+        0x0UL, 0xc0000000UL, 0x0UL
+        0xffffffffUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// mullhw. rT, rA, rB writes the signed product of the low halfwords of rA
+  /// and rB into rT; CR0 compares the word written with zero. The expected
+  /// values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULLHW. multiplies two halfwords``() =
+    (* mullhw. r5, r6, r7 *)
+    checkMultiply "10a63b51"
+      [ 0xeUL, 0x0UL, 0x4UL
+        0x3fff0001UL, 0x0UL, 0x4UL
+        0xc0008000UL, 0x0UL, 0x8UL
+        0x1UL, 0x0UL, 0x4UL
+        0xffffffffUL, 0x80000000UL, 0x9UL
+        0x0UL, 0xc0000000UL, 0x3UL
+        0xffffffffUL, 0x40000000UL, 0x8UL ]
+
+  /// <summary>
+  /// mullhwu rT, rA, rB writes the unsigned product of the low halfwords of rA
+  /// and rB into rT. The expected values are what qemu-ppc -cpu 440epx (8.2.2)
+  /// leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULLHWU multiplies two halfwords``() =
+    (* mullhwu r5, r6, r7 *)
+    checkMultiply "10a63b10"
+      [ 0xeUL, 0x0UL, 0x0UL
+        0x3fff0001UL, 0x0UL, 0x0UL
+        0x3fff8000UL, 0x0UL, 0x0UL
+        0xfffe0001UL, 0x0UL, 0x0UL
+        0xffffUL, 0x80000000UL, 0x0UL
+        0x0UL, 0xc0000000UL, 0x0UL
+        0xffffUL, 0x40000000UL, 0x0UL ]
+
+  /// <summary>
+  /// mullhwu. rT, rA, rB writes the unsigned product of the low halfwords of rA
+  /// and rB into rT; CR0 compares the word written with zero. The expected
+  /// values are what qemu-ppc -cpu 440epx (8.2.2) leaves.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MULLHWU. multiplies two halfwords``() =
+    (* mullhwu. r5, r6, r7 *)
+    checkMultiply "10a63b11"
+      [ 0xeUL, 0x0UL, 0x4UL
+        0x3fff0001UL, 0x0UL, 0x4UL
+        0x3fff8000UL, 0x0UL, 0x4UL
+        0xfffe0001UL, 0x0UL, 0x8UL
+        0xffffUL, 0x80000000UL, 0x5UL
+        0x0UL, 0xc0000000UL, 0x3UL
+        0xffffUL, 0x40000000UL, 0x4UL ]

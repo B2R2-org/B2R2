@@ -172,12 +172,9 @@ module internal PPCSweep =
   /// which is what says which instruction it is.
   let private formOf (probe: uint32) = probe >>> 26, probe &&& 0x7FFu
 
-  /// Probes the whole space this sweep covers at the given word size, keeping
+  /// Probes the whole space this sweep covers with the given parser, keeping
   /// one instruction per distinct operand shape.
-  let probes wordSize =
-    let parser =
-      Parser(wordSize, BinReader.Init Endian.Little)
-      :> IInstructionParsable
+  let private probesWith parser =
     let byForm = List.choose (decode parser) formWords
     let forms =
       byForm
@@ -188,5 +185,27 @@ module internal PPCSweep =
     @ List.choose (decode parser) (registerWords forms)
     @ List.choose (decode parser) (familyWords forms)
     |> List.distinctBy (fun probe -> keyOf shapeOfPart probe.Text)
+
+  /// Probes the whole space this sweep covers at the given word size, keeping
+  /// one instruction per distinct operand shape.
+  let probes (wordSize: WordSize) =
+    Parser(wordSize, BinReader.Init Endian.Little) :> IInstructionParsable
+    |> probesWith
+
+  /// <summary>
+  /// The probes a parser reading the given categories decodes, at the given
+  /// word size, that the server reading decodes differently or not at all:
+  /// the encodings the categories take. Everything else is the same probe
+  /// the sweep at that word size already has.
+  /// </summary>
+  let categoryProbes (wordSize: WordSize) (category: Category) =
+    let reader = BinReader.Init Endian.Little
+    let server = Parser(wordSize, reader) :> IInstructionParsable
+    let parser = Parser(wordSize, category, reader) :> IInstructionParsable
+    probesWith parser
+    |> List.filter (fun probe ->
+      match decode server probe.Word with
+      | Some other -> other.Text <> probe.Text
+      | None -> true)
 
 // vim: set tw=80 sts=2 sw=2:
