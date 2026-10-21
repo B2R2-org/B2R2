@@ -13436,8 +13436,7 @@ let private m1x4f (span: ByteSpan) (st: byref<ParsingState>) =
         finish &st Opcode.CMOVG (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = regReg &st m 64<rt>
