@@ -3297,13 +3297,14 @@ let translate (ins: Instruction) bld =
   | Op.SE_SRW ->
     srw (VLELifter.dyadic ins) false bld
   | Op.SE_SRAW ->
-    sraw (VLELifter.dyadic ins) false bld
+    VLELifter.shiftArithmetic (VLELifter.dyadic ins) false bld 32<rt>
   | Op.SE_SLWI ->
     rlwinm (VLELifter.shiftLeftImmediate ins) false bld
   | Op.SE_SRWI ->
     rlwinm (VLELifter.shiftRightImmediate ins) false bld
   | Op.SE_SRAWI ->
-    srawi (VLELifter.shiftRightAlgebraicImmediate ins) false bld
+    VLELifter.shiftArithmeticImmediate
+      (VLELifter.shiftRightAlgebraicImmediate ins) false bld 32<rt>
   | Op.SE_BCLRI ->
     VLELifter.clearBit ins bld
   | Op.SE_BGENI ->
@@ -3405,11 +3406,11 @@ let translate (ins: Instruction) bld =
   | Op.E_ADDIdot ->
     VLELifter.addScaled ins bld true
   | Op.E_ADDIC ->
-    addic ins false bld
+    VLELifter.addCarrying ins false bld
   | Op.E_ADDICdot ->
-    addic ins true bld
+    VLELifter.addCarrying ins true bld
   | Op.E_SUBFIC ->
-    subfic ins bld
+    VLELifter.subtractCarrying ins bld
   | Op.E_SUBFICdot ->
     VLELifter.subtractFromScaledRecord ins bld
   | Op.E_MULLI ->

@@ -39,6 +39,86 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.PPC
 open B2R2.FrontEnd.PPC.LiftingUtils
 
+/// Book VLE uses ISA 2.07's XER: CA32 and OV32 remain reserved even when
+/// the caller selects a 64-bit register width. Keep the other XER bits intact.
+let private setCarry bld carry =
+  append bld { xerBit bld 29 := carry }
+
+let private addWithCarryOut (bld: ILowUIRBuilder) dst a b c =
+  let struct (t1, t2) = tmpVars2 bld bld.RegType
+  let struct (c1, c2) = tmpVars2 bld 1<rt>
+  append bld {
+    t1 := a .+ b
+    c1 := t1 .< a
+    t2 := t1 .+ c
+    c2 := t2 .< t1
+    dst := t2
+  }
+  setCarry bld (c1 .| c2)
+
+/// Adds a scaled immediate, changing CA and CR0 where the form says so.
+let addCarrying ins updateCond (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, src1, simm) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := src1
+    t2 := simm
+    addWithCarryOut bld dst t1 t2 (AST.num0 bld.RegType)
+    if updateCond then setCR0Reg bld dst else ()
+  }
+
+/// Subtracts from a scaled immediate, changing only CA in XER.
+let subtractCarrying ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, src1, simm) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := AST.not src1
+    t2 := simm
+    addWithCarryOut bld dst t1 t2 (AST.num1 bld.RegType)
+  }
+
+let shiftArithmetic ins updateCond (bld: ILowUIRBuilder) width =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let bits = int width
+    let z = AST.num0 width
+    let value = tmpVar bld width
+    let count = AST.xtlo width rb
+    let inRange = (count .& numI32 bits width) == z
+    let n = tmpVar bld width
+    let res = tmpVar bld width
+    value := AST.xtlo width rs
+    n := count .& numI32 (bits - 1) width
+    res := AST.ite inRange (value ?>> n)
+                           (value ?>> numI32 (bits - 1) width)
+    ra := AST.sext bld.RegType res
+    let dropped =
+      AST.ite inRange ((AST.num1 width << n) .- AST.num1 width) (AST.not z)
+    let lost = (value .& dropped) != z
+    let carry = tmpVar bld 1<rt>
+    carry := AST.ite (res ?< z) lost AST.b0
+    setCarry bld carry
+    if updateCond then setCR0Reg bld ra else ()
+  }
+
+let shiftArithmeticImmediate ins updateCond (bld: ILowUIRBuilder) width =
+  lift bld ins {
+    let struct (ra, rs, sh) = transThreeOprs ins bld
+    let z = AST.num0 width
+    let value = tmpVar bld width
+    let n = AST.xtlo width sh
+    let res = tmpVar bld width
+    value := AST.xtlo width rs
+    res := value ?>> n
+    ra := AST.sext bld.RegType res
+    let dropped = (AST.num1 width << n) .- AST.num1 width
+    let lost = (value .& dropped) != z
+    let carry = tmpVar bld 1<rt>
+    carry := AST.ite (res ?< z) lost AST.b0
+    setCarry bld carry
+    if updateCond then setCR0Reg bld ra else ()
+  }
+
 /// What an instruction made only to be lifted holds in place of the lifter of
 /// instructions, which it is never asked for.
 let private noLifter = Unchecked.defaultof<ILiftable>
