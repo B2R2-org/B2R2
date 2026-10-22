@@ -941,7 +941,6 @@ let opCodeToString = function
   | Op.MFFSCE -> "mffsce"
   | Op.STFDP -> "stfdp"
   | Op.STFDPX -> "stfdpx"
-  (* Lane V: the vector facility, primary opcode 4. *)
   | Op.BCDADDdot -> "bcdadd."
   | Op.BCDCFNdot -> "bcdcfn."
   | Op.BCDCFSQdot -> "bcdcfsq."
@@ -1224,7 +1223,6 @@ let opCodeToString = function
   | Op.VSUMSWS -> "vsumsws"
   | Op.VUPKHPX -> "vupkhpx"
   | Op.VUPKLPX -> "vupklpx"
-  (* Lane X: VSX, MMA and quad precision. *)
   | Op.LXSIBZX -> "lxsibzx"
   | Op.LXSIHZX -> "lxsihzx"
   | Op.LXSIWAX -> "lxsiwax"
@@ -1469,7 +1467,6 @@ let opCodeToString = function
   | Op.XXPERM -> "xxperm"
   | Op.XXPERMR -> "xxpermr"
   | Op.XXSETACCZ -> "xxsetaccz"
-  (* Lane A: integer, branch, storage and system instructions. *)
   | Op.ADDEX -> "addex"
   | Op.ADDG6S -> "addg6s"
   | Op.ADDPCIS -> "addpcis"
@@ -1544,7 +1541,6 @@ let opCodeToString = function
   | Op.STSYNC -> "stsync"
   | Op.STWAT -> "stwat"
   | Op.WAIT -> "wait"
-  (* Lane E: the categories Power ISA 2.07B has and 3.1 dropped. *)
   | Op.MACCHW -> "macchw"
   | Op.MACCHWO -> "macchwo"
   | Op.MACCHWOdot -> "macchwo."
@@ -1674,7 +1670,6 @@ let opCodeToString = function
   | Op.MTTEXASRU -> "mttexasru"
   | Op.MTTFHAR -> "mttfhar"
   | Op.MTTFIAR -> "mttfiar"
-  (* Lane S: the Signal Processing Engine. *)
   | Op.EVADDIW -> "evaddiw"
   | Op.EVADDW -> "evaddw"
   | Op.EVAND -> "evand"
