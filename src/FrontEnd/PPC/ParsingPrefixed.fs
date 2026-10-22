@@ -159,7 +159,7 @@ let private matrixOpcodes =
 
 /// The prefixed MMA suffix has the same register restrictions as XX3.
 let private parseMatrix prefix suffix =
-  let struct (_, operands) = ParsingVSX.parse3B suffix
+  let struct (_, operands) = ParsingMain.parseVSX3B suffix
   let xo = Bits.extract suffix 10u 3u
   let op =
     match Map.tryFind xo matrixOpcodes with

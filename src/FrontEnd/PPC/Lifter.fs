@@ -36,14 +36,7 @@ open B2R2.FrontEnd.PPC.GeneralLifter
 open B2R2.FrontEnd.PPC.VectorLifter
 open B2R2.FrontEnd.PPC.FPLifter
 open B2R2.FrontEnd.PPC.DFPLifter
-open B2R2.FrontEnd.PPC.VectorIntegerLifter
-open B2R2.FrontEnd.PPC.VectorCryptoLifter
-open B2R2.FrontEnd.PPC.VectorDecimalLifter
-open B2R2.FrontEnd.PPC.VectorBitLifter
-open B2R2.FrontEnd.PPC.VectorPermuteLifter
-open B2R2.FrontEnd.PPC.VectorFloatLifter
 open B2R2.FrontEnd.PPC.SPELifter
-open B2R2.FrontEnd.PPC.SPEMultiplyLifter
 open B2R2.FrontEnd.PPC.SPEFloatLifter
 
 /// Translate IR.
@@ -1336,7 +1329,6 @@ let translate (ins: Instruction) bld =
     vecCompare ins bld 64<rt> (?>) false
   | Op.VCMPGTSDdot ->
     vecCompare ins bld 64<rt> (?>) true
-  (* Lane F: binary floating point and Decimal Floating-Point. *)
   | Op.FCPSGNdot ->
     fcpsgnDot ins bld
   | Op.FMRGEW ->
@@ -1553,7 +1545,6 @@ let translate (ins: Instruction) bld =
     shift ins true "DSCRI" false bld
   | Op.DSCRIQdot ->
     shift ins true "DSCRI" true bld
-  (* Lane V: the vector facility, primary opcode 4. *)
   | Op.VADDSBS ->
     vecSaturating ins bld 8<rt> true true
   | Op.VADDSHS ->
@@ -2118,8 +2109,6 @@ let translate (ins: Instruction) bld =
     vecMultiplyByTen ins bld true false
   | Op.VMUL10ECUQ ->
     vecMultiplyByTen ins bld true true
-  (* End of lane V. *)
-  (* Lane X: VSX, MMA and quad precision. *)
   | Op.LXSIBZX ->
     VSXLifter.loadScalarInt ins bld 8<rt> AST.zext
   | Op.LXSIHZX ->
@@ -2215,384 +2204,383 @@ let translate (ins: Instruction) bld =
   | Op.XVTLSBB ->
     VSXLifter.xvtlsbb ins bld
   | Op.XVADDSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fadd)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fadd)
   | Op.XVSUBSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fsub)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fsub)
   | Op.XVMULSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fmul)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fmul)
   | Op.XVDIVSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fdiv)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fdiv)
   | Op.XVSQRTSP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.squareRoot
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.squareRoot
   | Op.XVSQRTDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.squareRoot
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.squareRoot
   | Op.XVABSSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.signOp 0)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.signOp 0)
   | Op.XVABSDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.signOp 0)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.signOp 0)
   | Op.XVNABSSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.signOp 1)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.signOp 1)
   | Op.XVNABSDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.signOp 1)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.signOp 1)
   | Op.XVNEGSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.signOp 2)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.signOp 2)
   | Op.XVCPSGNSP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.copySignOf
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.copySignOf
   | Op.XVCPSGNDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.copySignOf
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.copySignOf
   | Op.XVMAXSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.maxMin true)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.maxMin true)
   | Op.XVMINSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.maxMin false)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.maxMin false)
   | Op.XVMAXDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.maxMin true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.maxMin true)
   | Op.XVMINDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.maxMin false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.maxMin false)
   | Op.XSMAXCDP ->
-    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinC true)
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinC true)
   | Op.XSMINCDP ->
-    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinC false)
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinC false)
   | Op.XSMAXJDP ->
-    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinJ true)
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinJ true)
   | Op.XSMINJDP ->
-    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinJ false)
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinJ false)
   | Op.XVMADDADP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> false false false
+    VSXLifter.vectorMulAdd ins bld 64<rt> false false false
   | Op.XVMADDASP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> false false false
+    VSXLifter.vectorMulAdd ins bld 32<rt> false false false
   | Op.XVMADDMDP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> true false false
+    VSXLifter.vectorMulAdd ins bld 64<rt> true false false
   | Op.XVMADDMSP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> true false false
+    VSXLifter.vectorMulAdd ins bld 32<rt> true false false
   | Op.XVMSUBADP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> false true false
+    VSXLifter.vectorMulAdd ins bld 64<rt> false true false
   | Op.XVMSUBASP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> false true false
+    VSXLifter.vectorMulAdd ins bld 32<rt> false true false
   | Op.XVMSUBMDP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> true true false
+    VSXLifter.vectorMulAdd ins bld 64<rt> true true false
   | Op.XVMSUBMSP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> true true false
+    VSXLifter.vectorMulAdd ins bld 32<rt> true true false
   | Op.XVNMADDADP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> false false true
+    VSXLifter.vectorMulAdd ins bld 64<rt> false false true
   | Op.XVNMADDASP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> false false true
+    VSXLifter.vectorMulAdd ins bld 32<rt> false false true
   | Op.XVNMADDMDP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> true false true
+    VSXLifter.vectorMulAdd ins bld 64<rt> true false true
   | Op.XVNMADDMSP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> true false true
+    VSXLifter.vectorMulAdd ins bld 32<rt> true false true
   | Op.XVNMSUBADP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> false true true
+    VSXLifter.vectorMulAdd ins bld 64<rt> false true true
   | Op.XVNMSUBASP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> false true true
+    VSXLifter.vectorMulAdd ins bld 32<rt> false true true
   | Op.XVNMSUBMDP ->
-    VSXFloat.vectorMulAdd ins bld 64<rt> true true true
+    VSXLifter.vectorMulAdd ins bld 64<rt> true true true
   | Op.XVNMSUBMSP ->
-    VSXFloat.vectorMulAdd ins bld 32<rt> true true true
+    VSXLifter.vectorMulAdd ins bld 32<rt> true true true
   | Op.XVREDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.estimate false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.estimate false)
   | Op.XVRESP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.estimate false)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.estimate false)
   | Op.XVRSQRTEDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.estimate true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.estimate true)
   | Op.XVRSQRTESP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.estimate true)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.estimate true)
   | Op.XSREDP ->
-    VSXFloat.scalarMap ins bld true (VSXFloat.estimate false)
+    VSXLifter.scalarMap ins bld true (VSXLifter.estimate false)
   | Op.XSRSQRTEDP ->
-    VSXFloat.scalarMap ins bld true (VSXFloat.estimate true)
+    VSXLifter.scalarMap ins bld true (VSXLifter.estimate true)
   | Op.XVRDPI ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.awayFromZero
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.awayFromZero
   | Op.XVRDPIC ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.byFPSCR
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.byFPSCR
   | Op.XVRDPIM ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.downward
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.downward
   | Op.XVRDPIP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.upward
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.upward
   | Op.XVRDPIZ ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.towardZero
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.towardZero
   | Op.XVRSPI ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.awayFromZero
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.awayFromZero
   | Op.XVRSPIC ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.byFPSCR
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.byFPSCR
   | Op.XVRSPIM ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.downward
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.downward
   | Op.XVRSPIP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.upward
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.upward
   | Op.XVRSPIZ ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.towardZero
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.towardZero
   | Op.XSRDPIC ->
-    VSXFloat.scalarMap ins bld true VSXFloat.byFPSCR
+    VSXLifter.scalarMap ins bld true VSXLifter.byFPSCR
   | Op.XSCMPEQDP ->
-    VSXFloat.scalarCompare ins bld AST.feq
+    VSXLifter.scalarCompare ins bld AST.feq
   | Op.XSCMPGTDP ->
-    VSXFloat.scalarCompare ins bld AST.fgt
+    VSXLifter.scalarCompare ins bld AST.fgt
   | Op.XSCMPGEDP ->
-    VSXFloat.scalarCompare ins bld AST.fge
+    VSXLifter.scalarCompare ins bld AST.fge
   | Op.XSCMPODP ->
-    VSXFloat.xscmpodp ins bld
+    VSXLifter.xscmpodp ins bld
   | Op.XSCMPEXPDP ->
-    VSXFloat.xscmpexpdp ins bld
+    VSXLifter.xscmpexpdp ins bld
   | Op.XVCMPEQDP ->
-    VSXFloat.vectorCompare ins bld 64<rt> AST.feq false
+    VSXLifter.vectorCompare ins bld 64<rt> AST.feq false
   | Op.XVCMPEQDPdot ->
-    VSXFloat.vectorCompare ins bld 64<rt> AST.feq true
+    VSXLifter.vectorCompare ins bld 64<rt> AST.feq true
   | Op.XVCMPEQSP ->
-    VSXFloat.vectorCompare ins bld 32<rt> AST.feq false
+    VSXLifter.vectorCompare ins bld 32<rt> AST.feq false
   | Op.XVCMPEQSPdot ->
-    VSXFloat.vectorCompare ins bld 32<rt> AST.feq true
+    VSXLifter.vectorCompare ins bld 32<rt> AST.feq true
   | Op.XVCMPGESP ->
-    VSXFloat.vectorCompare ins bld 32<rt> AST.fge false
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fge false
   | Op.XVCMPGESPdot ->
-    VSXFloat.vectorCompare ins bld 32<rt> AST.fge true
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fge true
   | Op.XVCMPGTSP ->
-    VSXFloat.vectorCompare ins bld 32<rt> AST.fgt false
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fgt false
   | Op.XVCMPGTSPdot ->
-    VSXFloat.vectorCompare ins bld 32<rt> AST.fgt true
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fgt true
   | Op.XSTDIVDP ->
-    VSXFloat.softwareTest ins bld 64<rt> true true
+    VSXLifter.softwareTest ins bld 64<rt> true true
   | Op.XSTSQRTDP ->
-    VSXFloat.softwareTest ins bld 64<rt> true false
+    VSXLifter.softwareTest ins bld 64<rt> true false
   | Op.XVTDIVDP ->
-    VSXFloat.softwareTest ins bld 64<rt> false true
+    VSXLifter.softwareTest ins bld 64<rt> false true
   | Op.XVTDIVSP ->
-    VSXFloat.softwareTest ins bld 32<rt> false true
+    VSXLifter.softwareTest ins bld 32<rt> false true
   | Op.XVTSQRTDP ->
-    VSXFloat.softwareTest ins bld 64<rt> false false
+    VSXLifter.softwareTest ins bld 64<rt> false false
   | Op.XVTSQRTSP ->
-    VSXFloat.softwareTest ins bld 32<rt> false false
+    VSXLifter.softwareTest ins bld 32<rt> false false
   | Op.XSTSTDCDP ->
-    VSXFloat.scalarTestClass ins bld false
+    VSXLifter.scalarTestClass ins bld false
   | Op.XSTSTDCSP ->
-    VSXFloat.scalarTestClass ins bld true
+    VSXLifter.scalarTestClass ins bld true
   | Op.XVTSTDCDP ->
-    VSXFloat.vectorTestClass ins bld 64<rt>
+    VSXLifter.vectorTestClass ins bld 64<rt>
   | Op.XVTSTDCSP ->
-    VSXFloat.vectorTestClass ins bld 32<rt>
+    VSXLifter.vectorTestClass ins bld 32<rt>
   | Op.XSIEXPDP ->
-    VSXFloat.xsiexpdp ins bld
+    VSXLifter.xsiexpdp ins bld
   | Op.XSXEXPDP ->
-    VSXFloat.scalarExtract ins bld false
+    VSXLifter.scalarExtract ins bld false
   | Op.XSXSIGDP ->
-    VSXFloat.scalarExtract ins bld true
+    VSXLifter.scalarExtract ins bld true
   | Op.XVIEXPDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.insertExponent
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.insertExponent
   | Op.XVIEXPSP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.insertExponent
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.insertExponent
   | Op.XVXEXPDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.extractExponent
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.extractExponent
   | Op.XVXEXPSP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.extractExponent
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.extractExponent
   | Op.XVXSIGDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.extractSignificand
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.extractSignificand
   | Op.XVXSIGSP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.extractSignificand
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.extractSignificand
   | Op.XSCVHPDP ->
-    VSXConvert.scalarHalf ins bld true
+    VSXLifter.scalarHalf ins bld true
   | Op.XSCVDPHP ->
-    VSXConvert.scalarHalf ins bld false
+    VSXLifter.scalarHalf ins bld false
   | Op.XVCVHPSP ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXConvert.halfToSingle
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.halfToSingle
   | Op.XVCVSPHP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToHalf bld)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToHalf bld)
   | Op.XVCVBF16SPN ->
-    VSXFloat.vectorMap ins bld 32<rt> VSXConvert.bfloat16ToSingle
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.bfloat16ToSingle
   | Op.XVCVSPBF16 ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToBfloat16 bld)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToBfloat16 bld)
   | Op.XVCVDPSP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXConvert.doubleToSingle
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.doubleToSingle
   | Op.XVCVSPDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXConvert.singleToDouble
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.singleToDouble
   | Op.XVCVDPSXDS ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToLong true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToLong true)
   | Op.XVCVDPSXWS ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToInt true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToInt true)
   | Op.XVCVSPSXDS ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.singleToLong true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.singleToLong true)
   | Op.XVCVSPSXWS ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToInt true)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToInt true)
   | Op.XVCVSXDDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.intToFloat true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.intToFloat true)
   | Op.XVCVSXWSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.intToFloat true)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.intToFloat true)
   | Op.XVCVSXDSP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.longToSingle true)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.longToSingle true)
   | Op.XVCVDPUXDS ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToLong false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToLong false)
   | Op.XVCVDPUXWS ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToInt false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToInt false)
   | Op.XVCVSPUXDS ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.singleToLong false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.singleToLong false)
   | Op.XVCVSPUXWS ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToInt false)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToInt false)
   | Op.XVCVUXDDP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.intToFloat false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.intToFloat false)
   | Op.XVCVUXWSP ->
-    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.intToFloat false)
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.intToFloat false)
   | Op.XVCVUXDSP ->
-    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.longToSingle false)
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.longToSingle false)
   | Op.XVCVUXWDP ->
-    VSXFloat.vectorMap ins bld 64<rt> VSXConvert.uintToDouble
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.uintToDouble
   | Op.XSADDQP ->
-    VSXQuad.arith ins bld "FADD128" false
+    VSXLifter.quadArith ins bld "FADD128" false
   | Op.XSADDQPO ->
-    VSXQuad.arith ins bld "FADD128" true
+    VSXLifter.quadArith ins bld "FADD128" true
   | Op.XSSUBQP ->
-    VSXQuad.arith ins bld "FSUB128" false
+    VSXLifter.quadArith ins bld "FSUB128" false
   | Op.XSSUBQPO ->
-    VSXQuad.arith ins bld "FSUB128" true
+    VSXLifter.quadArith ins bld "FSUB128" true
   | Op.XSMULQP ->
-    VSXQuad.arith ins bld "FMUL128" false
+    VSXLifter.quadArith ins bld "FMUL128" false
   | Op.XSMULQPO ->
-    VSXQuad.arith ins bld "FMUL128" true
+    VSXLifter.quadArith ins bld "FMUL128" true
   | Op.XSDIVQP ->
-    VSXQuad.arith ins bld "FDIV128" false
+    VSXLifter.quadArith ins bld "FDIV128" false
   | Op.XSDIVQPO ->
-    VSXQuad.arith ins bld "FDIV128" true
+    VSXLifter.quadArith ins bld "FDIV128" true
   | Op.XSSQRTQP ->
-    VSXQuad.squareRoot ins bld false
+    VSXLifter.quadSquareRoot ins bld false
   | Op.XSSQRTQPO ->
-    VSXQuad.squareRoot ins bld true
+    VSXLifter.quadSquareRoot ins bld true
   | Op.XSMADDQP ->
-    VSXQuad.mulAdd ins bld false false false
+    VSXLifter.mulAdd ins bld false false false
   | Op.XSMADDQPO ->
-    VSXQuad.mulAdd ins bld false false true
+    VSXLifter.mulAdd ins bld false false true
   | Op.XSMSUBQP ->
-    VSXQuad.mulAdd ins bld true false false
+    VSXLifter.mulAdd ins bld true false false
   | Op.XSMSUBQPO ->
-    VSXQuad.mulAdd ins bld true false true
+    VSXLifter.mulAdd ins bld true false true
   | Op.XSNMADDQP ->
-    VSXQuad.mulAdd ins bld false true false
+    VSXLifter.mulAdd ins bld false true false
   | Op.XSNMADDQPO ->
-    VSXQuad.mulAdd ins bld false true true
+    VSXLifter.mulAdd ins bld false true true
   | Op.XSNMSUBQP ->
-    VSXQuad.mulAdd ins bld true true false
+    VSXLifter.mulAdd ins bld true true false
   | Op.XSNMSUBQPO ->
-    VSXQuad.mulAdd ins bld true true true
+    VSXLifter.mulAdd ins bld true true true
   | Op.XSABSQP ->
-    VSXQuad.signOp ins bld 0
+    VSXLifter.quadSignOp ins bld 0
   | Op.XSNABSQP ->
-    VSXQuad.signOp ins bld 1
+    VSXLifter.quadSignOp ins bld 1
   | Op.XSNEGQP ->
-    VSXQuad.signOp ins bld 2
+    VSXLifter.quadSignOp ins bld 2
   | Op.XSCPSGNQP ->
-    VSXQuad.copySign ins bld
+    VSXLifter.copySign ins bld
   | Op.XSCMPEQQP ->
-    VSXQuad.compareMask ins bld 0
+    VSXLifter.compareMask ins bld 0
   | Op.XSCMPGTQP ->
-    VSXQuad.compareMask ins bld 1
+    VSXLifter.compareMask ins bld 1
   | Op.XSCMPGEQP ->
-    VSXQuad.compareMask ins bld 2
+    VSXLifter.compareMask ins bld 2
   | Op.XSCMPUQP ->
-    VSXQuad.compareField ins bld false
+    VSXLifter.compareField ins bld false
   | Op.XSCMPOQP ->
-    VSXQuad.compareField ins bld true
+    VSXLifter.compareField ins bld true
   | Op.XSCMPEXPQP ->
-    VSXQuad.compareExponents ins bld
+    VSXLifter.compareExponents ins bld
   | Op.XSMAXCQP ->
-    VSXQuad.maxMinC ins bld true
+    VSXLifter.quadMaxMinC ins bld true
   | Op.XSMINCQP ->
-    VSXQuad.maxMinC ins bld false
+    VSXLifter.quadMaxMinC ins bld false
   | Op.XSTSTDCQP ->
-    VSXQuad.testClass ins bld
+    VSXLifter.testClass ins bld
   | Op.XSXEXPQP ->
-    VSXQuad.extractExponent ins bld
+    VSXLifter.quadExtractExponent ins bld
   | Op.XSXSIGQP ->
-    VSXQuad.extractSignificand ins bld
+    VSXLifter.quadExtractSignificand ins bld
   | Op.XSIEXPQP ->
-    VSXQuad.insertExponent ins bld
+    VSXLifter.quadInsertExponent ins bld
   | Op.XSCVDPQP ->
-    VSXQuad.fromDouble ins bld
+    VSXLifter.fromDouble ins bld
   | Op.XSCVSDQP ->
-    VSXQuad.fromLong ins bld true
+    VSXLifter.fromLong ins bld true
   | Op.XSCVUDQP ->
-    VSXQuad.fromLong ins bld false
+    VSXLifter.fromLong ins bld false
   | Op.XSCVSQQP ->
-    VSXQuad.fromQuadword ins bld true
+    VSXLifter.fromQuadword ins bld true
   | Op.XSCVUQQP ->
-    VSXQuad.fromQuadword ins bld false
+    VSXLifter.fromQuadword ins bld false
   | Op.XSCVQPDP ->
-    VSXQuad.toDouble ins bld false
+    VSXLifter.toDouble ins bld false
   | Op.XSCVQPDPO ->
-    VSXQuad.toDouble ins bld true
+    VSXLifter.toDouble ins bld true
   | Op.XSCVQPSDZ ->
-    VSXQuad.toInteger ins bld 64 true
+    VSXLifter.quadToInteger ins bld 64 true
   | Op.XSCVQPUDZ ->
-    VSXQuad.toInteger ins bld 64 false
+    VSXLifter.quadToInteger ins bld 64 false
   | Op.XSCVQPSWZ ->
-    VSXQuad.toInteger ins bld 32 true
+    VSXLifter.quadToInteger ins bld 32 true
   | Op.XSCVQPUWZ ->
-    VSXQuad.toInteger ins bld 32 false
+    VSXLifter.quadToInteger ins bld 32 false
   | Op.XSCVQPSQZ ->
-    VSXQuad.toInteger ins bld 128 true
+    VSXLifter.quadToInteger ins bld 128 true
   | Op.XSCVQPUQZ ->
-    VSXQuad.toInteger ins bld 128 false
+    VSXLifter.quadToInteger ins bld 128 false
   | Op.XSRQPI | Op.XSRQPIX ->
-    VSXQuad.roundToIntegral ins bld
+    VSXLifter.roundToIntegral ins bld
   | Op.XSRQPXP ->
-    VSXQuad.roundToX80 ins bld
+    VSXLifter.roundToX80 ins bld
   | Op.XXMFACC | Op.XXMTACC ->
     nop ins bld
   | Op.XXSETACCZ ->
-    VSXMatrix.setAccumulatorZero ins bld
+    VSXLifter.setAccumulatorZero ins bld
   | Op.XVF32GER ->
-    VSXMatrix.singleUpdate ins bld 0
+    VSXLifter.singleUpdate ins bld 0
   | Op.XVF32GERPP ->
-    VSXMatrix.singleUpdate ins bld 1
+    VSXLifter.singleUpdate ins bld 1
   | Op.XVF32GERPN ->
-    VSXMatrix.singleUpdate ins bld 2
+    VSXLifter.singleUpdate ins bld 2
   | Op.XVF32GERNP ->
-    VSXMatrix.singleUpdate ins bld 3
+    VSXLifter.singleUpdate ins bld 3
   | Op.XVF32GERNN ->
-    VSXMatrix.singleUpdate ins bld 4
+    VSXLifter.singleUpdate ins bld 4
   | Op.XVF64GER ->
-    VSXMatrix.doubleUpdate ins bld 0
+    VSXLifter.doubleUpdate ins bld 0
   | Op.XVF64GERPP ->
-    VSXMatrix.doubleUpdate ins bld 1
+    VSXLifter.doubleUpdate ins bld 1
   | Op.XVF64GERPN ->
-    VSXMatrix.doubleUpdate ins bld 2
+    VSXLifter.doubleUpdate ins bld 2
   | Op.XVF64GERNP ->
-    VSXMatrix.doubleUpdate ins bld 3
+    VSXLifter.doubleUpdate ins bld 3
   | Op.XVF64GERNN ->
-    VSXMatrix.doubleUpdate ins bld 4
+    VSXLifter.doubleUpdate ins bld 4
   | Op.XVF16GER2 ->
-    VSXMatrix.dotUpdate ins bld false 0
+    VSXLifter.dotUpdate ins bld false 0
   | Op.XVF16GER2PP ->
-    VSXMatrix.dotUpdate ins bld false 1
+    VSXLifter.dotUpdate ins bld false 1
   | Op.XVF16GER2PN ->
-    VSXMatrix.dotUpdate ins bld false 2
+    VSXLifter.dotUpdate ins bld false 2
   | Op.XVF16GER2NP ->
-    VSXMatrix.dotUpdate ins bld false 3
+    VSXLifter.dotUpdate ins bld false 3
   | Op.XVF16GER2NN ->
-    VSXMatrix.dotUpdate ins bld false 4
+    VSXLifter.dotUpdate ins bld false 4
   | Op.XVBF16GER2 ->
-    VSXMatrix.dotUpdate ins bld true 0
+    VSXLifter.dotUpdate ins bld true 0
   | Op.XVBF16GER2PP ->
-    VSXMatrix.dotUpdate ins bld true 1
+    VSXLifter.dotUpdate ins bld true 1
   | Op.XVBF16GER2PN ->
-    VSXMatrix.dotUpdate ins bld true 2
+    VSXLifter.dotUpdate ins bld true 2
   | Op.XVBF16GER2NP ->
-    VSXMatrix.dotUpdate ins bld true 3
+    VSXLifter.dotUpdate ins bld true 3
   | Op.XVBF16GER2NN ->
-    VSXMatrix.dotUpdate ins bld true 4
+    VSXLifter.dotUpdate ins bld true 4
   | Op.XVI4GER8 ->
-    VSXMatrix.integerUpdate ins bld 4 true false
+    VSXLifter.integerUpdate ins bld 4 true false
   | Op.XVI4GER8PP ->
-    VSXMatrix.integerUpdate ins bld 4 true true
+    VSXLifter.integerUpdate ins bld 4 true true
   | Op.XVI8GER4 ->
-    VSXMatrix.integerUpdate ins bld 8 false false
+    VSXLifter.integerUpdate ins bld 8 false false
   | Op.XVI8GER4PP ->
-    VSXMatrix.integerUpdate ins bld 8 false true
+    VSXLifter.integerUpdate ins bld 8 false true
   | Op.XVI16GER2 ->
-    VSXMatrix.integerUpdate ins bld 16 true false
+    VSXLifter.integerUpdate ins bld 16 true false
   | Op.XVI16GER2PP ->
-    VSXMatrix.integerUpdate ins bld 16 true true
+    VSXLifter.integerUpdate ins bld 16 true true
   | Op.XVI8GER4SPP ->
-    VSXMatrix.saturatingUpdate ins bld 8 false true
+    VSXLifter.saturatingUpdate ins bld 8 false true
   | Op.XVI16GER2S ->
-    VSXMatrix.saturatingUpdate ins bld 16 true false
+    VSXLifter.saturatingUpdate ins bld 16 true false
   | Op.XVI16GER2SPP ->
-    VSXMatrix.saturatingUpdate ins bld 16 true true
-  (* Lane A: integer, branch, storage and system instructions. *)
+    VSXLifter.saturatingUpdate ins bld 16 true true
   | Op.ADDEX ->
     addex ins bld
   | Op.ADDG6S ->
@@ -2724,14 +2712,12 @@ let translate (ins: Instruction) bld =
     setbc ins bld true false
   | Op.SETNBCR ->
     setbc ins bld true true
-  (* Lane E: the categories Power ISA 2.07B has and 3.1 dropped. *)
-  | o when LegacyLifter.lifts o ->
-    LegacyLifter.translate ins bld
-  | o when EmbeddedLifter.lifts o ->
-    EmbeddedLifter.translate ins bld
-  | o when TransactionLifter.lifts o ->
-    TransactionLifter.translate ins bld
-  (* Lane S: the Signal Processing Engine. *)
+  | o when GeneralLifter.liftsLegacy o ->
+    GeneralLifter.translateLegacy ins bld
+  | o when GeneralLifter.liftsEmbedded o ->
+    GeneralLifter.translateEmbedded ins bld
+  | o when GeneralLifter.liftsTransaction o ->
+    GeneralLifter.translateTransaction ins bld
   | Op.EVADDIW ->
     evaddiw ins bld
   | Op.EVADDW ->
@@ -3228,8 +3214,6 @@ let translate (ins: Instruction) bld =
     SPEFloatLifter.translate ins bld
   | Op.EFDSUB ->
     SPEFloatLifter.translate ins bld
-  (* End of lane S. *)
-  (* Lane L: Variable Length Encoding. *)
   | Op.SE_ILLEGAL ->
     VLELifter.illegal ins bld
   | Op.SE_ISYNC ->
@@ -3483,8 +3467,6 @@ let translate (ins: Instruction) bld =
     VLELifter.shiftWord ins bld false false
   | Op.E_SRWIdot ->
     VLELifter.shiftWord ins bld false true
-  (* End of lane L. *)
-  (* Lane P: prefixed instructions. *)
   | Op.PADDI ->
     PrefixedLifter.addImmediate ins bld
   | Op.PNOP ->
@@ -3538,78 +3520,77 @@ let translate (ins: Instruction) bld =
   | Op.PSTXVP ->
     PrefixedLifter.vector ins bld false true
   | Op.XXBLENDVB ->
-    PrefixedVectorLifter.blend ins bld 8<rt>
+    PrefixedLifter.blend ins bld 8<rt>
   | Op.XXBLENDVD ->
-    PrefixedVectorLifter.blend ins bld 64<rt>
+    PrefixedLifter.blend ins bld 64<rt>
   | Op.XXBLENDVH ->
-    PrefixedVectorLifter.blend ins bld 16<rt>
+    PrefixedLifter.blend ins bld 16<rt>
   | Op.XXBLENDVW ->
-    PrefixedVectorLifter.blend ins bld 32<rt>
+    PrefixedLifter.blend ins bld 32<rt>
   | Op.XXEVAL ->
-    PrefixedVectorLifter.evaluate ins bld
+    PrefixedLifter.evaluate ins bld
   | Op.XXPERMX ->
-    PrefixedVectorLifter.permute ins bld
+    PrefixedLifter.permute ins bld
   | Op.XXSPLTI32DX | Op.XXSPLTIDP | Op.XXSPLTIW ->
-    PrefixedVectorLifter.splat ins bld
+    PrefixedLifter.splat ins bld
   | Op.PMXVBF16GER2 ->
-    PrefixedMatrixLifter.dotUpdate ins bld true 0
+    PrefixedLifter.dotUpdate ins bld true 0
   | Op.PMXVBF16GER2NN ->
-    PrefixedMatrixLifter.dotUpdate ins bld true 4
+    PrefixedLifter.dotUpdate ins bld true 4
   | Op.PMXVBF16GER2NP ->
-    PrefixedMatrixLifter.dotUpdate ins bld true 3
+    PrefixedLifter.dotUpdate ins bld true 3
   | Op.PMXVBF16GER2PN ->
-    PrefixedMatrixLifter.dotUpdate ins bld true 2
+    PrefixedLifter.dotUpdate ins bld true 2
   | Op.PMXVBF16GER2PP ->
-    PrefixedMatrixLifter.dotUpdate ins bld true 1
+    PrefixedLifter.dotUpdate ins bld true 1
   | Op.PMXVF16GER2 ->
-    PrefixedMatrixLifter.dotUpdate ins bld false 0
+    PrefixedLifter.dotUpdate ins bld false 0
   | Op.PMXVF16GER2NN ->
-    PrefixedMatrixLifter.dotUpdate ins bld false 4
+    PrefixedLifter.dotUpdate ins bld false 4
   | Op.PMXVF16GER2NP ->
-    PrefixedMatrixLifter.dotUpdate ins bld false 3
+    PrefixedLifter.dotUpdate ins bld false 3
   | Op.PMXVF16GER2PN ->
-    PrefixedMatrixLifter.dotUpdate ins bld false 2
+    PrefixedLifter.dotUpdate ins bld false 2
   | Op.PMXVF16GER2PP ->
-    PrefixedMatrixLifter.dotUpdate ins bld false 1
+    PrefixedLifter.dotUpdate ins bld false 1
   | Op.PMXVF32GER ->
-    PrefixedMatrixLifter.singleUpdate ins bld 0
+    PrefixedLifter.singleUpdate ins bld 0
   | Op.PMXVF32GERNN ->
-    PrefixedMatrixLifter.singleUpdate ins bld 4
+    PrefixedLifter.singleUpdate ins bld 4
   | Op.PMXVF32GERNP ->
-    PrefixedMatrixLifter.singleUpdate ins bld 3
+    PrefixedLifter.singleUpdate ins bld 3
   | Op.PMXVF32GERPN ->
-    PrefixedMatrixLifter.singleUpdate ins bld 2
+    PrefixedLifter.singleUpdate ins bld 2
   | Op.PMXVF32GERPP ->
-    PrefixedMatrixLifter.singleUpdate ins bld 1
+    PrefixedLifter.singleUpdate ins bld 1
   | Op.PMXVF64GER ->
-    PrefixedMatrixLifter.doubleUpdate ins bld 0
+    PrefixedLifter.doubleUpdate ins bld 0
   | Op.PMXVF64GERNN ->
-    PrefixedMatrixLifter.doubleUpdate ins bld 4
+    PrefixedLifter.doubleUpdate ins bld 4
   | Op.PMXVF64GERNP ->
-    PrefixedMatrixLifter.doubleUpdate ins bld 3
+    PrefixedLifter.doubleUpdate ins bld 3
   | Op.PMXVF64GERPN ->
-    PrefixedMatrixLifter.doubleUpdate ins bld 2
+    PrefixedLifter.doubleUpdate ins bld 2
   | Op.PMXVF64GERPP ->
-    PrefixedMatrixLifter.doubleUpdate ins bld 1
+    PrefixedLifter.doubleUpdate ins bld 1
   | Op.PMXVI16GER2 ->
-    PrefixedMatrixLifter.integerUpdate ins bld 16 true false
+    PrefixedLifter.integerUpdate ins bld 16 true false
   | Op.PMXVI16GER2PP ->
-    PrefixedMatrixLifter.integerUpdate ins bld 16 true true
+    PrefixedLifter.integerUpdate ins bld 16 true true
   | Op.PMXVI16GER2S ->
-    PrefixedMatrixLifter.saturatingUpdate ins bld 16 true false
+    PrefixedLifter.saturatingUpdate ins bld 16 true false
   | Op.PMXVI16GER2SPP ->
-    PrefixedMatrixLifter.saturatingUpdate ins bld 16 true true
+    PrefixedLifter.saturatingUpdate ins bld 16 true true
   | Op.PMXVI4GER8 ->
-    PrefixedMatrixLifter.integerUpdate ins bld 4 true false
+    PrefixedLifter.integerUpdate ins bld 4 true false
   | Op.PMXVI4GER8PP ->
-    PrefixedMatrixLifter.integerUpdate ins bld 4 true true
+    PrefixedLifter.integerUpdate ins bld 4 true true
   | Op.PMXVI8GER4 ->
-    PrefixedMatrixLifter.integerUpdate ins bld 8 false false
+    PrefixedLifter.integerUpdate ins bld 8 false false
   | Op.PMXVI8GER4PP ->
-    PrefixedMatrixLifter.integerUpdate ins bld 8 false true
+    PrefixedLifter.integerUpdate ins bld 8 false true
   | Op.PMXVI8GER4SPP ->
-    PrefixedMatrixLifter.saturatingUpdate ins bld 8 false true
-  (* End of lane P. *)
+    PrefixedLifter.saturatingUpdate ins bld 8 false true
   | o ->
 #if DEBUG
          eprintfn "%A" o

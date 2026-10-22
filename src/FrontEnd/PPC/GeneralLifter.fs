@@ -2252,7 +2252,6 @@ let mtvsrw ins bld signed =
 
 /// An unsigned doubleword conversion has to reach past the signed range: values
 /// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
-(* Lane A: the branch and storage instructions of ISA 2.07 and later. *)
 /// <summary>
 /// addex rT, rA, rB, 0, which adds rA, rB and OV, and keeps the carry out in
 /// OV -- out of the register -- and OV32 -- out of the low word -- the way
@@ -2994,3 +2993,519 @@ let storeAtomic (ins: Instruction) (bld: ILowUIRBuilder) size =
 /// register keeps its low half in the register that follows, while a VSX
 /// operand naming a floating-point register keeps it in that register's
 /// companion (VSR0-31 hold their high doubleword in an FPR).
+
+(*
+  Lifts the instructions of the Power ISA 2.07B categories that 3.1 no
+  longer has. Lifter hands this module every opcode it says it lifts.
+*)
+/// Which halfwords of rA and rB a legacy multiply takes: bits 48:63 of rA
+/// and 32:47 of rB (cross), 32:47 of both (high), or 48:63 of both (low).
+type private Halves =
+  | Cross
+  | High
+  | Low
+
+/// What a legacy multiply does with the product of the two halfwords.
+type private Product =
+  /// Writes it to rT, the halfwords read as signed or as unsigned numbers.
+  | Multiply of signed: bool
+  /// Adds it to rT's low word, the sum wrapping at 32 bits. The signedness
+  /// says how the halfwords and the word are read, and so what counts as an
+  /// overflow.
+  | Accumulate of signed: bool
+  /// The same, a sum that does not fit pinned to the nearest value that does.
+  | AccumulateSaturate of signed: bool
+  /// Subtracts it from rT's low word, everything signed.
+  | Subtract
+  /// The same, a difference that does not fit pinned as above.
+  | SubtractSaturate
+
+/// <summary>
+/// The Legacy Integer Multiply-Accumulate instructions, each as the
+/// halfwords it takes, what it does with their product, whether it records
+/// an overflow in OV and SO (OE), and whether it records CR0 (Rc).
+/// </summary>
+let private multiplyOf = function
+  | Op.MACCHW -> ValueSome(Cross, Accumulate true, false, false)
+  | Op.MACCHWdot -> ValueSome(Cross, Accumulate true, false, true)
+  | Op.MACCHWO -> ValueSome(Cross, Accumulate true, true, false)
+  | Op.MACCHWOdot -> ValueSome(Cross, Accumulate true, true, true)
+  | Op.MACCHWS -> ValueSome(Cross, AccumulateSaturate true, false, false)
+  | Op.MACCHWSdot -> ValueSome(Cross, AccumulateSaturate true, false, true)
+  | Op.MACCHWSO -> ValueSome(Cross, AccumulateSaturate true, true, false)
+  | Op.MACCHWSOdot -> ValueSome(Cross, AccumulateSaturate true, true, true)
+  | Op.MACCHWSU -> ValueSome(Cross, AccumulateSaturate false, false, false)
+  | Op.MACCHWSUdot -> ValueSome(Cross, AccumulateSaturate false, false, true)
+  | Op.MACCHWSUO -> ValueSome(Cross, AccumulateSaturate false, true, false)
+  | Op.MACCHWSUOdot -> ValueSome(Cross, AccumulateSaturate false, true, true)
+  | Op.MACCHWU -> ValueSome(Cross, Accumulate false, false, false)
+  | Op.MACCHWUdot -> ValueSome(Cross, Accumulate false, false, true)
+  | Op.MACCHWUO -> ValueSome(Cross, Accumulate false, true, false)
+  | Op.MACCHWUOdot -> ValueSome(Cross, Accumulate false, true, true)
+  | Op.NMACCHW -> ValueSome(Cross, Subtract, false, false)
+  | Op.NMACCHWdot -> ValueSome(Cross, Subtract, false, true)
+  | Op.NMACCHWO -> ValueSome(Cross, Subtract, true, false)
+  | Op.NMACCHWOdot -> ValueSome(Cross, Subtract, true, true)
+  | Op.NMACCHWS -> ValueSome(Cross, SubtractSaturate, false, false)
+  | Op.NMACCHWSdot -> ValueSome(Cross, SubtractSaturate, false, true)
+  | Op.NMACCHWSO -> ValueSome(Cross, SubtractSaturate, true, false)
+  | Op.NMACCHWSOdot -> ValueSome(Cross, SubtractSaturate, true, true)
+  | Op.MULCHW -> ValueSome(Cross, Multiply true, false, false)
+  | Op.MULCHWdot -> ValueSome(Cross, Multiply true, false, true)
+  | Op.MULCHWU -> ValueSome(Cross, Multiply false, false, false)
+  | Op.MULCHWUdot -> ValueSome(Cross, Multiply false, false, true)
+  | Op.MACHHW -> ValueSome(High, Accumulate true, false, false)
+  | Op.MACHHWdot -> ValueSome(High, Accumulate true, false, true)
+  | Op.MACHHWO -> ValueSome(High, Accumulate true, true, false)
+  | Op.MACHHWOdot -> ValueSome(High, Accumulate true, true, true)
+  | Op.MACHHWS -> ValueSome(High, AccumulateSaturate true, false, false)
+  | Op.MACHHWSdot -> ValueSome(High, AccumulateSaturate true, false, true)
+  | Op.MACHHWSO -> ValueSome(High, AccumulateSaturate true, true, false)
+  | Op.MACHHWSOdot -> ValueSome(High, AccumulateSaturate true, true, true)
+  | Op.MACHHWSU -> ValueSome(High, AccumulateSaturate false, false, false)
+  | Op.MACHHWSUdot -> ValueSome(High, AccumulateSaturate false, false, true)
+  | Op.MACHHWSUO -> ValueSome(High, AccumulateSaturate false, true, false)
+  | Op.MACHHWSUOdot -> ValueSome(High, AccumulateSaturate false, true, true)
+  | Op.MACHHWU -> ValueSome(High, Accumulate false, false, false)
+  | Op.MACHHWUdot -> ValueSome(High, Accumulate false, false, true)
+  | Op.MACHHWUO -> ValueSome(High, Accumulate false, true, false)
+  | Op.MACHHWUOdot -> ValueSome(High, Accumulate false, true, true)
+  | Op.NMACHHW -> ValueSome(High, Subtract, false, false)
+  | Op.NMACHHWdot -> ValueSome(High, Subtract, false, true)
+  | Op.NMACHHWO -> ValueSome(High, Subtract, true, false)
+  | Op.NMACHHWOdot -> ValueSome(High, Subtract, true, true)
+  | Op.NMACHHWS -> ValueSome(High, SubtractSaturate, false, false)
+  | Op.NMACHHWSdot -> ValueSome(High, SubtractSaturate, false, true)
+  | Op.NMACHHWSO -> ValueSome(High, SubtractSaturate, true, false)
+  | Op.NMACHHWSOdot -> ValueSome(High, SubtractSaturate, true, true)
+  | Op.MULHHW -> ValueSome(High, Multiply true, false, false)
+  | Op.MULHHWdot -> ValueSome(High, Multiply true, false, true)
+  | Op.MULHHWU -> ValueSome(High, Multiply false, false, false)
+  | Op.MULHHWUdot -> ValueSome(High, Multiply false, false, true)
+  | Op.MACLHW -> ValueSome(Low, Accumulate true, false, false)
+  | Op.MACLHWdot -> ValueSome(Low, Accumulate true, false, true)
+  | Op.MACLHWO -> ValueSome(Low, Accumulate true, true, false)
+  | Op.MACLHWOdot -> ValueSome(Low, Accumulate true, true, true)
+  | Op.MACLHWS -> ValueSome(Low, AccumulateSaturate true, false, false)
+  | Op.MACLHWSdot -> ValueSome(Low, AccumulateSaturate true, false, true)
+  | Op.MACLHWSO -> ValueSome(Low, AccumulateSaturate true, true, false)
+  | Op.MACLHWSOdot -> ValueSome(Low, AccumulateSaturate true, true, true)
+  | Op.MACLHWSU -> ValueSome(Low, AccumulateSaturate false, false, false)
+  | Op.MACLHWSUdot -> ValueSome(Low, AccumulateSaturate false, false, true)
+  | Op.MACLHWSUO -> ValueSome(Low, AccumulateSaturate false, true, false)
+  | Op.MACLHWSUOdot -> ValueSome(Low, AccumulateSaturate false, true, true)
+  | Op.MACLHWU -> ValueSome(Low, Accumulate false, false, false)
+  | Op.MACLHWUdot -> ValueSome(Low, Accumulate false, false, true)
+  | Op.MACLHWUO -> ValueSome(Low, Accumulate false, true, false)
+  | Op.MACLHWUOdot -> ValueSome(Low, Accumulate false, true, true)
+  | Op.NMACLHW -> ValueSome(Low, Subtract, false, false)
+  | Op.NMACLHWdot -> ValueSome(Low, Subtract, false, true)
+  | Op.NMACLHWO -> ValueSome(Low, Subtract, true, false)
+  | Op.NMACLHWOdot -> ValueSome(Low, Subtract, true, true)
+  | Op.NMACLHWS -> ValueSome(Low, SubtractSaturate, false, false)
+  | Op.NMACLHWSdot -> ValueSome(Low, SubtractSaturate, false, true)
+  | Op.NMACLHWSO -> ValueSome(Low, SubtractSaturate, true, false)
+  | Op.NMACLHWSOdot -> ValueSome(Low, SubtractSaturate, true, true)
+  | Op.MULLHW -> ValueSome(Low, Multiply true, false, false)
+  | Op.MULLHWdot -> ValueSome(Low, Multiply true, false, true)
+  | Op.MULLHWU -> ValueSome(Low, Multiply false, false, false)
+  | Op.MULLHWUdot -> ValueSome(Low, Multiply false, false, true)
+  | _ -> ValueNone
+
+/// A halfword of a register, bits 32:47 when high and 48:63 otherwise,
+/// widened to 64 bits as a signed or an unsigned number.
+let private halfword signed high reg =
+  let half = AST.extract reg 16<rt> (if high then 16 else 0)
+  if signed then AST.sext 64<rt> half else AST.zext 64<rt> half
+
+/// The two halfwords a legacy multiply takes from rA and rB.
+let private factors halves signed ra rb =
+  match halves with
+  | Cross -> halfword signed false ra, halfword signed true rb
+  | High -> halfword signed true ra, halfword signed true rb
+  | Low -> halfword signed false ra, halfword signed false rb
+
+/// Whether a product reads its halfwords as signed numbers.
+let private isSigned = function
+  | Multiply signed | Accumulate signed | AccumulateSaturate signed -> signed
+  | Subtract | SubtractSaturate -> true
+
+/// rT's low word widened to 64 bits, plus or minus the product.
+let private accumulated product signed (rt: Expr) prod =
+  let word = AST.xtlo 32<rt> rt
+  let acc = if signed then AST.sext 64<rt> word else AST.zext 64<rt> word
+  match product with
+  | Subtract | SubtractSaturate -> acc .- prod
+  | Multiply _ | Accumulate _ | AccumulateSaturate _ -> acc .+ prod
+
+/// Whether a 64-bit sum does not fit a word read as signed or unsigned.
+let private overflows signed sum =
+  if signed then sum != AST.sext 64<rt> (AST.xtlo 32<rt> sum)
+  else AST.xthi 32<rt> sum != AST.num0 32<rt>
+
+/// The word a saturating sum that does not fit is pinned to: the signed
+/// limit on the side the sum fell, or the unsigned maximum.
+let private saturated signed sum =
+  if signed then
+    let least = numU32 0x80000000u 32<rt>
+    let greatest = numU32 0x7fffffffu 32<rt>
+    AST.ite (sum ?< AST.num0 64<rt>) least greatest
+  else
+    numU32 0xffffffffu 32<rt>
+
+/// The word a legacy multiply writes into rT's low word, and whether its sum
+/// overflowed (never, for a plain multiply).
+let private result bld product signed rt prod =
+  match product with
+  | Multiply _ ->
+    AST.xtlo 32<rt> prod, AST.b0
+  | Accumulate _ | Subtract ->
+    let sum = tmpVar bld 64<rt>
+    append bld { sum := accumulated product signed rt prod }
+    AST.xtlo 32<rt> sum, overflows signed sum
+  | AccumulateSaturate _ | SubtractSaturate ->
+    let sum = tmpVar bld 64<rt>
+    append bld { sum := accumulated product signed rt prod }
+    let over = overflows signed sum
+    AST.ite over (saturated signed sum) (AST.xtlo 32<rt> sum), over
+
+/// Records an overflow in XER: OV says whether there was one, and SO keeps
+/// it once there has been.
+let private recordOverflow bld over =
+  append bld {
+    let xer = regVar bld Register.XER
+    AST.extract xer 1<rt> 30 := over
+    AST.extract xer 1<rt> 31 := over .| AST.extract xer 1<rt> 31
+  }
+
+/// <summary>
+/// Lifts a legacy multiply. The word it computes goes into bits 32:63 of
+/// rT; the manual leaves bits 0:31 undefined, and the word is sign-extended
+/// into them, so that CR0, which the manual sets from the 32-bit result, is
+/// what comparing the whole register with zero gives on either word size.
+/// </summary>
+let private multiply (ins: Instruction) bld (halves, product, oe, rc) =
+  lift bld ins {
+    let struct (rt, ra, rb) = transThreeOprs ins bld
+    let signed = isSigned product
+    let a, b = factors halves signed ra rb
+    let prod = tmpVar bld 64<rt>
+    let word = tmpVar bld 32<rt>
+    let over = tmpVar bld 1<rt>
+    prod := a .* b
+    let value, overflow = result bld product signed rt prod
+    word := value
+    over := overflow
+    rt := AST.sext bld.RegType word
+    if oe then recordOverflow bld over else ()
+    if rc then setCR0Reg bld rt else ()
+  }
+
+/// The byte of an eight-byte operand that the manual numbers index + 1 from the
+/// left, so that the first byte is the most significant one.
+let private leftByte operand index = AST.extract operand 8<rt> (56 - 8 * index)
+
+/// The number of the leftmost null byte of the eight bytes of an operand, from
+/// 1, or 8 where none is null.
+let private leftmostNull operand =
+  let isNull i = leftByte operand i == AST.num0 8<rt>
+  List.foldBack (fun i rest -> AST.ite (isNull i) (numI32 (i + 1) 8<rt>) rest)
+    [ 0 .. 7 ] (numI32 8 8<rt>)
+
+/// Whether any of the eight bytes of an operand is null.
+let private anyNull operand =
+  let isNull i = leftByte operand i == AST.num0 8<rt>
+  List.reduce (fun a b -> a .| b) [ for i in 0 .. 7 -> isNull i ]
+
+/// Sets CR0 as dlmzb. does: GT where the leftmost null byte is in the first
+/// four bytes, LT where it is in the last four, EQ where there is none, and
+/// the sticky overflow in SO.
+let private setNullCR0 bld found number =
+  append bld {
+    let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
+    let cr0LT = regVar bld Register.CR0_0
+    let cr0GT = regVar bld Register.CR0_1
+    let cr0EQ = regVar bld Register.CR0_2
+    let cr0SO = regVar bld Register.CR0_3
+    cr0LT := found .& (number .>= numI32 5 8<rt>)
+    cr0GT := found .& (number .< numI32 5 8<rt>)
+    cr0EQ := AST.not found
+    cr0SO := xerSO
+  }
+
+/// <summary>
+/// Lifts dlmzb: the low words of rS and rB make an eight-byte operand, and the
+/// number of its leftmost null byte (8 where there is none) goes into rA and
+/// the seven low bits of XER.
+/// </summary>
+let private dlmzb (ins: Instruction) bld rc =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let operand = tmpVar bld 64<rt>
+    let number = tmpVar bld 8<rt>
+    let found = tmpVar bld 1<rt>
+    let xer = regVar bld Register.XER
+    let width = Expr.typeOf xer
+    operand := AST.concat (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> rb)
+    number := leftmostNull operand
+    found := anyNull operand
+    ra := AST.zext bld.RegType number
+    xer := (xer .& AST.not (numI32 0x7f width)) .| AST.zext width number
+    if rc then setNullCR0 bld found number else ()
+  }
+
+/// Whether this module lifts the opcode.
+let liftsLegacy op = op = Op.DLMZB || op = Op.DLMZBdot || (multiplyOf op).IsSome
+
+/// Lifts an instruction whose opcode this module lifts.
+let translateLegacy (ins: Instruction) bld =
+  match ins.Opcode with
+  | Op.DLMZB ->
+    dlmzb ins bld false
+  | Op.DLMZBdot ->
+    dlmzb ins bld true
+  | op ->
+    match multiplyOf op with
+    | ValueSome spec -> multiply ins bld spec
+    | ValueNone -> raise InvalidOpcodeException
+
+(*
+  Lifts the instructions the embedded environment adds (Power ISA 2.07B Book
+  II and Book III-E). Lifter hands this module every opcode it says it lifts.
+*)
+/// <summary>
+/// Lifts dcblq. and icblq.: CR0 is 0b00 followed by the status of the block
+/// and XER[SO]. The status says whether the block is locked in the cache the
+/// CT field names, and the manual has it 0 where the query cannot be answered.
+/// No cache is modeled and no lock set instruction locks anything (below), so
+/// no block is ever locked.
+/// </summary>
+let private lockQuery (ins: Instruction) bld =
+  lift bld ins {
+    let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
+    regVar bld Register.CR0_0 := AST.b0
+    regVar bld Register.CR0_1 := AST.b0
+    regVar bld Register.CR0_2 := AST.b0
+    regVar bld Register.CR0_3 := xerSO
+  }
+
+/// mfpmr reads a performance monitor register. No event is ever counted here
+/// and no performance monitor is modeled, so every register reads 0.
+let private mfpmr (ins: Instruction) bld =
+  lift bld ins {
+    let struct (rt, _) = transTwoOprs ins bld
+    rt := AST.num0 bld.RegType
+  }
+
+/// A decorated load of size bits, zero-extended: the address is rB alone and
+/// the decoration rA holds is a request to the storage controller that the
+/// model has no controller to make. The access is the plain one.
+let private decoratedLoad ext size (ins: Instruction) bld =
+  lift bld ins {
+    let struct (rt, _, rb) = transThreeOprs ins bld
+    let ea = tmpVar bld bld.RegType
+    ea := rb
+    rt := ext (Expr.typeOf rt) (loadNative bld size ea)
+  }
+
+/// A decorated store of the low size bits of rS, at the address rB holds.
+let private decoratedStore size (ins: Instruction) bld =
+  lift bld ins {
+    let struct (rs, _, rb) = transThreeOprs ins bld
+    let ea = tmpVar bld bld.RegType
+    ea := rb
+    loadNative bld size ea := AST.xtlo size rs
+  }
+
+/// Whether this module lifts the opcode.
+let liftsEmbedded = function
+  | Op.DCBLC | Op.DCBLQdot | Op.DCBTLS | Op.DCBTSTLS
+  | Op.ICBLC | Op.ICBLQdot | Op.ICBTLS
+  | Op.DNH | Op.EHPRIV | Op.MBAR | Op.MFDCRUX | Op.MFPMR | Op.MTDCRUX
+  | Op.MTPMR | Op.XNOP
+  | Op.DSN | Op.LBDX | Op.LDDX | Op.LFDDX | Op.LHDX | Op.LWDX | Op.STBDX
+  | Op.STDDX | Op.STFDDX | Op.STHDX | Op.STWDX -> true
+  | _ -> false
+
+/// <summary>
+/// Lifts an instruction whose opcode this module lifts.
+/// <para>
+/// The lock set instructions are hints that may fail to lock ("an
+/// unable-to-lock condition may occur", and then no operation is performed),
+/// and the lock clear ones do nothing where nothing is locked, so none leaves a
+/// trace. mbar orders storage accesses, and xnop is a no-op that executes, as
+/// the barriers and hints before them. mtpmr writes a performance monitor that
+/// is not modeled. dnh and ehpriv raise an illegal instruction exception: dnh
+/// halts the thread only where an implementation-dependent means has enabled it
+/// and ehpriv, "analogous to a guaranteed illegal instruction encoding",
+/// invokes the hypervisor, which a user-level program has none of. The device
+/// control registers of mfdcrux and mtdcrux are the state of a device that is
+/// not modeled. dsn sends a decoration to the storage controller, which has no
+/// effect a program can see.
+/// </para>
+/// </summary>
+let translateEmbedded (ins: Instruction) bld =
+  match ins.Opcode with
+  | Op.DCBLQdot | Op.ICBLQdot ->
+    lockQuery ins bld
+  | Op.DNH | Op.EHPRIV ->
+    sideEffects ins bld UndefinedInstruction
+  | Op.MFDCRUX | Op.MTDCRUX ->
+    sideEffects ins bld UnsupportedInstruction
+  | Op.MFPMR ->
+    mfpmr ins bld
+  | Op.LBDX ->
+    decoratedLoad AST.zext 8<rt> ins bld
+  | Op.LHDX ->
+    decoratedLoad AST.zext 16<rt> ins bld
+  | Op.LWDX ->
+    decoratedLoad AST.zext 32<rt> ins bld
+  | Op.LDDX | Op.LFDDX ->
+    decoratedLoad AST.zext 64<rt> ins bld
+  | Op.STBDX ->
+    decoratedStore 8<rt> ins bld
+  | Op.STHDX ->
+    decoratedStore 16<rt> ins bld
+  | Op.STWDX ->
+    decoratedStore 32<rt> ins bld
+  | Op.STDDX | Op.STFDDX ->
+    decoratedStore 64<rt> ins bld
+  | _ ->
+    nop ins bld
+
+(*
+  Lifts the instructions of the Transactional Memory category (Power ISA
+  2.07B Book II chapter 5) for a processor that fails every transaction. The
+  architecture lets a transaction fail at any time, and a processor that never
+  lets one begin is one such: software is expected to count its retries and
+  fall back to a lock (the programming note to the failure persistent bit).
+  The transaction state, MSR[TS], therefore stays Non-transactional, which is
+  why every instruction but tbegin. only sets CR0 (or the field tcheck names)
+  to what the state gives it.
+*)
+/// What TEXASR holds once the outer transaction a tbegin. started has failed
+/// at once. tbegin. sets it to 1 in the transaction level (bits 52:63) and to
+/// the instruction's R in the rollback-only bit (38); the failure sets the
+/// failure persistent bit (7) and the nesting overflow cause (9), which tell
+/// software not to retry, the privilege bits (34:35) to the state of a user
+/// program on a processor that is not virtualized (MSR[HV] and MSR[PR] both
+/// set), the failure summary bit (36), and the bit that says TFIAR is exact
+/// (37); recording a failure leaves the transaction level alone.
+let private failedTexasr rollbackOnly =
+  0x0140_0000_3c00_0001UL ||| (rollbackOnly <<< 25)
+
+/// What the privilege state (MSR[HV] and MSR[PR]) puts in the low bits of
+/// TFIAR.
+let private privilege = 3UL
+
+/// Sets CR0 to the four bits given, LT, GT, EQ and SO in the order they read.
+let private setCR0 bld (lt, gt, eq, so) =
+  append bld {
+    regVar bld Register.CR0_0 := lt
+    regVar bld Register.CR0_1 := gt
+    regVar bld Register.CR0_2 := eq
+    regVar bld Register.CR0_3 := so
+  }
+
+/// tbegin. R: the transaction fails as it begins. Failure recording puts the
+/// cause in TEXASR, the address the handler is at in TFHAR (the instruction
+/// after the tbegin., where control goes) and that of the instruction that
+/// failed in TFIAR (the tbegin. itself); failure handling then sets CR0 to
+/// 0b1010 and continues at TFHAR.
+let private tbegin (ins: Instruction) bld =
+  let rollbackOnly =
+    match ins.Operands with
+    | OneOperand(OprImm r) -> r
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    regVar bld Register.TEXASR := numU64 (failedTexasr rollbackOnly) 64<rt>
+    regVar bld Register.TFHAR := numU64 (ins.Address + 4UL) 64<rt>
+    regVar bld Register.TFIAR := numU64 (ins.Address ||| privilege) 64<rt>
+    setCR0 bld (AST.b1, AST.b0, AST.b1, AST.b0)
+  }
+
+/// The instructions that only set CR0, to 0 || MSR[TS] || 0, which is zero in
+/// the Non-transactional state: tend., tabort. and the conditional aborts, and
+/// tsr. All of them are no-ops there otherwise.
+let private clearCR0 (ins: Instruction) bld =
+  lift bld ins {
+    setCR0 bld (AST.b0, AST.b0, AST.b0, AST.b0)
+  }
+
+/// tcheck BF: the field BF receives TDOOMED || MSR[TS] || 0. A processor that
+/// fails every transaction has recorded a failure whenever it has begun one,
+/// and that sets TDOOMED, so the field is 0b1000.
+let private tcheck (ins: Instruction) bld =
+  lift bld ins {
+    let crd0, crd1, crd2, crd3 = transCondOneOpr ins bld
+    crd0 := AST.b1
+    crd1 := AST.b0
+    crd2 := AST.b0
+    crd3 := AST.b0
+  }
+
+/// The register a move names, and whether it is the upper word of TEXASR.
+let private sprOf = function
+  | Op.MFTFHAR | Op.MTTFHAR -> Register.TFHAR
+  | Op.MFTFIAR | Op.MTTFIAR -> Register.TFIAR
+  | _ -> Register.TEXASR
+
+/// A move from a 64-bit register into one of the processor's width, which
+/// keeps its low bits.
+let private mfsprTM (ins: Instruction) bld =
+  lift bld ins {
+    let rt = transOneOpr ins bld
+    let value = regVar bld (sprOf ins.Opcode)
+    rt := AST.xtlo bld.RegType value
+  }
+
+/// mftexasru: TEXASRU, the upper word of TEXASR, zero-extended.
+let private mftexasru (ins: Instruction) bld =
+  lift bld ins {
+    let rt = transOneOpr ins bld
+    rt := AST.zext bld.RegType (AST.xthi 32<rt> (regVar bld Register.TEXASR))
+  }
+
+/// A move to a 64-bit register, zero-extended where the source is narrower.
+let private mtsprTM (ins: Instruction) bld =
+  lift bld ins {
+    let rs = transOneOpr ins bld
+    regVar bld (sprOf ins.Opcode) := AST.zext 64<rt> rs
+  }
+
+/// mttexasru: the low word of rS becomes the upper word of TEXASR.
+let private mttexasru (ins: Instruction) bld =
+  lift bld ins {
+    let rs = transOneOpr ins bld
+    let texasr = regVar bld Register.TEXASR
+    let upper = AST.zext 64<rt> (AST.xtlo 32<rt> rs) << numI32 32 64<rt>
+    texasr := (texasr .& numU64 0xffffffffUL 64<rt>) .| upper
+  }
+
+/// Whether this module lifts the opcode.
+let liftsTransaction = function
+  | Op.TABORTDCIdot | Op.TABORTDCdot | Op.TABORTWCIdot | Op.TABORTWCdot
+  | Op.TABORTdot | Op.TBEGINdot | Op.TCHECK | Op.TENDdot | Op.TSRdot
+  | Op.MFTEXASR | Op.MFTEXASRU | Op.MFTFHAR | Op.MFTFIAR | Op.MTTEXASR
+  | Op.MTTEXASRU | Op.MTTFHAR | Op.MTTFIAR -> true
+  | _ -> false
+
+/// Lifts a transactional instruction. The special registers
+/// of the category may be written only outside a transaction, which is the
+/// only state this machine has.
+let translateTransaction (ins: Instruction) bld =
+  match ins.Opcode with
+  | Op.TBEGINdot ->
+    tbegin ins bld
+  | Op.TCHECK ->
+    tcheck ins bld
+  | Op.MFTFHAR | Op.MFTFIAR | Op.MFTEXASR ->
+    mfsprTM ins bld
+  | Op.MFTEXASRU ->
+    mftexasru ins bld
+  | Op.MTTFHAR | Op.MTTFIAR | Op.MTTEXASR ->
+    mtsprTM ins bld
+  | Op.MTTEXASRU ->
+    mttexasru ins bld
+  | _ ->
+    clearCR0 ins bld
