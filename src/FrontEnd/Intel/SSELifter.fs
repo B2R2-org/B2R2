@@ -2488,7 +2488,6 @@ let pblendw (ins: Instruction) bld =
     assignPackedInstr ins bld false packNum oprSize dst result
   }
 
-/// XXX (cleanup required)
 /// imm8 control byte operation for PCMPESTRI, PCMPESTRM, etc..
 /// See Chapter 4.1 of the manual vol. 2B.
 type Imm8ControlByte =
@@ -2711,16 +2710,23 @@ let private pcmpstrIndexReg (ins: Instruction) =
   if REXPrefix.hasW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
 
 /// The index of the first or the last element whose bit is set, as the
-/// control byte selects, or the element count where none is: one choice an
-/// element, the selected end's outermost.
-let private pcmpstrIndex ctrl outSz (bits: Expr[]) =
+/// control byte selects, or the element count where none is. It is built up
+/// in a temporary, one statement per element, ending with the element at the
+/// selected end, rather than as one expression with a choice per element
+/// nested inside the next to simplify the IR.
+let private pcmpstrIndex bld ctrl outSz (bits: Expr[]) =
   let n = bits.Length
   let order =
     match ctrl.OutSelect with
     | Least -> [ n - 1 .. -1 .. 0 ]
     | Most -> [ 0 .. n - 1 ]
-  let pick acc i = AST.ite bits[i] (numI32 i outSz) acc
-  List.fold pick (numI32 n outSz) order
+  let idx = tmpVar bld outSz
+  append bld {
+    direct idx := numI32 n outSz
+    for i in order do
+      direct idx := AST.ite bits[i] (numI32 i outSz) idx
+  }
+  idx
 
 /// Writes the result bits out the way the opcode asks: as a mask in XMM0, one
 /// bit or one whole element wide, or as an index in rCX.
@@ -2730,8 +2736,9 @@ let private writePcmpstrBits bld ins ctrl (bits: Expr[]) packed =
     writePcmpstrMask bld ins ctrl bits packed
   | Index ->
     let outSz, cx = pcmpstrIndexReg ins
+    let idx = pcmpstrIndex bld ctrl outSz bits
     append bld {
-      sized outSz (regVar bld cx) := pcmpstrIndex ctrl outSz bits
+      sized outSz (regVar bld cx) := idx
     }
 
 /// The flags a compare leaves: carry says some bit is set, zero and sign that
