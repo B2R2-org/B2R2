@@ -55,9 +55,30 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// written number below zero the source wrote.
   let bitLen = WordSize.toRegType isa.WordSize |> int
 
+  /// Whether the source is written in Variable Length Encoding, whose
+  /// instructions are two bytes or four and are stored big-endian whatever the
+  /// data are.
+  let vle = Category.includes Category.VLE (Category.ofISA isa)
+
   /// The table-driven encoders, built here so that they are collected with the
   /// assembler instead of living for as long as the process does.
-  let encoders = lazy (buildEncoderTable bitLen)
+  let encoders = lazy (buildEncoderTable bitLen vle)
+
+  /// How many bytes an instruction takes, which is what the addresses of
+  /// everything after it are counted with.
+  let sizeOf ins =
+    if AsmPrefixed.isPrefixed ins.Opcode then
+      if vle || isa.WordSize <> WordSize.Bit64 then
+        AsmField.fail "Prefixed instructions require the 64-bit base encoding"
+      else
+        8
+    elif vle then
+      AsmVLE.size ins
+    else
+      4
+
+  /// The order the bytes of an instruction are stored in.
+  let endian = if vle then Endian.Big else isa.Endian
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -170,7 +191,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     opt pNumber
     .>>. between (pchar '(') (pchar ')') (skipWhitespaces pRegister)
     |>> fun (offset, baseReg) ->
-      AsmMem(int32 (uint32 (defaultArg offset 0UL)), baseReg)
+      let value = int64 (defaultArg offset 0UL)
+      if value >= int64 Int32.MinValue && value <= int64 Int32.MaxValue then
+        AsmMem(int32 value, baseReg)
+      else
+        AsmMem64(value, baseReg)
 
   let pOperand =
     attempt pConditionBit
@@ -180,12 +205,21 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     <|> (pIdentifier |>> AsmLabel)
 
   let pOperands opcode =
-    sepBy pOperand operandSeps |>> newInfo opcode |> skipWhitespaces
+    let normalize = function
+      | AsmMem64(value, reg) when not (AsmPrefixed.isPrefixed opcode)
+                                 && value <= int64 UInt32.MaxValue
+                                 && value >= 0L ->
+        AsmMem(int32 value, reg)
+      | operand ->
+        operand
+    sepBy pOperand operandSeps
+    |>> (List.map normalize >> newInfo opcode) |> skipWhitespaces
 
   /// The name of an instruction, which may end in the dot that says it records
-  /// what it did.
+  /// what it did, and which may hold the underscore that tells an instruction
+  /// of Variable Length Encoding from the one it is another encoding of.
   let pMnemonic =
-    many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.')
+    many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.' || c = '_')
     >>= fun token ->
       match Map.tryFind (token.ToLowerInvariant()) opcodes with
       | Some opcode -> preturn opcode
@@ -213,7 +247,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       match runParserOnString statements st "" assembly with
       | Success(result, us, _) ->
         filterInstructionLines result
-        |> assemble encoders us isa.Endian baseAddr
+        |> assemble encoders us endian baseAddr sizeOf
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
       | Failure(str, _, _) ->

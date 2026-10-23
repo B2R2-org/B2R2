@@ -10,6 +10,14 @@
     <Compile Include="AsmOpcode.fs" />
     <Compile Include="AsmFloat.fs" />
     <Compile Include="AsmVector.fs" />
+    <Compile Include="AsmVMX.fs" />
+    <Compile Include="AsmVSX.fs" />
+    <Compile Include="AsmLegacy.fs" />
+    <Compile Include="AsmEmbedded.fs" />
+    <Compile Include="AsmTransaction.fs" />
+    <Compile Include="AsmSPE.fs" />
+    <Compile Include="AsmVLE.fs" />
+    <Compile Include="AsmPrefixed.fs" />
     <Compile Include="AsmMain.fs" />
     <Compile Include="Assembler.fs" />
   </ItemGroup>

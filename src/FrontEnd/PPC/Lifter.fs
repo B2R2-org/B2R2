@@ -34,6 +34,10 @@ open B2R2.FrontEnd.PPC
 open B2R2.FrontEnd.PPC.LiftingUtils
 open B2R2.FrontEnd.PPC.GeneralLifter
 open B2R2.FrontEnd.PPC.VectorLifter
+open B2R2.FrontEnd.PPC.FPLifter
+open B2R2.FrontEnd.PPC.DFPLifter
+open B2R2.FrontEnd.PPC.SPELifter
+open B2R2.FrontEnd.PPC.SPEFloatLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -424,9 +428,9 @@ let translate (ins: Instruction) bld =
   | Op.MFCTR ->
     mfctr ins bld
   | Op.MFFS ->
-    mffs ins false bld
+    FPLifter.mffs ins false bld
   | Op.MFFSdot ->
-    mffs ins true bld
+    FPLifter.mffs ins true bld
   | Op.MFLR ->
     mflr ins bld
   | Op.MFXER ->
@@ -438,23 +442,23 @@ let translate (ins: Instruction) bld =
   | Op.MTCRF ->
     mtcrf ins bld
   | Op.MTFSFI ->
-    mtfsfi ins false bld
+    FPLifter.mtfsfi ins false bld
   | Op.MTFSFIdot ->
-    mtfsfi ins true bld
+    FPLifter.mtfsfi ins true bld
   | Op.MTSPR ->
     mtspr ins bld
   | Op.MTFSB0 ->
-    mtfsb0 ins false bld
+    mtfsb ins false false bld
   | Op.MTFSB0dot ->
-    mtfsb0 ins true bld
+    mtfsb ins false true bld
   | Op.MTFSB1 ->
-    mtfsb1 ins false bld
+    mtfsb ins true false bld
   | Op.MTFSB1dot ->
-    mtfsb1 ins true bld
+    mtfsb ins true true bld
   | Op.MTFSF ->
-    mtfsf ins false bld
+    FPLifter.mtfsf ins false bld
   | Op.MTFSFdot ->
-    mtfsf ins true bld
+    FPLifter.mtfsf ins true bld
   | Op.MTLR ->
     mtlr ins bld
   | Op.MTXER ->
@@ -637,8 +641,10 @@ let translate (ins: Instruction) bld =
     subfze ins false true bld
   | Op.SUBFZEOdot ->
     subfze ins true true bld
-  | Op.TRAP | Op.TWI ->
+  | Op.TRAP ->
     trap ins bld
+  | Op.TWI ->
+    trapGeneric ins bld true
   | Op.TWLT ->
     trapCond ins (AST.slt) bld
   | Op.TWLE ->
@@ -819,7 +825,7 @@ let translate (ins: Instruction) bld =
   | Op.MTOCRF ->
     mtcrf ins bld
   | Op.MFOCRF ->
-    mfcr ins bld
+    mfocrf ins bld
   | Op.MFVSRD ->
     mfvsr ins bld 64<rt>
   | Op.MFVSRWZ ->
@@ -968,11 +974,11 @@ let translate (ins: Instruction) bld =
   | Op.FCPSGN ->
     fcpsgn ins bld
   | Op.MFFSL ->
-    mffs ins false bld
+    mffsl ins bld
   | Op.MFFSCRN ->
-    mffscrnReg ins bld
+    mffscrn ins bld
   | Op.MFFSCRNI ->
-    mffscrnImm ins bld
+    mffscrn ins bld
   | Op.XSADDDP ->
     vsxScalarBinary ins bld AST.fadd true
   | Op.XVADDDP ->
@@ -1323,6 +1329,2268 @@ let translate (ins: Instruction) bld =
     vecCompare ins bld 64<rt> (?>) false
   | Op.VCMPGTSDdot ->
     vecCompare ins bld 64<rt> (?>) true
+  | Op.FCPSGNdot ->
+    fcpsgnDot ins bld
+  | Op.FMRGEW ->
+    fmrg ins true bld
+  | Op.FMRGOW ->
+    fmrg ins false bld
+  | Op.FRE ->
+    fre ins false bld
+  | Op.FREdot ->
+    fre ins true bld
+  | Op.FRSQRTES ->
+    frsqrtes ins false bld
+  | Op.FRSQRTESdot ->
+    frsqrtes ins true bld
+  | Op.FTDIV ->
+    ftdiv ins bld
+  | Op.FTSQRT ->
+    ftsqrt ins bld
+  | Op.LFDP ->
+    lfdp ins bld
+  | Op.LFDPX ->
+    lfdpx ins bld
+  | Op.STFDP ->
+    stfdp ins bld
+  | Op.STFDPX ->
+    stfdpx ins bld
+  | Op.MFFSCE ->
+    mffsce ins bld
+  | Op.MFFSCDRN ->
+    mffscdrn ins bld
+  | Op.MFFSCDRNI ->
+    mffscdrni ins bld
+  | Op.DADD ->
+    arith ins false "DADD" 1UL false bld
+  | Op.DADDdot ->
+    arith ins false "DADD" 1UL true bld
+  | Op.DADDQ ->
+    arith ins true "DADD" 1UL false bld
+  | Op.DADDQdot ->
+    arith ins true "DADD" 1UL true bld
+  | Op.DSUB ->
+    arith ins false "DSUB" 3UL false bld
+  | Op.DSUBdot ->
+    arith ins false "DSUB" 3UL true bld
+  | Op.DSUBQ ->
+    arith ins true "DSUB" 3UL false bld
+  | Op.DSUBQdot ->
+    arith ins true "DSUB" 3UL true bld
+  | Op.DMUL ->
+    arith ins false "DMUL" 5UL false bld
+  | Op.DMULdot ->
+    arith ins false "DMUL" 5UL true bld
+  | Op.DMULQ ->
+    arith ins true "DMUL" 5UL false bld
+  | Op.DMULQdot ->
+    arith ins true "DMUL" 5UL true bld
+  | Op.DDIV ->
+    arith ins false "DDIV" 7UL false bld
+  | Op.DDIVdot ->
+    arith ins false "DDIV" 7UL true bld
+  | Op.DDIVQ ->
+    arith ins true "DDIV" 7UL false bld
+  | Op.DDIVQdot ->
+    arith ins true "DDIV" 7UL true bld
+  | Op.DCMPU ->
+    compare ins false 9UL bld
+  | Op.DCMPUQ ->
+    compare ins true 9UL bld
+  | Op.DCMPO ->
+    compare ins false 11UL bld
+  | Op.DCMPOQ ->
+    compare ins true 11UL bld
+  | Op.DTSTEX ->
+    compare ins false 17UL bld
+  | Op.DTSTEXQ ->
+    compare ins true 17UL bld
+  | Op.DTSTDC ->
+    tstData ins false 13UL bld
+  | Op.DTSTDCQ ->
+    tstData ins true 13UL bld
+  | Op.DTSTDG ->
+    tstData ins false 15UL bld
+  | Op.DTSTDGQ ->
+    tstData ins true 15UL bld
+  | Op.DTSTSF ->
+    tstsf ins false bld
+  | Op.DTSTSFI ->
+    tstsfi ins false bld
+  | Op.DTSTSFQ ->
+    tstsf ins true bld
+  | Op.DTSTSFIQ ->
+    tstsfi ins true bld
+  | Op.DQUA ->
+    quantize ins false "DQUA" 25UL true false bld
+  | Op.DQUAdot ->
+    quantize ins false "DQUA" 25UL true true bld
+  | Op.DQUAQ ->
+    quantize ins true "DQUA" 25UL true false bld
+  | Op.DQUAQdot ->
+    quantize ins true "DQUA" 25UL true true bld
+  | Op.DRRND ->
+    quantize ins false "DRRND" 27UL false false bld
+  | Op.DRRNDdot ->
+    quantize ins false "DRRND" 27UL false true bld
+  | Op.DRRNDQ ->
+    quantize ins true "DRRND" 27UL false false bld
+  | Op.DRRNDQdot ->
+    quantize ins true "DRRND" 27UL false true bld
+  | Op.DQUAI ->
+    quantizeImm ins false false bld
+  | Op.DQUAIdot ->
+    quantizeImm ins false true bld
+  | Op.DQUAIQ ->
+    quantizeImm ins true false bld
+  | Op.DQUAIQdot ->
+    quantizeImm ins true true bld
+  | Op.DRINTX ->
+    roundToInt ins false "DRINTX" 29UL false bld
+  | Op.DRINTXdot ->
+    roundToInt ins false "DRINTX" 29UL true bld
+  | Op.DRINTXQ ->
+    roundToInt ins true "DRINTX" 29UL false bld
+  | Op.DRINTXQdot ->
+    roundToInt ins true "DRINTX" 29UL true bld
+  | Op.DRINTN ->
+    roundToInt ins false "DRINTN" 31UL false bld
+  | Op.DRINTNdot ->
+    roundToInt ins false "DRINTN" 31UL true bld
+  | Op.DRINTNQ ->
+    roundToInt ins true "DRINTN" 31UL false bld
+  | Op.DRINTNQdot ->
+    roundToInt ins true "DRINTN" 31UL true bld
+  | Op.DCTDP ->
+    ctdp ins false bld
+  | Op.DCTDPdot ->
+    ctdp ins true bld
+  | Op.DCTQPQ ->
+    ctqpq ins false bld
+  | Op.DCTQPQdot ->
+    ctqpq ins true bld
+  | Op.DRSP ->
+    rsp ins false bld
+  | Op.DRSPdot ->
+    rsp ins true bld
+  | Op.DRDPQ ->
+    rdpq ins false bld
+  | Op.DRDPQdot ->
+    rdpq ins true bld
+  | Op.DCFFIX ->
+    cffix ins false bld
+  | Op.DCFFIXdot ->
+    cffix ins true bld
+  | Op.DCFFIXQ ->
+    cffixq ins false bld
+  | Op.DCFFIXQdot ->
+    cffixq ins true bld
+  | Op.DCTFIX ->
+    ctfix ins false bld
+  | Op.DCTFIXdot ->
+    ctfix ins true bld
+  | Op.DCTFIXQ ->
+    ctfixq ins false bld
+  | Op.DCTFIXQdot ->
+    ctfixq ins true bld
+  | Op.DCFFIXQQ ->
+    cffixqq ins bld
+  | Op.DCTFIXQQ ->
+    ctfixqq ins bld
+  | Op.DENBCD ->
+    enbcd ins false false bld
+  | Op.DENBCDdot ->
+    enbcd ins false true bld
+  | Op.DENBCDQ ->
+    enbcd ins true false bld
+  | Op.DENBCDQdot ->
+    enbcd ins true true bld
+  | Op.DDEDPD ->
+    dedpd ins false false bld
+  | Op.DDEDPDdot ->
+    dedpd ins false true bld
+  | Op.DDEDPDQ ->
+    dedpd ins true false bld
+  | Op.DDEDPDQdot ->
+    dedpd ins true true bld
+  | Op.DXEX ->
+    xex ins false false bld
+  | Op.DXEXdot ->
+    xex ins false true bld
+  | Op.DXEXQ ->
+    xex ins true false bld
+  | Op.DXEXQdot ->
+    xex ins true true bld
+  | Op.DIEX ->
+    iex ins false false bld
+  | Op.DIEXdot ->
+    iex ins false true bld
+  | Op.DIEXQ ->
+    iex ins true false bld
+  | Op.DIEXQdot ->
+    iex ins true true bld
+  | Op.DSCLI ->
+    shift ins false "DSCLI" false bld
+  | Op.DSCLIdot ->
+    shift ins false "DSCLI" true bld
+  | Op.DSCLIQ ->
+    shift ins true "DSCLI" false bld
+  | Op.DSCLIQdot ->
+    shift ins true "DSCLI" true bld
+  | Op.DSCRI ->
+    shift ins false "DSCRI" false bld
+  | Op.DSCRIdot ->
+    shift ins false "DSCRI" true bld
+  | Op.DSCRIQ ->
+    shift ins true "DSCRI" false bld
+  | Op.DSCRIQdot ->
+    shift ins true "DSCRI" true bld
+  | Op.VADDSBS ->
+    vecSaturating ins bld 8<rt> true true
+  | Op.VADDSHS ->
+    vecSaturating ins bld 16<rt> true true
+  | Op.VADDSWS ->
+    vecSaturating ins bld 32<rt> true true
+  | Op.VADDUHS ->
+    vecSaturating ins bld 16<rt> false true
+  | Op.VADDUWS ->
+    vecSaturating ins bld 32<rt> false true
+  | Op.VSUBSBS ->
+    vecSaturating ins bld 8<rt> true false
+  | Op.VSUBSHS ->
+    vecSaturating ins bld 16<rt> true false
+  | Op.VSUBSWS ->
+    vecSaturating ins bld 32<rt> true false
+  | Op.VSUBUHS ->
+    vecSaturating ins bld 16<rt> false false
+  | Op.VSUBUWS ->
+    vecSaturating ins bld 32<rt> false false
+  | Op.VADDCUW ->
+    vaddcuw ins bld
+  | Op.VSUBCUW ->
+    vsubcuw ins bld
+  | Op.VAVGSB ->
+    vecAverage ins bld 8<rt> true
+  | Op.VAVGSH ->
+    vecAverage ins bld 16<rt> true
+  | Op.VAVGSW ->
+    vecAverage ins bld 32<rt> true
+  | Op.VAVGUB ->
+    vecAverage ins bld 8<rt> false
+  | Op.VAVGUH ->
+    vecAverage ins bld 16<rt> false
+  | Op.VAVGUW ->
+    vecAverage ins bld 32<rt> false
+  | Op.VABSDUB ->
+    vecAbsoluteDifference ins bld 8<rt>
+  | Op.VABSDUH ->
+    vecAbsoluteDifference ins bld 16<rt>
+  | Op.VABSDUW ->
+    vecAbsoluteDifference ins bld 32<rt>
+  | Op.VADDUQM ->
+    vecQuadAdd ins bld false false
+  | Op.VADDCUQ ->
+    vecQuadAdd ins bld false true
+  | Op.VADDEUQM ->
+    vecQuadAdd ins bld false false
+  | Op.VADDECUQ ->
+    vecQuadAdd ins bld false true
+  | Op.VSUBUQM ->
+    vecQuadAdd ins bld true false
+  | Op.VSUBCUQ ->
+    vecQuadAdd ins bld true true
+  | Op.VSUBEUQM ->
+    vecQuadAdd ins bld true false
+  | Op.VSUBECUQ ->
+    vecQuadAdd ins bld true true
+  | Op.VCMPEQUQ ->
+    vecCompareElements ins bld 128<rt> (==) false
+  | Op.VCMPEQUQdot ->
+    vecCompareElements ins bld 128<rt> (==) true
+  | Op.VCMPGTUQ ->
+    vecCompareElements ins bld 128<rt> (.>) false
+  | Op.VCMPGTUQdot ->
+    vecCompareElements ins bld 128<rt> (.>) true
+  | Op.VCMPGTSQ ->
+    vecCompareElements ins bld 128<rt> (?>) false
+  | Op.VCMPGTSQdot ->
+    vecCompareElements ins bld 128<rt> (?>) true
+  | Op.VCMPNEB ->
+    vecCompareElements ins bld 8<rt> (!=) false
+  | Op.VCMPNEBdot ->
+    vecCompareElements ins bld 8<rt> (!=) true
+  | Op.VCMPNEH ->
+    vecCompareElements ins bld 16<rt> (!=) false
+  | Op.VCMPNEHdot ->
+    vecCompareElements ins bld 16<rt> (!=) true
+  | Op.VCMPNEW ->
+    vecCompareElements ins bld 32<rt> (!=) false
+  | Op.VCMPNEWdot ->
+    vecCompareElements ins bld 32<rt> (!=) true
+  | Op.VCMPNEZB ->
+    vecCompareElements ins bld 8<rt> (notEqualOrZero 8<rt>) false
+  | Op.VCMPNEZBdot ->
+    vecCompareElements ins bld 8<rt> (notEqualOrZero 8<rt>) true
+  | Op.VCMPNEZH ->
+    vecCompareElements ins bld 16<rt> (notEqualOrZero 16<rt>) false
+  | Op.VCMPNEZHdot ->
+    vecCompareElements ins bld 16<rt> (notEqualOrZero 16<rt>) true
+  | Op.VCMPNEZW ->
+    vecCompareElements ins bld 32<rt> (notEqualOrZero 32<rt>) false
+  | Op.VCMPNEZWdot ->
+    vecCompareElements ins bld 32<rt> (notEqualOrZero 32<rt>) true
+  | Op.VCMPSQ ->
+    vecCompareQuadToCR ins bld true
+  | Op.VCMPUQ ->
+    vecCompareQuadToCR ins bld false
+  | Op.VMULEUW ->
+    vecMulEvenOdd ins bld 32<rt> false true
+  | Op.VMULOUW ->
+    vecMulEvenOdd ins bld 32<rt> false false
+  | Op.VMULEUB ->
+    vecMulEvenOdd ins bld 8<rt> false true
+  | Op.VMULOUB ->
+    vecMulEvenOdd ins bld 8<rt> false false
+  | Op.VMULESB ->
+    vecMulEvenOdd ins bld 8<rt> true true
+  | Op.VMULOSB ->
+    vecMulEvenOdd ins bld 8<rt> true false
+  | Op.VMULEUH ->
+    vecMulEvenOdd ins bld 16<rt> false true
+  | Op.VMULOUH ->
+    vecMulEvenOdd ins bld 16<rt> false false
+  | Op.VMULESH ->
+    vecMulEvenOdd ins bld 16<rt> true true
+  | Op.VMULOSH ->
+    vecMulEvenOdd ins bld 16<rt> true false
+  | Op.VMULEUD ->
+    vecMulEvenOdd ins bld 64<rt> false true
+  | Op.VMULOUD ->
+    vecMulEvenOdd ins bld 64<rt> false false
+  | Op.VMULESD ->
+    vecMulEvenOdd ins bld 64<rt> true true
+  | Op.VMULOSD ->
+    vecMulEvenOdd ins bld 64<rt> true false
+  | Op.VPKUDUM ->
+    vecPackElements ins bld 64<rt> false Modulo
+  | Op.VPKSDSS ->
+    vecPackElements ins bld 64<rt> true (Saturate true)
+  | Op.VPKSDUS ->
+    vecPackElements ins bld 64<rt> true (Saturate false)
+  | Op.VPKUDUS ->
+    vecPackElements ins bld 64<rt> false (Saturate false)
+  | Op.VCIPHER ->
+    aesRound ins bld "AESENC"
+  | Op.VCIPHERLAST ->
+    aesRound ins bld "AESENCLAST"
+  | Op.VNCIPHER ->
+    vncipher ins bld
+  | Op.VNCIPHERLAST ->
+    aesRound ins bld "AESDECLAST"
+  | Op.VSBOX ->
+    vsbox ins bld
+  | Op.VSHASIGMAW ->
+    vshasigma ins bld 32<rt>
+  | Op.VSHASIGMAD ->
+    vshasigma ins bld 64<rt>
+  | Op.VPMSUMB ->
+    vpmsum ins bld 8<rt>
+  | Op.VPMSUMH ->
+    vpmsum ins bld 16<rt>
+  | Op.VPMSUMW ->
+    vpmsum ins bld 32<rt>
+  | Op.VPMSUMD ->
+    vpmsum ins bld 64<rt>
+  | Op.VPERMXOR ->
+    vpermxor ins bld
+  | Op.BCDADDdot ->
+    bcdAddSub ins bld false
+  | Op.BCDSUBdot ->
+    bcdAddSub ins bld true
+  | Op.VPKUHUS ->
+    vecPackElements ins bld 16<rt> false (Saturate false)
+  | Op.VPKUWUS ->
+    vecPackElements ins bld 32<rt> false (Saturate false)
+  | Op.VPKSHSS ->
+    vecPackElements ins bld 16<rt> true (Saturate true)
+  | Op.VPKSWSS ->
+    vecPackElements ins bld 32<rt> true (Saturate true)
+  | Op.VPKSHUS ->
+    vecPackElements ins bld 16<rt> true (Saturate false)
+  | Op.VPKSWUS ->
+    vecPackElements ins bld 32<rt> true (Saturate false)
+  | Op.VPKPX ->
+    vpkpx ins bld
+  | Op.VUPKHPX ->
+    vecUnpackPixel ins bld true
+  | Op.VUPKLPX ->
+    vecUnpackPixel ins bld false
+  | Op.VMHADDSHS ->
+    vecMultiplyHighAdd ins bld false
+  | Op.VMHRADDSHS ->
+    vecMultiplyHighAdd ins bld true
+  | Op.VMLADDUHM ->
+    vecMultiplySum ins bld 16<rt> 16<rt> unsignedSums Modulo
+  | Op.VMSUMUBM ->
+    vecMultiplySum ins bld 8<rt> 32<rt> unsignedSums Modulo
+  | Op.VMSUMMBM ->
+    vecMultiplySum ins bld 8<rt> 32<rt> mixedSums Modulo
+  | Op.VMSUMUHM ->
+    vecMultiplySum ins bld 16<rt> 32<rt> unsignedSums Modulo
+  | Op.VMSUMUHS ->
+    vecMultiplySum ins bld 16<rt> 32<rt> unsignedSums (Saturate false)
+  | Op.VMSUMSHM ->
+    vecMultiplySum ins bld 16<rt> 32<rt> signedSums Modulo
+  | Op.VMSUMSHS ->
+    vecMultiplySum ins bld 16<rt> 32<rt> signedSums (Saturate true)
+  | Op.VMSUMUDM ->
+    vecMultiplySum ins bld 64<rt> 128<rt> unsignedSums Modulo
+  | Op.VMSUMCUD ->
+    vmsumcud ins bld
+  | Op.VMULHSW ->
+    vecMulHigh ins bld 32<rt> true
+  | Op.VMULHUW ->
+    vecMulHigh ins bld 32<rt> false
+  | Op.VMULHSD ->
+    vecMulHigh ins bld 64<rt> true
+  | Op.VMULHUD ->
+    vecMulHigh ins bld 64<rt> false
+  | Op.VMULLD ->
+    vmulld ins bld
+  | Op.MADDHD ->
+    multiplyAddDoubleword ins bld true true
+  | Op.MADDHDU ->
+    multiplyAddDoubleword ins bld false true
+  | Op.MADDLD ->
+    multiplyAddDoubleword ins bld true false
+  | Op.VDIVSW ->
+    vecDivide ins bld 32<rt> true Quotient
+  | Op.VDIVUW ->
+    vecDivide ins bld 32<rt> false Quotient
+  | Op.VDIVSD ->
+    vecDivide ins bld 64<rt> true Quotient
+  | Op.VDIVUD ->
+    vecDivide ins bld 64<rt> false Quotient
+  | Op.VDIVSQ ->
+    vecDivide ins bld 128<rt> true Quotient
+  | Op.VDIVUQ ->
+    vecDivide ins bld 128<rt> false Quotient
+  | Op.VDIVESW ->
+    vecDivide ins bld 32<rt> true ExtendedQuotient
+  | Op.VDIVEUW ->
+    vecDivide ins bld 32<rt> false ExtendedQuotient
+  | Op.VDIVESD ->
+    vecDivide ins bld 64<rt> true ExtendedQuotient
+  | Op.VDIVEUD ->
+    vecDivide ins bld 64<rt> false ExtendedQuotient
+  | Op.VDIVESQ ->
+    vecDivide ins bld 128<rt> true ExtendedQuotient
+  | Op.VDIVEUQ ->
+    vecDivide ins bld 128<rt> false ExtendedQuotient
+  | Op.VMODSW ->
+    vecDivide ins bld 32<rt> true Remainder
+  | Op.VMODUW ->
+    vecDivide ins bld 32<rt> false Remainder
+  | Op.VMODSD ->
+    vecDivide ins bld 64<rt> true Remainder
+  | Op.VMODUD ->
+    vecDivide ins bld 64<rt> false Remainder
+  | Op.VMODSQ ->
+    vecDivide ins bld 128<rt> true Remainder
+  | Op.VMODUQ ->
+    vecDivide ins bld 128<rt> false Remainder
+  | Op.VSUM4UBS ->
+    vecSumWithin ins bld 8<rt> false
+  | Op.VSUM4SBS ->
+    vecSumWithin ins bld 8<rt> true
+  | Op.VSUM4SHS ->
+    vecSumWithin ins bld 16<rt> true
+  | Op.VSUM2SWS ->
+    vecSumAcross ins bld 2
+  | Op.VSUMSWS ->
+    vecSumAcross ins bld 1
+  | Op.VCTZB ->
+    vecCountTrailingZeros ins bld 8<rt>
+  | Op.VCTZH ->
+    vecCountTrailingZeros ins bld 16<rt>
+  | Op.VCTZW ->
+    vecCountTrailingZeros ins bld 32<rt>
+  | Op.VCTZD ->
+    vecCountTrailingZeros ins bld 64<rt>
+  | Op.VCLZLSBB ->
+    vecCountLsbZeroBytes ins bld true
+  | Op.VCTZLSBB ->
+    vecCountLsbZeroBytes ins bld false
+  | Op.VNEGW ->
+    vecMap1 ins bld 32<rt> AST.neg
+  | Op.VNEGD ->
+    vecMap1 ins bld 64<rt> AST.neg
+  | Op.VPRTYBW ->
+    vecParity ins bld 32<rt>
+  | Op.VPRTYBD ->
+    vecParity ins bld 64<rt>
+  | Op.VPRTYBQ ->
+    vecParity ins bld 128<rt>
+  | Op.VEXTSB2W ->
+    vecSignExtend ins bld 32<rt> 8<rt>
+  | Op.VEXTSH2W ->
+    vecSignExtend ins bld 32<rt> 16<rt>
+  | Op.VEXTSB2D ->
+    vecSignExtend ins bld 64<rt> 8<rt>
+  | Op.VEXTSH2D ->
+    vecSignExtend ins bld 64<rt> 16<rt>
+  | Op.VEXTSW2D ->
+    vecSignExtend ins bld 64<rt> 32<rt>
+  | Op.VEXTSD2Q ->
+    vecSignExtend ins bld 128<rt> 64<rt>
+  | Op.VRLWNM ->
+    vecRotateMask ins bld 32<rt> false
+  | Op.VRLDNM ->
+    vecRotateMask ins bld 64<rt> false
+  | Op.VRLQNM ->
+    vecRotateMask ins bld 128<rt> false
+  | Op.VRLWMI ->
+    vecRotateMask ins bld 32<rt> true
+  | Op.VRLDMI ->
+    vecRotateMask ins bld 64<rt> true
+  | Op.VRLQMI ->
+    vecRotateMask ins bld 128<rt> true
+  | Op.VSLQ ->
+    vecShiftQuad ins bld ShiftLeft
+  | Op.VSRQ ->
+    vecShiftQuad ins bld ShiftRight
+  | Op.VSRAQ ->
+    vecShiftQuad ins bld ShiftRightAlgebraic
+  | Op.VRLQ ->
+    vecShiftQuad ins bld RotateLeft
+  | Op.VSLV ->
+    vecShiftVariable ins bld true
+  | Op.VSRV ->
+    vecShiftVariable ins bld false
+  | Op.VSLDBI ->
+    vecShiftDoubleBits ins bld true
+  | Op.VSRDBI ->
+    vecShiftDoubleBits ins bld false
+  | Op.VEXTRACTUB ->
+    vecExtractImm ins bld 1
+  | Op.VEXTRACTUH ->
+    vecExtractImm ins bld 2
+  | Op.VEXTRACTUW ->
+    vecExtractImm ins bld 4
+  | Op.VEXTRACTD ->
+    vecExtractImm ins bld 8
+  | Op.VINSERTB ->
+    vecInsertImm ins bld 1
+  | Op.VINSERTH ->
+    vecInsertImm ins bld 2
+  | Op.VINSERTW ->
+    vecInsertImm ins bld 4
+  | Op.VINSERTD ->
+    vecInsertImm ins bld 8
+  | Op.VEXTUBLX ->
+    vecExtractToGpr ins bld 1 true
+  | Op.VEXTUHLX ->
+    vecExtractToGpr ins bld 2 true
+  | Op.VEXTUWLX ->
+    vecExtractToGpr ins bld 4 true
+  | Op.VEXTUBRX ->
+    vecExtractToGpr ins bld 1 false
+  | Op.VEXTUHRX ->
+    vecExtractToGpr ins bld 2 false
+  | Op.VEXTUWRX ->
+    vecExtractToGpr ins bld 4 false
+  | Op.VEXTDUBVLX ->
+    vecExtractPair ins bld 1 true
+  | Op.VEXTDUBVRX ->
+    vecExtractPair ins bld 1 false
+  | Op.VEXTDUHVLX ->
+    vecExtractPair ins bld 2 true
+  | Op.VEXTDUHVRX ->
+    vecExtractPair ins bld 2 false
+  | Op.VEXTDUWVLX ->
+    vecExtractPair ins bld 4 true
+  | Op.VEXTDUWVRX ->
+    vecExtractPair ins bld 4 false
+  | Op.VEXTDDVLX ->
+    vecExtractPair ins bld 8 true
+  | Op.VEXTDDVRX ->
+    vecExtractPair ins bld 8 false
+  | Op.VINSBLX ->
+    vecInsertAt ins bld 1 true false
+  | Op.VINSHLX ->
+    vecInsertAt ins bld 2 true false
+  | Op.VINSWLX ->
+    vecInsertAt ins bld 4 true false
+  | Op.VINSDLX ->
+    vecInsertAt ins bld 8 true false
+  | Op.VINSBRX ->
+    vecInsertAt ins bld 1 false false
+  | Op.VINSHRX ->
+    vecInsertAt ins bld 2 false false
+  | Op.VINSWRX ->
+    vecInsertAt ins bld 4 false false
+  | Op.VINSDRX ->
+    vecInsertAt ins bld 8 false false
+  | Op.VINSBVLX ->
+    vecInsertAt ins bld 1 true true
+  | Op.VINSHVLX ->
+    vecInsertAt ins bld 2 true true
+  | Op.VINSWVLX ->
+    vecInsertAt ins bld 4 true true
+  | Op.VINSBVRX ->
+    vecInsertAt ins bld 1 false true
+  | Op.VINSHVRX ->
+    vecInsertAt ins bld 2 false true
+  | Op.VINSWVRX ->
+    vecInsertAt ins bld 4 false true
+  | Op.VINSW ->
+    vecInsertGprImm ins bld 4
+  | Op.VINSD ->
+    vecInsertGprImm ins bld 8
+  | Op.VCLRLB ->
+    vecClearBytes ins bld true
+  | Op.VCLRRB ->
+    vecClearBytes ins bld false
+  | Op.VEXPANDBM ->
+    vecExpandMask ins bld 8<rt>
+  | Op.VEXTRACTBM ->
+    vecExtractMask ins bld 8<rt>
+  | Op.MTVSRBM ->
+    vecMoveToMask ins bld 8<rt>
+  | Op.VCNTMBB ->
+    vecCountMaskBits ins bld 8<rt>
+  | Op.VEXPANDHM ->
+    vecExpandMask ins bld 16<rt>
+  | Op.VEXTRACTHM ->
+    vecExtractMask ins bld 16<rt>
+  | Op.MTVSRHM ->
+    vecMoveToMask ins bld 16<rt>
+  | Op.VCNTMBH ->
+    vecCountMaskBits ins bld 16<rt>
+  | Op.VEXPANDWM ->
+    vecExpandMask ins bld 32<rt>
+  | Op.VEXTRACTWM ->
+    vecExtractMask ins bld 32<rt>
+  | Op.MTVSRWM ->
+    vecMoveToMask ins bld 32<rt>
+  | Op.VCNTMBW ->
+    vecCountMaskBits ins bld 32<rt>
+  | Op.VEXPANDDM ->
+    vecExpandMask ins bld 64<rt>
+  | Op.VEXTRACTDM ->
+    vecExtractMask ins bld 64<rt>
+  | Op.MTVSRDM ->
+    vecMoveToMask ins bld 64<rt>
+  | Op.VCNTMBD ->
+    vecCountMaskBits ins bld 64<rt>
+  | Op.VEXPANDQM ->
+    vecExpandMask ins bld 128<rt>
+  | Op.VEXTRACTQM ->
+    vecExtractMask ins bld 128<rt>
+  | Op.MTVSRQM ->
+    vecMoveToMask ins bld 128<rt>
+  | Op.MTVSRBMI ->
+    mtvsrbmi ins bld
+  | Op.VSTRIBL ->
+    vecStringIsolate ins bld 8<rt> true false
+  | Op.VSTRIBLdot ->
+    vecStringIsolate ins bld 8<rt> true true
+  | Op.VSTRIBR ->
+    vecStringIsolate ins bld 8<rt> false false
+  | Op.VSTRIBRdot ->
+    vecStringIsolate ins bld 8<rt> false true
+  | Op.VSTRIHL ->
+    vecStringIsolate ins bld 16<rt> true false
+  | Op.VSTRIHLdot ->
+    vecStringIsolate ins bld 16<rt> true true
+  | Op.VSTRIHR ->
+    vecStringIsolate ins bld 16<rt> false false
+  | Op.VSTRIHRdot ->
+    vecStringIsolate ins bld 16<rt> false true
+  | Op.VPERMR ->
+    vpermr ins bld
+  | Op.VGNB ->
+    vgnb ins bld
+  | Op.VBPERMD ->
+    vbpermd ins bld
+  | Op.VCFUGED ->
+    vecMaskedBits ins bld Centrifuge
+  | Op.VPDEPD ->
+    vecMaskedBits ins bld Deposit
+  | Op.VPEXTD ->
+    vecMaskedBits ins bld Extract
+  | Op.VCLZDM ->
+    vecMaskedBits ins bld LeadingZeros
+  | Op.VCTZDM ->
+    vecMaskedBits ins bld TrailingZeros
+  | Op.VADDFP ->
+    vecFloatBinary ins bld AST.fadd
+  | Op.VSUBFP ->
+    vecFloatBinary ins bld AST.fsub
+  | Op.VMADDFP ->
+    vecFloatMultiplyAdd ins bld false
+  | Op.VNMSUBFP ->
+    vecFloatMultiplyAdd ins bld true
+  | Op.VMAXFP ->
+    vecFloatMaxMin ins bld true
+  | Op.VMINFP ->
+    vecFloatMaxMin ins bld false
+  | Op.VREFP ->
+    vecFloatReciprocal ins bld false
+  | Op.VRSQRTEFP ->
+    vecFloatReciprocal ins bld true
+  | Op.VEXPTEFP ->
+    vecFloatExpLog ins bld true
+  | Op.VLOGEFP ->
+    vecFloatExpLog ins bld false
+  | Op.VRFIN ->
+    vecFloatRound ins bld RoundingMode.ToNearestEven
+  | Op.VRFIZ ->
+    vecFloatRound ins bld RoundingMode.TowardZero
+  | Op.VRFIP ->
+    vecFloatRound ins bld RoundingMode.TowardPositive
+  | Op.VRFIM ->
+    vecFloatRound ins bld RoundingMode.TowardNegative
+  | Op.VCFSX ->
+    vecFloatFromInt ins bld true
+  | Op.VCFUX ->
+    vecFloatFromInt ins bld false
+  | Op.VCTSXS ->
+    vecFloatToInt ins bld true
+  | Op.VCTUXS ->
+    vecFloatToInt ins bld false
+  | Op.VCMPEQFP ->
+    vecFloatCompare ins bld AST.feq false
+  | Op.VCMPEQFPdot ->
+    vecFloatCompare ins bld AST.feq true
+  | Op.VCMPGEFP ->
+    vecFloatCompare ins bld AST.fge false
+  | Op.VCMPGEFPdot ->
+    vecFloatCompare ins bld AST.fge true
+  | Op.VCMPGTFP ->
+    vecFloatCompare ins bld AST.fgt false
+  | Op.VCMPGTFPdot ->
+    vecFloatCompare ins bld AST.fgt true
+  | Op.VCMPBFP ->
+    vcmpbfp ins bld false
+  | Op.VCMPBFPdot ->
+    vcmpbfp ins bld true
+  | Op.BCDCPSGNdot ->
+    bcdcpsgn ins bld
+  | Op.BCDSETSGNdot ->
+    bcdsetsgn ins bld
+  | Op.BCDCFSQdot ->
+    bcdcfsq ins bld
+  | Op.BCDCTSQdot ->
+    bcdctsq ins bld
+  | Op.BCDSdot ->
+    bcds ins bld
+  | Op.BCDUSdot ->
+    bcdus ins bld
+  | Op.BCDSRdot ->
+    bcdsr ins bld
+  | Op.BCDTRUNCdot ->
+    bcdtrunc ins bld
+  | Op.BCDUTRUNCdot ->
+    bcdutrunc ins bld
+  | Op.BCDCFNdot ->
+    bcdcfn ins bld
+  | Op.BCDCTNdot ->
+    bcdctn ins bld
+  | Op.BCDCFZdot ->
+    bcdcfz ins bld
+  | Op.BCDCTZdot ->
+    bcdctz ins bld
+  | Op.VMUL10UQ ->
+    vecMultiplyByTen ins bld false false
+  | Op.VMUL10CUQ ->
+    vecMultiplyByTen ins bld false true
+  | Op.VMUL10EUQ ->
+    vecMultiplyByTen ins bld true false
+  | Op.VMUL10ECUQ ->
+    vecMultiplyByTen ins bld true true
+  | Op.LXSIBZX ->
+    VSXLifter.loadScalarInt ins bld 8<rt> AST.zext
+  | Op.LXSIHZX ->
+    VSXLifter.loadScalarInt ins bld 16<rt> AST.zext
+  | Op.LXSIWAX ->
+    VSXLifter.loadScalarInt ins bld 32<rt> AST.sext
+  | Op.LXSIWZX ->
+    VSXLifter.loadScalarInt ins bld 32<rt> AST.zext
+  | Op.LXSSP | Op.LXSSPX ->
+    VSXLifter.loadScalarSingle ins bld
+  | Op.LXV | Op.LXVX ->
+    VSXLifter.quadword ins bld true
+  | Op.LXVB16X ->
+    lxvx ins bld 8<rt> true
+  | Op.LXVH8X ->
+    lxvx ins bld 16<rt> true
+  | Op.LXVKQ ->
+    VSXLifter.lxvkq ins bld
+  | Op.LXVL ->
+    VSXLifter.loadWithLength ins bld false
+  | Op.LXVLL ->
+    VSXLifter.loadWithLength ins bld true
+  | Op.LXVP | Op.LXVPX ->
+    VSXLifter.pair ins bld true
+  | Op.LXVRBX ->
+    VSXLifter.loadRightmost ins bld 8<rt>
+  | Op.LXVRHX ->
+    VSXLifter.loadRightmost ins bld 16<rt>
+  | Op.LXVRWX ->
+    VSXLifter.loadRightmost ins bld 32<rt>
+  | Op.LXVRDX ->
+    VSXLifter.loadRightmost ins bld 64<rt>
+  | Op.LXVWSX ->
+    VSXLifter.lxvwsx ins bld
+  | Op.MTVSRWS ->
+    VSXLifter.mtvsrws ins bld
+  | Op.STXSIBX ->
+    VSXLifter.storeScalarInt ins bld 8<rt>
+  | Op.STXSIHX ->
+    VSXLifter.storeScalarInt ins bld 16<rt>
+  | Op.STXSIWX ->
+    VSXLifter.storeScalarInt ins bld 32<rt>
+  | Op.STXSSP | Op.STXSSPX ->
+    VSXLifter.storeScalarSingle ins bld
+  | Op.STXV | Op.STXVX ->
+    VSXLifter.quadword ins bld false
+  | Op.STXVB16X ->
+    lxvx ins bld 8<rt> false
+  | Op.STXVH8X ->
+    lxvx ins bld 16<rt> false
+  | Op.STXVL ->
+    VSXLifter.storeWithLength ins bld false
+  | Op.STXVLL ->
+    VSXLifter.storeWithLength ins bld true
+  | Op.STXVP | Op.STXVPX ->
+    VSXLifter.pair ins bld false
+  | Op.STXVRBX ->
+    VSXLifter.storeRightmost ins bld 8<rt>
+  | Op.STXVRHX ->
+    VSXLifter.storeRightmost ins bld 16<rt>
+  | Op.STXVRWX ->
+    VSXLifter.storeRightmost ins bld 32<rt>
+  | Op.STXVRDX ->
+    VSXLifter.storeRightmost ins bld 64<rt>
+  | Op.XSRESP ->
+    VSXLifter.reciprocalEstimateSingle ins bld false
+  | Op.XSRSQRTESP ->
+    VSXLifter.reciprocalEstimateSingle ins bld true
+  | Op.XXBRH ->
+    VSXLifter.byteReverse ins bld 2
+  | Op.XXBRW ->
+    VSXLifter.byteReverse ins bld 4
+  | Op.XXBRD ->
+    VSXLifter.byteReverse ins bld 8
+  | Op.XXBRQ ->
+    VSXLifter.byteReverse ins bld 16
+  | Op.XXEXTRACTUW ->
+    VSXLifter.xxextractuw ins bld
+  | Op.XXINSERTW ->
+    VSXLifter.xxinsertw ins bld
+  | Op.XXPERM ->
+    VSXLifter.permute ins bld false
+  | Op.XXPERMR ->
+    VSXLifter.permute ins bld true
+  | Op.XXGENPCVBM ->
+    VSXLifter.genPCV ins bld 1
+  | Op.XXGENPCVHM ->
+    VSXLifter.genPCV ins bld 2
+  | Op.XXGENPCVWM ->
+    VSXLifter.genPCV ins bld 4
+  | Op.XXGENPCVDM ->
+    VSXLifter.genPCV ins bld 8
+  | Op.XVTLSBB ->
+    VSXLifter.xvtlsbb ins bld
+  | Op.XVADDSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fadd)
+  | Op.XVSUBSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fsub)
+  | Op.XVMULSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fmul)
+  | Op.XVDIVSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.arith AST.fdiv)
+  | Op.XVSQRTSP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.squareRoot
+  | Op.XVSQRTDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.squareRoot
+  | Op.XVABSSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.signOp 0)
+  | Op.XVABSDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.signOp 0)
+  | Op.XVNABSSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.signOp 1)
+  | Op.XVNABSDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.signOp 1)
+  | Op.XVNEGSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.signOp 2)
+  | Op.XVCPSGNSP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.copySignOf
+  | Op.XVCPSGNDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.copySignOf
+  | Op.XVMAXSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.maxMin true)
+  | Op.XVMINSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.maxMin false)
+  | Op.XVMAXDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.maxMin true)
+  | Op.XVMINDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.maxMin false)
+  | Op.XSMAXCDP ->
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinC true)
+  | Op.XSMINCDP ->
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinC false)
+  | Op.XSMAXJDP ->
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinJ true)
+  | Op.XSMINJDP ->
+    VSXLifter.scalarMap ins bld false (VSXLifter.maxMinJ false)
+  | Op.XVMADDADP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> false false false
+  | Op.XVMADDASP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> false false false
+  | Op.XVMADDMDP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> true false false
+  | Op.XVMADDMSP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> true false false
+  | Op.XVMSUBADP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> false true false
+  | Op.XVMSUBASP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> false true false
+  | Op.XVMSUBMDP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> true true false
+  | Op.XVMSUBMSP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> true true false
+  | Op.XVNMADDADP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> false false true
+  | Op.XVNMADDASP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> false false true
+  | Op.XVNMADDMDP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> true false true
+  | Op.XVNMADDMSP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> true false true
+  | Op.XVNMSUBADP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> false true true
+  | Op.XVNMSUBASP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> false true true
+  | Op.XVNMSUBMDP ->
+    VSXLifter.vectorMulAdd ins bld 64<rt> true true true
+  | Op.XVNMSUBMSP ->
+    VSXLifter.vectorMulAdd ins bld 32<rt> true true true
+  | Op.XVREDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.estimate false)
+  | Op.XVRESP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.estimate false)
+  | Op.XVRSQRTEDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.estimate true)
+  | Op.XVRSQRTESP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.estimate true)
+  | Op.XSREDP ->
+    VSXLifter.scalarMap ins bld true (VSXLifter.estimate false)
+  | Op.XSRSQRTEDP ->
+    VSXLifter.scalarMap ins bld true (VSXLifter.estimate true)
+  | Op.XVRDPI ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.awayFromZero
+  | Op.XVRDPIC ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.byFPSCR
+  | Op.XVRDPIM ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.downward
+  | Op.XVRDPIP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.upward
+  | Op.XVRDPIZ ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.towardZero
+  | Op.XVRSPI ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.awayFromZero
+  | Op.XVRSPIC ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.byFPSCR
+  | Op.XVRSPIM ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.downward
+  | Op.XVRSPIP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.upward
+  | Op.XVRSPIZ ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.towardZero
+  | Op.XSRDPIC ->
+    VSXLifter.scalarMap ins bld true VSXLifter.byFPSCR
+  | Op.XSCMPEQDP ->
+    VSXLifter.scalarCompare ins bld AST.feq
+  | Op.XSCMPGTDP ->
+    VSXLifter.scalarCompare ins bld AST.fgt
+  | Op.XSCMPGEDP ->
+    VSXLifter.scalarCompare ins bld AST.fge
+  | Op.XSCMPODP ->
+    VSXLifter.xscmpodp ins bld
+  | Op.XSCMPEXPDP ->
+    VSXLifter.xscmpexpdp ins bld
+  | Op.XVCMPEQDP ->
+    VSXLifter.vectorCompare ins bld 64<rt> AST.feq false
+  | Op.XVCMPEQDPdot ->
+    VSXLifter.vectorCompare ins bld 64<rt> AST.feq true
+  | Op.XVCMPEQSP ->
+    VSXLifter.vectorCompare ins bld 32<rt> AST.feq false
+  | Op.XVCMPEQSPdot ->
+    VSXLifter.vectorCompare ins bld 32<rt> AST.feq true
+  | Op.XVCMPGESP ->
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fge false
+  | Op.XVCMPGESPdot ->
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fge true
+  | Op.XVCMPGTSP ->
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fgt false
+  | Op.XVCMPGTSPdot ->
+    VSXLifter.vectorCompare ins bld 32<rt> AST.fgt true
+  | Op.XSTDIVDP ->
+    VSXLifter.softwareTest ins bld 64<rt> true true
+  | Op.XSTSQRTDP ->
+    VSXLifter.softwareTest ins bld 64<rt> true false
+  | Op.XVTDIVDP ->
+    VSXLifter.softwareTest ins bld 64<rt> false true
+  | Op.XVTDIVSP ->
+    VSXLifter.softwareTest ins bld 32<rt> false true
+  | Op.XVTSQRTDP ->
+    VSXLifter.softwareTest ins bld 64<rt> false false
+  | Op.XVTSQRTSP ->
+    VSXLifter.softwareTest ins bld 32<rt> false false
+  | Op.XSTSTDCDP ->
+    VSXLifter.scalarTestClass ins bld false
+  | Op.XSTSTDCSP ->
+    VSXLifter.scalarTestClass ins bld true
+  | Op.XVTSTDCDP ->
+    VSXLifter.vectorTestClass ins bld 64<rt>
+  | Op.XVTSTDCSP ->
+    VSXLifter.vectorTestClass ins bld 32<rt>
+  | Op.XSIEXPDP ->
+    VSXLifter.xsiexpdp ins bld
+  | Op.XSXEXPDP ->
+    VSXLifter.scalarExtract ins bld false
+  | Op.XSXSIGDP ->
+    VSXLifter.scalarExtract ins bld true
+  | Op.XVIEXPDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.insertExponent
+  | Op.XVIEXPSP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.insertExponent
+  | Op.XVXEXPDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.extractExponent
+  | Op.XVXEXPSP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.extractExponent
+  | Op.XVXSIGDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.extractSignificand
+  | Op.XVXSIGSP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.extractSignificand
+  | Op.XSCVHPDP ->
+    VSXLifter.scalarHalf ins bld true
+  | Op.XSCVDPHP ->
+    VSXLifter.scalarHalf ins bld false
+  | Op.XVCVHPSP ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.halfToSingle
+  | Op.XVCVSPHP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToHalf bld)
+  | Op.XVCVBF16SPN ->
+    VSXLifter.vectorMap ins bld 32<rt> VSXLifter.bfloat16ToSingle
+  | Op.XVCVSPBF16 ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToBfloat16 bld)
+  | Op.XVCVDPSP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.doubleToSingle
+  | Op.XVCVSPDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.singleToDouble
+  | Op.XVCVDPSXDS ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToLong true)
+  | Op.XVCVDPSXWS ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToInt true)
+  | Op.XVCVSPSXDS ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.singleToLong true)
+  | Op.XVCVSPSXWS ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToInt true)
+  | Op.XVCVSXDDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.intToFloat true)
+  | Op.XVCVSXWSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.intToFloat true)
+  | Op.XVCVSXDSP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.longToSingle true)
+  | Op.XVCVDPUXDS ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToLong false)
+  | Op.XVCVDPUXWS ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.doubleToInt false)
+  | Op.XVCVSPUXDS ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.singleToLong false)
+  | Op.XVCVSPUXWS ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.singleToInt false)
+  | Op.XVCVUXDDP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.intToFloat false)
+  | Op.XVCVUXWSP ->
+    VSXLifter.vectorMap ins bld 32<rt> (VSXLifter.intToFloat false)
+  | Op.XVCVUXDSP ->
+    VSXLifter.vectorMap ins bld 64<rt> (VSXLifter.longToSingle false)
+  | Op.XVCVUXWDP ->
+    VSXLifter.vectorMap ins bld 64<rt> VSXLifter.uintToDouble
+  | Op.XSADDQP ->
+    VSXLifter.quadArith ins bld "FADD128" false
+  | Op.XSADDQPO ->
+    VSXLifter.quadArith ins bld "FADD128" true
+  | Op.XSSUBQP ->
+    VSXLifter.quadArith ins bld "FSUB128" false
+  | Op.XSSUBQPO ->
+    VSXLifter.quadArith ins bld "FSUB128" true
+  | Op.XSMULQP ->
+    VSXLifter.quadArith ins bld "FMUL128" false
+  | Op.XSMULQPO ->
+    VSXLifter.quadArith ins bld "FMUL128" true
+  | Op.XSDIVQP ->
+    VSXLifter.quadArith ins bld "FDIV128" false
+  | Op.XSDIVQPO ->
+    VSXLifter.quadArith ins bld "FDIV128" true
+  | Op.XSSQRTQP ->
+    VSXLifter.quadSquareRoot ins bld false
+  | Op.XSSQRTQPO ->
+    VSXLifter.quadSquareRoot ins bld true
+  | Op.XSMADDQP ->
+    VSXLifter.mulAdd ins bld false false false
+  | Op.XSMADDQPO ->
+    VSXLifter.mulAdd ins bld false false true
+  | Op.XSMSUBQP ->
+    VSXLifter.mulAdd ins bld true false false
+  | Op.XSMSUBQPO ->
+    VSXLifter.mulAdd ins bld true false true
+  | Op.XSNMADDQP ->
+    VSXLifter.mulAdd ins bld false true false
+  | Op.XSNMADDQPO ->
+    VSXLifter.mulAdd ins bld false true true
+  | Op.XSNMSUBQP ->
+    VSXLifter.mulAdd ins bld true true false
+  | Op.XSNMSUBQPO ->
+    VSXLifter.mulAdd ins bld true true true
+  | Op.XSABSQP ->
+    VSXLifter.quadSignOp ins bld 0
+  | Op.XSNABSQP ->
+    VSXLifter.quadSignOp ins bld 1
+  | Op.XSNEGQP ->
+    VSXLifter.quadSignOp ins bld 2
+  | Op.XSCPSGNQP ->
+    VSXLifter.copySign ins bld
+  | Op.XSCMPEQQP ->
+    VSXLifter.compareMask ins bld 0
+  | Op.XSCMPGTQP ->
+    VSXLifter.compareMask ins bld 1
+  | Op.XSCMPGEQP ->
+    VSXLifter.compareMask ins bld 2
+  | Op.XSCMPUQP ->
+    VSXLifter.compareField ins bld false
+  | Op.XSCMPOQP ->
+    VSXLifter.compareField ins bld true
+  | Op.XSCMPEXPQP ->
+    VSXLifter.compareExponents ins bld
+  | Op.XSMAXCQP ->
+    VSXLifter.quadMaxMinC ins bld true
+  | Op.XSMINCQP ->
+    VSXLifter.quadMaxMinC ins bld false
+  | Op.XSTSTDCQP ->
+    VSXLifter.testClass ins bld
+  | Op.XSXEXPQP ->
+    VSXLifter.quadExtractExponent ins bld
+  | Op.XSXSIGQP ->
+    VSXLifter.quadExtractSignificand ins bld
+  | Op.XSIEXPQP ->
+    VSXLifter.quadInsertExponent ins bld
+  | Op.XSCVDPQP ->
+    VSXLifter.fromDouble ins bld
+  | Op.XSCVSDQP ->
+    VSXLifter.fromLong ins bld true
+  | Op.XSCVUDQP ->
+    VSXLifter.fromLong ins bld false
+  | Op.XSCVSQQP ->
+    VSXLifter.fromQuadword ins bld true
+  | Op.XSCVUQQP ->
+    VSXLifter.fromQuadword ins bld false
+  | Op.XSCVQPDP ->
+    VSXLifter.toDouble ins bld false
+  | Op.XSCVQPDPO ->
+    VSXLifter.toDouble ins bld true
+  | Op.XSCVQPSDZ ->
+    VSXLifter.quadToInteger ins bld 64 true
+  | Op.XSCVQPUDZ ->
+    VSXLifter.quadToInteger ins bld 64 false
+  | Op.XSCVQPSWZ ->
+    VSXLifter.quadToInteger ins bld 32 true
+  | Op.XSCVQPUWZ ->
+    VSXLifter.quadToInteger ins bld 32 false
+  | Op.XSCVQPSQZ ->
+    VSXLifter.quadToInteger ins bld 128 true
+  | Op.XSCVQPUQZ ->
+    VSXLifter.quadToInteger ins bld 128 false
+  | Op.XSRQPI | Op.XSRQPIX ->
+    VSXLifter.roundToIntegral ins bld
+  | Op.XSRQPXP ->
+    VSXLifter.roundToX80 ins bld
+  | Op.XXMFACC | Op.XXMTACC ->
+    nop ins bld
+  | Op.XXSETACCZ ->
+    VSXLifter.setAccumulatorZero ins bld
+  | Op.XVF32GER ->
+    VSXLifter.singleUpdate ins bld 0
+  | Op.XVF32GERPP ->
+    VSXLifter.singleUpdate ins bld 1
+  | Op.XVF32GERPN ->
+    VSXLifter.singleUpdate ins bld 2
+  | Op.XVF32GERNP ->
+    VSXLifter.singleUpdate ins bld 3
+  | Op.XVF32GERNN ->
+    VSXLifter.singleUpdate ins bld 4
+  | Op.XVF64GER ->
+    VSXLifter.doubleUpdate ins bld 0
+  | Op.XVF64GERPP ->
+    VSXLifter.doubleUpdate ins bld 1
+  | Op.XVF64GERPN ->
+    VSXLifter.doubleUpdate ins bld 2
+  | Op.XVF64GERNP ->
+    VSXLifter.doubleUpdate ins bld 3
+  | Op.XVF64GERNN ->
+    VSXLifter.doubleUpdate ins bld 4
+  | Op.XVF16GER2 ->
+    VSXLifter.dotUpdate ins bld false 0
+  | Op.XVF16GER2PP ->
+    VSXLifter.dotUpdate ins bld false 1
+  | Op.XVF16GER2PN ->
+    VSXLifter.dotUpdate ins bld false 2
+  | Op.XVF16GER2NP ->
+    VSXLifter.dotUpdate ins bld false 3
+  | Op.XVF16GER2NN ->
+    VSXLifter.dotUpdate ins bld false 4
+  | Op.XVBF16GER2 ->
+    VSXLifter.dotUpdate ins bld true 0
+  | Op.XVBF16GER2PP ->
+    VSXLifter.dotUpdate ins bld true 1
+  | Op.XVBF16GER2PN ->
+    VSXLifter.dotUpdate ins bld true 2
+  | Op.XVBF16GER2NP ->
+    VSXLifter.dotUpdate ins bld true 3
+  | Op.XVBF16GER2NN ->
+    VSXLifter.dotUpdate ins bld true 4
+  | Op.XVI4GER8 ->
+    VSXLifter.integerUpdate ins bld 4 true false
+  | Op.XVI4GER8PP ->
+    VSXLifter.integerUpdate ins bld 4 true true
+  | Op.XVI8GER4 ->
+    VSXLifter.integerUpdate ins bld 8 false false
+  | Op.XVI8GER4PP ->
+    VSXLifter.integerUpdate ins bld 8 false true
+  | Op.XVI16GER2 ->
+    VSXLifter.integerUpdate ins bld 16 true false
+  | Op.XVI16GER2PP ->
+    VSXLifter.integerUpdate ins bld 16 true true
+  | Op.XVI8GER4SPP ->
+    VSXLifter.saturatingUpdate ins bld 8 false true
+  | Op.XVI16GER2S ->
+    VSXLifter.saturatingUpdate ins bld 16 true false
+  | Op.XVI16GER2SPP ->
+    VSXLifter.saturatingUpdate ins bld 16 true true
+  | Op.ADDEX ->
+    addex ins bld
+  | Op.ADDG6S ->
+    addg6s ins bld
+  | Op.ADDPCIS ->
+    addpcis ins bld
+  | Op.BCTAR ->
+    bctar ins bld false
+  | Op.BCTARL ->
+    bctar ins bld true
+  | Op.CBCDTD ->
+    cbcdtd ins bld
+  | Op.CDTBCD ->
+    cdtbcd ins bld
+  | Op.CLRBHRB | Op.ICBT ->
+    nop ins bld
+  | Op.CMPEQB ->
+    cmpeqb ins bld
+  | Op.CMPRB ->
+    cmprb ins bld
+  | Op.CNTTZD ->
+    cnttzd ins false bld
+  | Op.CNTTZDdot ->
+    cnttzd ins true bld
+  | Op.CNTTZW ->
+    cnttzw ins false bld
+  | Op.CNTTZWdot ->
+    cnttzw ins true bld
+  | Op.DARN ->
+    darn ins bld
+  | Op.DIVDE ->
+    divde ins false false bld
+  | Op.DIVDEdot ->
+    divde ins true false bld
+  | Op.DIVDEO ->
+    divde ins false true bld
+  | Op.DIVDEOdot ->
+    divde ins true true bld
+  | Op.DIVDEU ->
+    divdeu ins false false bld
+  | Op.DIVDEUdot ->
+    divdeu ins true false bld
+  | Op.DIVDEUO ->
+    divdeu ins false true bld
+  | Op.DIVDEUOdot ->
+    divdeu ins true true bld
+  | Op.DIVWE ->
+    divwe ins false false bld
+  | Op.DIVWEdot ->
+    divwe ins true false bld
+  | Op.DIVWEO ->
+    divwe ins false true bld
+  | Op.DIVWEOdot ->
+    divwe ins true true bld
+  | Op.DIVWEU ->
+    divweu ins false false bld
+  | Op.DIVWEUdot ->
+    divweu ins true false bld
+  | Op.DIVWEUO ->
+    divweu ins false true bld
+  | Op.DIVWEUOdot ->
+    divweu ins true true bld
+  | Op.LQ ->
+    lq ins bld
+  | Op.LQARX ->
+    lqarx ins bld
+  | Op.EXTSWSLI ->
+    extswsli ins false bld
+  | Op.EXTSWSLIdot ->
+    extswsli ins true bld
+  | Op.MCRXRX ->
+    mcrxrx ins bld
+  | Op.MFBHRBE ->
+    mfbhrbe ins bld
+  | Op.MODSD ->
+    modsd ins bld
+  | Op.MODSW ->
+    modsw ins bld
+  | Op.MODUD ->
+    modud ins bld
+  | Op.MODUW ->
+    moduw ins bld
+  | Op.RFEBB ->
+    rfebb ins bld
+  | Op.SETB ->
+    setb ins bld
+  | Op.STQ ->
+    stq ins bld
+  | Op.STQCXdot ->
+    stqcxdot ins bld
+  | Op.BRD ->
+    byteReverse ins bld 64<rt>
+  | Op.BRW ->
+    byteReverse ins bld 32<rt>
+  | Op.BRH ->
+    byteReverse ins bld 16<rt>
+  | Op.PEXTD ->
+    pextd ins bld
+  | Op.PDEPD ->
+    pdepd ins bld
+  | Op.CFUGED ->
+    cfuged ins bld
+  | Op.CNTLZDM ->
+    cntlzdm ins bld
+  | Op.CNTTZDM ->
+    cnttzdm ins bld
+  | Op.LWAT ->
+    loadAtomic ins bld 32<rt>
+  | Op.LDAT ->
+    loadAtomic ins bld 64<rt>
+  | Op.STWAT ->
+    storeAtomic ins bld 32<rt>
+  | Op.STDAT ->
+    storeAtomic ins bld 64<rt>
+  | Op.COPY | Op.PASTE | Op.PASTEdot ->
+    sideEffects ins bld UndefinedInstruction
+  | Op.CPABORT | Op.PTESYNC | Op.PHWSYNC | Op.PLWSYNC | Op.STNCISYNC
+  | Op.STCISYNC | Op.STSYNC ->
+    nop ins bld
+  | Op.WAIT ->
+    sideEffects ins bld Delay
+  | Op.SCV ->
+    sideEffects ins bld SysCall
+  | Op.SETBC ->
+    setbc ins bld false false
+  | Op.SETBCR ->
+    setbc ins bld false true
+  | Op.SETNBC ->
+    setbc ins bld true false
+  | Op.SETNBCR ->
+    setbc ins bld true true
+  | o when GeneralLifter.liftsLegacy o ->
+    GeneralLifter.translateLegacy ins bld
+  | o when GeneralLifter.liftsEmbedded o ->
+    GeneralLifter.translateEmbedded ins bld
+  | o when GeneralLifter.liftsTransaction o ->
+    GeneralLifter.translateTransaction ins bld
+  | Op.EVADDIW ->
+    evaddiw ins bld
+  | Op.EVADDW ->
+    evaddw ins bld
+  | Op.EVAND ->
+    evand ins bld
+  | Op.EVANDC ->
+    evandc ins bld
+  | Op.EVEQV ->
+    eveqv ins bld
+  | Op.EVNAND ->
+    evnand ins bld
+  | Op.EVNOR ->
+    evnor ins bld
+  | Op.EVOR ->
+    evor ins bld
+  | Op.EVORC ->
+    evorc ins bld
+  | Op.EVSUBFW ->
+    evsubfw ins bld
+  | Op.EVSUBIFW ->
+    evsubifw ins bld
+  | Op.EVXOR ->
+    evxor ins bld
+  | Op.BRINC ->
+    brinc ins bld
+  | Op.EVABS ->
+    evabs ins bld
+  | Op.EVCNTLSW ->
+    evcntlsw ins bld
+  | Op.EVCNTLZW ->
+    evcntlzw ins bld
+  | Op.EVEXTSB ->
+    evexts ins bld 8<rt>
+  | Op.EVEXTSH ->
+    evexts ins bld 16<rt>
+  | Op.EVMERGEHI ->
+    evmergehi ins bld
+  | Op.EVMERGEHILO ->
+    evmergehilo ins bld
+  | Op.EVMERGELO ->
+    evmergelo ins bld
+  | Op.EVMERGELOHI ->
+    evmergelohi ins bld
+  | Op.EVNEG ->
+    evneg ins bld
+  | Op.EVRLW ->
+    evrlw ins bld
+  | Op.EVRLWI ->
+    evrlwi ins bld
+  | Op.EVRNDW ->
+    evrndw ins bld
+  | Op.EVSLW ->
+    evslw ins bld
+  | Op.EVSLWI ->
+    evslwi ins bld
+  | Op.EVSPLATFI ->
+    evsplatfi ins bld
+  | Op.EVSPLATI ->
+    evsplati ins bld
+  | Op.EVSRWIS ->
+    evsrwis ins bld
+  | Op.EVSRWIU ->
+    evsrwiu ins bld
+  | Op.EVSRWS ->
+    evsrws ins bld
+  | Op.EVSRWU ->
+    evsrwu ins bld
+  | Op.EVCMPEQ ->
+    evcmpeq ins bld
+  | Op.EVCMPGTS ->
+    evcmpgts ins bld
+  | Op.EVCMPGTU ->
+    evcmpgtu ins bld
+  | Op.EVCMPLTS ->
+    evcmplts ins bld
+  | Op.EVCMPLTU ->
+    evcmpltu ins bld
+  | Op.EVSEL ->
+    evsel ins bld
+  | Op.EVLDD ->
+    evldd ins bld
+  | Op.EVLDDX ->
+    evldd ins bld
+  | Op.EVLDH ->
+    evldh ins bld
+  | Op.EVLDHX ->
+    evldh ins bld
+  | Op.EVLDW ->
+    evldw ins bld
+  | Op.EVLDWX ->
+    evldw ins bld
+  | Op.EVLHHESPLAT ->
+    evlhhesplat ins bld
+  | Op.EVLHHESPLATX ->
+    evlhhesplat ins bld
+  | Op.EVLHHOSSPLAT ->
+    evlhhossplat ins bld
+  | Op.EVLHHOSSPLATX ->
+    evlhhossplat ins bld
+  | Op.EVLHHOUSPLAT ->
+    evlhhousplat ins bld
+  | Op.EVLHHOUSPLATX ->
+    evlhhousplat ins bld
+  | Op.EVLWHE ->
+    evlwhe ins bld
+  | Op.EVLWHEX ->
+    evlwhe ins bld
+  | Op.EVLWHOS ->
+    evlwhos ins bld
+  | Op.EVLWHOSX ->
+    evlwhos ins bld
+  | Op.EVLWHOU ->
+    evlwhou ins bld
+  | Op.EVLWHOUX ->
+    evlwhou ins bld
+  | Op.EVLWHSPLAT ->
+    evlwhsplat ins bld
+  | Op.EVLWHSPLATX ->
+    evlwhsplat ins bld
+  | Op.EVLWWSPLAT ->
+    evlwwsplat ins bld
+  | Op.EVLWWSPLATX ->
+    evlwwsplat ins bld
+  | Op.EVSTDD ->
+    evstdd ins bld
+  | Op.EVSTDDX ->
+    evstdd ins bld
+  | Op.EVSTDH ->
+    evstdh ins bld
+  | Op.EVSTDHX ->
+    evstdh ins bld
+  | Op.EVSTDW ->
+    evstdw ins bld
+  | Op.EVSTDWX ->
+    evstdw ins bld
+  | Op.EVSTWHE ->
+    evstwhe ins bld
+  | Op.EVSTWHEX ->
+    evstwhe ins bld
+  | Op.EVSTWHO ->
+    evstwho ins bld
+  | Op.EVSTWHOX ->
+    evstwho ins bld
+  | Op.EVSTWWE ->
+    evstwwe ins bld
+  | Op.EVSTWWEX ->
+    evstwwe ins bld
+  | Op.EVSTWWO ->
+    evstwwo ins bld
+  | Op.EVSTWWOX ->
+    evstwwo ins bld
+  | Op.EVMHEGSMFAA ->
+    evmhGuarded ins bld Even Signed Fractional AddWhole
+  | Op.EVMHEGSMFAN ->
+    evmhGuarded ins bld Even Signed Fractional SubtractWhole
+  | Op.EVMHEGSMIAA ->
+    evmhGuarded ins bld Even Signed Integer AddWhole
+  | Op.EVMHEGSMIAN ->
+    evmhGuarded ins bld Even Signed Integer SubtractWhole
+  | Op.EVMHEGUMIAA ->
+    evmhGuarded ins bld Even Unsigned Integer AddWhole
+  | Op.EVMHEGUMIAN ->
+    evmhGuarded ins bld Even Unsigned Integer SubtractWhole
+  | Op.EVMHESMF ->
+    evmh ins bld Even Signed Wrap Fractional Plain
+  | Op.EVMHESMFA ->
+    evmh ins bld Even Signed Wrap Fractional ToAccumulator
+  | Op.EVMHESMFAAW ->
+    evmh ins bld Even Signed Wrap Fractional AddWords
+  | Op.EVMHESMFANW ->
+    evmh ins bld Even Signed Wrap Fractional SubtractWords
+  | Op.EVMHESMI ->
+    evmh ins bld Even Signed Wrap Integer Plain
+  | Op.EVMHESMIA ->
+    evmh ins bld Even Signed Wrap Integer ToAccumulator
+  | Op.EVMHESMIAAW ->
+    evmh ins bld Even Signed Wrap Integer AddWords
+  | Op.EVMHESMIANW ->
+    evmh ins bld Even Signed Wrap Integer SubtractWords
+  | Op.EVMHESSF ->
+    evmh ins bld Even Signed Clamp Fractional Plain
+  | Op.EVMHESSFA ->
+    evmh ins bld Even Signed Clamp Fractional ToAccumulator
+  | Op.EVMHESSFAAW ->
+    evmh ins bld Even Signed Clamp Fractional AddWords
+  | Op.EVMHESSFANW ->
+    evmh ins bld Even Signed Clamp Fractional SubtractWords
+  | Op.EVMHESSIAAW ->
+    evmh ins bld Even Signed Clamp Integer AddWords
+  | Op.EVMHESSIANW ->
+    evmh ins bld Even Signed Clamp Integer SubtractWords
+  | Op.EVMHEUMI ->
+    evmh ins bld Even Unsigned Wrap Integer Plain
+  | Op.EVMHEUMIA ->
+    evmh ins bld Even Unsigned Wrap Integer ToAccumulator
+  | Op.EVMHEUMIAAW ->
+    evmh ins bld Even Unsigned Wrap Integer AddWords
+  | Op.EVMHEUMIANW ->
+    evmh ins bld Even Unsigned Wrap Integer SubtractWords
+  | Op.EVMHEUSIAAW ->
+    evmh ins bld Even Unsigned Clamp Integer AddWords
+  | Op.EVMHEUSIANW ->
+    evmh ins bld Even Unsigned Clamp Integer SubtractWords
+  | Op.EVMHOGSMFAA ->
+    evmhGuarded ins bld Odd Signed Fractional AddWhole
+  | Op.EVMHOGSMFAN ->
+    evmhGuarded ins bld Odd Signed Fractional SubtractWhole
+  | Op.EVMHOGSMIAA ->
+    evmhGuarded ins bld Odd Signed Integer AddWhole
+  | Op.EVMHOGSMIAN ->
+    evmhGuarded ins bld Odd Signed Integer SubtractWhole
+  | Op.EVMHOGUMIAA ->
+    evmhGuarded ins bld Odd Unsigned Integer AddWhole
+  | Op.EVMHOGUMIAN ->
+    evmhGuarded ins bld Odd Unsigned Integer SubtractWhole
+  | Op.EVMHOSMF ->
+    evmh ins bld Odd Signed Wrap Fractional Plain
+  | Op.EVMHOSMFA ->
+    evmh ins bld Odd Signed Wrap Fractional ToAccumulator
+  | Op.EVMHOSMFAAW ->
+    evmh ins bld Odd Signed Wrap Fractional AddWords
+  | Op.EVMHOSMFANW ->
+    evmh ins bld Odd Signed Wrap Fractional SubtractWords
+  | Op.EVMHOSMI ->
+    evmh ins bld Odd Signed Wrap Integer Plain
+  | Op.EVMHOSMIA ->
+    evmh ins bld Odd Signed Wrap Integer ToAccumulator
+  | Op.EVMHOSMIAAW ->
+    evmh ins bld Odd Signed Wrap Integer AddWords
+  | Op.EVMHOSMIANW ->
+    evmh ins bld Odd Signed Wrap Integer SubtractWords
+  | Op.EVMHOSSF ->
+    evmh ins bld Odd Signed Clamp Fractional Plain
+  | Op.EVMHOSSFA ->
+    evmh ins bld Odd Signed Clamp Fractional ToAccumulator
+  | Op.EVMHOSSFAAW ->
+    evmh ins bld Odd Signed Clamp Fractional AddWords
+  | Op.EVMHOSSFANW ->
+    evmh ins bld Odd Signed Clamp Fractional SubtractWords
+  | Op.EVMHOSSIAAW ->
+    evmh ins bld Odd Signed Clamp Integer AddWords
+  | Op.EVMHOSSIANW ->
+    evmh ins bld Odd Signed Clamp Integer SubtractWords
+  | Op.EVMHOUMI ->
+    evmh ins bld Odd Unsigned Wrap Integer Plain
+  | Op.EVMHOUMIA ->
+    evmh ins bld Odd Unsigned Wrap Integer ToAccumulator
+  | Op.EVMHOUMIAAW ->
+    evmh ins bld Odd Unsigned Wrap Integer AddWords
+  | Op.EVMHOUMIANW ->
+    evmh ins bld Odd Unsigned Wrap Integer SubtractWords
+  | Op.EVMHOUSIAAW ->
+    evmh ins bld Odd Unsigned Clamp Integer AddWords
+  | Op.EVMHOUSIANW ->
+    evmh ins bld Odd Unsigned Clamp Integer SubtractWords
+  | Op.EVMWHSMF ->
+    evmwPart ins bld High Signed Wrap Fractional Plain
+  | Op.EVMWHSMFA ->
+    evmwPart ins bld High Signed Wrap Fractional ToAccumulator
+  | Op.EVMWHSMI ->
+    evmwPart ins bld High Signed Wrap Integer Plain
+  | Op.EVMWHSMIA ->
+    evmwPart ins bld High Signed Wrap Integer ToAccumulator
+  | Op.EVMWHSSF ->
+    evmwPart ins bld High Signed Clamp Fractional Plain
+  | Op.EVMWHSSFA ->
+    evmwPart ins bld High Signed Clamp Fractional ToAccumulator
+  | Op.EVMWHUMI ->
+    evmwPart ins bld High Unsigned Wrap Integer Plain
+  | Op.EVMWHUMIA ->
+    evmwPart ins bld High Unsigned Wrap Integer ToAccumulator
+  | Op.EVMWLSMIAAW ->
+    evmwPart ins bld Low Signed Wrap Integer AddWords
+  | Op.EVMWLSMIANW ->
+    evmwPart ins bld Low Signed Wrap Integer SubtractWords
+  | Op.EVMWLSSIAAW ->
+    evmwPart ins bld Low Signed Clamp Integer AddWords
+  | Op.EVMWLSSIANW ->
+    evmwPart ins bld Low Signed Clamp Integer SubtractWords
+  | Op.EVMWLUMI ->
+    evmwPart ins bld Low Unsigned Wrap Integer Plain
+  | Op.EVMWLUMIA ->
+    evmwPart ins bld Low Unsigned Wrap Integer ToAccumulator
+  | Op.EVMWLUMIAAW ->
+    evmwPart ins bld Low Unsigned Wrap Integer AddWords
+  | Op.EVMWLUMIANW ->
+    evmwPart ins bld Low Unsigned Wrap Integer SubtractWords
+  | Op.EVMWLUSIAAW ->
+    evmwPart ins bld Low Unsigned Clamp Integer AddWords
+  | Op.EVMWLUSIANW ->
+    evmwPart ins bld Low Unsigned Clamp Integer SubtractWords
+  | Op.EVMWSMF ->
+    evmwWhole ins bld Signed Wrap Fractional Plain
+  | Op.EVMWSMFA ->
+    evmwWhole ins bld Signed Wrap Fractional ToAccumulator
+  | Op.EVMWSMFAA ->
+    evmwWhole ins bld Signed Wrap Fractional AddWhole
+  | Op.EVMWSMFAN ->
+    evmwWhole ins bld Signed Wrap Fractional SubtractWhole
+  | Op.EVMWSMI ->
+    evmwWhole ins bld Signed Wrap Integer Plain
+  | Op.EVMWSMIA ->
+    evmwWhole ins bld Signed Wrap Integer ToAccumulator
+  | Op.EVMWSMIAA ->
+    evmwWhole ins bld Signed Wrap Integer AddWhole
+  | Op.EVMWSMIAN ->
+    evmwWhole ins bld Signed Wrap Integer SubtractWhole
+  | Op.EVMWSSF ->
+    evmwWhole ins bld Signed Clamp Fractional Plain
+  | Op.EVMWSSFA ->
+    evmwWhole ins bld Signed Clamp Fractional ToAccumulator
+  | Op.EVMWSSFAA ->
+    evmwWhole ins bld Signed Clamp Fractional AddWhole
+  | Op.EVMWSSFAN ->
+    evmwWhole ins bld Signed Clamp Fractional SubtractWhole
+  | Op.EVMWUMI ->
+    evmwWhole ins bld Unsigned Wrap Integer Plain
+  | Op.EVMWUMIA ->
+    evmwWhole ins bld Unsigned Wrap Integer ToAccumulator
+  | Op.EVMWUMIAA ->
+    evmwWhole ins bld Unsigned Wrap Integer AddWhole
+  | Op.EVMWUMIAN ->
+    evmwWhole ins bld Unsigned Wrap Integer SubtractWhole
+  | Op.EVADDSMIAAW ->
+    evaddAccumulate ins bld Signed Wrap false
+  | Op.EVADDSSIAAW ->
+    evaddAccumulate ins bld Signed Clamp false
+  | Op.EVADDUMIAAW ->
+    evaddAccumulate ins bld Unsigned Wrap false
+  | Op.EVADDUSIAAW ->
+    evaddAccumulate ins bld Unsigned Clamp false
+  | Op.EVDIVWS ->
+    evdivw ins bld Signed
+  | Op.EVDIVWU ->
+    evdivw ins bld Unsigned
+  | Op.EVMRA ->
+    evmra ins bld
+  | Op.EVSUBFSMIAAW ->
+    evaddAccumulate ins bld Signed Wrap true
+  | Op.EVSUBFSSIAAW ->
+    evaddAccumulate ins bld Signed Clamp true
+  | Op.EVSUBFUMIAAW ->
+    evaddAccumulate ins bld Unsigned Wrap true
+  | Op.EVSUBFUSIAAW ->
+    evaddAccumulate ins bld Unsigned Clamp true
+  | Op.EFDABS ->
+    efdabs ins bld
+  | Op.EFDNABS ->
+    efdnabs ins bld
+  | Op.EFDNEG ->
+    efdneg ins bld
+  | Op.EFSABS ->
+    efsabs ins bld
+  | Op.EFSNABS ->
+    efsnabs ins bld
+  | Op.EFSNEG ->
+    efsneg ins bld
+  | Op.EVFSABS ->
+    evfsabs ins bld
+  | Op.EVFSNABS ->
+    evfsnabs ins bld
+  | Op.EVFSNEG ->
+    evfsneg ins bld
+  | Op.EFDCMPEQ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCMPGT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCMPLT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDTSTEQ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDTSTGT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDTSTLT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCMPEQ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCMPGT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCMPLT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSTSTEQ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSTSTGT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSTSTLT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCMPEQ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCMPGT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCMPLT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSTSTEQ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSTSTGT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSTSTLT ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFS ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFSF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFSI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFSID ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFUF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFUI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCFUID ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCFD ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCFSF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCFSI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCFUF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCFUI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCFSF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCFSI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCFUF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCFUI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTSF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTSI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTSIDZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTSIZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTUF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTUI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTUIDZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDCTUIZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCTSF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCTSI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCTSIZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCTUF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCTUI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSCTUIZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCTSF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCTSI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCTSIZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCTUF ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCTUI ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSCTUIZ ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSADD ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSDIV ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSMUL ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFSSUB ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSADD ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSDIV ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSMUL ->
+    SPEFloatLifter.translate ins bld
+  | Op.EVFSSUB ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDADD ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDDIV ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDMUL ->
+    SPEFloatLifter.translate ins bld
+  | Op.EFDSUB ->
+    SPEFloatLifter.translate ins bld
+  | Op.SE_ILLEGAL ->
+    VLELifter.illegal ins bld
+  | Op.SE_ISYNC ->
+    nop ins bld
+  | Op.SE_SC ->
+    sideEffects ins bld SysCall
+  | Op.SE_BLR ->
+    VLELifter.branchToRegister ins bld Register.LR false
+  | Op.SE_BLRL ->
+    VLELifter.branchToRegister ins bld Register.LR true
+  | Op.SE_BCTR ->
+    VLELifter.branchToRegister ins bld Register.CTR false
+  | Op.SE_BCTRL ->
+    VLELifter.branchToRegister ins bld Register.CTR true
+  | Op.SE_MR | Op.SE_MTAR | Op.SE_MFAR ->
+    mr ins bld
+  | Op.SE_MFLR ->
+    mflr ins bld
+  | Op.SE_MTLR ->
+    mtlr ins bld
+  | Op.SE_MFCTR ->
+    mfctr ins bld
+  | Op.SE_MTCTR ->
+    mtctr ins bld
+  | Op.SE_LI ->
+    li ins bld
+  | Op.SE_EXTSB ->
+    extsb (VLELifter.monadic ins) false bld
+  | Op.SE_EXTSH ->
+    extsh (VLELifter.monadic ins) false bld
+  | Op.SE_EXTZB ->
+    rlwinm (VLELifter.clearLeft ins 24UL) false bld
+  | Op.SE_EXTZH ->
+    rlwinm (VLELifter.clearLeft ins 16UL) false bld
+  | Op.SE_ADD ->
+    add (VLELifter.dyadic ins) false false bld
+  | Op.SE_SUB ->
+    subf (VLELifter.reversed ins) false false bld
+  | Op.SE_SUBF ->
+    subf (VLELifter.dyadic ins) false false bld
+  | Op.SE_MULLW ->
+    mullw (VLELifter.dyadic ins) false false bld
+  | Op.SE_NEG ->
+    neg (VLELifter.monadic ins) false false bld
+  | Op.SE_NOT ->
+    nor (VLELifter.repeated ins) false bld
+  | Op.SE_AND ->
+    andx (VLELifter.dyadic ins) false bld
+  | Op.SE_ANDdot ->
+    andx (VLELifter.dyadic ins) true bld
+  | Op.SE_ANDC ->
+    andc (VLELifter.dyadic ins) false bld
+  | Op.SE_OR ->
+    orx (VLELifter.dyadic ins) false bld
+  | Op.SE_ADDI ->
+    VLELifter.addImmediate ins bld
+  | Op.SE_SUBI ->
+    VLELifter.subtractImmediate ins bld false
+  | Op.SE_SUBIdot ->
+    VLELifter.subtractImmediate ins bld true
+  | Op.SE_ANDI ->
+    VLELifter.andImmediate ins bld
+  | Op.SE_SLW ->
+    slw (VLELifter.dyadic ins) false bld
+  | Op.SE_SRW ->
+    srw (VLELifter.dyadic ins) false bld
+  | Op.SE_SRAW ->
+    VLELifter.shiftArithmetic (VLELifter.dyadic ins) false bld 32<rt>
+  | Op.SE_SLWI ->
+    rlwinm (VLELifter.shiftLeftImmediate ins) false bld
+  | Op.SE_SRWI ->
+    rlwinm (VLELifter.shiftRightImmediate ins) false bld
+  | Op.SE_SRAWI ->
+    VLELifter.shiftArithmeticImmediate
+      (VLELifter.shiftRightAlgebraicImmediate ins) false bld 32<rt>
+  | Op.SE_BCLRI ->
+    VLELifter.clearBit ins bld
+  | Op.SE_BGENI ->
+    VLELifter.generateBit ins bld
+  | Op.SE_BSETI ->
+    VLELifter.setBit ins bld
+  | Op.SE_BMASKI ->
+    VLELifter.generateMask ins bld
+  | Op.SE_BTSTI ->
+    VLELifter.testBit ins bld
+  | Op.SE_CMP | Op.SE_CMPI ->
+    cmp (VLELifter.compareInCR0 ins) bld true
+  | Op.SE_CMPL | Op.SE_CMPLI ->
+    cmpl (VLELifter.compareInCR0 ins) bld true
+  | Op.SE_CMPH ->
+    VLELifter.compareHalfword ins bld true
+  | Op.SE_CMPHL ->
+    VLELifter.compareHalfword ins bld false
+  | Op.SE_B ->
+    VLELifter.branch ins bld false
+  | Op.SE_BL ->
+    VLELifter.branch ins bld true
+  | Op.SE_BC ->
+    VLELifter.branchOnBit ins bld
+  | Op.SE_LBZ ->
+    VLELifter.loadFromBase ins bld 8<rt>
+  | Op.SE_LHZ ->
+    VLELifter.loadFromBase ins bld 16<rt>
+  | Op.SE_LWZ ->
+    VLELifter.loadFromBase ins bld 32<rt>
+  | Op.SE_STB ->
+    VLELifter.storeToBase ins bld 8<rt>
+  | Op.SE_STH ->
+    VLELifter.storeToBase ins bld 16<rt>
+  | Op.SE_STW ->
+    VLELifter.storeToBase ins bld 32<rt>
+  | Op.E_LBZ ->
+    lbz ins bld
+  | Op.E_LBZU ->
+    lbzu ins bld
+  | Op.E_LHA ->
+    lha ins bld
+  | Op.E_LHAU ->
+    lhau ins bld
+  | Op.E_LHZ ->
+    lhz ins bld
+  | Op.E_LHZU ->
+    lhzu ins bld
+  | Op.E_LWZ ->
+    lwz ins bld
+  | Op.E_LWZU ->
+    lwzu ins bld
+  | Op.E_LMW ->
+    lmw ins bld
+  | Op.E_STB ->
+    stb ins bld
+  | Op.E_STBU ->
+    stbu ins bld
+  | Op.E_STH ->
+    sth ins bld
+  | Op.E_STHU ->
+    sthu ins bld
+  | Op.E_STW ->
+    stw ins bld
+  | Op.E_STWU ->
+    stwu ins bld
+  | Op.E_STMW ->
+    stmw ins bld
+  | Op.E_B ->
+    VLELifter.branch ins bld false
+  | Op.E_BL ->
+    VLELifter.branch ins bld true
+  | Op.E_BC ->
+    VLELifter.branchConditional ins bld false
+  | Op.E_BCL ->
+    VLELifter.branchConditional ins bld true
+  | Op.E_SC ->
+    sideEffects ins bld SysCall
+  | Op.E_CRAND ->
+    crand ins bld
+  | Op.E_CRANDC ->
+    crandc ins bld
+  | Op.E_CREQV ->
+    creqv ins bld
+  | Op.E_CRNAND ->
+    crnand ins bld
+  | Op.E_CRNOR ->
+    crnor ins bld
+  | Op.E_CROR ->
+    cror ins bld
+  | Op.E_CRORC ->
+    crorc ins bld
+  | Op.E_CRXOR ->
+    crxor ins bld
+  | Op.E_MCRF ->
+    mcrf ins bld
+  | Op.E_ADDI ->
+    VLELifter.addScaled ins bld false
+  | Op.E_ADDIdot ->
+    VLELifter.addScaled ins bld true
+  | Op.E_ADDIC ->
+    VLELifter.addCarrying ins false bld
+  | Op.E_ADDICdot ->
+    VLELifter.addCarrying ins true bld
+  | Op.E_SUBFIC ->
+    VLELifter.subtractCarrying ins bld
+  | Op.E_SUBFICdot ->
+    VLELifter.subtractFromScaledRecord ins bld
+  | Op.E_MULLI ->
+    mulli ins bld
+  | Op.E_ANDI ->
+    VLELifter.logicalScaled ins bld (.&) false
+  | Op.E_ANDIdot ->
+    andidot ins bld
+  | Op.E_ORI ->
+    VLELifter.logicalScaled ins bld (.|) false
+  | Op.E_ORIdot ->
+    VLELifter.logicalScaled ins bld (.|) true
+  | Op.E_XORI ->
+    VLELifter.logicalScaled ins bld (<+>) false
+  | Op.E_XORIdot ->
+    VLELifter.logicalScaled ins bld (<+>) true
+  | Op.E_CMPI ->
+    cmp ins bld true
+  | Op.E_CMPLI ->
+    cmpl ins bld true
+  | Op.E_ADD16I ->
+    VLELifter.addScaled ins bld false
+  | Op.E_ADD2Idot ->
+    VLELifter.addToRegister ins bld false
+  | Op.E_ADD2IS ->
+    VLELifter.addToRegister ins bld true
+  | Op.E_AND2Idot ->
+    VLELifter.andWithRegister ins bld false
+  | Op.E_AND2ISdot ->
+    VLELifter.andWithRegister ins bld true
+  | Op.E_OR2I ->
+    VLELifter.orWithRegister ins bld false
+  | Op.E_OR2IS ->
+    VLELifter.orWithRegister ins bld true
+  | Op.E_LI ->
+    li ins bld
+  | Op.E_LIS ->
+    VLELifter.loadShifted ins bld
+  | Op.E_MULL2I ->
+    mulli (VLELifter.multiplyRegister ins) bld
+  | Op.E_CMP16I ->
+    cmp (VLELifter.compareInCR0 ins) bld true
+  | Op.E_CMPL16I ->
+    cmpl (VLELifter.compareInCR0 ins) bld true
+  | Op.E_CMPH16I ->
+    VLELifter.compareHalfword ins bld true
+  | Op.E_CMPHL16I ->
+    VLELifter.compareHalfword ins bld false
+  | Op.E_CMPH ->
+    VLELifter.compareHalfword ins bld true
+  | Op.E_CMPHL ->
+    VLELifter.compareHalfword ins bld false
+  | Op.E_RLW ->
+    VLELifter.rotateWord ins bld false
+  | Op.E_RLWdot ->
+    VLELifter.rotateWord ins bld true
+  | Op.E_RLWI ->
+    VLELifter.rotateWord ins bld false
+  | Op.E_RLWIdot ->
+    VLELifter.rotateWord ins bld true
+  | Op.E_RLWIMI ->
+    rlwimi ins false bld
+  | Op.E_RLWINM ->
+    rlwinm ins false bld
+  | Op.E_SLWI ->
+    VLELifter.shiftWord ins bld true false
+  | Op.E_SLWIdot ->
+    VLELifter.shiftWord ins bld true true
+  | Op.E_SRWI ->
+    VLELifter.shiftWord ins bld false false
+  | Op.E_SRWIdot ->
+    VLELifter.shiftWord ins bld false true
+  | Op.PADDI ->
+    PrefixedLifter.addImmediate ins bld
+  | Op.PNOP ->
+    nop ins bld
+  | Op.PLBZ ->
+    PrefixedLifter.loadInteger ins bld 8<rt> false
+  | Op.PLD ->
+    PrefixedLifter.loadInteger ins bld 64<rt> false
+  | Op.PLFD ->
+    PrefixedLifter.loadFloat ins bld false false
+  | Op.PLFS ->
+    PrefixedLifter.loadFloat ins bld true false
+  | Op.PLHA ->
+    PrefixedLifter.loadInteger ins bld 16<rt> true
+  | Op.PLHZ ->
+    PrefixedLifter.loadInteger ins bld 16<rt> false
+  | Op.PLQ ->
+    PrefixedLifter.gprPair ins bld true
+  | Op.PLWA ->
+    PrefixedLifter.loadInteger ins bld 32<rt> true
+  | Op.PLWZ ->
+    PrefixedLifter.loadInteger ins bld 32<rt> false
+  | Op.PLXSD ->
+    PrefixedLifter.loadFloat ins bld false true
+  | Op.PLXSSP ->
+    PrefixedLifter.loadFloat ins bld true true
+  | Op.PLXV ->
+    PrefixedLifter.vector ins bld true false
+  | Op.PLXVP ->
+    PrefixedLifter.vector ins bld true true
+  | Op.PSTB ->
+    PrefixedLifter.storeInteger ins bld 8<rt>
+  | Op.PSTD ->
+    PrefixedLifter.storeInteger ins bld 64<rt>
+  | Op.PSTFD ->
+    PrefixedLifter.storeFloat ins bld false
+  | Op.PSTFS ->
+    PrefixedLifter.storeFloat ins bld true
+  | Op.PSTH ->
+    PrefixedLifter.storeInteger ins bld 16<rt>
+  | Op.PSTQ ->
+    PrefixedLifter.gprPair ins bld false
+  | Op.PSTW ->
+    PrefixedLifter.storeInteger ins bld 32<rt>
+  | Op.PSTXSD ->
+    PrefixedLifter.storeFloat ins bld false
+  | Op.PSTXSSP ->
+    PrefixedLifter.storeFloat ins bld true
+  | Op.PSTXV ->
+    PrefixedLifter.vector ins bld false false
+  | Op.PSTXVP ->
+    PrefixedLifter.vector ins bld false true
+  | Op.XXBLENDVB ->
+    PrefixedLifter.blend ins bld 8<rt>
+  | Op.XXBLENDVD ->
+    PrefixedLifter.blend ins bld 64<rt>
+  | Op.XXBLENDVH ->
+    PrefixedLifter.blend ins bld 16<rt>
+  | Op.XXBLENDVW ->
+    PrefixedLifter.blend ins bld 32<rt>
+  | Op.XXEVAL ->
+    PrefixedLifter.evaluate ins bld
+  | Op.XXPERMX ->
+    PrefixedLifter.permute ins bld
+  | Op.XXSPLTI32DX | Op.XXSPLTIDP | Op.XXSPLTIW ->
+    PrefixedLifter.splat ins bld
+  | Op.PMXVBF16GER2 ->
+    PrefixedLifter.dotUpdate ins bld true 0
+  | Op.PMXVBF16GER2NN ->
+    PrefixedLifter.dotUpdate ins bld true 4
+  | Op.PMXVBF16GER2NP ->
+    PrefixedLifter.dotUpdate ins bld true 3
+  | Op.PMXVBF16GER2PN ->
+    PrefixedLifter.dotUpdate ins bld true 2
+  | Op.PMXVBF16GER2PP ->
+    PrefixedLifter.dotUpdate ins bld true 1
+  | Op.PMXVF16GER2 ->
+    PrefixedLifter.dotUpdate ins bld false 0
+  | Op.PMXVF16GER2NN ->
+    PrefixedLifter.dotUpdate ins bld false 4
+  | Op.PMXVF16GER2NP ->
+    PrefixedLifter.dotUpdate ins bld false 3
+  | Op.PMXVF16GER2PN ->
+    PrefixedLifter.dotUpdate ins bld false 2
+  | Op.PMXVF16GER2PP ->
+    PrefixedLifter.dotUpdate ins bld false 1
+  | Op.PMXVF32GER ->
+    PrefixedLifter.singleUpdate ins bld 0
+  | Op.PMXVF32GERNN ->
+    PrefixedLifter.singleUpdate ins bld 4
+  | Op.PMXVF32GERNP ->
+    PrefixedLifter.singleUpdate ins bld 3
+  | Op.PMXVF32GERPN ->
+    PrefixedLifter.singleUpdate ins bld 2
+  | Op.PMXVF32GERPP ->
+    PrefixedLifter.singleUpdate ins bld 1
+  | Op.PMXVF64GER ->
+    PrefixedLifter.doubleUpdate ins bld 0
+  | Op.PMXVF64GERNN ->
+    PrefixedLifter.doubleUpdate ins bld 4
+  | Op.PMXVF64GERNP ->
+    PrefixedLifter.doubleUpdate ins bld 3
+  | Op.PMXVF64GERPN ->
+    PrefixedLifter.doubleUpdate ins bld 2
+  | Op.PMXVF64GERPP ->
+    PrefixedLifter.doubleUpdate ins bld 1
+  | Op.PMXVI16GER2 ->
+    PrefixedLifter.integerUpdate ins bld 16 true false
+  | Op.PMXVI16GER2PP ->
+    PrefixedLifter.integerUpdate ins bld 16 true true
+  | Op.PMXVI16GER2S ->
+    PrefixedLifter.saturatingUpdate ins bld 16 true false
+  | Op.PMXVI16GER2SPP ->
+    PrefixedLifter.saturatingUpdate ins bld 16 true true
+  | Op.PMXVI4GER8 ->
+    PrefixedLifter.integerUpdate ins bld 4 true false
+  | Op.PMXVI4GER8PP ->
+    PrefixedLifter.integerUpdate ins bld 4 true true
+  | Op.PMXVI8GER4 ->
+    PrefixedLifter.integerUpdate ins bld 8 false false
+  | Op.PMXVI8GER4PP ->
+    PrefixedLifter.integerUpdate ins bld 8 false true
+  | Op.PMXVI8GER4SPP ->
+    PrefixedLifter.saturatingUpdate ins bld 8 false true
   | o ->
 #if DEBUG
          eprintfn "%A" o

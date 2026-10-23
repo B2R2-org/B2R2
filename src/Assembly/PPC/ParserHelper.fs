@@ -46,6 +46,8 @@ type AsmOperand =
   | AsmImm of uint64
   /// What lies at a written distance from what a register holds.
   | AsmMem of int32 * Register
+  /// A displacement requiring the full 34-bit prefixed field.
+  | AsmMem64 of int64 * Register
   /// One bit of the condition register, written as the field it lies in and
   /// which of that field's four bits it is.
   | AsmBit of uint32
@@ -89,6 +91,8 @@ let private printableName (reg: Register) =
   if reg >= Register.V0A && reg <= Register.V31B then
     Some("v" + string ((int reg - int Register.V0A) / 2))
   elif reg <= Register.CR7_3 then
+    Some(Register.toString reg)
+  elif reg >= Register.ACC0 && reg <= Register.ACC7 then
     Some(Register.toString reg)
   else
     None
