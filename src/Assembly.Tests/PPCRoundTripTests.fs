@@ -85,6 +85,29 @@ type PPCRoundTripTests() =
     | Ok((_, bytes) :: _) -> Some bytes
     | Ok [] | Error _ -> None
 
+  /// A VLE round trip preserves both the canonical text and its length.
+  static let brokenVLEProbe assembler parser (probe: PPCVLEProbe) =
+    match (try encodeFirst assembler probe.Text with _ -> None) with
+    | None ->
+      Some $"'{probe.Text}' is not encodable"
+    | Some encoded when encoded.Length <> probe.Bytes.Length ->
+      Some $"'{probe.Text}' encoded as {encoded.Length} bytes"
+    | Some encoded ->
+      let actual = try disasm parser encoded with _ -> "<undecodable>"
+      if actual = probe.Text then None
+      else Some $"'{probe.Text}' encoded as '{actual}'"
+
+  /// The VLE sweeps live in this class so the PPC CI filter selects them.
+  static let vleFailures wordSize =
+    let isa = ISA(Architecture.PPC, Endian.Big, wordSize, int Category.VLE)
+    let parser = Parser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    let assembler = Assembler(isa, 0UL) :> ILowerable
+    PPCVLESweep.probes wordSize
+    |> List.choose (brokenVLEProbe assembler parser)
+    |> List.distinct
+    |> List.sort
+
   /// Encodes the given source and disassembles the result, so that a source
   /// text stands in for the word a probe was decoded from.
   static let roundTrip assembler parser (source: string) =
@@ -953,5 +976,51 @@ type PPCRoundTripTests() =
       Assert.AreEqual<string>("38800002", Convert.ToHexString last)
     | _ ->
       Assert.Fail source
+
+  [<TestMethod>]
+  member _.``CR comparisons reject another opcode's operands``() =
+    for source in [ "mcrxrx cr1, r2, r3"; "cmpeqb cr1" ] do
+      let encoded = try encodeFirst assembler64 source with _ -> None
+      Assert.AreEqual<bool>(true, encoded.IsNone, source)
+
+  [<TestMethod>]
+  member _.``DARN rejects its reserved selector``() =
+    let encoded = try encodeFirst assembler64 "darn r3, 3" with _ -> None
+    Assert.AreEqual<bool>(true, encoded.IsNone)
+
+  [<TestMethod>]
+  member _.``COPY rejects a cleared fixed bit``() =
+    let encoded = try encodeFirst assembler64 "copy r3, r4, 0" with _ -> None
+    Assert.AreEqual<bool>(true, encoded.IsNone)
+
+  [<TestMethod>]
+  member _.``WAIT rejects its reserved condition in both forms``() =
+    for source in [ "wait 3"; "wait 3, 0" ] do
+      let encoded = try encodeFirst assembler64 source with _ -> None
+      Assert.AreEqual<bool>(true, encoded.IsNone, source)
+
+  [<TestMethod>]
+  member _.``Prefixed vectors reject another opcode's operands``() =
+    let sources =
+      [ for op in [ "xxspltiw"; "xxspltidp"; "xxsplti32dx" ] do
+          yield $"{op} f1, f2, f3, f4"
+          yield $"{op} f1, f2, f3, f4, 7"
+        for op in [ "xxblendvb"; "xxblendvh"; "xxblendvw"; "xxblendvd" ] do
+          yield $"{op} f1, f2, f3, f4, 7" ]
+    for source in sources do
+      let encoded = try encodeFirst assembler64 source with _ -> None
+      Assert.AreEqual<bool>(true, encoded.IsNone, source)
+
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every VLE instruction the decoder decodes encodes``() =
+    let broken = vleFailures WordSize.Bit32
+    Assert.AreEqual<string>("", String.concat "\n" broken)
+
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every VLE instruction encodes where the source is 64-bit``() =
+    let broken = vleFailures WordSize.Bit64
+    Assert.AreEqual<string>("", String.concat "\n" broken)
 
 // vim: set tw=80 sts=2 sw=2:

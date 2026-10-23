@@ -55,6 +55,10 @@ module internal IRRunner =
       Memory: IReadOnlyDictionary<uint64, byte>
       /// Every named call made, in order, with its arguments.
       Calls: (string * BitVector list) list
+      /// Explicit rounding overrides actually evaluated, in order.
+      Roundings: RoundingMode list
+      /// Architectural register writes actually executed, in order.
+      Writes: RegisterID list
       /// The architectural traps raised during the instruction.
       Interrupts: int list }
 
@@ -68,6 +72,8 @@ module internal IRRunner =
       Answer: string -> BitVector list -> BitVector option
       /// Every named call made, in order, with its arguments.
       Calls: List<string * BitVector list>
+      Roundings: List<RoundingMode>
+      Writes: List<RegisterID>
       Interrupts: List<int> }
 
   let private readReg (regs: Dictionary<RegisterID, BitVector>) r t =
@@ -646,7 +652,9 @@ module internal IRRunner =
     | Cast(Kind = k; Type = t; Operand = x) ->
       cast mode k t (go x)
     | RoundCtrl(Mode = m; Body = body) ->
-      eval ctx (enum<RoundingMode> (int (bits (go m)))) body
+      let direction = enum<RoundingMode> (int (bits (go m)))
+      ctx.Roundings.Add direction
+      eval ctx direction body
     | Extract(Operand = x; Type = t; StartPos = p) ->
       BitVector.Extract(go x, t, p)
     | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
@@ -663,6 +671,8 @@ module internal IRRunner =
         Memory = Dictionary()
         Answer = answer
         Calls = List()
+        Roundings = List()
+        Writes = List()
         Interrupts = List() }
     for reg, v in inputs do ctx.Regs[idOf reg] <- v
     for addr, bytes in memory do
@@ -693,6 +703,7 @@ module internal IRRunner =
     match stmt with
     | Put(Dst = Var(RegisterID = r); Src = src) ->
       ctx.Regs[r] <- eval ctx (fpscrMode ctx) src
+      ctx.Writes.Add r
     | Put(Dst = TempVar(Index = n); Src = src) ->
       ctx.Temps[n] <- eval ctx (fpscrMode ctx) src
     | Store(Endian = endian; Addr = a; Value = v) ->
@@ -742,6 +753,8 @@ module internal IRRunner =
     { Read = fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
       Memory = ctx.Memory
       Calls = List.ofSeq ctx.Calls
+      Roundings = List.ofSeq ctx.Roundings
+      Writes = List.ofSeq ctx.Writes
       Interrupts = List.ofSeq ctx.Interrupts }
 
   /// The same with no named call answered but the ones IRRunner knows.

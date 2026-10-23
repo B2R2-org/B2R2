@@ -363,7 +363,8 @@ module internal IRRunner =
           step (i + 1) (e :: effects)
         | Jmp(Target = JmpDest(Target = l)) ->
           step (at l) effects
-        | CJmp(c, JmpDest(Target = t), JmpDest(Target = f)) ->
+        | CJmp(Cond = c; TrueTarget = JmpDest(Target = t);
+               FalseTarget = JmpDest(Target = f)) ->
           let taken = (eval ctx c).IsTrue
           step (at (if taken then t else f)) effects
         | InterJmp(Target = t; Kind = kind) ->

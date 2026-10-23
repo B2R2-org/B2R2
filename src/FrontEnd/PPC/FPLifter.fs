@@ -183,20 +183,25 @@ let private exceptionBits = [ 28; 27; 26; 25; 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
 /// The causes VX summarizes: VXSNAN to VXVC, and VXSOFT, VXSQRT, VXCVI.
 let private invalidBits = [ 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
 
-/// Recomputes FEX and VX, which are never set or cleared but follow the bits
-/// they summarize: VX is the OR of the invalid-operation causes, and FEX the
-/// OR of every exception bit ANDed with its enable (VX with VE).
-let updateSummaries bld =
-  let fpscr = regVar bld Register.FPSCR
-  let bit pos = AST.extract fpscr 1<rt> pos
+/// The status word with VX and FEX recomputed from its causes and enables.
+let private summarizedStatus bld status =
+  let bit pos = AST.extract status 1<rt> pos
   let vx = tmpVar bld 1<rt>
   let enabled (e, en) = bit e .& bit en
   let others = List.map enabled [ 28, 6; 27, 5; 26, 4; 25, 3 ]
   append bld {
     vx := List.reduce (.|) (List.map bit invalidBits)
-    AST.extract fpscr 1<rt> 29 := vx
-    AST.extract fpscr 1<rt> 30 := List.reduce (.|) ((vx .& bit 7) :: others)
   }
+  let fex = List.reduce (.|) ((vx .& bit 7) :: others)
+  (status .& numU32 0x9fffffffu 32<rt>)
+  .| (AST.zext 32<rt> vx << numI32 29 32<rt>)
+  .| (AST.zext 32<rt> fex << numI32 30 32<rt>)
+
+/// Recomputes FEX and VX in one FPSCR write, preserving its other bits.
+let updateSummaries bld =
+  let fpscr = regVar bld Register.FPSCR
+  let status = summarizedStatus bld fpscr
+  append bld { fpscr := status }
 
 /// mffs and mffs.: the whole 64-bit FPSCR into frD.
 let mffs ins updateCond bld =
@@ -502,7 +507,7 @@ let private roundDouble bld (a: Arith) raised =
   let inexact = AST.extract raised 1<rt> 0
   append bld {
     r := a.Compute
-    rz := AST.roundCtrl toZero a.Compute
+    rz := AST.ite inexact (AST.roundCtrl toZero a.Compute) r
   }
   { Result = r
     Overflow = AST.extract raised 1<rt> 2
@@ -606,20 +611,21 @@ let private settle bld single (a: Arith) raised (rnd: Rounding) =
 /// recomputed.
 let private recordStatus bld (o: Outcome) fprf =
   let fpscr = regVar bld Register.FPSCR
-  let struct (old, raised) = tmpVars2 bld 32<rt>
+  let struct (old, raised, status) = tmpVars3 bld 32<rt>
   let kept = old .& numU32 0x1f000u 32<rt>
   let positioned b n = AST.zext 32<rt> b << numI32 n 32<rt>
   let turnedOn = (raised .& AST.not old) != AST.num0 32<rt>
   append bld {
     old := fpscr
     raised := o.Raised
-    fpscr :=
+    status :=
       ((old .| raised) .& numU32 0xfff80fffu 32<rt>)
       .| positioned o.FR 18 .| positioned o.FI 17
       .| AST.ite o.Suppressed kept (fprf << numI32 12 32<rt>)
       .| positioned turnedOn 31
   }
-  updateSummaries bld
+  let value = summarizedStatus bld status
+  append bld { fpscr := value }
 
 /// The register an arithmetic instruction writes, its first operand.
 let private destination (ins: Instruction) bld =

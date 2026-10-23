@@ -1098,8 +1098,13 @@ type RegisterFactory(isa: ISA) =
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType rid =
-      if rid = Register.toRegID Register.ACC then
+    member this.GetRegType rid =
+      let first = Register.toRegID Register.TAR
+      let last = Register.toRegID Register.TFIAR
+      let state = rid >= first && rid <= last
+      if rid = Register.toRegID Register.FPSCRH || state then
+        (this :> IRegisterFactory).GetRegVar rid |> Expr.typeOf
+      elif rid = Register.toRegID Register.ACC then
         64<rt>
       elif rid >= Register.toRegID Register.R0H
            && rid <= Register.toRegID Register.SPEFSCR then

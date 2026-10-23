@@ -354,9 +354,14 @@ let private hasTwins (bld: ILowUIRBuilder) = bld.RegType = 64<rt>
 
 /// Writes XER[CA], and XER[CA32] where the processor has it.
 let setCarry bld carry carry32 =
+  let xer = regVar bld Register.XER
+  let mask = if hasTwins bld then 0xdffbffffu else 0xdfffffffu
+  let ca = AST.zext 32<rt> carry << numI32 29 32<rt>
+  let bits =
+    if hasTwins bld then ca .| (AST.zext 32<rt> carry32 << numI32 18 32<rt>)
+    else ca
   append bld {
-    xerBit bld 29 := carry
-    if hasTwins bld then xerBit bld 18 := carry32 else ()
+    xer := (xer .& numU32 mask 32<rt>) .| bits
   }
 
 /// Writes XER[OV], and XER[OV32] where the processor has it, and ORs OV into
@@ -394,25 +399,34 @@ let isAddSubOV bld expA expB result =
     setOverflow bld ov ov32
   }
 
+/// As in ARM's AddWithCarry, constant carry-ins need only a comparison;
+/// otherwise the top bit of the carry vector gives the carry out.
+let private carryOutBit a b c result =
+  match c with
+  | Num(Value = n) when n.IsZero -> AST.lt result a
+  | Num(Value = n) when n.IsOne -> AST.le result a
+  | _ -> AST.xthi 1<rt> ((a .& b) .| ((a .| b) .& AST.not result))
+
 /// Adds a + b + c (c a register-wide carry-in of 0 or 1) into dst, recording
-/// the carry-out in XER[CA]. Each partial sum's unsigned wrap gives its carry,
-/// so no intermediate wider than a register is needed. The carry out of the
+/// the carry-out in XER[CA]. The operands must be captured before dst is
+/// written so aliased source registers retain their values. The carry of the
 /// low word, CA32, is the carry into bit 32, which is bit 32 of a ^ b ^ sum
 /// since the carry-in only reaches bit 0.
 let addWithCarryOut (bld: ILowUIRBuilder) dst a b c =
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let struct (c1, c2) = tmpVars2 bld 1<rt>
+  let result = tmpVar bld bld.RegType
+  let sum =
+    match c with
+    | Num(Value = n) when n.IsZero -> a .+ b
+    | _ -> a .+ b .+ c
   append bld {
-    t1 := a .+ b
-    c1 := t1 .< a
-    t2 := t1 .+ c
-    c2 := t2 .< t1
-    dst := t2
+    result := sum
+    dst := result
   }
+  let carry = carryOutBit a b c result
   let carry32 =
-    if bld.RegType = 64<rt> then AST.extract (a <+> b <+> t2) 1<rt> 32
-    else c1 .| c2
-  setCarry bld (c1 .| c2) carry32
+    if hasTwins bld then AST.extract (a <+> b <+> result) 1<rt> 32
+    else carry
+  setCarry bld carry carry32
 
 /// Records a multiply's or a divide's overflow, which is the same in either
 /// mode: OV32 is OV.

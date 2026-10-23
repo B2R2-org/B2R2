@@ -349,7 +349,7 @@ module internal IRFloat =
     let exact = exactFma a b c
     let inexact = Double.IsInfinity r || compare exact (dyadic r) <> 0
     let tiny = not (Double.IsInfinity r) && tinyValue t exact
-    let d = if Double.IsInfinity r then r else fmaAnswer t mode a b c r
+    let d = fmaAnswer t mode a b c r
     let atMax = Math.Abs d = maxFinite t
     let over = overflowed d atMax (pastRange t exact)
     flags false false over (inexact && tiny) (inexact || over)
@@ -357,7 +357,8 @@ module internal IRFloat =
   /// Whether the product of a fused multiply-add is an infinity and the
   /// addend one of the other sign.
   let private cancelsInfinity (a: float) b (c: float) =
-    Double.IsInfinity(a * b) && Double.IsInfinity c && a * b <> c
+    (Double.IsInfinity a || Double.IsInfinity b)
+    && Double.IsInfinity(a * b) && Double.IsInfinity c && a * b <> c
 
   /// What a fused multiply-add raised, as FPMulAdd raises it: Invalid for a
   /// zero times an infinity whatever is added, even a quiet NaN.

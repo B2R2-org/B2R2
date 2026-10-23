@@ -45,16 +45,21 @@ let private setCarry bld carry =
   append bld { xerBit bld 29 := carry }
 
 let private addWithCarryOut (bld: ILowUIRBuilder) dst a b c =
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let struct (c1, c2) = tmpVars2 bld 1<rt>
+  let result = tmpVar bld bld.RegType
+  let sum =
+    match c with
+    | Num(Value = n) when n.IsZero -> a .+ b
+    | _ -> a .+ b .+ c
   append bld {
-    t1 := a .+ b
-    c1 := t1 .< a
-    t2 := t1 .+ c
-    c2 := t2 .< t1
-    dst := t2
+    result := sum
+    dst := result
   }
-  setCarry bld (c1 .| c2)
+  let carry =
+    match c with
+    | Num(Value = n) when n.IsZero -> AST.lt result a
+    | Num(Value = n) when n.IsOne -> AST.le result a
+    | _ -> AST.xthi 1<rt> ((a .& b) .| ((a .| b) .& AST.not result))
+  setCarry bld carry
 
 /// Adds a scaled immediate, changing CA and CR0 where the form says so.
 let addCarrying ins updateCond (bld: ILowUIRBuilder) =

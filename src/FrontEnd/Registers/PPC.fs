@@ -399,7 +399,6 @@ type Register =
   /// FPSCR holding bits 32:63), whose only defined field is DRN, the decimal
   /// rounding mode, in its low three bits.
   | FPSCRH = 0xE0
-  (* Lane X: the MMA accumulators. *)
   /// Accumulator 0, an MMA operand name only: it overlays VSR 0 to VSR
   /// 3, which hold its state.
   | ACC0 = 0xE1
@@ -424,8 +423,6 @@ type Register =
   /// Accumulator 7, an MMA operand name only: it overlays VSR 28 to VSR
   /// 31, which hold its state.
   | ACC7 = 0xE8
-  (* Lane A: the registers the branch, storage and system instructions of
-     ISA 2.07 and later name. *)
   /// Target Address Register, which bctar branches to.
   | TAR = 0xE9
   /// Branch Event Status and Control Register of the event-based branches.
@@ -447,7 +444,6 @@ type Register =
   | SPRG3 = 0xF1
   /// Program Priority Register (SPR 896); PPR32 (898) is its upper word.
   | PPR = 0xF2
-  (* Lane E: the Transactional Memory registers. *)
   /// The Transaction EXception And Status Register, SPR 130 (64 bits, TEXASRU
   /// being its upper word, SPR 131).
   | TEXASR = 0xF3
@@ -457,10 +453,6 @@ type Register =
   /// The Transaction Failure Instruction Address Register, SPR 129, the
   /// address of the instruction that made a transaction fail.
   | TFIAR = 0xF5
-  (* Lane S: the Signal Processing Engine. Its general registers are 64
-     bits wide; on a 32-bit processor R0-R31 keep the low word, as the
-     other instructions see them, and the high word is reachable only by the
-     SPE instructions, here as R0H-R31H. *)
   /// R0H is the high word of the SPE's 64-bit register R0.
   | R0H = 0x140
   /// R1H is the high word of the SPE's 64-bit register R1.

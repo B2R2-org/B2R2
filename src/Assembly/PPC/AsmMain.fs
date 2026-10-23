@@ -45,6 +45,19 @@ type UserState =
     /// Index of the instruction being parsed, which a label does not change.
     CurIndex: int }
 
+/// VLE shares primary opcodes 4 and 31, except for its own opcode 31 rows.
+let private sharedVLE encode (ins: AsmInsInfo) =
+  let bin = encode ins
+  let overridden =
+    match (bin >>> 1) &&& 0x3ffu with
+    | 14u | 46u | 56u | 568u | 280u | 312u | 16u | 33u | 36u
+    | 129u | 193u | 225u | 257u | 289u | 417u | 449u -> true
+    | _ -> false
+  if bin >>> 26 = 4u || (bin >>> 26 = 31u && not overridden) then
+    bin
+  else
+    AsmField.fail $"{ins.Opcode} is not a shared VLE encoding"
+
 /// <summary>
 /// Builds the lookup from an opcode to the encoder for it. Each assembler
 /// builds its own and lets it go when it goes, rather than the rows living for
@@ -74,9 +87,14 @@ let buildEncoderTable bitLen vle =
     legacyEncoders ()
     embeddedEncoders ()
     transactionEncoders bitLen
-    signalProcessingEncoders ()
-    (if vle then vleEncoders bitLen else []) ]
+    signalProcessingEncoders () ]
   |> List.concat
+  |> fun rows ->
+    if vle then
+      (rows |> List.map (fun (op, encode) -> op, sharedVLE encode))
+      @ vleEncoders bitLen
+    else
+      rows
   |> Map.ofList
 
 /// Resolves a label to the address of the instruction it marks. A label that

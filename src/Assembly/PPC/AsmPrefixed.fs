@@ -177,32 +177,41 @@ let private memory ins =
           ||| uint32 (value &&& 0xffffUL)
   struct (p, s)
 
-let private vectorFields ins =
+let private vectorFourFields ins t a b c imm =
   let fields t a b c =
     ((t &&& 31u) <<< 21) ||| ((a &&& 31u) <<< 16)
     ||| ((b &&& 31u) <<< 11) ||| ((c &&& 31u) <<< 6)
     ||| (t >>> 5) ||| ((a >>> 5) <<< 2)
     ||| ((b >>> 5) <<< 1) ||| ((c >>> 5) <<< 3)
-  let encode t a b c imm =
-    let field = fields (vsr t) (vsr a) (vsr b) (vsr c)
+  let field = fields (vsr t) (vsr a) (vsr b) (vsr c)
+  match ins.Opcode with
+  | Op.XXBLENDVB ->
+    struct (0x05000000u, 0x84000000u ||| field)
+  | Op.XXBLENDVH ->
+    struct (0x05000000u, 0x84000010u ||| field)
+  | Op.XXBLENDVW ->
+    struct (0x05000000u, 0x84000020u ||| field)
+  | Op.XXBLENDVD ->
+    struct (0x05000000u, 0x84000030u ||| field)
+  | Op.XXEVAL ->
+    struct (0x05000000u ||| unsigned 8 imm, 0x88000010u ||| field)
+  | Op.XXPERMX ->
+    struct (0x05000000u ||| unsigned 3 imm, 0x88000000u ||| field)
+  | _ ->
+    wrongOperands ins
+
+let private vectorFields ins =
+  let blend =
     match ins.Opcode with
-    | Op.XXBLENDVB ->
-      struct (0x05000000u, 0x84000000u ||| field)
-    | Op.XXBLENDVH ->
-      struct (0x05000000u, 0x84000010u ||| field)
-    | Op.XXBLENDVW ->
-      struct (0x05000000u, 0x84000020u ||| field)
-    | Op.XXBLENDVD ->
-      struct (0x05000000u, 0x84000030u ||| field)
-    | Op.XXEVAL ->
-      struct (0x05000000u ||| unsigned 8 imm, 0x88000010u ||| field)
-    | _ ->
-      struct (0x05000000u ||| unsigned 3 imm, 0x88000000u ||| field)
+    | Op.XXBLENDVB | Op.XXBLENDVH | Op.XXBLENDVW | Op.XXBLENDVD -> true
+    | _ -> false
   match ins.Operands with
-  | [ AsmReg t; AsmReg a; AsmReg b; AsmReg c ] ->
-    encode t a b c 0UL
-  | [ AsmReg t; AsmReg a; AsmReg b; AsmReg c; AsmImm imm ] ->
-    encode t a b c imm
+  | [ AsmReg t; AsmReg a; AsmReg b; AsmReg c ]
+    when blend || ins.Opcode = Op.XXEVAL || ins.Opcode = Op.XXPERMX ->
+    vectorFourFields ins t a b c 0UL
+  | [ AsmReg t; AsmReg a; AsmReg b; AsmReg c; AsmImm imm ]
+    when ins.Opcode = Op.XXEVAL || ins.Opcode = Op.XXPERMX ->
+    vectorFourFields ins t a b c imm
   | operands ->
     let t, imm, op =
       match operands with

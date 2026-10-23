@@ -6480,6 +6480,34 @@ type SignalProcessingRegisterTests() =
         let actual = factory.GetRegType(Register.toRegID reg)
         Assert.AreEqual(box expected, box actual, $"{reg} {width}")
 
+/// The non-SPE state registers keep their declared widths on both targets.
+[<TestClass>]
+type StateRegisterTests() =
+  [<TestMethod>]
+  member _.``[PPC] State registers expose their operand widths``() =
+    for width in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.PPC, Endian.Big, width)
+      let factory = RegisterFactory isa :> IRegisterFactory
+      let rt = WordSize.toRegType width
+      let registers =
+        [ FPSCRH, 32<rt>
+          TAR, rt
+          BESCR, rt
+          EBBHR, rt
+          EBBRR, rt
+          ExMonVal2, rt
+          DSCR, rt
+          AMR, rt
+          CTRL, 32<rt>
+          SPRG3, rt
+          PPR, rt
+          TEXASR, 64<rt>
+          TFHAR, 64<rt>
+          TFIAR, 64<rt> ]
+      for reg, expected in registers do
+        let actual = factory.GetRegType(Register.toRegID reg)
+        Assert.AreEqual(box expected, box actual, $"{reg} {width}")
+
 /// What the tests of Variable Length Encoding check a halfword or two against:
 /// the bytes as a page of VLE code holds them, which are big-endian whatever
 /// the order of the data is.
