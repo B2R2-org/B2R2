@@ -412,6 +412,8 @@ Publications
 Below are papers that use or build on B2R2. If your work should be included,
 please open a pull request.
 
+- BinForge: Facilitating Generation of Diversified Binary Datasets, APSEC 2026
+  [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/yoon-apsec26.pdf)
 - EVMpress: Precise Type Inference for Next-Generation EVM Decompilation, CBT 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-cbt25.pdf)
 - Towards Sound Reassembly of Modern x86-64 Binaries, ASPLOS 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-asplos25.pdf)
 - PoE: A Domain-Specific Language for Exploitation, SVCC 2024 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-svcc24.pdf)
