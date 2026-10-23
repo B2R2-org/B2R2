@@ -977,16 +977,21 @@ let private compareRanged ins =
 
 /// cmpeqb and mcrxrx, which name a CR field and what they compare.
 let private compareField xo ins =
-  match ins.Operands with
-  | [ Rg f; Rg a; Rg b ] -> xForm 31u ((crf f) <<< 2) (gpr a) (gpr b) xo 0u
-  | [ Rg f ] -> xForm 31u ((crf f) <<< 2) 0u 0u xo 0u
-  | _ -> wrongOperands ins
+  match ins.Opcode, ins.Operands with
+  | Op.CMPEQB, [ Rg f; Rg a; Rg b ] ->
+    xForm 31u ((crf f) <<< 2) (gpr a) (gpr b) xo 0u
+  | Op.MCRXRX, [ Rg f ] ->
+    xForm 31u ((crf f) <<< 2) 0u 0u xo 0u
+  | _ ->
+    wrongOperands ins
 
 /// darn, whose L fills the low two bits of the rA field.
 let private deliverRandom ins =
   match ins.Operands with
-  | [ Rg d; Im l ] -> xForm 31u (gpr d) (unsigned 2 l) 0u 755u 0u
-  | _ -> wrongOperands ins
+  | [ Rg d; Im l ] when l < 3UL ->
+    xForm 31u (gpr d) (uint32 l) 0u 755u 0u
+  | _ ->
+    wrongOperands ins
 
 /// extswsli, an XS form whose six-bit shift keeps its high bit in bit 30.
 let private signExtendShift rc ins =
@@ -1024,17 +1029,26 @@ let private atomicForm xo ins =
 /// copy, whose bit 10 is always set, and paste[.], whose L sits there.
 let private copyPaste xo rc ins =
   match ins.Operands with
-  | [ Rg a; Rg b ] -> xForm 31u 1u (gpr a) (gpr b) xo rc
-  | [ Rg a; Rg b; Im l ] -> xForm 31u (unsigned 1 l) (gpr a) (gpr b) xo rc
-  | _ -> wrongOperands ins
+  | [ Rg a; Rg b ] ->
+    xForm 31u 1u (gpr a) (gpr b) xo rc
+  | [ Rg a; Rg b; Im 1UL ] ->
+    xForm 31u 1u (gpr a) (gpr b) xo rc
+  | [ Rg a; Rg b; Im l ] when ins.Opcode <> Op.COPY ->
+    xForm 31u (unsigned 1 l) (gpr a) (gpr b) xo rc
+  | _ ->
+    wrongOperands ins
 
 /// wait WC, PL, both optional.
 let private waitForm ins =
   match ins.Operands with
-  | [] -> xForm 31u 0u 0u 0u 30u 0u
-  | [ Im wc ] -> xForm 31u (unsigned 2 wc) 0u 0u 30u 0u
-  | [ Im wc; Im pl ] -> xForm 31u (unsigned 2 wc) (unsigned 2 pl) 0u 30u 0u
-  | _ -> wrongOperands ins
+  | [] ->
+    xForm 31u 0u 0u 0u 30u 0u
+  | [ Im wc ] when wc < 3UL ->
+    xForm 31u (uint32 wc) 0u 0u 30u 0u
+  | [ Im wc; Im pl ] when wc < 3UL ->
+    xForm 31u (uint32 wc) (unsigned 2 pl) 0u 30u 0u
+  | _ ->
+    wrongOperands ins
 
 /// scv LEV.
 let private vectoredCall ins =

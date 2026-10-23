@@ -34386,3 +34386,36 @@ type BackfillAliasLifterTests() =
   [<TestMethod>]
   member _.``[PPC T] MFTB time base destination``() =
     clock "7cac42a6" false
+
+/// FMA exception queries follow the same single rounding as the value.
+[<TestClass>]
+type IRFloatTests() =
+  [<TestMethod>]
+  member _.``[PPC] FMA overflow follows the rounding direction``() =
+    let directions =
+      [ RoundingMode.ToNearestEven, 5UL
+        RoundingMode.TowardZero, 1UL
+        RoundingMode.TowardNegative, 1UL
+        RoundingMode.TowardPositive, 5UL ]
+    for width, largest, half in
+      [ 32<rt>, float Single.MaxValue, 103
+        64<rt>, Double.MaxValue, 970 ] do
+      let bits value =
+        if width = 32<rt> then
+          uint64 (BitConverter.SingleToUInt32Bits(float32 value))
+        else
+          BitConverter.DoubleToUInt64Bits value
+      let a, b, c = bits largest, bits 1.0, bits (Math.ScaleB(1.0, half))
+      for mode, expected in directions do
+        let actual = IRFloat.fusedExceptions width mode 0x40UL a b c
+        Assert.AreEqual(box expected, box actual, $"{width} {mode}")
+
+  [<TestMethod>]
+  member _.``[PPC] FMA finite overflow does not cancel an infinity``() =
+    let bits = BitConverter.DoubleToUInt64Bits
+    let mode = RoundingMode.ToNearestEven
+    for a in [ Double.MaxValue; Double.PositiveInfinity ] do
+      let x, y, z = bits a, bits 2.0, bits Double.NegativeInfinity
+      let actual = IRFloat.fusedExceptions 64<rt> mode 0x40UL x y z
+      let expected = if Double.IsInfinity a then 0x10UL else 0UL
+      Assert.AreEqual(box expected, box actual, $"{a}")

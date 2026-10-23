@@ -38,8 +38,8 @@
     <Compile Include="PARISCSweep.fs" />
     <Compile Include="PARISCRoundTripTests.fs" />
     <Compile Include="PPCSweep.fs" />
-    <Compile Include="PPCRoundTripTests.fs" />
     <Compile Include="PPCVLESweep.fs" />
+    <Compile Include="PPCRoundTripTests.fs" />
     <Compile Include="PPCVLERoundTripTests.fs" />
     <Compile Include="PythonSweep.fs" />
     <Compile Include="PythonRoundTripTests.fs" />
