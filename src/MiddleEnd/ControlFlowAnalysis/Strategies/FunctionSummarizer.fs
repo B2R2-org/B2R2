@@ -67,18 +67,14 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
     |> returnValueDefs []
     |> List.toArray
 
-  let callerSavedValueDefs (hdl: BinHandle) =
-    let cc = hdl.Conventions.Calling
+  /// Makes the definitions that invalidate the given registers, which are the
+  /// caller-saved registers that a callee may modify.
+  let callerSavedValueDefs (hdl: BinHandle) (clobbered: Set<RegisterID>) =
     let regFactory = hdl.RegisterFactory
-    let intRet = cc.IntReturnRegister
-    let floatRet = cc.FloatReturnRegister
-    [| for rid in cc.CallerSavedRegisters do
-        if rid <> intRet && rid <> floatRet then
-          let regVar = regFactory.GetRegVar rid
-          let rt = regFactory.GetRegType rid
-          regVar, AST.undef rt "caller-saved"
-        else
-          () |]
+    [| for rid in clobbered do
+        let regVar = regFactory.GetRegVar rid
+        let rt = regFactory.GetRegType rid
+        regVar, AST.undef rt "caller-saved" |]
 
   let stackPointerDef (hdl: BinHandle) unwindingAmount =
     match hdl.RegisterFactory.StackPointer with
@@ -126,19 +122,19 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
     | _ ->
       [||]
 
-  let computeLiveDefs ctx unwindingAmount =
+  let computeLiveDefs ctx unwindingAmount clobbered =
     let hdl = ctx.BinHandle
     if ctx.IsExternal then
       [| yield! intReturnValueDef hdl
          yield! floatReturnValueDef hdl
-         yield! callerSavedValueDefs hdl
+         yield! callerSavedValueDefs hdl clobbered
          yield! stackPointerDef hdl unwindingAmount |]
     else
       let liveVarDefs = initializeLiveVarMap hdl ctx.FunctionAddress
       [| if Array.isEmpty liveVarDefs then
            yield! intReturnValueDef hdl
            yield! floatReturnValueDef hdl
-           yield! callerSavedValueDefs hdl
+           yield! callerSavedValueDefs hdl clobbered
          else
            yield! liveVarDefs
          yield! stackPointerDef hdl unwindingAmount |]
@@ -152,6 +148,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * IInstruction
      * unwindingAmount: int
+     * clobbered: Set<RegisterID>
     -> Rundown<LowUIR.Stmt>
 
   /// This is the simplistic way of counting the unwinding amount. Assuming that
@@ -179,10 +176,10 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
 
   /// Simply over-approximate the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
-  default _.Summarize(ctx, callInstruction, unwindingAmount) =
+  default _.Summarize(ctx, callInstruction, unwindingAmount, clobbered) =
     let returnAddress = callInstruction.Address + uint64 callInstruction.Length
     let stmts = (* For abstraction, we check which var can be defined. *)
-      computeLiveDefs ctx unwindingAmount
+      computeLiveDefs ctx unwindingAmount clobbered
       |> Array.map (fun (dst, src) -> AST.put dst src)
     let regType = ctx.BinHandle.ISA.WordSize |> WordSize.toRegType
     let fallThrough = AST.num <| BitVector(returnAddress, regType)
@@ -190,12 +187,16 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
     Array.append stmts [| jmpToFallThrough |]
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
-    member this.Summarize(ctx, retStatus, unwindingBytes, ins) =
+    member this.Summarize(ctx, calleeInfo, ins) =
+      let unwindingBytes = calleeInfo.Unwinding
       FunctionSummary(ctx.FunctionAddress,
                       unwindingBytes,
-                      this.Summarize(ctx, ins, unwindingBytes),
+                      this.Summarize(ctx,
+                                     ins,
+                                     unwindingBytes,
+                                     calleeInfo.Clobbered),
                       ctx.IsExternal,
-                      retStatus)
+                      calleeInfo.Status)
 
     member _.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes) =
       let returnAddress = callIns.Address + uint64 callIns.Length

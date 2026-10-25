@@ -61,6 +61,7 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
       PendingCallActions = null
       CallerVertices = Dictionary()
       UnwindingBytes = 0
+      ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
       UserContext = new 'FnCtx()
       IsExternal = true
       ManagerChannel = null

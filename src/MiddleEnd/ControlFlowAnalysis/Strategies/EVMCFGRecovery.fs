@@ -276,9 +276,14 @@ module private EVMCFGRecovery =
     r
 
   let makeCalleeInfoFromBuildingContext = function
-    | FinalCtx ctx -> ctx.NonReturningStatus, ctx.UnwindingBytes
-    | StillBuilding _ -> NoRet, 0
-    | _ -> Terminator.impossible ()
+    | FinalCtx ctx ->
+      { Status = ctx.NonReturningStatus
+        Unwinding = ctx.UnwindingBytes
+        Clobbered = Set.empty }
+    | StillBuilding _ ->
+      { Status = NoRet; Unwinding = 0; Clobbered = Set.empty }
+    | _ ->
+      Terminator.impossible ()
 
   let fromBBLToCallSite (blk: ILowUIRBasicBlock) =
     match blk.PPoint.CallSite with
@@ -371,8 +376,7 @@ module private EVMCFGRecovery =
 
   /// Summarize the callee's context.
   let summarize ctx calleeInfo =
-    let retStatus, unwindingBytes = calleeInfo
-    summarizer.Summarize(ctx, retStatus, unwindingBytes, null)
+    summarizer.Summarize(ctx, calleeInfo, null)
 
   let isCallRelatedFunction = function
     | "call"
@@ -714,7 +718,8 @@ module private EVMCFGRecovery =
           | Ok() ->
             let callee = tJmpAddr
             let cs = fromBBLToCallSite v.VData
-            let act = MakeCall(cs, callee, (NoRet, 0)) (* treat as NoRet *)
+            let info = { CalleeInfo.Unknown with Status = NoRet }
+            let act = MakeCall(cs, callee, info) (* treat as NoRet *)
             let ret = handleCall ctx cfgRec v cs callee act
             match getFunctionUserContext ctx callee with
             | Ok userCtx ->
@@ -921,7 +926,7 @@ module private EVMCFGRecovery =
           Wait (* yet resolved *)
       | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        let noret, unwinding = calleeInfo
+        let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
         let fnAddr = ctx.FunctionAddress
         dbglog ctx.ThreadID (nameof UpdateCallEdges)
         <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"

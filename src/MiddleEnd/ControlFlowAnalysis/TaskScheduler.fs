@@ -120,7 +120,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
 
   let notifySuccessToCaller calleeAddr calleeInfo callerAddr =
     let callerBuilder = builders[callerAddr]
-    assert (fst calleeInfo <> UnknownNoRet)
+    assert (calleeInfo.Status <> UnknownNoRet)
     assert (callerBuilder.BuilderState <> Invalid)
 #if CFGDEBUG
     dbglog ManagerTid "NotifySuccess" $"{calleeAddr:x} -> {callerAddr:x}"
@@ -201,8 +201,11 @@ type TaskScheduler<'FnCtx, 'GlCtx
     let nextStatus = targetBuilder.Context.NonReturningStatus
     let nextStatus = (* preserve old status so the algo terminates. *)
       if nextStatus = UnknownNoRet then NoRet else nextStatus
-    let unwindingBytes = targetBuilder.Context.UnwindingBytes
-    let calleeInfo = nextStatus, unwindingBytes
+    let ctx = targetBuilder.Context
+    let calleeInfo =
+      { Status = nextStatus
+        Unwinding = ctx.UnwindingBytes
+        Clobbered = Set.ofSeq ctx.ClobberedRegs }
     let calleeAddr = targetBuilder.EntryPoint
     resetBuilder targetBuilder
     targetBuilder.ForceFinish()
@@ -319,7 +322,10 @@ type TaskScheduler<'FnCtx, 'GlCtx
   let updateCallers (callee: ICFGBuildable<_, _>) caller =
     let calleeCtx = callee.Context
     let calleeAddr = callee.EntryPoint
-    let calleeInfo = calleeCtx.NonReturningStatus, calleeCtx.UnwindingBytes
+    let calleeInfo =
+      { Status = calleeCtx.NonReturningStatus
+        Unwinding = calleeCtx.UnwindingBytes
+        Clobbered = Set.ofSeq calleeCtx.ClobberedRegs }
     if (caller: ICFGBuildable<_, _>).BuilderState <> InProgress then
 #if CFGDEBUG
       dbglog ManagerTid "ReloadDueCalleeChange"
@@ -393,9 +399,11 @@ type TaskScheduler<'FnCtx, 'GlCtx
       ()
 #endif
     builder.Finalize()
-    let retStatus = builder.Context.NonReturningStatus
-    let unwindingBytes = builder.Context.UnwindingBytes
-    let calleeInfo = retStatus, unwindingBytes
+    let ctx = builder.Context
+    let calleeInfo =
+      { Status = ctx.NonReturningStatus
+        Unwinding = ctx.UnwindingBytes
+        Clobbered = Set.ofSeq ctx.ClobberedRegs }
     dependenceMap.Confirm entryPoint
     |> Array.iter (notifySuccessToCaller entryPoint calleeInfo)
 

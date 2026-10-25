@@ -93,6 +93,11 @@ type CFGBuildingContext<'FnCtx, 'GlCtx
     CallerVertices: Dictionary<CallSite, IVertex<LowUIRBasicBlock>>
     /// The number of unwinding bytes of the stack when this function returns.
     mutable UnwindingBytes: int
+    /// The caller-saved registers that this function may modify. It starts
+    /// with every register that the calling convention lets a callee modify,
+    /// which is the safe assumption, and the analysis at the end of the
+    /// recovery narrows it down.
+    ClobberedRegs: HashSet<RegisterID>
     /// The user-defined per-function context.
     mutable UserContext: 'FnCtx
     /// Is this an external function or not.
@@ -112,6 +117,7 @@ with
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)
     (* this.NonReturningStatus <- UnknownNoRet *)
+    (* N.B. For the same reason, `ClobberedRegs` is not reset either. *)
     this.JumpTableRecoveryStatus.Clear()
     this.JumpTables.Clear()
     this.GapToAnalyze <- None

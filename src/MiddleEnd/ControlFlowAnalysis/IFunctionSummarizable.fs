@@ -39,8 +39,7 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx
   /// instruction that calls the function.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-     * retStatus: NonReturningStatus
-     * unwindingBytes: int
+     * calleeInfo: CalleeInfo
      * ins: IInstruction
     -> FunctionSummary<LowUIR.Stmt>
 

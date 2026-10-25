@@ -289,7 +289,10 @@ module internal CFGRecoveryCommon =
   let isExecutableAddr (ctx: CFGBuildingContext<_, _>) targetAddr =
     ctx.BinHandle.File.IsExecutableAddr targetAddr
 
-  let makeCalleeInfoFromCtx ctx = ctx.NonReturningStatus, ctx.UnwindingBytes
+  let makeCalleeInfoFromCtx ctx =
+    { Status = ctx.NonReturningStatus
+      Unwinding = ctx.UnwindingBytes
+      Clobbered = Set.ofSeq ctx.ClobberedRegs }
 
   let handleResolvedCall ctx cfgRec callerPPoint callsite calleeAddr action =
     let fnAddr = ctx.FunctionAddress
@@ -365,9 +368,9 @@ module internal CFGRecoveryCommon =
       | Ok(BinFile.BinRelocationTarget.Address target) ->
         let action =
           if isTailCall then
-            MakeTlCall(callsite, target, (UnknownNoRet, 0))
+            MakeTlCall(callsite, target, CalleeInfo.Unknown)
           else
-            MakeCall(callsite, target, (UnknownNoRet, 0))
+            MakeCall(callsite, target, CalleeInfo.Unknown)
         Some(handleCall ctx cfgRec srcVertex callsite target action)
       | Error _ ->
         None
@@ -492,7 +495,7 @@ module internal CFGRecoveryCommon =
             else
               let lastInsAddr = srcData.LastInstruction.Address
               let callSite = LeafCallSite lastInsAddr
-              let act = MakeTlCall(callSite, target, (UnknownNoRet, 0))
+              let act = MakeTlCall(callSite, target, CalleeInfo.Unknown)
               result <- handleCall ctx cfgRec srcVertex callSite target act
           else
             jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
@@ -503,13 +506,13 @@ module internal CFGRecoveryCommon =
           let lastInsAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite lastInsAddr
           let target = lastInsAddr + n.ToUInt64()
-          let act = MakeCall(callsite, target, (UnknownNoRet, 0))
+          let act = MakeCall(callsite, target, CalleeInfo.Unknown)
           result <- handleCall ctx cfgRec srcVertex callsite target act
         | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.IsCall) ->
           let lastInsAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite lastInsAddr
           let target = n.ToUInt64()
-          let act = MakeCall(callsite, target, (UnknownNoRet, 0))
+          let act = MakeCall(callsite, target, CalleeInfo.Unknown)
           result <- handleCall ctx cfgRec srcVertex callsite target act
         | InterCJmp(TrueTarget = BinOp(Op = BinOpType.ADD
                                        Left = PCVar _
@@ -603,8 +606,7 @@ module internal CFGRecoveryCommon =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx ->
-      let retStatus, unwindingBytes = calleeInfo
-      Ok <| summarizer.Summarize(calleeCtx, retStatus, unwindingBytes, callIns)
+      Ok <| summarizer.Summarize(calleeCtx, calleeInfo, callIns)
     | FailedBuilding ->
       Error ErrorCase.FailedToRecoverCFG
 
@@ -718,22 +720,26 @@ module internal CFGRecoveryCommon =
       (* recursion = 100% returns (not no-ret) *)
       let lastIns = caller.VData.Internals.LastInstruction
       (* TODO: its unwinding bytes cannot be decided at this moment. *)
-      cfgRec.Summarizer.Summarize(ctx, NotNoRet, 0, lastIns)
+      let selfInfo =
+        { Status = NotNoRet
+          Unwinding = 0
+          Clobbered = ClobberedRegisters.ofCallingConvention ctx.BinHandle }
+      cfgRec.Summarizer.Summarize(ctx, selfInfo, lastIns)
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
       |> toCFGResult
     else
-      match calleeInfo with
-      | NoRet, _ ->
+      match calleeInfo.Status with
+      | NoRet ->
         connectCallWithoutFT ctx cfgRec caller callee calleeInfo
-      | NotNoRet, _ ->
+      | NotNoRet ->
         connectCallWithFT ctx cfgRec caller callee calleeInfo
-      | ConditionalNoRet nth, _ ->
+      | ConditionalNoRet nth ->
         if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
           connectCallWithoutFT ctx cfgRec caller callee calleeInfo
         else
           connectCallWithFT ctx cfgRec caller callee calleeInfo
-      | UnknownNoRet, _ ->
+      | UnknownNoRet ->
         Terminator.impossible ()
 
   let computeIndirectCalleeAbstraction
@@ -851,7 +857,7 @@ module internal CFGRecoveryCommon =
       else
         let lastInsAddr = srcVertex.VData.Internals.LastInstruction.Address
         let callsite = LeafCallSite lastInsAddr
-        let act = MakeTlCall(callsite, dstAddr, (UnknownNoRet, 0))
+        let act = MakeTlCall(callsite, dstAddr, CalleeInfo.Unknown)
         handleCall ctx cfgRec srcVertex callsite dstAddr act
     else
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge

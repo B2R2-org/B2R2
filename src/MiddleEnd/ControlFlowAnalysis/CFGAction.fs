@@ -74,7 +74,18 @@ with
   member this.Priority(p: IPrioritizable) = p.GetPriority this
 
 /// Callee's abstract information.
-and CalleeInfo = NonReturningStatus * int
+and CalleeInfo =
+  { /// Whether the callee returns.
+    Status: NonReturningStatus
+    /// The number of bytes that the callee unwinds from the stack.
+    Unwinding: int
+    /// The caller-saved registers that the callee may modify.
+    Clobbered: Set<RegisterID> }
+with
+  /// Callee information to be replaced with the real one once the callee is
+  /// built. Nothing is assumed about the callee until then.
+  static member Unknown =
+    { Status = UnknownNoRet; Unwinding = 0; Clobbered = Set.empty }
 
 /// Interface for setting the priority of an action.
 and IPrioritizable =

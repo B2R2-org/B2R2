@@ -129,7 +129,7 @@ module private CFGRecovery =
         sendJmpTblRecoverySuccess ctx queue jmptbl idx
       | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        let noret, unwinding = calleeInfo
+        let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
         let fnAddr = ctx.FunctionAddress
         dbglog ctx.ThreadID (nameof UpdateCallEdges)
         <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
@@ -231,11 +231,13 @@ type CFGRecovery<'FnCtx, 'GlCtx
         let ssaOnly = ICFGAnalysis.map onlyGraph ssaLifter
         let jmpTableAnalysis =
           JmpTableAnalysis(Some ssaOnly) :> IJmpTableAnalyzable<_, _>
-        jmpTableAnalysis, ssaLifter <+> CondAwareNoretAnalysis()
+        let noret = ssaLifter <+> CondAwareNoretAnalysis()
+        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
       else
         let jmpTableAnalysis =
           JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>
-        jmpTableAnalysis, CondAwareNoretAnalysis()
+        let noret = CondAwareNoretAnalysis() :> ICFGAnalysis<unit -> unit>
+        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
     CFGRecovery(summarizer,
                 jmptblAnalysis,
                 sretAnalysis,

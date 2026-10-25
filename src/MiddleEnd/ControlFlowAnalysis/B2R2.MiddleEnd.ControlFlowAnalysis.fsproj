@@ -16,6 +16,7 @@
     <Compile Include="IFunctionIdentifiable.fs" />
     <Compile Include="IntraCallTable.fs" />
     <Compile Include="CFGEvaluator.fs" />
+    <Compile Include="ClobberedRegisters.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
     <Compile Include="TaskManagerCommand.fs" />
@@ -40,6 +41,7 @@
     <Compile Include="Strategies\ISyscallAnalyzable.fs" />
     <Compile Include="Strategies\SSALifter.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
+    <Compile Include="Strategies\CalleeClobberAnalysis.fs" />
     <Compile Include="Strategies\JmpTableAnalysis.fs" />
     <Compile Include="Strategies\SRetAnalysis.fs" />
     <Compile Include="Strategies\SyscallAnalysis.fs" />

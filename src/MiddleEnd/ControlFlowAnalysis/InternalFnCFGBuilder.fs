@@ -150,6 +150,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
         PendingCallActions = Dictionary()
         CallerVertices = Dictionary()
         UnwindingBytes = 0
+        ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
         UserContext = fnCtx
         IsExternal = false
         ManagerChannel = null
