@@ -122,7 +122,13 @@ type TuiTranscriptLine =
   { Source: TuiTranscriptSource
     OriginalLine: TuiLine
     TextStart: int
+    TextEnd: int
     Line: TuiLine }
+
+/// Width-dependent transcript rows and their visible starting row.
+type TuiTranscriptLayout =
+  { Rows: TuiTranscriptLine array
+    ViewportStart: int }
 
 /// Full-screen panels that temporarily replace the transcript view.
 [<RequireQualifiedAccess>]
@@ -258,6 +264,14 @@ type TransformerTuiModel =
     SpinnerFrame: int }
 
 module TransformerTuiModel =
+  type private TranscriptLayoutCache =
+    { Model: TransformerTuiModel
+      Width: int
+      Height: int
+      Layout: TuiTranscriptLayout }
+
+  let mutable private transcriptLayoutCache: TranscriptLayoutCache option = None
+
   let private maximumTranscriptLines = 5000
 
   let defaultSuggestionHeight = 7
@@ -986,7 +1000,8 @@ module TransformerTuiModel =
     let line = max 0 (min cursor.Line (max 0 (lineCount - 1)))
     let text =
       lines |> List.tryItem line |> Option.map _.Text |> Option.defaultValue ""
-    { Line = line; Column = max 0 (min cursor.Column text.Length) }
+    let length = TransformerTuiText.sanitize text |> String.length
+    { Line = line; Column = max 0 (min cursor.Column length) }
 
   let private commandPositions transcript =
     transcript
@@ -1068,6 +1083,8 @@ module TransformerTuiModel =
     if TransformerTuiText.containsAnsi line.Line.Text then
       [ { line with
             TextStart = 0
+            TextEnd = TransformerTuiText.sanitize line.Line.Text
+                      |> String.length
             Line = { line.Line with Text = prefix + line.Line.Text } } ]
     else
       let selection =
@@ -1079,6 +1096,7 @@ module TransformerTuiModel =
         let text = markTranscriptSelection selection start finish text
         { line with
             TextStart = start
+            TextEnd = finish
             Line = { line.Line with Text = prefix + text } })
 
   let private sourceContains line source =
@@ -1164,6 +1182,7 @@ module TransformerTuiModel =
         [ { Source = source
             OriginalLine = folded
             TextStart = 0
+            TextEnd = 0
             Line = folded } ]
     else
       command @ (output |> List.map (markTranscriptCursor model))
@@ -1188,6 +1207,7 @@ module TransformerTuiModel =
         { Source = TuiTranscriptSource.Line lineIndex
           OriginalLine = line
           TextStart = 0
+          TextEnd = 0
           Line = line }
       match line.Line.Kind with
       | TuiLineKind.Command ->
@@ -1200,33 +1220,48 @@ module TransformerTuiModel =
     flush ()
     Seq.toList output
 
-  let transcriptDisplayRows width height model =
-    transcriptDisplayLines model
-    |> List.collect (wrapTranscriptLine width model)
-
   let private latestDisplayCommandIndex
-    (lines: TuiTranscriptLine list) =
+    (lines: TuiTranscriptLine array) =
     lines
-    |> List.mapi (fun index line -> index, line)
-    |> List.filter (fun (_, line) -> line.Line.Kind = TuiLineKind.Command)
-    |> List.tryLast
+    |> Array.indexed
+    |> Array.filter (fun (_, line) ->
+      line.Line.Kind = TuiLineKind.Command)
+    |> Array.tryLast
     |> Option.map fst
 
-  let private selectedDisplayLineIndex
-    (lines: TuiTranscriptLine list) =
-    lines
-    |> List.tryFindIndex (fun line ->
-      line.Line.Kind = TuiLineKind.Selection)
+  let private transcriptCursorRowIndex model
+                                       (rows: TuiTranscriptLine array) =
+    let column = model.TranscriptCursor.Column
+    let mutable first = None
+    let mutable preceding = None
+    let mutable containing = None
+    for index in 0..rows.Length - 1 do
+      let row = rows[index]
+      if sourceContains model.TranscriptCursor.Line row.Source then
+        if first.IsNone then first <- Some index else ()
+        if row.TextStart <= column then preceding <- Some index else ()
+        if row.TextStart <= column && column <= row.TextEnd then
+          containing <- Some index
+        else
+          ()
+      else
+        ()
+    containing |> Option.orElse preceding |> Option.orElse first
 
   let private clampViewportStart height count start =
     max 0 (min start (max 0 (count - height)))
 
-  let private autoTranscriptViewportStart height
-                                          (lines: TuiTranscriptLine list) =
+  let private autoTranscriptViewportStart height model lines =
     let anchor = latestDisplayCommandIndex lines |> Option.defaultValue 0
-    let maximumStart = max 0 (List.length lines - height)
+    let maximumStart = max 0 (lines.Length - height)
+    let selected =
+      if model.Focus = TuiFocus.Transcript
+         && model.Overlay = TuiOverlay.None then
+        transcriptCursorRowIndex model lines
+      else
+        None
     let start =
-      match selectedDisplayLineIndex lines with
+      match selected with
       | Some selected when selected < anchor ->
         selected
       | Some selected when selected >= anchor + height ->
@@ -1235,35 +1270,57 @@ module TransformerTuiModel =
         anchor
     max 0 (min maximumStart start)
 
-  let transcriptViewportStart width height model =
-    let lines = transcriptDisplayRows width height model
-    match model.TranscriptViewportStart with
-    | Some start ->
-      clampViewportStart height (List.length lines) start
-    | None ->
-      autoTranscriptViewportStart height lines
+  let transcriptLayout width height model =
+    match transcriptLayoutCache with
+    | Some cache when cache.Width = width
+                      && cache.Height = height
+                      && Object.ReferenceEquals(cache.Model, model) ->
+      cache.Layout
+    | _ ->
+      let rows =
+        transcriptDisplayLines model
+        |> List.collect (wrapTranscriptLine width model)
+        |> List.toArray
+      let start =
+        match model.TranscriptViewportStart with
+        | Some start ->
+          clampViewportStart height rows.Length start
+        | None ->
+          autoTranscriptViewportStart height model rows
+      let layout = { Rows = rows; ViewportStart = start }
+      transcriptLayoutCache <-
+        Some { Model = model
+               Width = width
+               Height = height
+               Layout = layout }
+      layout
 
   let scrollTranscript width height amount model =
-    let lines = transcriptDisplayRows width height model
-    let start = transcriptViewportStart width height model
+    let layout = transcriptLayout width height model
+    let nextStart = layout.ViewportStart + amount
     { model with
         ScrollOffset = 0
         TranscriptViewportStart =
-          Some(clampViewportStart height (List.length lines) (start + amount)) }
+          Some(clampViewportStart height layout.Rows.Length nextStart) }
 
-  let private transcriptDisplayCursorIndex direction width height model =
-    transcriptDisplayRows width height model
-    |> List.mapi (fun index line -> index, line)
-    |> List.choose (fun (index, line: TuiTranscriptLine) ->
-      if sourceContains model.TranscriptCursor.Line line.Source then
-        Some index
-      else
-        None)
-    |> fun matches ->
-      if direction > 0 then
-        List.tryLast matches
-      else
-        List.tryHead matches
+  let transcriptCursorDisplayPosition width height model =
+    if model.Focus <> TuiFocus.Transcript
+       || model.Overlay <> TuiOverlay.None then
+      None
+    else
+      let layout = transcriptLayout width height model
+      transcriptCursorRowIndex model layout.Rows
+      |> Option.bind (fun index ->
+        if index < layout.ViewportStart
+           || index >= layout.ViewportStart + height then
+          None
+        else
+          let row = layout.Rows[index]
+          let local =
+            model.TranscriptCursor.Column - row.TextStart
+            |> max 0
+            |> min (row.TextEnd - row.TextStart)
+          Some(index - layout.ViewportStart, 3 + local))
 
   let private transcriptLineOfSource direction model source =
     match source with
@@ -1285,57 +1342,36 @@ module TransformerTuiModel =
     | TuiTranscriptSource.Synthetic ->
       Some model.TranscriptCursor.Line
 
-  let private transcriptDisplayText (line: TuiTranscriptLine) =
-    let text = TransformerTuiText.stripAnsi line.Line.Text
-    if text.Length <= 2 then "" else text[2..]
-
-  let private transcriptCursorAt
-    model
-    (lines: TuiTranscriptLine list)
-    displayIndex
-    (displayLine: TuiTranscriptLine)
-    column =
+  let private transcriptCursorAt model (displayLine: TuiTranscriptLine) column =
     let transcript = transcriptLines model
     let line =
       transcriptLineOfSource 0 model displayLine.Source
       |> Option.defaultValue model.TranscriptCursor.Line
-    let precedingLength =
-      lines
-      |> List.take displayIndex
-      |> List.choose (fun line ->
-        match line.Source, displayLine.Source with
-        | TuiTranscriptSource.Line first, TuiTranscriptSource.Line second
-          when first = second ->
-          Some(transcriptDisplayText line |> String.length)
-        | _ ->
-          None)
-      |> List.sum
-    let text = transcriptDisplayText displayLine
-    let local = max 0 (min text.Length (column - 3))
-    { Line = line; Column = precedingLength + local }
+    let length = displayLine.TextEnd - displayLine.TextStart
+    let local = max 0 (min length (column - 4))
+    { Line = line; Column = displayLine.TextStart + local }
     |> clampCursor transcript
 
   let trySelectTranscriptAt width height row column extend model =
     let bodyWidth = transcriptBodyWidth width model
+    let bodyHeight = transcriptHeight height model
     let bodyRow = row - 4
-    let displayLines = transcriptDisplayRows bodyWidth height model
-    let start = transcriptViewportStart bodyWidth height model
-    let displayIndex = start + bodyRow
+    let layout = transcriptLayout bodyWidth bodyHeight model
+    let displayIndex = layout.ViewportStart + bodyRow
     let isInBody =
       model.Overlay = TuiOverlay.None
       && bodyRow >= 0
-      && bodyRow < transcriptHeight height model
+      && bodyRow < bodyHeight
       && column >= 2
       && column < bodyWidth
     if not isInBody then
       None
     else
-      displayLines
-      |> List.tryItem displayIndex
+      layout.Rows
+      |> Array.tryItem displayIndex
       |> Option.map (fun displayLine ->
         let transcript = transcriptLines model
-        let cursor =
-          transcriptCursorAt model displayLines displayIndex displayLine column
+        let cursor = transcriptCursorAt model displayLine column
         let anchor =
           if extend then
             model.TranscriptAnchor
@@ -1348,27 +1384,56 @@ module TransformerTuiModel =
             TranscriptAnchor = anchor
             FoldTarget = blockAtLine cursor.Line transcript
             ScrollOffset = 0
-            TranscriptViewportStart = Some start
+            TranscriptViewportStart = Some layout.ViewportStart
             Status = "Transcript focused" })
+
+  let private horizontalTranscriptColumn rows current offset column =
+    let row = (rows: TuiTranscriptLine array)[current]
+    if offset > 0 && column >= row.TextEnd then
+      match Array.tryItem (current + 1) rows with
+      | Some next when next.Source = row.Source ->
+        max (column + offset) next.TextStart
+      | _ ->
+        column + offset
+    elif offset < 0 && column <= row.TextStart then
+      match Array.tryItem (current - 1) rows with
+      | Some previous when previous.Source = row.Source ->
+        min (column + offset) previous.TextEnd
+      | _ ->
+        column + offset
+    else
+      column + offset
 
   let moveTranscriptCursorInView width height rowDelta columnDelta model =
     let transcript = transcriptLines model
-    let displayLines = transcriptDisplayRows width height model
+    let layout = transcriptLayout width height model
     let current =
-      transcriptDisplayCursorIndex rowDelta width height model
+      transcriptCursorRowIndex model layout.Rows
       |> Option.defaultValue 0
-    let currentStart = transcriptViewportStart width height model
+    let currentStart = layout.ViewportStart
     let target =
-      max 0 (min (List.length displayLines - 1) (current + rowDelta))
+      max 0 (min (layout.Rows.Length - 1) (current + rowDelta))
     let line =
-      displayLines
-      |> List.tryItem target
+      layout.Rows
+      |> Array.tryItem target
       |> Option.bind (fun (line: TuiTranscriptLine) ->
         transcriptLineOfSource rowDelta model line.Source)
       |> Option.defaultValue model.TranscriptCursor.Line
+    let column =
+      if rowDelta = 0 then
+        horizontalTranscriptColumn
+          layout.Rows current columnDelta model.TranscriptCursor.Column
+      else
+        let currentRow = layout.Rows[current]
+        let targetRow = layout.Rows[target]
+        let local =
+          model.TranscriptCursor.Column - currentRow.TextStart
+          |> max 0
+          |> min (targetRow.TextEnd - targetRow.TextStart)
+        targetRow.TextStart + local
     let cursor =
       { Line = line
-        Column = model.TranscriptCursor.Column + columnDelta }
+        Column = column }
       |> clampCursor transcript
     let next =
       { model with
@@ -1377,16 +1442,11 @@ module TransformerTuiModel =
           FoldTarget = blockAtLine cursor.Line transcript
           ScrollOffset = 0
           Status = "Transcript focused" }
-    let nextLines = transcriptDisplayRows width height next
     let nextCursor =
-      transcriptDisplayCursorIndex rowDelta width height next
+      transcriptCursorRowIndex next layout.Rows
       |> Option.defaultValue target
     let nextStart =
-      if rowDelta = -1 && nextCursor <= currentStart then
-        nextCursor - 1
-      elif rowDelta = 1 && nextCursor >= currentStart + height - 1 then
-        nextCursor - height + 2
-      elif nextCursor < currentStart then
+      if nextCursor < currentStart then
         nextCursor
       elif nextCursor >= currentStart + height then
         nextCursor - height + 1
@@ -1394,7 +1454,7 @@ module TransformerTuiModel =
         currentStart
     { next with
         TranscriptViewportStart =
-          Some(clampViewportStart height (List.length nextLines) nextStart) }
+          Some(clampViewportStart height layout.Rows.Length nextStart) }
 
   let focusTranscriptAt offset model =
     let transcript = transcriptLines model
@@ -1440,13 +1500,13 @@ module TransformerTuiModel =
           FoldTarget = Some(index + 1)
           ScrollOffset = 0
           Status = $"Selected result #{index + 1}" }
-    let lines = transcriptDisplayRows width height next
+    let layout = transcriptLayout width height next
     let cursorIndex =
-      transcriptDisplayCursorIndex 0 width height next
+      transcriptCursorRowIndex next layout.Rows
       |> Option.defaultValue 0
     let start =
       cursorIndex - (height / 2)
-      |> clampViewportStart height (List.length lines)
+      |> clampViewportStart height layout.Rows.Length
     { next with TranscriptViewportStart = Some start }
 
   let moveTranscriptCommand width height offset model =
@@ -1496,13 +1556,14 @@ module TransformerTuiModel =
     line.Line.Text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
 
   let private transcriptFindCandidates width height model =
-    let lines = transcriptDisplayRows width height model |> List.toArray
+    let layout = transcriptLayout width height model
+    let lines = layout.Rows
     let cursor =
       if model.Focus = TuiFocus.Transcript then
-        transcriptDisplayCursorIndex 1 width height model
+        transcriptCursorRowIndex model lines
         |> Option.defaultValue -1
       else
-        transcriptViewportStart width height model - 1
+        layout.ViewportStart - 1
     let start = max 0 (min lines.Length (cursor + 1))
     let indexed = lines |> Array.mapi (fun index line -> index, line)
     Array.append (indexed |> Array.skip start) (indexed |> Array.truncate start)
@@ -1550,7 +1611,7 @@ module TransformerTuiModel =
               Status =
                 $"Found '{model.TranscriptFindText}' at "
                 + $"{cursor.Line + 1}:{cursor.Column + 1}" }
-        let lineCount = transcriptDisplayRows width height next |> List.length
+        let lineCount = (transcriptLayout width height next).Rows.Length
         let start = clampViewportStart height lineCount (index - (height / 2))
         { next with TranscriptViewportStart = Some start }
       | None ->
@@ -1809,12 +1870,7 @@ module TransformerTuiModel =
     |> Option.defaultValue ""
 
   let selectedTranscriptText model =
-    let cleanText (text: string) =
-      TransformerTuiText.stripAnsi text
-      |> Seq.map (fun chr ->
-        if chr = '\t' then ' ' elif Char.IsControl chr then ' ' else chr)
-      |> Array.ofSeq
-      |> String
+    let cleanText = TransformerTuiText.sanitize
     let sliceText start finish (text: string) =
       let text = cleanText text
       let start = max 0 (min start text.Length)

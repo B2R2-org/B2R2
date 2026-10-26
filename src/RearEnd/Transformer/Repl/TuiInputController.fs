@@ -65,7 +65,9 @@ module TransformerTuiInputController =
     | TuiOverlay.None ->
       let width, height = TransformerTuiTerminal.dimensions ()
       let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
-      TransformerTuiModel.scrollTranscript bodyWidth height (-direction) model
+      let bodyHeight = TransformerTuiModel.transcriptHeight height model
+      TransformerTuiModel.scrollTranscript
+        bodyWidth bodyHeight (-direction) model
     | _ ->
       TransformerTuiModel.scroll (-direction) model
 
@@ -524,7 +526,9 @@ module TransformerTuiInputController =
     match model.Overlay with
     | TuiOverlay.None ->
       let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
-      TransformerTuiModel.scrollTranscript bodyWidth height (-direction) model
+      let bodyHeight = TransformerTuiModel.transcriptHeight height model
+      TransformerTuiModel.scrollTranscript
+        bodyWidth bodyHeight (-direction) model
     | TuiOverlay.View ->
       let model = TransformerTuiModel.moveViewCursor (-direction) 0 false model
       let scrollOffset =
