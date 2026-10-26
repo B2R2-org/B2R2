@@ -70,11 +70,19 @@ type ReplObservedAddress =
     CommandID: int
     Action: string }
 
+/// One result's observations in their original suggestion order.
+type ReplObservationBatch<'Key, 'Value> =
+  { Ordered: ('Key * 'Value) list
+    Buckets: Map<string, ('Key * 'Value) list> }
+
+/// Recent observations indexed by result and hexadecimal prefix.
+type ReplObservationIndex<'Key, 'Value> =
+  { Batches: ReplObservationBatch<'Key, 'Value> list
+    EventCount: int }
+
 /// Address observations indexed for bounded completion queries.
 type ReplAddressObservations =
-  { Entries: Map<Addr, ReplObservedAddress>
-    Ordered: Addr list
-    Buckets: Map<string, Addr list> }
+  ReplObservationIndex<Addr, ReplObservedAddress>
 
 /// The latest command result in which a width-preserving hex value was seen.
 type ReplObservedHexValue =
@@ -85,9 +93,7 @@ type ReplObservedHexValue =
 
 /// Width-preserving hexadecimal values indexed for bounded completion queries.
 type ReplHexValueObservations =
-  { Entries: Map<string, ReplObservedHexValue>
-    Ordered: string list
-    Buckets: Map<string, string list> }
+  ReplObservationIndex<string, ReplObservedHexValue>
 
 /// Restorable state captured before a value-producing command.
 type ReplUndoCapture =
@@ -350,18 +356,22 @@ module TransformerReplState =
   [<Literal>]
   let LastResultName = "it"
 
+  (* Bound retained completion history even after many large results. Model
+     values are less numerous than instruction addresses. On overflow,
+     compaction keeps the newest three quarters to amortize later updates. *)
+  [<Literal>]
+  let private MaxObservedAddresses = 65536
+
+  [<Literal>]
+  let private MaxObservedHexValues = 4096
+
   let isLastResultName name =
     name = LastResultName
 
-  let private emptyAddressObservations: ReplAddressObservations =
-    { Entries = Map.empty
-      Ordered = []
-      Buckets = Map.empty }
-
-  let private emptyHexValueObservations: ReplHexValueObservations =
-    { Entries = Map.empty
-      Ordered = []
-      Buckets = Map.empty }
+  let private emptyObservations<'Key, 'Value> ()
+    : ReplObservationIndex<'Key, 'Value> =
+    { Batches = []
+      EventCount = 0 }
 
   let empty =
     { Bindings = Map.empty
@@ -376,8 +386,10 @@ module TransformerReplState =
       LastError = None
       NextValueID = 1
       NextLogID = 1
-      ObservedAddresses = emptyAddressObservations
-      ObservedHexValues = emptyHexValueObservations
+      ObservedAddresses =
+        emptyObservations<Addr, ReplObservedAddress> ()
+      ObservedHexValues =
+        emptyObservations<string, ReplObservedHexValue> ()
       UndoStack = [] }
 
   let private instructionAddress = function
@@ -413,37 +425,52 @@ module TransformerReplState =
     let text = address.ToString("x", CultureInfo.InvariantCulture)
     text[..min 3 (text.Length - 1)]
 
-  let private rebuildBuckets (addresses: Addr list) =
-    addresses
-    |> List.groupBy observationBucket
-    |> Map.ofList
-
   let private distinctAddresses addresses =
     let seen = HashSet<Addr>()
     addresses |> List.filter seen.Add
+
+  let private observationBatch bucket values =
+    { Ordered = values
+      Buckets = values |> List.groupBy (fst >> bucket) |> Map.ofList }
+
+  let private compactObservations bucket maxEntries index =
+    let seen = HashSet()
+    let recent =
+      index.Batches
+      |> Seq.collect _.Ordered
+      |> Seq.filter (fun (key, _) -> seen.Add key)
+      |> Seq.truncate (maxEntries + 1)
+      |> Seq.toList
+    let limit =
+      if recent.Length > maxEntries then maxEntries * 3 / 4
+      else maxEntries
+    let retained = recent |> List.truncate limit
+    { Batches = [ observationBatch bucket retained ]
+      EventCount = retained.Length }
+
+  let private addObservations bucket maxEntries values index =
+    let updated =
+      { Batches = observationBatch bucket values :: index.Batches
+        EventCount = index.EventCount + List.length values }
+    if updated.EventCount > maxEntries then
+      compactObservations bucket maxEntries updated
+    else
+      updated
 
   let private observeAddresses commandID action addresses state =
     if List.isEmpty addresses then
       state
     else
-      let changed = HashSet<Addr>(addresses)
-      let old: ReplAddressObservations = state.ObservedAddresses
-      let ordered =
-        addresses
-        @ (old.Ordered
-           |> List.filter (changed.Contains >> not))
       let values =
         addresses
-        |> List.fold (fun values address ->
-          Map.add
-            address
+        |> List.map (fun address ->
+          let entry =
             { Address = address; CommandID = commandID; Action = action }
-            values) old.Entries
-      { state with
-          ObservedAddresses =
-            { Entries = values
-              Ordered = ordered
-              Buckets = rebuildBuckets ordered } }
+          address, entry)
+      let observed =
+        state.ObservedAddresses
+        |> addObservations observationBucket MaxObservedAddresses values
+      { state with ObservedAddresses = observed }
 
   let private hexValueText (bytes: byte[]) =
     bytes
@@ -466,11 +493,6 @@ module TransformerReplState =
     let digits = text[2..]
     digits[..min 3 (digits.Length - 1)]
 
-  let private rebuildHexValueBuckets values =
-    values
-    |> List.groupBy hexValueBucket
-    |> Map.ofList
-
   let private distinctHexValues values =
     let seen = HashSet<string>(StringComparer.OrdinalIgnoreCase)
     values |> List.filter (fst >> seen.Add)
@@ -479,28 +501,19 @@ module TransformerReplState =
     if List.isEmpty values then
       state
     else
-      let texts = values |> List.map fst
-      let changed = HashSet<string>(texts, StringComparer.OrdinalIgnoreCase)
-      let old: ReplHexValueObservations = state.ObservedHexValues
-      let ordered =
-        texts
-        @ (old.Ordered
-           |> List.filter (changed.Contains >> not))
-      let entries =
+      let observations =
         values
-        |> List.fold (fun entries (text, symbol) ->
-          Map.add
-            text
+        |> List.map (fun (text, symbol) ->
+          let entry =
             { Text = text
               Symbol = symbol
               CommandID = commandID
               Action = action }
-            entries) old.Entries
-      { state with
-          ObservedHexValues =
-            { Entries = entries
-              Ordered = ordered
-              Buckets = rebuildHexValueBuckets ordered } }
+          text, entry)
+      let observed =
+        state.ObservedHexValues
+        |> addObservations hexValueBucket MaxObservedHexValues observations
+      { state with ObservedHexValues = observed }
 
   let observeValue commandID action (value: ReplValue) state =
     let items = value.Collection.Values |> Array.toList
@@ -520,17 +533,21 @@ module TransformerReplState =
       else
         prefix
     let observations = state.ObservedAddresses
-    let addresses =
+    let candidates =
       if prefix.Length < 4 then
-        observations.Ordered
+        observations.Batches |> Seq.collect _.Ordered
       else
         let bucket = prefix[..3]
-        observations.Buckets |> Map.tryFind bucket |> Option.defaultValue []
-    addresses
-    |> Seq.choose (fun address ->
+        observations.Batches
+        |> Seq.collect (fun batch ->
+          batch.Buckets |> Map.tryFind bucket |> Option.defaultValue [])
+    let seen = HashSet<Addr>()
+    candidates
+    |> Seq.choose (fun (address, value) ->
       let text = address.ToString("x", CultureInfo.InvariantCulture)
-      if text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
-        Map.tryFind address observations.Entries
+      if text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+         && seen.Add address then
+        Some value
       else
         None)
     |> Seq.truncate (max 0 limit)
@@ -539,16 +556,20 @@ module TransformerReplState =
   let findObservedHexValues (prefix: string) limit state =
     let prefix = prefix.Trim().ToLowerInvariant()
     let observations = state.ObservedHexValues
-    let values =
+    let candidates =
       if prefix.Length < 6 then
-        observations.Ordered
+        observations.Batches |> Seq.collect _.Ordered
       else
         let bucket = prefix[2..5]
-        observations.Buckets |> Map.tryFind bucket |> Option.defaultValue []
-    values
-    |> Seq.choose (fun text ->
-      if text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
-        Map.tryFind text observations.Entries
+        observations.Batches
+        |> Seq.collect (fun batch ->
+          batch.Buckets |> Map.tryFind bucket |> Option.defaultValue [])
+    let seen = HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    candidates
+    |> Seq.choose (fun (text, value) ->
+      if text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+         && seen.Add text then
+        Some value
       else
         None)
     |> Seq.truncate (max 0 limit)
