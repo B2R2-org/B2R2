@@ -270,9 +270,9 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
       member _.TryGetRelocatedAddr relocAddr =
         Relocation.tryGetRelocatedAddr bytes pe relocIndex.Value relocAddr
 
-      member _.TryGetRelocationTarget relocAddr =
+      member _.TryGetRelocatedPointer relocAddr =
         Relocation.tryGetRelocatedAddr bytes pe relocIndex.Value relocAddr
-        |> Result.map BinRelocationTarget.Address
+        |> Result.map BinRelocatedPointer.Rebased
 
       member _.TryGetInternalFunctionAddr _relocAddr =
         Error ErrorCase.SymbolNotFound

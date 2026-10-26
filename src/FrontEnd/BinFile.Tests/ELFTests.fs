@@ -166,10 +166,10 @@ type ELFTests() =
   /// done, as GNU_RELRO covers them.
   static let x64RelocTargetFile = parseFile "elf_x64_reloc_target"
 
-  /// Checks the target that a relocation target lookup returned.
-  static let assertRelocTarget
-    (expected: Result<BinRelocationTarget, ErrorCase>) actual =
-    Assert.AreEqual<Result<BinRelocationTarget, ErrorCase>>(expected, actual)
+  /// Checks the pointer that a relocated pointer lookup returned.
+  static let assertRelocatedPointer
+    (expected: Result<BinRelocatedPointer, ErrorCase>) actual =
+    Assert.AreEqual<Result<BinRelocatedPointer, ErrorCase>>(expected, actual)
 
   /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
   /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
@@ -1183,25 +1183,26 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 reloc target of a read-only slot test``() =
+  member _.``[ELF] x64 relocated pointer of a read-only slot test``() =
     let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
     (* .data.rel.ro is in the range that GNU_RELRO protects. *)
-    assertRelocTarget (Ok(BinRelocationTarget.Address 0x1129UL))
-                      (relocs.TryGetRelocationTarget 0x3df0UL)
-    assertRelocTarget (Ok(BinRelocationTarget.Address 0x113cUL))
-                      (relocs.TryGetRelocationTarget 0x3df8UL)
-    (* .got is in that range, too, and the loader selects the symbol. *)
-    assertRelocTarget (Ok(BinRelocationTarget.Symbol "__libc_start_main"))
-                      (relocs.TryGetRelocationTarget 0x3fd8UL)
+    assertRelocatedPointer (Ok(BinRelocatedPointer.Rebased 0x1129UL))
+                           (relocs.TryGetRelocatedPointer 0x3df0UL)
+    assertRelocatedPointer (Ok(BinRelocatedPointer.Rebased 0x113cUL))
+                           (relocs.TryGetRelocatedPointer 0x3df8UL)
+    (* .got is in that range, too, and the loader binds the slot to the
+       symbol. *)
+    assertRelocatedPointer (Ok(BinRelocatedPointer.Bound "__libc_start_main"))
+                           (relocs.TryGetRelocatedPointer 0x3fd8UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 reloc target of a writable slot test``() =
+  member _.``[ELF] x64 relocated pointer of a writable slot test``() =
     let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
     (* The variable in .data can be overwritten, so what the loader wrote tells
        nothing about a call through it. The relocated address is still the
        value that the loader writes. *)
-    assertRelocTarget (Error ErrorCase.ItemNotFound)
-                      (relocs.TryGetRelocationTarget 0x4010UL)
+    assertRelocatedPointer (Error ErrorCase.ItemNotFound)
+                           (relocs.TryGetRelocatedPointer 0x4010UL)
     Assert.AreEqual(Ok 0x1129UL, relocs.TryGetRelocatedAddr 0x4010UL)
 
   [<TestMethod>]

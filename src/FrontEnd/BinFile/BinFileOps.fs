@@ -200,11 +200,12 @@ let tryGetRelocatedAddr (file: IBinFile) relocAddr =
   | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
-/// Tries to resolve the target represented by a relocation.
-[<CompiledName "TryGetRelocationTarget">]
-let tryGetRelocationTarget (file: IBinFile) relocAddr =
+/// Tries to resolve the pointer that the slot at the given address holds once
+/// the loader has relocated it.
+[<CompiledName "TryGetRelocatedPointer">]
+let tryGetRelocatedPointer (file: IBinFile) relocAddr =
   match file.Relocations with
-  | Some relocs -> relocs.TryGetRelocationTarget relocAddr
+  | Some relocs -> relocs.TryGetRelocatedPointer relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to resolve the relocation at the given address to an internal

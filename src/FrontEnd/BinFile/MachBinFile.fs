@@ -396,14 +396,14 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
     | false, _ ->
       Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
 
-  let tryGetRelocationTarget relocAddr =
+  let tryGetRelocatedPointer relocAddr =
     match fixupMap.Value.TryGetValue relocAddr with
     | true, fixup ->
       match fixup.FixupTarget with
-      | Rebase target -> Ok(BinRelocationTarget.Address target)
-      | Bind(name, _, _) -> Ok(BinRelocationTarget.Symbol name)
+      | Rebase target -> Ok(BinRelocatedPointer.Rebased target)
+      | Bind(name, _, _) -> Ok(BinRelocatedPointer.Bound name)
     | false, _ ->
-      tryGetRelocatedAddr relocAddr |> Result.map BinRelocationTarget.Address
+      tryGetRelocatedAddr relocAddr |> Result.map BinRelocatedPointer.Rebased
 
   let relocations =
     Some { new IRelocationTable with
@@ -417,8 +417,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       member _.TryGetRelocatedAddr relocAddr =
         tryGetRelocatedAddr relocAddr
 
-      member _.TryGetRelocationTarget relocAddr =
-        tryGetRelocationTarget relocAddr
+      member _.TryGetRelocatedPointer relocAddr =
+        tryGetRelocatedPointer relocAddr
 
       member _.TryGetInternalFunctionAddr _relocAddr =
         Error ErrorCase.SymbolNotFound
