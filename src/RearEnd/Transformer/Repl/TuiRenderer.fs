@@ -119,16 +119,17 @@ module TransformerTuiRenderer =
     TransformerTuiText.containsAnsi text
 
   let private fitAnsi width (text: string) =
-    let text = displayText text
     let builder = StringBuilder()
+    let mutable ansiMatch = TransformerTuiText.matchAnsi text 0
     let rec loop index visible =
       if index >= text.Length || visible >= width then
         visible
       else
-        let matched = TransformerTuiText.matchAnsi text index
-        if matched.Success && matched.Index = index then
-          builder.Append matched.Value |> ignore
-          loop (index + matched.Length) visible
+        if ansiMatch.Success && ansiMatch.Index = index then
+          builder.Append ansiMatch.Value |> ignore
+          let next = index + ansiMatch.Length
+          ansiMatch <- ansiMatch.NextMatch()
+          loop next visible
         else
           let chr = text[index]
           if chr = '\t' then
@@ -153,14 +154,11 @@ module TransformerTuiRenderer =
     elif containsAnsi text then
       fitAnsi width text
     else
-      let text = sanitize text
+      let text = TransformerTuiText.sanitize text
       if text.Length > width then
         text[..width - 1]
       else
         text.PadRight width
-
-  let private wrap width text =
-    displayText text |> TransformerTuiText.wrap width
 
   let private lineStyle = function
     | TuiLineKind.Command ->
@@ -180,13 +178,12 @@ module TransformerTuiRenderer =
 
   let private wrapLine width (line: TuiLine) =
     let prefix = TransformerTuiText.linePrefix line.Kind
-    if containsAnsi line.Text then
-      [ line.Kind, prefix + line.Text ]
-    else
-      wrap (max 1 (width - prefix.Length)) line.Text
-      |> List.mapi (fun index text ->
-        let prefix = if index = 0 then prefix else "  "
-        line.Kind, prefix + text)
+    displayText line.Text
+    |> TransformerTuiText.wrapPreservingAnsiWithOffsets
+      (max 1 (width - prefix.Length))
+    |> List.mapi (fun index (_, _, text) ->
+      let prefix = if index = 0 then prefix else "  "
+      line.Kind, prefix + text)
 
   let private valueTypeDescription value =
     ReplValueKind.toString (value: ReplValue).Kind
@@ -425,13 +422,13 @@ module TransformerTuiRenderer =
     { Rows: ViewDisplayRow array
       Ranges: (int * int) array }
 
-  type private PlainViewRowsCache =
+  type private ViewRowsCache =
     { Lines: TuiLine array
       Width: int
       ViewRows: ViewRows }
 
   (* View-pane lines are retained without mutation while the pane is open. *)
-  let mutable private plainViewRowsCache: PlainViewRowsCache option = None
+  let mutable private viewRowsCache: ViewRowsCache option = None
 
   let private viewRowRanges lineCount (rows: ViewDisplayRow array) =
     let first = Array.create lineCount -1
@@ -454,16 +451,17 @@ module TransformerTuiRenderer =
     { Rows = rows
       Ranges = viewRowRanges lines.Length rows }
 
-  let private plainViewDisplayRows width (lines: TuiLine array) =
+  let private viewDisplayRows width (lines: TuiLine array) =
     lines
     |> Array.indexed
     |> Array.toList
     |> List.collect (fun (index, line) ->
       let prefix = TransformerTuiText.linePrefix line.Kind
-      let text = displayText line.Text
+      let text = line.Text
       let length = TransformerTuiText.sanitize text |> String.length
       text
-      |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
+      |> TransformerTuiText.wrapPreservingAnsiWithOffsets
+        (max 1 (width - prefix.Length))
       |> List.mapi (fun row (start, finish, text) ->
         { SourceLine = index
           Start = start
@@ -474,62 +472,15 @@ module TransformerTuiRenderer =
           Text = text }))
     |> makeViewRows lines
 
-  let private dynamicViewDisplayRows width (pane: TuiViewPane) =
-    pane.Lines
-    |> Array.indexed
-    |> Array.toList
-    |> List.collect (fun (index, line) ->
-      let selected =
-        viewSelectionContains pane index || pane.Cursor.Line = index
-      let kind =
-        match pane.Anchor with
-        | Some _ when selected ->
-          TuiLineKind.Cursor
-        | Some _ ->
-          line.Kind
-        | None ->
-          selectedTextKind selected line.Kind
-      let text =
-        if selected && containsAnsi line.Text then
-          sanitize line.Text
-        else
-          line.Text
-      let prefix = TransformerTuiText.linePrefix kind
-      if containsAnsi text then
-        [ { SourceLine = index
-            Start = 0
-            Finish = TransformerTuiText.stripAnsi text |> String.length
-            IsFirst = true
-            Kind = kind
-            Length = TransformerTuiText.stripAnsi text |> String.length
-            Text = text } ]
-      else
-        let text = displayText text
-        let length = TransformerTuiText.sanitize text |> String.length
-        text
-        |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
-        |> List.mapi (fun row (start, finish, text) ->
-          { SourceLine = index
-            Start = start
-            Finish = finish
-            IsFirst = row = 0
-            Kind = kind
-            Length = length
-            Text = text }))
-    |> makeViewRows pane.Lines
-
   let private viewRows width (pane: TuiViewPane) =
-    match plainViewRowsCache with
+    match viewRowsCache with
     | Some cache
       when cache.Width = width
            && Object.ReferenceEquals(cache.Lines, pane.Lines) ->
       cache.ViewRows
-    | _ when pane.Lines |> Array.exists (fun line ->
-      containsAnsi line.Text) ->
-      dynamicViewDisplayRows width pane
     | _ ->
-      let rows = plainViewDisplayRows width pane.Lines
-      plainViewRowsCache <-
+      let rows = viewDisplayRows width pane.Lines
+      viewRowsCache <-
         Some { Lines = pane.Lines; Width = width; ViewRows = rows }
       rows
 
@@ -543,14 +494,9 @@ module TransformerTuiRenderer =
     let pane: TuiViewPane = pane
     let column = pane.Cursor.Column
     let mutable index = first
-    let mutable cursor = None
-    while cursor.IsNone && index <= last do
-      let row = rows[index]
-      if row.Start <= column && column <= row.Finish then
-        cursor <- Some index
-      else
-        index <- index + 1
-    cursor |> Option.defaultValue first
+    while index < last && rows[index + 1].Start <= column do
+      index <- index + 1
+    index
 
   let private renderViewRow pane (row: ViewDisplayRow) =
     let selected =
@@ -567,7 +513,12 @@ module TransformerTuiRenderer =
     let prefix =
       if row.IsFirst then TransformerTuiText.linePrefix kind else "  "
     let text =
-      selectViewRow pane row.SourceLine row.Start row.Finish row.Length row.Text
+      if selected && containsAnsi row.Text then
+        TransformerTuiText.sanitize row.Text
+      else
+        row.Text
+    let text =
+      selectViewRow pane row.SourceLine row.Start row.Finish row.Length text
     kind, prefix + text
 
   let private viewPaneLayout width height offset (model: TransformerTuiModel) =
@@ -578,16 +529,21 @@ module TransformerTuiRenderer =
       let first, last = layoutRows.Ranges[pane.Cursor.Line]
       let maximumOffset = max 0 (rows.Length - height)
       let offset = min offset maximumOffset
+      let cursorRow = viewCursorRow rows pane first last
       let offset =
         if last - first + 1 >= height then
-          first
+          if cursorRow < offset then
+            cursorRow
+          elif cursorRow >= offset + height then
+            cursorRow - height + 1
+          else
+            offset
         elif first < offset then
           first
         elif last >= offset + height then
           last - height + 1
         else
           offset
-      let cursorRow = viewCursorRow rows pane first last
       let cursor =
         if offset <= cursorRow && cursorRow < offset + height then
           let row = rows[cursorRow]
@@ -1468,6 +1424,25 @@ module TransformerTuiRenderer =
       |> fun layout -> layout.Offset
     else
       model.ScrollOffset
+
+  let moveViewCursorByRows width height amount extend model =
+    match model.ViewPane with
+    | Some pane ->
+      let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+      let layout = viewRows bodyWidth pane
+      let rows = layout.Rows
+      let first, last = layout.Ranges[pane.Cursor.Line]
+      let current = viewCursorRow rows pane first last
+      let target = max 0 (min (rows.Length - 1) (current + amount))
+      let column = max 0 (pane.Cursor.Column - rows[current].Start)
+      let row = rows[target]
+      let column = min row.Finish (row.Start + column)
+      let model =
+        TransformerTuiModel.moveViewCursorTo
+          row.SourceLine column extend model
+      { model with ScrollOffset = viewScrollOffset width height model }
+    | None ->
+      model
 
   let tryViewCursorAt width height model row column =
     match model.ViewPane with

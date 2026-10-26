@@ -592,28 +592,27 @@ module TransformerRepl =
         | None ->
           keepReading <- false
       count
-    let pageHeight model =
-      let _, height = TransformerTuiTerminal.dimensions ()
-      TransformerTuiModel.transcriptHeight height model
     let applyViewNavigation count (key: ConsoleKeyInfo) model =
       let shift = hasModifier ConsoleModifiers.Shift key
+      let width, height = TransformerTuiTerminal.dimensions ()
+      let pageHeight = TransformerTuiModel.transcriptHeight height model
       match key.Key with
       | ConsoleKey.UpArrow ->
-        TransformerTuiModel.moveViewCursor -count 0 shift model
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height -count shift model
       | ConsoleKey.DownArrow ->
-        TransformerTuiModel.moveViewCursor count 0 shift model
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height count shift model
       | ConsoleKey.LeftArrow ->
         TransformerTuiModel.moveViewCursor 0 -count shift model
       | ConsoleKey.RightArrow ->
         TransformerTuiModel.moveViewCursor 0 count shift model
       | ConsoleKey.PageUp ->
-        TransformerTuiModel.pageViewCursor (-(pageHeight model) * count)
-          shift
-          model
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height (-(pageHeight * count)) shift model
       | ConsoleKey.PageDown ->
-        TransformerTuiModel.pageViewCursor ((pageHeight model) * count)
-          shift
-          model
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height (pageHeight * count) shift model
       | _ ->
         model
     let currentSuggestions () =
