@@ -1066,18 +1066,7 @@ module private SymbCondition =
     | MemoryPolicyViolation of SymbMemoryAccessKind option
     | And of Condition list
 
-  let norm (text: string) =
-    Regex.Replace(text.Trim(), @"\s+", " ")
-
-  let stripOuterParens (text: string) =
-    let text = text.Trim()
-    if text.StartsWith("(", StringComparison.Ordinal)
-       && text.EndsWith(")", StringComparison.Ordinal) then
-      text[1..text.Length - 2].Trim()
-    else
-      text
-
-  let parseRelOp = function
+  let private parseRelOp = function
     | "=" | "==" ->
       RelOpType.EQ
     | "!=" | "<>" ->
@@ -1093,173 +1082,181 @@ module private SymbCondition =
     | op ->
       invalidArg (nameof op) $"Unsupported condition operator: {op}"
 
-  let parseIntegerLiteral (m: Match) =
-    let value = SymbArgs.parseAddr m.Groups["value"].Value
-    if m.Groups["sign"].Success then
-      let width = SymbArgs.parseInt m.Groups["width"].Value
-      let typ = RegType.fromBitWidth width
-      let maximum =
-        if width = 64 then UInt64.MaxValue else (1UL <<< width) - 1UL
-      if value > maximum then
-        invalidArg (nameof value) $"Value does not fit in {width} bits."
+  module Grammar =
+    open FParsec
+
+    let private identifier = regex "[A-Za-z_][A-Za-z0-9_]*"
+
+    let private numberText = regex "0[xX][0-9a-fA-F]+|[0-9]+"
+
+    let tryAddress (text: string) =
+      if text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
+        let digits = text[2..]
+        let style = NumberStyles.HexNumber
+        match UInt64.TryParse(digits, style, CultureInfo.InvariantCulture) with
+        | true, value ->
+          Some value
+        | _ ->
+          None
       else
-        ()
-      let isSigned =
-        m.Groups["sign"].Value.Equals("i", StringComparison.OrdinalIgnoreCase)
-      { Value = value
-        Type = Some typ
-        IsSigned = isSigned }
-    else
-      { Value = value
-        Type = None
-        IsSigned = false }
+        match UInt64.TryParse(text, CultureInfo.InvariantCulture) with
+        | true, value ->
+          Some value
+        | _ ->
+          None
 
-  let tryMatch pattern text =
-    let options = RegexOptions.IgnoreCase ||| RegexOptions.CultureInvariant
-    let m = Regex.Match(text, pattern, options)
-    if m.Success then Some m else None
-
-  let parseConditionList atomParser body =
-    Regex.Split(body, @"\s*&&\s*")
-    |> Array.toList
-    |> List.map atomParser
-    |> function
-      | [ atom ] ->
-        atom
-      | atoms ->
-        And atoms
-
-  let parseAtom text =
-    let address = @"(0x[0-9a-f]+|[0-9]+)"
-    let integer =
-      @"(?<value>0x[0-9a-f]+|[0-9]+)(?::(?<sign>[iu])(?<width>8|16|32|64))?"
-    let op = @"(==|=|!=|<>|<=|>=|<|>)"
-    let text = norm text
-    let atPattern = @"^pp\.at\s*\(\s*" + address + @"\s*\)$"
-    match tryMatch atPattern text with
-    | Some m ->
-      At(SymbArgs.parseAddr m.Groups[1].Value)
-    | None ->
-      if
-        Regex.IsMatch(
-          text,
-          @"^(mem|memory)\.accessViolation\s*\(\s*\)$",
-          RegexOptions.IgnoreCase
-        ) then
-        MemoryPolicyViolation None
-      elif
-        Regex.IsMatch(
-          text,
-          @"^(mem|memory)\.readViolation\s*\(\s*\)$",
-          RegexOptions.IgnoreCase
-        ) then
-        MemoryPolicyViolation(Some MemoryRead)
-      elif
-        Regex.IsMatch(
-          text,
-          @"^(mem|memory)\.writeViolation\s*\(\s*\)$",
-          RegexOptions.IgnoreCase
-        ) then
-        MemoryPolicyViolation(Some MemoryWrite)
-      else
-        let regPattern =
-          @"^pp\.REG\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*"
-          + op + @"\s*" + integer + "$"
-        let memPattern =
-          @"^pp\.MEM\s*\[\s*" + address + @"(?::([0-9]+))?\s*\]\s*"
-          + op + @"\s*" + integer + "$"
-        let writePattern =
-          @"^pp\.WRITE\s*" + op + @"\s*" + integer + "$"
-        match tryMatch regPattern text with
-        | Some m ->
-          let term = Register m.Groups[1].Value
-          let relop = parseRelOp m.Groups[2].Value
-          Compare(term, relop, parseIntegerLiteral m)
+    let private address =
+      numberText >>= fun text ->
+        match tryAddress text with
+        | Some value ->
+          preturn value
         | None ->
-          match tryMatch memPattern text with
-          | Some m ->
-            let size =
-              if m.Groups[2].Success then
-                SymbArgs.parseInt m.Groups[2].Value
-              else
-                8
-            let term =
-              Memory(SymbArgs.parseAddr m.Groups[1].Value,
-                     RegType.fromByteWidth size)
-            let relop = parseRelOp m.Groups[3].Value
-            Compare(term, relop, parseIntegerLiteral m)
+          fail "64-bit address"
+
+    let private byteWidth =
+      regex "[0-9]+" >>= fun text ->
+        match Int32.TryParse(text, CultureInfo.InvariantCulture) with
+        | true, width ->
+          preturn width
+        | _ ->
+          fail "byte width"
+
+    let private integerLiteral =
+      let suffix =
+        pchar ':' >>. anyOf "iIuU" .>>. regex "8|16|32|64"
+      numberText .>>. opt suffix >>= fun (text, suffix) ->
+        match tryAddress text with
+        | None ->
+          fail "64-bit integer"
+        | Some value ->
+          match suffix with
           | None ->
-            match tryMatch writePattern text with
-            | Some m ->
-              let relop = parseRelOp m.Groups[1].Value
-              Compare(WriteAddress, relop, parseIntegerLiteral m)
-            | None ->
-              invalidArg (nameof text) $"Invalid pp condition: {text}"
+            preturn { Value = value; Type = None; IsSigned = false }
+          | Some(sign, widthText) ->
+            let width = Int32.Parse widthText
+            let maximum =
+              if width = 64 then UInt64.MaxValue else (1UL <<< width) - 1UL
+            if value > maximum then
+              fail $"value that fits in {width} bits"
+            else
+              preturn
+                { Value = value
+                  Type = Some(RegType.fromBitWidth width)
+                  IsSigned = sign = 'i' || sign = 'I' }
 
-  let parseBody body =
-    parseConditionList parseAtom body
+    let private relOp =
+      regex "==|!=|<>|<=|>=|=|<|>" |>> parseRelOp
 
-  let parse text =
-    let text = stripOuterParens text
-    let pattern = @"^fun\s+([A-Za-z_][A-Za-z0-9_]*|_)\s*->\s*(.+)$"
-    match tryMatch pattern text with
-    | Some m ->
-      parseBody m.Groups[2].Value
-    | None ->
-      invalidArg (nameof text)
-        "Expected condition function: fun pp -> <predicate>."
+    let private memoryTerm =
+      between
+        (pchar '[' .>> spaces)
+        (spaces >>. pchar ']')
+        (address .>>. opt (pchar ':' >>. byteWidth))
+      |>> fun (addr, size) ->
+        Memory(addr, RegType.fromByteWidth (defaultArg size 8))
 
-  let stripListBrackets (text: string) =
-    let text = text.Trim()
-    if text.StartsWith("[", StringComparison.Ordinal)
-       && text.EndsWith("]", StringComparison.Ordinal) then
-      text[1..text.Length - 2].Trim()
-    else
-      text
+    let comparison term =
+      pipe3
+        term
+        (spaces >>. relOp .>> spaces)
+        integerLiteral
+        (fun subject op value -> Compare(subject, op, value))
 
-  let parsePreconditionAtom text =
-    let address = @"(0x[0-9a-f]+|[0-9]+)"
-    let integer =
-      @"(?<value>0x[0-9a-f]+|[0-9]+)(?::(?<sign>[iu])(?<width>8|16|32|64))?"
-    let op = @"(==|=|!=|<>|<=|>=|<|>)"
-    let text = norm text
-    let regPattern =
-      @"^([A-Za-z][A-Za-z0-9_]*)\s*" + op + @"\s*" + integer + "$"
-    let memPattern =
-      @"^MEM\s*\[\s*" + address + @"(?::([0-9]+))?\s*\]\s*"
-      + op + @"\s*" + integer + "$"
-    match tryMatch regPattern text with
-    | Some m ->
-      let term = Register m.Groups[1].Value
-      let relop = parseRelOp m.Groups[2].Value
-      Compare(term, relop, parseIntegerLiteral m)
-    | None ->
-      match tryMatch memPattern text with
-      | Some m ->
-        let size =
-          if m.Groups[2].Success then
-            SymbArgs.parseInt m.Groups[2].Value
+    let private ppAtom =
+      let term =
+        choice
+          [ pstringCI "REG" >>. spaces >>.
+              between
+                (pchar '[' .>> spaces)
+                (spaces >>. pchar ']')
+                identifier |>> Register
+            pstringCI "MEM" >>. spaces >>. memoryTerm
+            pstringCI "WRITE" >>% WriteAddress ]
+      let at =
+        pstringCI "at" >>. spaces >>.
+          between
+            (pchar '(' .>> spaces)
+            (spaces >>. pchar ')')
+            address
+        |>> At
+      pstringCI "pp." >>. (at <|> comparison term)
+
+    let private memoryPolicy =
+      let kind =
+        choice
+          [ pstringCI "accessViolation" >>% None
+            pstringCI "readViolation" >>% Some MemoryRead
+            pstringCI "writeViolation" >>% Some MemoryWrite ]
+      pstringCI "mem" >>. opt (pstringCI "ory") >>. pchar '.' >>.
+        kind .>> spaces .>> between
+          (pchar '(' .>> spaces)
+          (pchar ')')
+          spaces
+      |>> MemoryPolicyViolation
+
+    let private preconditionAtom =
+      let register = identifier |>> Register
+      let term =
+        attempt (pstringCI "MEM" >>. spaces >>. memoryTerm)
+        <|> register
+      comparison term
+
+    let conjunction atom separator =
+      let expression, expressionRef =
+        createParserForwardedToRef<Condition, unit>()
+      let group =
+        between
+          (pchar '(' .>> spaces)
+          (spaces >>. pchar ')')
+          expression
+      let element = group <|> atom
+      expressionRef.Value <-
+        sepBy1 element (attempt (spaces >>. separator .>> spaces))
+        |>> function
+          | [ condition ] -> condition
+          | conditions -> And conditions
+      expression
+
+    let private condition =
+      let atom = ppAtom <|> memoryPolicy
+      let body = conjunction atom (pstring "&&")
+      let lambda =
+        pstring "fun" >>. spaces1 >>. identifier .>> spaces
+        .>> pstring "->" .>> spaces >>. body
+      spaces >>. opt (pchar '(' .>> spaces) >>= fun opening ->
+        let closing =
+          if Option.isSome opening then
+            spaces >>. pchar ')' >>% ()
           else
-            8
-        let term =
-          Memory(SymbArgs.parseAddr m.Groups[1].Value,
-                 RegType.fromByteWidth size)
-        let relop = parseRelOp m.Groups[3].Value
-        Compare(term, relop, parseIntegerLiteral m)
-      | None ->
-        invalidArg (nameof text) $"Invalid precondition: {text}"
+            preturn ()
+        lambda .>> closing .>> spaces .>> eof
 
-  let parsePreconditions text =
-    stripListBrackets text
-    |> fun text -> Regex.Split(text, @"\s*(?:;|&&)\s*")
-    |> Array.toList
-    |> List.filter (String.IsNullOrWhiteSpace >> not)
-    |> List.map parsePreconditionAtom
-    |> function
-      | [ atom ] ->
-        atom
-      | atoms ->
-        And atoms
+    let private precondition =
+      let separator = pstring "&&" <|> pstring ";"
+      let body = conjunction preconditionAtom separator
+      spaces >>. opt (pchar '[' .>> spaces) >>= fun opening ->
+        let body =
+          if Option.isSome opening then
+            opt body |>> Option.defaultValue (And [])
+            .>> spaces .>> pchar ']'
+          else
+            opt body |>> Option.defaultValue (And [])
+        body .>> spaces .>> eof
+
+    let parse name parser text =
+      match run parser text with
+      | Success(condition, _, _) ->
+        condition
+      | Failure(message, _, _) ->
+        invalidArg (nameof text) $"Invalid {name}: {message}"
+
+    let parseCondition text = parse "condition" condition text
+
+    let parsePrecondition text = parse "precondition" precondition text
+
+  let parse text = Grammar.parseCondition text
+
+  let parsePreconditions text = Grammar.parsePrecondition text
 
   let constFor (expr: SymbExpr) (value: Addr) =
     SymbExpr.Const(BitVector(uint64 value, expr.Type))
