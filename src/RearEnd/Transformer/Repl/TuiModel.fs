@@ -272,7 +272,7 @@ module TransformerTuiModel =
 
   let mutable private transcriptLayoutCache: TranscriptLayoutCache option = None
 
-  let private maximumTranscriptLines = 5000
+  let private transcriptLineBudget = 5000
 
   let defaultSuggestionHeight = 7
 
@@ -421,25 +421,29 @@ module TransformerTuiModel =
       SpinnerFrame = 0 }
 
   let private trimTranscript transcript =
-    if TuiTranscript.length transcript <= maximumTranscriptLines then
-      transcript
+    if TuiTranscript.length transcript <= transcriptLineBudget then
+      transcript, 0, 0
     else
-      let lines = TuiTranscript.toList transcript
-      let commandCount =
-        TuiTranscript.commandCount transcript
-      let outputBudget = max 0 (maximumTranscriptLines - commandCount)
-      let folder (remaining, output) line =
-        if isCommandLine line then
-          remaining, line :: output
-        elif remaining > 0 then
-          remaining - 1, line :: output
+      let lines = TuiTranscript.toList transcript |> List.toArray
+      let starts =
+        lines
+        |> Array.indexed
+        |> Array.choose (fun (index, line) ->
+          if isCommandLine line then Some index else None)
+      (* Keep the newest block intact even when it exceeds the budget. *)
+      let first =
+        if Array.isEmpty starts then
+          max 0 (lines.Length - transcriptLineBudget)
         else
-          remaining, output
-      lines
-      |> List.rev
-      |> List.fold folder (outputBudget, [])
-      |> snd
-      |> TuiTranscript.ofList
+          starts
+          |> Array.tryFind (fun start ->
+            lines.Length - start <= transcriptLineBudget)
+          |> Option.defaultValue (Array.last starts)
+      let removedCommands =
+        starts |> Array.takeWhile (fun start -> start < first) |> Array.length
+      let retained =
+        lines[first..] |> Array.toList |> TuiTranscript.ofList
+      retained, first, removedCommands
 
   let private commandCount model =
     TuiTranscript.commandCount model.Transcript
@@ -447,25 +451,68 @@ module TransformerTuiModel =
   let private transcriptLines model =
     TuiTranscript.toList model.Transcript
 
-  let appendLines kind lines model =
-    let additions =
-      lines |> List.map (fun text -> { Kind = kind; Text = text })
+  let private shiftCommandIndex removed index =
+    if index > removed then Some(index - removed) else None
+
+  let private shiftTranscriptState removedLines removedCommands model =
+    let shiftIndex = shiftCommandIndex removedCommands
+    let cursor = model.TranscriptCursor
+    let cursor =
+      if cursor.Line < removedLines then
+        { Line = 0; Column = 0 }
+      else
+        { cursor with Line = cursor.Line - removedLines }
+    let anchor =
+      model.TranscriptAnchor
+      |> Option.bind (fun anchor ->
+        if anchor.Line < removedLines then None
+        else Some { anchor with Line = anchor.Line - removedLines })
+    let blocks =
+      model.ResultBlocks
+      |> Map.toSeq
+      |> Seq.choose (fun (index, lines) ->
+        shiftIndex index |> Option.map (fun index -> index, lines))
+      |> Map.ofSeq
+    let collapsed =
+      model.CollapsedCommands |> Seq.choose shiftIndex |> Set.ofSeq
+    let pane =
+      model.ViewPane
+      |> Option.map (fun pane ->
+        if pane.BlockIndex < 1 then
+          pane
+        else
+          match shiftIndex pane.BlockIndex with
+          | Some index ->
+            { pane with
+                BlockIndex = index
+                Title = $"View result #{index}" }
+          | None ->
+            { pane with
+                BlockIndex = -1
+                Title = "View result (no longer in transcript)" })
     { model with
-        Transcript =
-          model.Transcript
-          |> TuiTranscript.append additions
-          |> trimTranscript
+        ResultBlocks = blocks
+        TranscriptCursor = cursor
+        TranscriptAnchor = anchor
+        ViewPane = pane
+        FoldTarget = model.FoldTarget |> Option.bind shiftIndex
+        CollapsedCommands = collapsed }
+
+  let appendTuiLines lines model =
+    let transcript, removedLines, removedCommands =
+      model.Transcript |> TuiTranscript.append lines |> trimTranscript
+    let model =
+      if removedLines = 0 then model
+      else shiftTranscriptState removedLines removedCommands model
+    { model with
+        Transcript = transcript
         ScrollOffset = 0
         TranscriptViewportStart = None }
 
-  let appendTuiLines lines model =
-    { model with
-        Transcript =
-          model.Transcript
-          |> TuiTranscript.append lines
-          |> trimTranscript
-        ScrollOffset = 0
-        TranscriptViewportStart = None }
+  let appendLines kind lines model =
+    let additions =
+      lines |> List.map (fun text -> { Kind = kind; Text = text })
+    appendTuiLines additions model
 
   let private commandLines (command: string) =
     command.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n')
@@ -480,9 +527,8 @@ module TransformerTuiModel =
               { Kind = TuiLineKind.CommandContinuation; Text = line }))
 
   let appendCommand command model =
-    let index = commandCount model + 1
-    { appendTuiLines (commandLines command) model with
-        FoldTarget = Some index }
+    let model = appendTuiLines (commandLines command) model
+    { model with FoldTarget = Some(commandCount model) }
 
   let clearTranscript model =
     { model with
