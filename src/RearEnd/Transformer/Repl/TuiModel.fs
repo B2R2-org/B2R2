@@ -120,6 +120,8 @@ type TuiTranscriptSource =
 /// One logical transcript row after folding and large-output compaction.
 type TuiTranscriptLine =
   { Source: TuiTranscriptSource
+    OriginalLine: TuiLine
+    TextStart: int
     Line: TuiLine }
 
 /// Full-screen panels that temporarily replace the transcript view.
@@ -1065,6 +1067,7 @@ module TransformerTuiModel =
     let prefix = TransformerTuiText.linePrefix line.Line.Kind
     if TransformerTuiText.containsAnsi line.Line.Text then
       [ { line with
+            TextStart = 0
             Line = { line.Line with Text = prefix + line.Line.Text } } ]
     else
       let selection =
@@ -1074,7 +1077,9 @@ module TransformerTuiModel =
       |> List.mapi (fun index (start, finish, text) ->
         let prefix = if index = 0 then prefix else "  "
         let text = markTranscriptSelection selection start finish text
-        { line with Line = { line.Line with Text = prefix + text } })
+        { line with
+            TextStart = start
+            Line = { line.Line with Text = prefix + text } })
 
   let private sourceContains line source =
     match source with
@@ -1154,9 +1159,12 @@ module TransformerTuiModel =
       let source = sourceRange output
       let selected = cursorOnSource model source
       let kind = selectedTextKind selected TuiLineKind.System
+      let folded = { Kind = kind; Text = $"<< result #{index} folded >>" }
       command @
         [ { Source = source
-            Line = { Kind = kind; Text = $"<< result #{index} folded >>" } } ]
+            OriginalLine = folded
+            TextStart = 0
+            Line = folded } ]
     else
       command @ (output |> List.map (markTranscriptCursor model))
 
@@ -1178,6 +1186,8 @@ module TransformerTuiModel =
     for line in transcriptLines model do
       let line =
         { Source = TuiTranscriptSource.Line lineIndex
+          OriginalLine = line
+          TextStart = 0
           Line = line }
       match line.Line.Kind with
       | TuiLineKind.Command ->
