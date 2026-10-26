@@ -133,6 +133,10 @@ type SymbMemoryAccessKind =
   | MemoryRead
   | MemoryWrite
 
+type SymbMemoryViolation =
+  { Kind: SymbMemoryAccessKind
+    Address: Addr }
+
 module private SymbRegionPerm =
   let format permission =
     let chars =
@@ -679,7 +683,10 @@ type SymbExecutorValue(binary: Binary,
                                loopBound,
                                prune,
                                ct,
-                               ?stopWhen: StopPredicate<SymbState>) =
+                               ?stopWhen: StopPredicate<SymbState>,
+                               ?violationAnalyzer:
+                                 SymbSatisfiabilityAnswer ->
+                                   SymbMemoryViolation option) =
     let query =
       { Query = SymbQuery.SatisfyWhen predicate
         QueryValues =
@@ -701,8 +708,19 @@ type SymbExecutorValue(binary: Binary,
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
-    executor.Run(state.PC, state, options, ct)
-    |> fun result -> SymbRunValue(this, "cond", None, result)
+    let result = executor.Run(state.PC, state, options, ct)
+    let violations =
+      violationAnalyzer
+      |> Option.map (fun analyze ->
+        result.SatisfiabilityAnswers
+        |> List.map (fun answer ->
+          ct.ThrowIfCancellationRequested()
+          analyze answer))
+    SymbRunValue(this,
+                 "cond",
+                 None,
+                 result,
+                 ?violations = violations)
 
   member this.RunSatisfyCondition(predicate,
                                   maxDepth,
@@ -763,7 +781,13 @@ type SymbExecutorValue(binary: Binary,
 and SymbRunValue(source: SymbExecutorValue,
                  query: string,
                  target: Addr option,
-                 result: SymbRunResult) =
+                 result: SymbRunResult,
+                 ?violations: SymbMemoryViolation option list) =
+  let violations =
+    violations
+    |> Option.defaultWith (fun () ->
+      result.SatisfiabilityAnswers |> List.map (fun _ -> None))
+
   let valueText (value: SolverValue) =
     $"  {value.Name}: {value.Value}"
 
@@ -836,9 +860,21 @@ and SymbRunValue(source: SymbExecutorValue,
   let appendSatAnswer
         (sb: StringBuilder)
         index
+        violation
         (answer: SymbSatisfiabilityAnswer) =
     sb.AppendLine($"answer #{index}") |> ignore
     sb.AppendLine($"  target: 0x{answer.Target:x}") |> ignore
+    match violation with
+    | Some violation ->
+      let kind =
+        match violation.Kind with
+        | MemoryRead -> "read"
+        | MemoryWrite -> "write"
+      sb.AppendLine($"  access violation: {kind} at "
+                    + $"0x{violation.Address:x}")
+      |> ignore
+    | None ->
+      ()
     sb.AppendLine(
       $"  path-conditions: {List.length answer.State.PathCondition}")
     |> ignore
@@ -876,12 +912,15 @@ and SymbRunValue(source: SymbExecutorValue,
     |> List.map (fun answer ->
       answer.Target, answer.Values, indexedByteGroups answer.Values)
 
+  member _.Violations = violations
+
   member _.ModelText() =
     let sb = StringBuilder()
     let appendResult = function
       | SymbAnswer.Satisfiable answers ->
-        answers |> List.iteri (fun idx answer ->
-          appendSatAnswer sb (idx + 1) answer)
+        List.zip answers violations
+        |> List.iteri (fun idx (answer, violation) ->
+          appendSatAnswer sb (idx + 1) violation answer)
       | SymbAnswer.Reachable answers ->
         answers |> List.iteri (fun idx answer ->
           appendReachAnswer sb (idx + 1) answer)
@@ -1463,6 +1502,11 @@ module private SymbCondition =
     |> List.exists (fun access ->
       violationExpr regions access |> addCondition point.State)
 
+  let witnessAddressExpr (expr: SymbExpr) =
+    if expr.Type = 64<rt> then expr
+    elif expr.Type < 64<rt> then SymbExpr.cast CastKind.ZeroExt 64<rt> expr
+    else SymbExpr.extract expr 64<rt> 0
+
   let rec evaluate
     (hdl: BinHandle)
     (regions: SymbMemoryRegion list)
@@ -1503,6 +1547,76 @@ module private SymbCondition =
     StopPredicate<SymbState>(fun point ->
       evaluate hdl regions condition point
     )
+
+  let fixedModelConditions (answer: SymbSatisfiabilityAnswer) =
+    answer.Values
+    |> List.map (fun value ->
+      let variable = SymbExpr.Var(value.Name, value.Value.Length)
+      SymbExpr.relop RelOpType.EQ variable (SymbExpr.Const value.Value))
+
+  let trySolveViolation solver path regions access =
+    let violation = violationExpr regions access
+    match violation, access.Address with
+    | SymbExpr.Const violated, SymbExpr.Const address
+        when violated.IsTrue ->
+      Some({ Kind = access.Kind
+             Address = address.ToUInt64() }: SymbMemoryViolation)
+    | _ ->
+      (solver: Lazy<ISolver option>).Value
+      |> Option.bind (fun (solver: ISolver) ->
+        let name = "__b2r2_violation_address_" + Guid.NewGuid().ToString("N")
+        let witness = SymbExpr.Var(name, 64<rt>)
+        let address = witnessAddressExpr access.Address
+        let addressConstraint =
+          SymbExpr.relop RelOpType.EQ witness address
+        let conditions =
+          violation :: addressConstraint :: path
+        let smt = SMTLibSerializer.serializeAssertions conditions [ witness ]
+        let status =
+          solver.CheckSat smt
+          |> Result.bind SolverOutputParser.parseStatus
+        match status with
+        | Ok SolverStatus.Sat ->
+          match solver.GetModels smt
+                |> Result.bind (SolverOutputParser.extract [ witness ]) with
+          | Ok { Values = [ value ] } ->
+            Some({ Kind = access.Kind
+                   Address = value.Value.ToUInt64() }: SymbMemoryViolation)
+          | _ ->
+            None
+        | _ ->
+          None)
+
+  let violationAnalyzer hdl regions solver kind =
+    let liftCache = LiftCache hdl
+    let solver =
+      lazy (solver |> Option.map (fun (value: SymbSolverValue) ->
+        value.Create()))
+    fun (answer: SymbSatisfiabilityAnswer) ->
+      match liftCache.TryLift answer.Target with
+      | Error _ ->
+        None
+      | Ok lifted ->
+        let point =
+          { Address = answer.Target
+            InstructionCount = 0
+            Instruction = Some lifted.Instruction
+            Statements = lifted.Stmts
+            State = answer.State }
+        let pathCondition =
+          fixedModelConditions answer @ answer.State.PathCondition
+        memoryAccesses point
+        |> List.filter (fun access ->
+          kind |> Option.forall ((=) access.Kind))
+        |> List.tryPick (trySolveViolation solver pathCondition regions)
+
+  let toQueryPredicate hdl regions solver condition =
+    let predicate = toPredicate hdl regions condition
+    match condition with
+    | MemoryPolicyViolation kind ->
+      predicate, Some(violationAnalyzer hdl regions solver kind)
+    | _ ->
+      predicate, None
 
   let trySatisfyAddress = function
     | At addr ->
@@ -2042,10 +2156,12 @@ type SymbSearchAction() =
     let executor, _ = SymbExecutorSetup.create binary setup
     let hdl = Binary.Handle binary
     let executor = withPrecondition hdl options executor
-    let predicate =
+    let condition =
       directCondition options
       |> SymbCondition.parse
-      |> SymbCondition.toPredicate hdl executor.Regions
+    let predicate, analyzer =
+      SymbCondition.toQueryPredicate
+        hdl executor.Regions executor.Solver condition
     let stopAtReturn = stopAtReturn hdl executor
     let maxDepth, maxStates, loopBound, prune = directLimits options
     executor.RunSatisfyCondition(predicate,
@@ -2054,7 +2170,8 @@ type SymbSearchAction() =
                                  loopBound,
                                  prune,
                                  ct,
-                                 stopWhen = stopAtReturn)
+                                 stopWhen = stopAtReturn,
+                                 ?violationAnalyzer = analyzer)
     |> box
 
   let runBinary ct args binary =
@@ -2121,14 +2238,16 @@ type SymbSearchAction() =
                                 prune,
                                 ct)
           | None ->
-            let predicate =
-              SymbCondition.toPredicate hdl executor.Regions condition
+            let predicate, analyzer =
+              SymbCondition.toQueryPredicate
+                hdl executor.Regions executor.Solver condition
             executor.RunSatisfyCondition(predicate,
                                          maxDepth,
                                          maxStates,
                                          loopBound,
                                          prune,
-                                         ct)
+                                         ct,
+                                         ?violationAnalyzer = analyzer)
         result |> box
       | _ ->
         invalidArg (nameof args) "Invalid run-symbolic arguments."

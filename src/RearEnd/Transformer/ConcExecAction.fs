@@ -908,6 +908,9 @@ type ConcExecutorValue private(binary: Binary,
 
   member _.LastTrace = previousTrace
 
+  member _.LastStopReasons =
+    previousResult |> Option.map _.StopReasons
+
   member _.SummaryLines =
     let path =
       if String.IsNullOrWhiteSpace hdl.File.Path then

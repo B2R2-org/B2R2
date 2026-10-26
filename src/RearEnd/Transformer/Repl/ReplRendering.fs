@@ -35,6 +35,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ControlFlowGraph
 
 module internal ReplRendering =
@@ -183,7 +184,10 @@ module internal ReplRendering =
 
   let private renderInstructionArray mode (values: Instruction[]) =
     seq {
-      yield $"{values.Length} instructions"
+      if mode = Full then
+        yield $"{values.Length} instructions"
+      else
+        ()
       for value in values do
         match mode with
         | Preview ->
@@ -627,16 +631,27 @@ module internal ReplRendering =
     match mode with
     | Preview ->
       let trace = executor.LastTrace
-      let status =
-        match trace with
-        | Some trace ->
-          $"PC=0x{trace.FinalPC:x}, {trace.InstructionCount} instructions"
-        | None ->
-          $"PC=0x{executor.State.PC:x}"
-      [ $"ConcExecutor: {binaryPath executor.Binary}, {status}" ]
-      @ match trace with
-        | Some trace -> Array.toList trace.StopReasons
-        | None -> []
+      let returnAddress =
+        executor.LastStopReasons
+        |> Option.bind (function
+          | [ ConcStopReason.StoppedAtReturn addr ] -> Some addr
+          | _ -> None)
+      match trace, returnAddress with
+      | Some trace, Some addr when
+          trace.MemoryAccesses
+          |> Array.forall (fun access -> Option.isNone access.Violation) ->
+        [ $"Stopped before return at 0x{addr:x}" ]
+      | _ ->
+        let status =
+          match trace with
+          | Some trace ->
+            $"PC=0x{trace.FinalPC:x}, {trace.InstructionCount} instructions"
+          | None ->
+            $"PC=0x{executor.State.PC:x}"
+        [ $"ConcExecutor: {binaryPath executor.Binary}, {status}" ]
+        @ match trace with
+          | Some trace -> Array.toList trace.StopReasons
+          | None -> []
     | Full ->
       executor.SummaryLines
 
@@ -692,13 +707,32 @@ module internal ReplRendering =
         | None, SymbAnswer.Unknown _ ->
           "unknown"
       seq {
-        yield $"SymbRunResult: {status}"
+        let hasViolation =
+          match answer with
+          | SymbAnswer.Satisfiable _ ->
+            result.Violations |> List.exists Option.isSome
+          | _ ->
+            false
+        if not hasViolation then yield status else ()
         match answer with
         | SymbAnswer.Satisfiable _ ->
-          for index, (target, values, groups) in
-              List.indexed result.InputModels do
+          for index, ((target, values, groups), violation) in
+              List.zip result.InputModels result.Violations
+              |> List.indexed do
             let fields = renderInputModel result.Source values groups
-            yield $"  model #{index} at 0x{target:x}: {fields}"
+            match violation with
+            | Some violation ->
+              let access =
+                match violation.Kind with
+                | MemoryRead -> "read from"
+                | MemoryWrite -> "write to"
+              let message =
+                $"Access violation at instruction 0x{target:x}: "
+                + $"{access} 0x{violation.Address:x}"
+              yield message
+              yield $"  input: {fields}"
+            | None ->
+              yield $"  model #{index} at 0x{target:x}: {fields}"
         | SymbAnswer.Reachable answers ->
           for answer in answers do
             yield $"  reached 0x{answer.Target:x}"
