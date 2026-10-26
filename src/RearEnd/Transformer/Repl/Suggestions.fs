@@ -187,8 +187,8 @@ module Suggestions =
     |> List.filter (ReplValueKind.toString >> matches prefix)
     |> List.map typeItem
 
-  let private typeAnnotationCompletion input =
-    match ReplLanguage.bindingHeader input with
+  let private typeAnnotationCompletion header =
+    match header with
     | Some header when not header.HasEquals ->
       match header.TypePrefix, header.TypePrefixStart with
       | Some prefix, Some start ->
@@ -197,9 +197,6 @@ module Suggestions =
         None
     | _ ->
       None
-
-  let private expectedOutput input =
-    ReplLanguage.bindingExpected input
 
   let private outputMatches inputKind expected registered =
     let registered: RegisteredAction = registered
@@ -286,7 +283,8 @@ module Suggestions =
     bindings @ sourceActions @ currentActions
     |> List.distinctBy (fun item -> item.Text)
 
-  let private literalBindingCandidates state expression prefix =
+  let private literalBindingCandidates state context prefix =
+    let context: InputContext = context
     let push token stack =
       match token with
       | "(" | "[" | "[|" ->
@@ -312,8 +310,11 @@ module Suggestions =
       | _ ->
         stack
     let stack =
-      InputAnalysis.tokenize expression |> List.fold (fun stack token ->
-        push token stack) []
+      if context.PartialPipeline.IsSome then
+        []
+      else
+        InputAnalysis.tokenize context.Expression
+        |> List.fold (fun stack token -> push token stack) []
     match stack with
     | ("(" | "[" | "[|") :: _ ->
       bindingCandidates state
@@ -1198,7 +1199,7 @@ module Suggestions =
 
   let private completeExpression registry state context typeAnalysis =
     let context: InputContext = context
-    let expected = expectedOutput context.InputBeforeCursor
+    let expected = context.ExpectedOutput
     let expression = context.Expression
     let segment = context.Segment
     let words = context.SegmentWords
@@ -1315,7 +1316,7 @@ module Suggestions =
     let completeLiteral () =
       literalHexCandidates
       |> Option.orElseWith (fun () ->
-        literalBindingCandidates state expression context.Prefix)
+        literalBindingCandidates state context context.Prefix)
       |> Option.defaultWith completeCurrent
     match setContextListCandidates argumentState context with
     | Some candidates ->
@@ -1486,47 +1487,43 @@ module Suggestions =
     |> List.distinctBy (fun item -> item.Text)
     |> List.truncate 20
 
-  let private analyzeInput
-    (previousContext: InputContext option)
+  let private analyzeTypeInput
+    previousType
     (registry: ActionRegistry)
     (state: TransformerReplState)
-    (input: string)
-    cursor =
-    let cursor = max 0 (min cursor input.Length)
-    let inputBeforeCursor =
-      if cursor = 0 then
-        ""
-      else
-        input[..cursor - 1]
-    let context = InputAnalysis.analyzeWithCache previousContext input cursor
+    (context: InputContext) =
     let expression, expressionStart =
-      match ReplLanguage.bindingHeader context.InputBeforeCursor with
+      match context.BindingHeader with
       | Some header when header.HasEquals ->
         let start = header.ExpressionStart |> Option.defaultValue 0
         context.InputBeforeCursor[start..], start
       | _ ->
         context.InputBeforeCursor, 0
-    let typeAnalysis =
+    let analysis, cache =
       match context.PartialPipeline with
       | Some pipeline ->
-        ReplTypeAnalysis.analyzePartial
-          registry
-          state
-          expressionStart
-          expression
-          pipeline
+        let analysis, cache =
+          ReplTypeAnalysis.analyzePartialWithCache
+            previousType
+            registry
+            state
+            expressionStart
+            expression
+            pipeline
+        analysis, Some cache
       | None ->
-        ReplTypeAnalysis.analyze registry state expressionStart expression
-    context, typeAnalysis
+        ReplTypeAnalysis.analyze registry state expressionStart expression,
+        None
+    analysis, cache
 
   let getWithInputContext
     previousContext
+    previousType
     registry
     (state: TransformerReplState)
     (input: string)
     cursor =
-    let context, typeAnalysis =
-      analyzeInput previousContext registry state input cursor
+    let context = InputAnalysis.analyzeWithCache previousContext input cursor
     let canComplete = String.IsNullOrWhiteSpace context.InputAfterCursor
     let isColonCommand = context.InputBeforeCursor.TrimStart().StartsWith ':'
     if not canComplete || isColonCommand then
@@ -1536,18 +1533,20 @@ module Suggestions =
         Length = context.TokenLength
         Hint = None
         HintHighlights = []
-        Diagnostics = [] }, context
+        Diagnostics = [] }, context, None
     else
-      let diagnostics = typeAnalysis.Diagnostics
-      match typeAnnotationCompletion context.InputBeforeCursor with
+      match typeAnnotationCompletion context.BindingHeader with
       | Some(items, start, length) ->
         { Items = prepareItems context items
           Start = start
           Length = length
           Hint = Some "type annotation"
           HintHighlights = []
-          Diagnostics = [] }, context
+          Diagnostics = [] }, context, None
       | None ->
+        let typeAnalysis, cache =
+          analyzeTypeInput previousType registry state context
+        let diagnostics = typeAnalysis.Diagnostics
         let hint = completionHint registry state typeAnalysis context
         let items = completeExpression registry state context typeAnalysis
         { Items =
@@ -1564,7 +1563,9 @@ module Suggestions =
               hint |> Option.map snd |> Option.defaultValue []
             else
               []
-          Diagnostics = diagnostics }, context
+          Diagnostics = diagnostics }, context, cache
 
   let get registry state input cursor =
-    getWithInputContext None registry state input cursor |> fst
+    let suggestions, _, _ =
+      getWithInputContext None None registry state input cursor
+    suggestions

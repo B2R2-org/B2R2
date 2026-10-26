@@ -40,7 +40,8 @@ type InputContext =
     CompletionPhase: InputCompletionPhase
     TokenStart: int
     TokenLength: int
-    Words: string list
+    BindingHeader: ReplBindingHeader option
+    ExpectedOutput: ReplValueKind option
     FullExpression: string
     Expression: string
     Segment: string
@@ -139,11 +140,12 @@ module InputAnalysis =
     |> Option.orElseWith (fun () ->
       ReplLanguage.tryParsePartialPipeline fullExpression)
 
-  let analyzeExpressionWithCache
+  let private analyzeExpressionWithHeader
     previous
     (input: string)
     cursor
-    (fullExpression: string) =
+    (fullExpression: string)
+    bindingHeader =
     let cursor = max 0 (min cursor input.Length)
     let start = tokenStart input cursor
     let prefix =
@@ -152,7 +154,11 @@ module InputAnalysis =
       if cursor = 0 then "" else input[..cursor - 1]
     let inputAfterCursor =
       if cursor = input.Length then "" else input[cursor..]
-    let words = splitWords inputBeforeCursor
+    let expectedOutput =
+      bindingHeader
+      |> Option.bind (fun header ->
+        if header.HasEquals then header.TypeAnnotation else None)
+      |> Option.bind ReplValueKind.tryParse
     let partialPipeline = partialPipeline previous fullExpression
     let expression, segment, segmentWords, lastPipeline =
       match partialPipeline with
@@ -194,7 +200,6 @@ module InputAnalysis =
           else
             expression[segmentStart..]
         expression, segment, splitWords segment, lastPipeline
-    let trimmed = inputBeforeCursor.TrimStart()
     { InputBeforeCursor = inputBeforeCursor
       InputAfterCursor = inputAfterCursor
       Prefix = prefix
@@ -205,15 +210,21 @@ module InputAnalysis =
           InputCompletionPhase.EditingToken
       TokenStart = start
       TokenLength = cursor - start
-      Words = words
+      BindingHeader = bindingHeader
+      ExpectedOutput = expectedOutput
       FullExpression = fullExpression
       Expression = expression
       Segment = segment
       SegmentWords = segmentWords
       PartialPipeline = partialPipeline
-      HasBinding =
-        ReplLanguage.bindingHeader trimmed |> Option.isSome
+      HasBinding = bindingHeader |> Option.isSome
       HasPipeline = Option.isSome lastPipeline }
+
+  let analyzeExpressionWithCache previous (input: string) cursor expression =
+    let cursor = max 0 (min cursor input.Length)
+    let before = if cursor = 0 then "" else input[..cursor - 1]
+    let header = ReplLanguage.bindingHeader before
+    analyzeExpressionWithHeader previous input cursor expression header
 
   let analyzeExpression (input: string) cursor fullExpression =
     analyzeExpressionWithCache None input cursor fullExpression
@@ -222,7 +233,13 @@ module InputAnalysis =
     let cursor = max 0 (min cursor input.Length)
     let inputBeforeCursor =
       if cursor = 0 then "" else input[..cursor - 1]
-    let fullExpression = expressionPortion inputBeforeCursor
-    analyzeExpressionWithCache previous input cursor fullExpression
+    let header = ReplLanguage.bindingHeader inputBeforeCursor
+    let expression =
+      match header with
+      | Some header when header.HasEquals ->
+        header.Expression |> Option.defaultValue ""
+      | _ ->
+        inputBeforeCursor
+    analyzeExpressionWithHeader previous input cursor expression header
 
   let analyze (input: string) cursor = analyzeWithCache None input cursor

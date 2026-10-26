@@ -48,9 +48,11 @@ type private ScriptReplayOutput =
 type private SuggestionCache =
   { Input: string
     Cursor: int
+    Registry: ActionRegistry
     Session: TransformerReplState
     Suggestions: SuggestionSet
-    Context: InputContext }
+    Context: InputContext
+    TypeCache: ReplTypeAnalysis.Cache option }
 
 module TransformerRepl =
   let private printOutput output =
@@ -620,13 +622,16 @@ module TransformerRepl =
       | Some cached
         when cached.Input = model.Input
              && cached.Cursor = model.Cursor
+             && Object.ReferenceEquals(cached.Registry, registry)
              && Object.ReferenceEquals(cached.Session, model.Session) ->
         cached.Suggestions
       | _ ->
         let previousContext = suggestionCache |> Option.map _.Context
-        let suggestions, context =
+        let previousType = suggestionCache |> Option.bind _.TypeCache
+        let suggestions, context, typeCache =
           Suggestions.getWithInputContext
             previousContext
+            previousType
             registry
             model.Session
             model.Input
@@ -635,9 +640,11 @@ module TransformerRepl =
           Some
             { Input = model.Input
               Cursor = model.Cursor
+              Registry = registry
               Session = model.Session
               Suggestions = suggestions
-              Context = context }
+              Context = context
+              TypeCache = typeCache }
         suggestions
     let applyInputResult input =
       match input with
