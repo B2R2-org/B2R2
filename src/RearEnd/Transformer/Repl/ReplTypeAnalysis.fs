@@ -363,9 +363,8 @@ module ReplTypeAnalysis =
     textSegments expression |> analyzeSegments registry state baseOffset
 
   let private partialTextSegment (expression: string) segment =
-    let segment: ReplPartialSegment = segment
     let text =
-      if segment.Start >= expression.Length then
+      if (segment: ReplPartialSegment).Start >= expression.Length then
         ""
       else
         let last = min (expression.Length - 1) (segment.End - 1)
@@ -378,10 +377,8 @@ module ReplTypeAnalysis =
   let private samePartialSegment
     (previous: string)
     (expression: string)
-    oldSegment
-    segment =
-    let oldSegment: ReplPartialSegment = oldSegment
-    let segment: ReplPartialSegment = segment
+    (oldSegment: ReplPartialSegment)
+    (segment: ReplPartialSegment) =
     let length = segment.End - segment.Start
     oldSegment.Start = segment.Start
     && oldSegment.End = segment.End

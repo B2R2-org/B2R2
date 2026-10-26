@@ -89,13 +89,12 @@ module internal IntegerParsing =
 
 /// Produce an integer in the half-open range [min, max).
 type RandomAction() =
-  let transform cancellationToken args =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args =
     match args with
     | [ minimum; maximum ] ->
       let minimum = IntegerParsing.parse minimum
       let maximum = IntegerParsing.parse maximum
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       { Values = [| IntegerParsing.sample minimum maximum |> box |] }
     | _ ->
       invalidArg (nameof args) "Expected: random min=<int> max=<int>."
@@ -110,5 +109,5 @@ type RandomAction() =
       transform CancellationToken.None args
 
   interface ICancellableAction with
-    member _.Transform(args, _collection, cancellationToken) =
-      transform cancellationToken args
+    member _.Transform(args, _collection, ct) =
+      transform ct args

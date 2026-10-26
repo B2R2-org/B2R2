@@ -41,21 +41,18 @@ module internal ReplActionRuntime =
     ActionRegistry.tryFind (actionID head) registry
 
   let transform
-    registered
+    (registered: RegisteredAction)
     input
-    segment
-    (cancellationToken: CancellationToken) =
-    let registered: RegisteredAction = registered
-    let segment: ReplPipelineSegment = segment
-    cancellationToken.ThrowIfCancellationRequested()
+    (segment: ReplPipelineSegment)
+    (ct: CancellationToken) =
+    ct.ThrowIfCancellationRequested()
     let action = registered.Action :?> ICancellableAction
     let collection =
-      action.Transform(segment.Arguments, input.Collection, cancellationToken)
-    cancellationToken.ThrowIfCancellationRequested()
+      action.Transform(segment.Arguments, input.Collection, ct)
+    ct.ThrowIfCancellationRequested()
     collection
 
-  let actionInputError (input: ReplValue) metadata =
-    let metadata: ActionMetadata = metadata
+  let actionInputError (input: ReplValue) (metadata: ActionMetadata) =
     let actual = formatKind input.Kind
     let expected =
       ActionMetadata.acceptedInputs metadata
@@ -73,7 +70,7 @@ module internal ReplActionRuntime =
     (registered: RegisteredAction)
     (input: ReplValue)
     (segment: ReplPipelineSegment)
-    (cancellationToken: CancellationToken)
+    (ct: CancellationToken)
     (outputKind: ReplValueKind)
     (args: string list)
     assignments =
@@ -85,9 +82,9 @@ module internal ReplActionRuntime =
         | Some arguments,
           (:? ICancellableNamedArgumentsAction as namedAction) ->
           let collection = input.Collection
-          namedAction.TransformNamed(arguments, collection, cancellationToken)
+          namedAction.TransformNamed(arguments, collection, ct)
         | _ ->
-          transform registered input segment cancellationToken
+          transform registered input segment ct
       collection
       |> ReplValue.ofCollection outputKind
       |> Ok

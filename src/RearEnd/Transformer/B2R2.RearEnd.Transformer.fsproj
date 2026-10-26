@@ -17,7 +17,7 @@
     <Compile Include="Repl\ReplHelp.fs" />
     <Compile Include="Repl\QueryCapabilities.fs" />
     <Compile Include="AsmAction.fs" />
-    <Compile Include="ByteArrayAction.fs" />
+    <Compile Include="BytesAction.fs" />
     <Compile Include="CFGAction.fs" />
     <Compile Include="ConcExecAction.fs" />
     <Compile Include="SymbExecAction.fs" />
@@ -69,7 +69,7 @@
     <Compile Include="Repl\TuiRenderer.fs" />
     <Compile Include="Repl\TuiTerminal.fs" />
     <Compile Include="Repl\TuiInputController.fs" />
-    <Compile Include="Repl\Repl.fs" />
+    <Compile Include="Repl\TransformerRepl.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

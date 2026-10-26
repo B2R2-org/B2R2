@@ -198,8 +198,7 @@ module Suggestions =
     | _ ->
       None
 
-  let private outputMatches inputKind expected registered =
-    let registered: RegisteredAction = registered
+  let private outputMatches inputKind expected (registered: RegisteredAction) =
     match expected with
     | Some kind ->
       ActionMetadata.possibleOutputs registered.Metadata inputKind
@@ -260,11 +259,10 @@ module Suggestions =
 
   let private initialCandidates
     registry
-    state
+    (state: TransformerReplState)
     prefix
     includeCurrent
     expected =
-    let state: TransformerReplState = state
     let bindings =
       bindingCandidates state
       |> List.filter (fun (_, value) -> valueMatches expected value)
@@ -283,8 +281,7 @@ module Suggestions =
     bindings @ sourceActions @ currentActions
     |> List.distinctBy (fun item -> item.Text)
 
-  let private literalBindingCandidates state context prefix =
-    let context: InputContext = context
+  let private literalBindingCandidates state (context: InputContext) prefix =
     let push token stack =
       match token with
       | "(" | "[" | "[|" ->
@@ -732,8 +729,7 @@ module Suggestions =
     | _ ->
       None
 
-  let private semanticCandidates state argument prefix =
-    let argument: ActionArgument = argument
+  let private semanticCandidates state (argument: ActionArgument) prefix =
     let values detail values =
       valueCandidates SuggestionKind.Argument detail prefix values
     match argument.Kind with
@@ -798,8 +794,8 @@ module Suggestions =
       []
 
   let private argumentBindingCandidates state argument prefix =
-    let argument: ActionArgument = argument
-    let expected = expectedBindingKinds argument.Kind
+    let expected =
+      expectedBindingKinds (argument: ActionArgument).Kind
     bindingCandidates state
     |> List.filter (fun (name, value) ->
       matches prefix name
@@ -825,8 +821,7 @@ module Suggestions =
     String.Equals(head, "iter", StringComparison.OrdinalIgnoreCase)
     || String.Equals(head, "iteri", StringComparison.OrdinalIgnoreCase)
 
-  let private syntaxArguments metadata inputKind completed =
-    let metadata: ActionMetadata = metadata
+  let private syntaxArguments (metadata: ActionMetadata) inputKind completed =
     let syntaxes =
       ActionMetadata.matchingSyntaxes metadata inputKind completed
     let triggered =
@@ -857,9 +852,8 @@ module Suggestions =
       |> not)
 
   let private triggerCandidates metadata inputKind argumentIndex prefix =
-    let metadata: ActionMetadata = metadata
     if argumentIndex = 0 then
-      metadata.Syntaxes
+      (metadata: ActionMetadata).Syntaxes
       |> List.filter (ActionMetadata.syntaxAccepts inputKind)
       |> List.choose (fun syntax -> syntax.Trigger)
       |> List.distinct
@@ -867,8 +861,7 @@ module Suggestions =
     else
       []
 
-  let private argumentNameItem argument =
-    let argument: ActionArgument = argument
+  let private argumentNameItem (argument: ActionArgument) =
     let key = ActionMetadata.argumentKeys argument |> List.head
     let typ = ActionMetadata.argumentKindName argument.Kind
     { Text = key + "="
@@ -881,12 +874,11 @@ module Suggestions =
 
   let private argumentNameCandidates
     registry
-    metadata
+    (metadata: ActionMetadata)
     inputKind
     completed
     argumentIndex
     prefix =
-    let metadata: ActionMetadata = metadata
     let arguments =
       syntaxArguments metadata inputKind completed
       |> List.distinctBy (fun argument -> argument.Name)
@@ -972,8 +964,7 @@ module Suggestions =
         loop depth (token :: current) rest
     loop 0 [] tokens
 
-  let private noArgumentCandidate metadata inputKind prefix =
-    let metadata: ActionMetadata = metadata
+  let private noArgumentCandidate (metadata: ActionMetadata) inputKind prefix =
     let hasNoArgumentSyntax =
       metadata.Syntaxes
       |> List.exists (fun syntax ->
@@ -1012,8 +1003,7 @@ module Suggestions =
         Form = SuggestionForm.SyntaxSnippet
         CursorOffset = None } ]
 
-  let private hasNoArgumentSyntax metadata inputKind =
-    let metadata: ActionMetadata = metadata
+  let private hasNoArgumentSyntax (metadata: ActionMetadata) inputKind =
     metadata.Syntaxes
     |> List.exists (fun syntax ->
       ActionMetadata.syntaxAccepts inputKind syntax
@@ -1034,9 +1024,8 @@ module Suggestions =
     |> Set.ofList
 
   let private hasCompleteRequiredParameters metadata inputKind completed =
-    let metadata: ActionMetadata = metadata
     let names = parameterNameSet completed
-    metadata.Syntaxes
+    (metadata: ActionMetadata).Syntaxes
     |> List.exists (fun syntax ->
       ActionMetadata.syntaxAccepts inputKind syntax
       && (syntax.Arguments
@@ -1079,8 +1068,7 @@ module Suggestions =
       StringComparison.OrdinalIgnoreCase
     )
 
-  let private fullSegmentWords context =
-    let context: InputContext = context
+  let private fullSegmentWords (context: InputContext) =
     context.PartialPipeline
     |> Option.bind (fun pipeline ->
       if pipeline.HasTrailingPipeline then
@@ -1091,8 +1079,7 @@ module Suggestions =
     |> Option.defaultValue context.SegmentWords
 
   let private iterBodyCandidates registry state context typeAnalysis =
-    let context: InputContext = context
-    let words = fullSegmentWords context
+    let words = fullSegmentWords (context: InputContext)
     match words with
     | head :: args when isIterHead head ->
       let analysis = ReplLanguage.analyzeIter head args
@@ -1192,8 +1179,7 @@ module Suggestions =
       None
 
   let private completeExpression registry state context typeAnalysis =
-    let context: InputContext = context
-    let expected = context.ExpectedOutput
+    let expected = (context: InputContext).ExpectedOutput
     let expression = context.Expression
     let segment = context.Segment
     let words = context.SegmentWords
@@ -1406,8 +1392,7 @@ module Suggestions =
     | [] ->
       None
 
-  let private hintTarget registry state typeAnalysis context =
-    let context: InputContext = context
+  let private hintTarget registry state typeAnalysis (context: InputContext) =
     let words = fullSegmentWords context
     match words with
     | head :: _ when isIterHead head ->
@@ -1418,8 +1403,7 @@ module Suggestions =
       None
 
   let private completionHint registry state typeAnalysis context =
-    let context: InputContext = context
-    hintTarget registry state typeAnalysis context
+    hintTarget registry state typeAnalysis (context: InputContext)
     |> Option.map (fun (registered, inputKind, args) ->
       let metadata = registered.Metadata
       let signature =
@@ -1434,8 +1418,7 @@ module Suggestions =
         |> highlightRanges signature
       signature, highlight)
 
-  let private candidateFitsPhase context item =
-    let context: InputContext = context
+  let private candidateFitsPhase (context: InputContext) item =
     match context.CompletionPhase with
     | InputCompletionPhase.StartingToken ->
       true
@@ -1450,19 +1433,16 @@ module Suggestions =
       false
 
   let private duplicatesClosingDelimiter (after: string) item =
-    let item: SuggestionItem = item
-    isClosingDelimiter item.Text
+    isClosingDelimiter (item: SuggestionItem).Text
     && after.StartsWith(item.Text, StringComparison.Ordinal)
 
-  let private needsParameterSeparator context =
-    let context: InputContext = context
+  let private needsParameterSeparator (context: InputContext) =
     let last = context.InputBeforeCursor.Length - 1
     context.CompletionPhase = InputCompletionPhase.StartingToken
     && context.InputBeforeCursor.Length > 0
     && not (Char.IsWhiteSpace context.InputBeforeCursor[last])
 
-  let private prependParameterSeparator context item =
-    let item: SuggestionItem = item
+  let private prependParameterSeparator context (item: SuggestionItem) =
     if needsParameterSeparator context
        && item.Kind = SuggestionKind.Argument
        && item.Form = SuggestionForm.Token
@@ -1471,8 +1451,7 @@ module Suggestions =
     else
       item
 
-  let private prepareItems context items =
-    let context: InputContext = context
+  let private prepareItems (context: InputContext) items =
     let after = context.InputAfterCursor.TrimStart()
     items
     |> List.filter (candidateFitsPhase context)

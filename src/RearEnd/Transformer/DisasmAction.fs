@@ -32,12 +32,11 @@ open B2R2.FrontEnd.BinFile
 /// The `disasm` action.
 type DisasmAction() =
   let rec disasm
-    cancellationToken
+    (ct: CancellationToken)
     acc
     (lifter: LiftingUnit)
     (ptr: BinFilePointer) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+    ct.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
       | Ok instr when instr.Length > 0u
@@ -47,12 +46,12 @@ type DisasmAction() =
           (BinFileOps.sliceByOffset lifter.File ptr.Offset insLen).ToArray()
         let ptr = ptr.Advance insLen
         let acc = ValidInstruction(instr, insBytes) :: acc
-        disasm cancellationToken acc lifter ptr
+        disasm ct acc lifter ptr
       | _ ->
         let badbyte = [| lifter.File.RawBytes.Span[ptr.Offset] |]
         let acc = BadInstruction(ptr.Addr, badbyte) :: acc
         let ptr = ptr.Advance 1
-        disasm cancellationToken acc lifter ptr
+        disasm ct acc lifter ptr
     else
       List.rev acc |> List.toArray
 
@@ -65,7 +64,7 @@ type DisasmAction() =
     | _ ->
       invalidArg "input" "Invalid input type."
 
-  let disasmByteArray cancellationToken _args (o: obj) =
+  let disasmByteArray ct _args (o: obj) =
     let bin = binaryOfInput o
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit()
@@ -78,13 +77,13 @@ type DisasmAction() =
         0,
         len - 1
       )
-    disasm cancellationToken [] lifter ptr
+    disasm ct [] lifter ptr
     |> box
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     { Values =
         collection.Values
-        |> Array.map (disasmByteArray cancellationToken args) }
+        |> Array.map (disasmByteArray ct args) }
 
   interface IAction with
     member _.ActionID with get() = "disasm"
@@ -99,5 +98,5 @@ type DisasmAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

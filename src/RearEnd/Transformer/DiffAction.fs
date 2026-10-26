@@ -210,20 +210,19 @@ type DiffAction() =
     hdl.File.RawBytes.ToArray()
 
   let diffBytes
-    cancellationToken
+    (ct: CancellationToken)
     title
     leftBase
     rightBase
     (bs1: byte[])
     (bs2: byte[]) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+    ct.ThrowIfCancellationRequested()
     let maxLength = max bs1.Length bs2.Length
     let rowCount = (maxLength + NumBytesPerLine - 1) / NumBytesPerLine
     let changedRows =
       [ 0 .. rowCount - 1 ]
       |> List.filter (fun row ->
-        cancellationToken.ThrowIfCancellationRequested()
+        ct.ThrowIfCancellationRequested()
         rowChanged bs1 bs2 (row * NumBytesPerLine))
     if List.isEmpty changedRows then
       OutputColored(ColoredString(NoColor, "No diff."))
@@ -247,9 +246,9 @@ type DiffAction() =
     | _ ->
       None
 
-  let diffBinary cancellationToken bin1 bin2 =
+  let diffBinary ct bin1 bin2 =
     diffBytes
-      cancellationToken
+      ct
       "byte diff"
       (binaryBase bin1)
       (binaryBase bin2)
@@ -272,11 +271,11 @@ type DiffAction() =
     | NoCFG error ->
       [| $"error: {error}" |]
 
-  let diffValues cancellationToken (left: obj) (right: obj) =
+  let diffValues ct (left: obj) (right: obj) =
     match tryBinaryInput left, tryBinaryInput right with
     | Some(leftBase, leftBytes), Some(rightBase, rightBytes) ->
       diffBytes
-        cancellationToken
+        ct
         "byte diff"
         leftBase
         rightBase
@@ -286,7 +285,7 @@ type DiffAction() =
       match left, right with
       | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
         diffBytes
-          cancellationToken
+          ct
           "byte diff"
           left.BaseAddress
           right.BaseAddress
@@ -313,14 +312,14 @@ type DiffAction() =
           + "CFG, Text, and ConcExecutor pairs."
         invalidArg (nameof DiffAction) message
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     let values = collection.Values
     if values.Length <> 2 then
       invalidArg (nameof DiffAction) "Can only diff exactly two values."
     else
       match args with
       | [] ->
-        let outstr = diffValues cancellationToken values[0] values[1]
+        let outstr = diffValues ct values[0] values[1]
         { Values = [| box outstr |] }
       | _ ->
         invalidArg (nameof DiffAction) "Invalid input to diff"
@@ -338,5 +337,5 @@ type DiffAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

@@ -34,17 +34,16 @@ type WinnowingAction() =
   let defaultNgramSize = 4
   let defaultWindowSize = 4
   let computeFingerprint
-    cancellationToken
+    (ct: CancellationToken)
     annot
     n
     wsz
     (ngrams: (int * int)[]) =
-    let cancellationToken: CancellationToken = cancellationToken
     let deque = LinkedList<int>()
     let patterns = ResizeArray<int * int>()
     let mutable previousHash = 0
     for idx = 0 to ngrams.Length - 1 do
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       while deque.Count > 0 && deque.First.Value <= idx - wsz do
         deque.RemoveFirst()
       while deque.Count > 0
@@ -76,24 +75,23 @@ type WinnowingAction() =
       invalidArg (nameof input)
         "winnowing supports Binary or BinarySlice values."
 
-  let winnowing cancellationToken n wsz input =
+  let winnowing ct n wsz input =
     let bin, annot = binaryAndAnnotation input
     let hdl = Binary.Handle bin
     let span = hdl.File.RawBytes.Span
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else
-      Utils.buildNgram cancellationToken n span
-      |> computeFingerprint cancellationToken annot n wsz
+      Utils.buildNgram ct n span
+      |> computeFingerprint ct annot n wsz
       |> box
 
-  let fingerprintWith cancellationToken n wsz collection =
+  let fingerprintWith ct n wsz collection =
     { Values =
         collection.Values
-        |> Array.map (winnowing cancellationToken n wsz) }
+        |> Array.map (winnowing ct n wsz) }
 
-  let transform cancellationToken args collection =
-    let args: string list = args
+  let transform ct (args: string list) collection =
     let n, wsz =
       match args with
       | [] ->
@@ -104,9 +102,9 @@ type WinnowingAction() =
         Convert.ToInt32 n, Convert.ToInt32 w
       | _ ->
         invalidArg (nameof args) "Too many arguments given."
-    fingerprintWith cancellationToken n wsz collection
+    fingerprintWith ct n wsz collection
 
-  let transformNamed cancellationToken args collection =
+  let transformNamed ct args collection =
     let options = Map.ofList args
     let n =
       options
@@ -118,7 +116,7 @@ type WinnowingAction() =
       |> Map.tryFind "window-size"
       |> Option.map (fun (value: string) -> Convert.ToInt32 value)
       |> Option.defaultValue defaultWindowSize
-    fingerprintWith cancellationToken n wsz collection
+    fingerprintWith ct n wsz collection
 
   interface IAction with
     member _.ActionID with get() = "winnowing"
@@ -137,9 +135,9 @@ type WinnowingAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
   interface ICancellableNamedArgumentsAction with
-    member _.TransformNamed(args, collection, cancellationToken) =
-      transformNamed cancellationToken args collection
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection

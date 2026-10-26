@@ -29,9 +29,8 @@ open B2R2.FrontEnd
 
 /// The `bytes` action.
 type BytesAction() =
-  let convert cancellationToken (input: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let convert (ct: CancellationToken) (input: obj) =
+    ct.ThrowIfCancellationRequested()
     let binary =
       match input with
       | :? Binary as binary ->
@@ -48,8 +47,8 @@ type BytesAction() =
       Annotation = Binary.Annotation binary }
     |> box
 
-  let transform cancellationToken collection =
-    { Values = collection.Values |> Array.map (convert cancellationToken) }
+  let transform ct collection =
+    { Values = collection.Values |> Array.map (convert ct) }
 
   interface IAction with
     member _.ActionID with get() = "extract-bytes"
@@ -64,9 +63,9 @@ type BytesAction() =
         invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
+    member _.Transform(args, collection, ct) =
       match args with
       | [] ->
-        transform cancellationToken collection
+        transform ct collection
       | _ ->
         invalidArg (nameof args) "Invalid argument."

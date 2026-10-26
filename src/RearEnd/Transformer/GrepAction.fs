@@ -98,7 +98,7 @@ type GrepAction() =
       invalidArg "args" "Invalid grep arguments."
 
   let grepBytes
-    cancellationToken
+    (ct: CancellationToken)
     source
     addressAt
     endAddressAt
@@ -106,13 +106,12 @@ type GrepAction() =
     bytesBefore
     bytesAfter
     (bs: ReadOnlySpan<byte>) =
-    let cancellationToken: CancellationToken = cancellationToken
     let length = bs.Length
     let hs = Convert.ToHexString bs
     let regex = Regex(pattern, RegexOptions.IgnoreCase)
     regex.Matches hs
     |> Seq.choose (fun m ->
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       if m.Index % 2 = 0 && m.Length % 2 = 0 then
         Some(m.Index / 2, m.Length / 2)
       else
@@ -128,12 +127,12 @@ type GrepAction() =
         Label = Some $"grep match=0x{matchAddress:x}" })
     |> Seq.toArray
 
-  let grepFromBinary cancellationToken pattern before after bin =
+  let grepFromBinary ct pattern before after bin =
     let hdl = Binary.Handle bin
     let addressAt offset = mappedAddress bin (uint64 offset)
     let endAddressAt offset = mappedEndAddress bin (uint64 offset)
     grepBytes
-      cancellationToken
+      ct
       bin
       addressAt
       endAddressAt
@@ -142,11 +141,10 @@ type GrepAction() =
       after
       hdl.File.RawBytes.Span
 
-  let grepFromSlice cancellationToken pattern before after slice =
-    let slice: BinarySlice = slice
+  let grepFromSlice ct pattern before after (slice: BinarySlice) =
     let addressAt offset = slice.StartAddress + uint64 offset
     grepBytes
-      cancellationToken
+      ct
       slice.Source
       addressAt
       addressAt
@@ -155,34 +153,33 @@ type GrepAction() =
       after
       (ReadOnlySpan slice.Bytes)
 
-  let grep cancellationToken pattern bytesBefore bytesAfter (input: obj) =
+  let grep ct pattern bytesBefore bytesAfter (input: obj) =
     match input with
     | :? Binary as bin ->
-      grepFromBinary cancellationToken pattern bytesBefore bytesAfter bin
+      grepFromBinary ct pattern bytesBefore bytesAfter bin
       |> Array.map box
     | :? BinarySlice as slice ->
-      grepFromSlice cancellationToken pattern bytesBefore bytesAfter slice
+      grepFromSlice ct pattern bytesBefore bytesAfter slice
       |> Array.map box
     | _ ->
       invalidArg (nameof input) "Invalid object is given."
 
-  let grepTuple cancellationToken before after (left: obj, right: obj) =
+  let grepTuple ct before after (left: obj, right: obj) =
     match left, right with
     | (:? Binary as bin), (:? BinaryBytes as bytes) ->
-      grepFromBinary cancellationToken (bytesPattern bytes) before after bin
+      grepFromBinary ct (bytesPattern bytes) before after bin
       |> Array.map box
     | (:? BinarySlice as slice), (:? BinaryBytes as bytes) ->
-      grepFromSlice cancellationToken (bytesPattern bytes) before after slice
+      grepFromSlice ct (bytesPattern bytes) before after slice
       |> Array.map box
     | _ ->
       invalidArg "input" "Invalid tuple is given."
 
-  let transform cancellationToken args collection =
-    let args: string list = args
+  let transform ct (args: string list) collection =
     let collectTuple before after =
       match collection.Values with
       | [| left; right |] ->
-        grepTuple cancellationToken before after (left, right)
+        grepTuple ct before after (left, right)
       | _ ->
         invalidArg (nameof collection) "Two tuple values are required."
     let isTupleInput () =
@@ -193,7 +190,7 @@ type GrepAction() =
         false
     let collect pattern before after =
       collection.Values
-      |> Array.collect (grep cancellationToken pattern before after)
+      |> Array.collect (grep ct pattern before after)
     if isTupleInput () then
       let before, after = tupleContext args
       { Values = collectTuple before after }
@@ -228,5 +225,5 @@ type GrepAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

@@ -29,9 +29,8 @@ open System.Threading
 
 /// The `pick` action.
 type PickAction() =
-  let transform cancellationToken (args: string list) collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let transform (ct: CancellationToken) (args: string list) collection =
+    ct.ThrowIfCancellationRequested()
     match args with
     | [ indexText ] ->
       match Int32.TryParse indexText with
@@ -53,5 +52,5 @@ type PickAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

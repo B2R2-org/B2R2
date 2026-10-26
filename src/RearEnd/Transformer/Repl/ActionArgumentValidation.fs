@@ -115,8 +115,7 @@ module ActionArgumentValidation =
         false
 
   let private sectionExists (input: ReplValue) sectionName =
-    let sectionInsideSlice (slice: BinarySlice) section =
-      let section: BinSection = section
+    let sectionInsideSlice (slice: BinarySlice) (section: BinSection) =
       let finish = section.Address + section.FileSize
       section.Address >= slice.StartAddress && finish <= slice.EndAddress
     input.Collection.Values
@@ -134,9 +133,7 @@ module ActionArgumentValidation =
       | _ ->
         false)
 
-  let private validateWith sectionExists argument value =
-    let argument: ActionArgument = argument
-    let value: string = value
+  let private validateWith sectionExists (argument: ActionArgument) value =
     let valid, expected =
       match argument.Kind with
       | ActionArgumentKind.Text ->
@@ -183,9 +180,7 @@ module ActionArgumentValidation =
   let validate input argument value =
     validateWith (sectionExists input) argument value
 
-  let canonicalize argument value =
-    let argument: ActionArgument = argument
-    let value: string = value
+  let canonicalize (argument: ActionArgument) (value: string) =
     match argument.Kind with
     | ActionArgumentKind.Integer ->
       tryParseInt32 value
@@ -202,8 +197,7 @@ module ActionArgumentValidation =
     | _ ->
       value
 
-  let canSuggestBinding argument value =
-    let argument: ActionArgument = argument
+  let canSuggestBinding (argument: ActionArgument) value =
     match argument.Kind with
     | ActionArgumentKind.Path
     | ActionArgumentKind.ExistingPath

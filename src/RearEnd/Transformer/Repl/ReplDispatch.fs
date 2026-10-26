@@ -34,7 +34,7 @@ module internal ReplDispatch =
     registry
     state
     input
-    cancellationToken
+    ct
     loadScript =
     function
     | Error message ->
@@ -95,4 +95,4 @@ module internal ReplDispatch =
         binding
         expected
         input
-        cancellationToken
+        ct

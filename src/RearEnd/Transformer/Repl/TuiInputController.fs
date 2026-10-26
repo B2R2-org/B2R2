@@ -251,16 +251,13 @@ module TransformerTuiInputController =
   let private submitShellInput model =
     submitPhrase model.Input model
 
-  let private isBrowsingHistory model =
-    let model: TransformerTuiModel = model
+  let private isBrowsingHistory (model: TransformerTuiModel) =
     model.ShellInputMode = TuiShellInputMode.HistoryBrowsing
 
-  let private isEditingHistoryInput model =
-    let model: TransformerTuiModel = model
+  let private isEditingHistoryInput (model: TransformerTuiModel) =
     model.ShellInputMode = TuiShellInputMode.HistoryEditing
 
-  let private isNormalInput model =
-    let model: TransformerTuiModel = model
+  let private isNormalInput (model: TransformerTuiModel) =
     model.ShellInputMode = TuiShellInputMode.Normal
 
   let private hasMultipleInputLines model =
@@ -325,11 +322,10 @@ module TransformerTuiInputController =
       None
 
   let private handleControlKey completion key model =
-    let completion: SuggestionSet = completion
-    let key: ConsoleKeyInfo = key
     let canEditInput =
-      model.Overlay = TuiOverlay.None && model.Focus = TuiFocus.Shell
-    match key.Key, canEditInput with
+      (model: TransformerTuiModel).Overlay = TuiOverlay.None
+      && model.Focus = TuiFocus.Shell
+    match (key: ConsoleKeyInfo).Key, canEditInput with
     | ConsoleKey.A, true ->
       TransformerTuiModel.moveHome model
     | ConsoleKey.E, true ->
@@ -344,7 +340,7 @@ module TransformerTuiInputController =
     | ConsoleKey.L, _ ->
       TransformerTuiModel.clearTranscript model
     | ConsoleKey.N, _ ->
-      let count = List.length completion.Items
+      let count = List.length (completion: SuggestionSet).Items
       TransformerTuiModel.selectSuggestion 1 count model
     | ConsoleKey.P, _ ->
       let count = List.length completion.Items

@@ -35,8 +35,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The `list` action.
 type ListAction() =
-  let sectionInfo bin section =
-    let section: BinSection = section
+  let sectionInfo bin (section: BinSection) =
     { Source = bin
       Name = section.Name
       Address = section.Address
@@ -71,13 +70,13 @@ type ListAction() =
     |> Array.sort
     |> Array.map (functionInfo bin hdl)
 
-  let listFunctions (cancellationToken: CancellationToken) (input: obj) =
+  let listFunctions (ct: CancellationToken) (input: obj) =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
     BinaryAnalysis.recoveredFunctions bin
     |> fun functions -> functions.Sequence
     |> Seq.map (fun fn ->
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       fn.EntryPoint)
     |> Seq.distinct
     |> Seq.sort
@@ -98,22 +97,21 @@ type ListAction() =
       Disassemblies = disassemblies }
     |> box
 
-  let listNodes (cancellationToken: CancellationToken) (input: obj) =
+  let listNodes (ct: CancellationToken) (input: obj) =
     match unbox<CFG> input with
     | CFG(_, ir, _) as cfg ->
       ir.Vertices
       |> Array.map (fun vertex ->
-        cancellationToken.ThrowIfCancellationRequested()
+        ct.ThrowIfCancellationRequested()
         nodeInfo cfg vertex)
     | NoCFG _ ->
       [||]
 
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     let collect operation =
       collection.Values
       |> Array.collect (fun value ->
-        cancellationToken.ThrowIfCancellationRequested()
+        ct.ThrowIfCancellationRequested()
         operation value)
     match args with
     | [ "sections" ] ->
@@ -121,11 +119,11 @@ type ListAction() =
     | [ "functions" ] ->
       { Values =
           collection.Values
-          |> Array.collect (listFunctions cancellationToken) }
+          |> Array.collect (listFunctions ct) }
     | [ "known-functions" ] ->
       { Values = collect listKnownFunctions }
     | [ "nodes" ] ->
-      { Values = collect (listNodes cancellationToken) }
+      { Values = collect (listNodes ct) }
     | _ ->
       invalidArg (nameof args) "Invalid argument."
 
@@ -148,5 +146,5 @@ type ListAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

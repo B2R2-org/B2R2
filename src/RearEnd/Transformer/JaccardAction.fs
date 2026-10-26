@@ -28,9 +28,8 @@ open System.Threading
 
 /// The `jaccard` action.
 type JaccardAction() =
-  let jaccard cancellationToken fp0 fp1 =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let jaccard (ct: CancellationToken) fp0 fp1 =
+    ct.ThrowIfCancellationRequested()
     match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
     | fp0, fp1 ->
       let s0 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp0.Patterns
@@ -38,12 +37,12 @@ type JaccardAction() =
       float (Set.intersect s0 s1 |> Set.count)
       / float (Set.union s0 s1 |> Set.count)
 
-  let transform cancellationToken (args: string list) collection =
+  let transform ct (args: string list) collection =
     if args.Length <> 0 then
       invalidArg (nameof args) "No arguments should be given."
     elif collection.Values.Length = 2 then
       let value =
-        jaccard cancellationToken collection.Values[0] collection.Values[1]
+        jaccard ct collection.Values[0] collection.Values[1]
       { Values = [| value |] }
     else
       invalidArg (nameof collection) "Two fingerprints should be given."
@@ -59,5 +58,5 @@ type JaccardAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

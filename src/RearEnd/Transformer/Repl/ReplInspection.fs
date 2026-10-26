@@ -84,8 +84,7 @@ module TransformerReplInspection =
     |> Array.choose id
     |> Array.toList
 
-  let inspect value =
-    let value: ReplValue = value
+  let inspect (value: ReplValue) =
     value.Collection.Values
     |> Array.tryPick (function
       | :? Binary as binary ->

@@ -37,15 +37,14 @@ type DetectAction() =
     |> OutputColored
     |> box
 
-  let detectFile cancellationToken fp path =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let detectFile (ct: CancellationToken) fp path =
+    ct.ThrowIfCancellationRequested()
     let bs = File.ReadAllBytes path
     let span = ReadOnlySpan bs
     let ngramCount = span.Length - fp.NGramSize + 1
     let ngrams = HashSet<int>(ngramCount)
     for index = 0 to ngramCount - 1 do
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       ngrams.Add(Utils.hashNgram span index fp.NGramSize) |> ignore
     let matchCnt =
       fp.Patterns
@@ -54,28 +53,28 @@ type DetectAction() =
         if ngrams.Contains hash then cnt + 1 else cnt) 0
     path, float matchCnt / float fp.Patterns.Length
 
-  let detectDir cancellationToken fp path =
+  let detectDir ct fp path =
     Directory.GetFiles path
-    |> Array.map (detectFile cancellationToken fp)
+    |> Array.map (detectFile ct fp)
     |> Array.sortByDescending snd
     |> Array.map resultToString
     |> box
 
-  let detect cancellationToken path input =
+  let detect ct path input =
     let fp = unbox<Fingerprint> input
     if File.Exists path then
-      detectFile cancellationToken fp path |> resultToString
+      detectFile ct fp path |> resultToString
     elif Directory.Exists path then
-      detectDir cancellationToken fp path
+      detectDir ct fp path
     else
       invalidArg (nameof path) "File not found."
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     match args with
     | [ path ] ->
       { Values =
           collection.Values
-          |> Array.map (detect cancellationToken path) }
+          |> Array.map (detect ct path) }
     | [] ->
       invalidArg (nameof args) "A path should be given."
     | _ ->
@@ -96,5 +95,5 @@ type DetectAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

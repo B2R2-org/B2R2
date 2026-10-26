@@ -114,9 +114,8 @@ module internal ReplArguments =
   let equalsIgnoreCase left right =
     String.Equals(left, right, StringComparison.OrdinalIgnoreCase)
 
-  let private positionalArgumentsAllowed parsed syntax =
-    let parsed: ParsedArguments = parsed
-    let syntax: ActionSyntax = syntax
+  let private positionalArgumentsAllowed
+    (parsed: ParsedArguments) (syntax: ActionSyntax) =
     let positional = parsed.Positional
     let arguments = List.truncate (List.length positional) syntax.Arguments
     List.length arguments = List.length positional
@@ -124,8 +123,7 @@ module internal ReplArguments =
        |> List.forall (fun argument ->
          argument.Kind = ActionArgumentKind.Action)
 
-  let private tryTakeTrigger parsed syntax =
-    let syntax: ActionSyntax = syntax
+  let private tryTakeTrigger parsed (syntax: ActionSyntax) =
     match syntax.Trigger with
     | None ->
       Some parsed
@@ -249,8 +247,7 @@ module internal ReplArguments =
     |> List.tryFind Result.isError
     |> Option.defaultValue (Ok())
 
-  let private canonicalArguments candidate =
-    let candidate: NormalizedSyntax = candidate
+  let private canonicalArguments (candidate: NormalizedSyntax) =
     let rec loop output arguments values =
       match arguments, values with
       | argument :: arguments, value :: values ->
@@ -266,8 +263,7 @@ module internal ReplArguments =
     | _ ->
       loop [] candidate.Syntax.Arguments candidate.Arguments
 
-  let private canonicalAssignments candidate =
-    let candidate: NormalizedSyntax = candidate
+  let private canonicalAssignments (candidate: NormalizedSyntax) =
     candidate.Assignments
     |> Option.map (fun assignments ->
       assignments

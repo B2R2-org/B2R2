@@ -138,7 +138,7 @@ module internal ReplPipeline =
     (registered: RegisteredAction)
     (input: ReplValue)
     (segment: ReplPipelineSegment)
-    cancellationToken =
+    ct =
     let metadata = registered.Metadata
     if not (ReplTypeAnalysis.acceptsInput input.Kind metadata) then
       actionInputError input metadata |> Error
@@ -149,7 +149,7 @@ module internal ReplPipeline =
         |> List.map ReplLanguage.unquote
         |> compactBracketArguments
       let transformWith =
-        transformWith registered input segment cancellationToken
+        transformWith registered input segment ct
       let isDirectSymbolic =
         metadata.ID = "run-symbolic"
         && (input.Kind = ReplValueKind.Binary
@@ -160,7 +160,7 @@ module internal ReplPipeline =
             if args |> List.exists (parameterValue "solver" >> Option.isSome)
             then args
             else "solver=symb-z3" :: args
-          registerSymbSolver registry solverArgs cancellationToken
+          registerSymbSolver registry solverArgs ct
         else
           Ok registry
       ready
@@ -194,7 +194,7 @@ module internal ReplPipeline =
     registered
     spec
     segment
-    cancellationToken
+    ct
     output
     outputKinds
     index
@@ -212,7 +212,7 @@ module internal ReplPipeline =
         registered
         (singletonValue item)
         itemSegment
-        cancellationToken
+        ct
       |> Result.map (fun value ->
         appendIterValue output outputKinds value)
 
@@ -221,7 +221,7 @@ module internal ReplPipeline =
     state
     (input: ReplValue)
     (segment: ReplPipelineSegment)
-    (cancellationToken: CancellationToken) =
+    (ct: CancellationToken) =
     let output = ResizeArray<obj>()
     let outputKinds = ResizeArray<ReplValueKind>()
     if not input.IsCollection then
@@ -238,7 +238,7 @@ module internal ReplPipeline =
             if index >= values.Length then
               completeIter output outputKinds |> Ok
             else
-              cancellationToken.ThrowIfCancellationRequested()
+              ct.ThrowIfCancellationRequested()
               let item = values[index]
               invokeIterItem
                 registry
@@ -246,7 +246,7 @@ module internal ReplPipeline =
                 registered
                 spec
                 segment
-                cancellationToken
+                ct
                 output
                 outputKinds
                 index
@@ -254,32 +254,32 @@ module internal ReplPipeline =
               |> Result.bind (fun () -> loop (index + 1))
           loop 0)
 
-  let private runRemaining registry state initial segments cancellationToken =
+  let private runRemaining registry state initial segments ct =
     segments
     |> List.fold (fun result segment ->
       result
       |> Result.bind (fun input ->
         if isIterHead segment.Head then
-          invokeIter registry state input segment cancellationToken
+          invokeIter registry state input segment ct
         else
           match tryFindAction registry segment.Head with
           | Some registered ->
-            invoke registry state registered input segment cancellationToken
+            invoke registry state registered input segment ct
           | None ->
             Error $"Unknown action: {actionID segment.Head}")) (Ok initial)
 
-  let rec private runPipeline registry state segments cancellationToken =
+  let rec private runPipeline registry state segments ct =
     match segments with
     | [] ->
       Error "An expression is required."
     | first :: rest ->
       let evalElement segments =
-        runPipeline registry state segments cancellationToken
+        runPipeline registry state segments ct
       match tryLiteral state evalElement first with
       | Error message ->
         Error message
       | Ok(Some value) ->
-        runRemaining registry state value rest cancellationToken
+        runRemaining registry state value rest ct
       | Ok None ->
         let binding =
           if isActionReference first.Head
@@ -289,15 +289,15 @@ module internal ReplPipeline =
             TransformerReplState.tryFind first.Head state
         match binding with
         | Some value ->
-          runRemaining registry state value rest cancellationToken
+          runRemaining registry state value rest ct
         | None ->
           if isIterHead first.Head then
             state.Current
             |> ofOption $"{first.Head} requires a current collection."
             |> Result.bind (fun value ->
-              invokeIter registry state value first cancellationToken)
+              invokeIter registry state value first ct)
             |> Result.bind (fun value ->
-              runRemaining registry state value rest cancellationToken)
+              runRemaining registry state value rest ct)
           else
             match tryFindAction registry first.Head with
             | Some registered ->
@@ -311,9 +311,9 @@ module internal ReplPipeline =
                     $"{registered.Metadata.ID} requires a current value."
               input
               |> Result.bind (fun value ->
-                invoke registry state registered value first cancellationToken)
+                invoke registry state registered value first ct)
               |> Result.bind (fun value ->
-                runRemaining registry state value rest cancellationToken)
+                runRemaining registry state value rest ct)
             | None ->
               Error $"Unknown value or action: {first.Head}"
 
@@ -328,8 +328,7 @@ module internal ReplPipeline =
     | _ ->
       Ok value
 
-  let private sourceActionLabel registry segment =
-    let segment: ReplPipelineSegment = segment
+  let private sourceActionLabel registry (segment: ReplPipelineSegment) =
     if isIterHead segment.Head then
       ReplLanguage.analyzeIter segment.Head segment.Arguments
       |> _.ActionID
@@ -393,8 +392,8 @@ module internal ReplPipeline =
     binding
     expected
     command
-    cancellationToken =
-    match runPipeline registry state segments cancellationToken with
+    ct =
+    match runPipeline registry state segments ct with
     | Error message ->
       fail registry state message
     | Ok value ->
