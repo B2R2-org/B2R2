@@ -332,6 +332,30 @@ module TransformerRepl =
     documentationViewTitle command
     |> Option.defaultValue $"Command: {command}"
 
+  let private controlItemCommands command (session: TransformerReplState) =
+    match InputAnalysis.splitWords command with
+    | [ ":values" ] ->
+      session.ValueHistory
+      |> List.rev
+      |> List.map (fun entry -> $":restore {entry.ID}")
+      |> List.toArray
+    | [ ":history" ] ->
+      session.CommandHistory |> List.rev |> List.toArray
+    | ":inspect" :: args when List.length args <= 1 ->
+      let name = args |> List.tryHead |> Option.defaultValue ""
+      let value =
+        if name = "" then session.Current
+        else TransformerReplState.tryFind name session
+      value
+      |> Option.map TransformerReplInspection.inspect
+      |> Option.defaultValue []
+      |> List.map (fun item ->
+        if name = "" then item.Command
+        else $"{name} |> {item.Command}")
+      |> List.toArray
+    | _ ->
+      [||]
+
   let private finishControlEvaluation command evaluation model =
     match evaluation with
     | Exit(registry, session) ->
@@ -347,7 +371,9 @@ module TransformerRepl =
       let title = controlViewTitle command
       let lines =
         output.Lines |> Seq.map toTuiLine |> Seq.toList
-      let model = TransformerTuiModel.openTextView title lines model
+      let commands = controlItemCommands command session
+      let model =
+        TransformerTuiModel.openCommandView title lines commands model
       registry, model, false
 
   let private failShellEvaluation (error: exn) model =
@@ -705,16 +731,25 @@ module TransformerRepl =
           dirty <- true
         | _ ->
           ()
+        let mouseModel =
+          TransformerTuiInputController.advanceMouseDrag width height model
+        if mouseModel.LastMouseScrollAt <> model.LastMouseScrollAt then
+          model <- mouseModel
+          dirty <- true
+        else
+          ()
         if not shouldExit then
           match readInput () with
           | None ->
             ()
           | Some(TuiInputEvent.Mouse mouse) ->
+            let completion = currentSuggestions ()
             match running with
             | Some _ ->
-              ()
+              TransformerTuiInputController.handlePassiveMouse
+                width height completion mouse model
+              |> applyInputResult
             | None ->
-              let completion = currentSuggestions ()
               TransformerTuiInputController.handleMouse
                 width height completion mouse model
               |> applyInputResult

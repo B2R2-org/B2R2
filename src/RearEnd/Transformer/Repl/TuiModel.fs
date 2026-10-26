@@ -208,15 +208,33 @@ type TuiTextCursor =
   { Line: int
     Column: int }
 
+/// Last press retained to recognize multi-clicks across terminal backends.
+type TuiRecentClick =
+  { Button: int
+    Row: int
+    Column: int
+    At: int64
+    Count: int }
+
+[<RequireQualifiedAccess>]
+type TuiMouseDragTarget =
+  | Input
+  | Transcript
+  | View
+  | SidebarDivider
+  | SuggestionDivider
+
 /// View pane state for one command result.
 type TuiViewPane =
   { Title: string
     BlockIndex: int
     Lines: TuiLine array
+    ItemCommands: string array
     VisibleLengths: int array
     Cursor: TuiTextCursor
     Anchor: TuiTextCursor option
     FindText: string
+    FindCursor: int
     IsFinding: bool }
 
 /// Persistent transcript optimized for appending small batches of lines.
@@ -293,6 +311,7 @@ type TransformerTuiModel =
     TranscriptCursor: TuiTextCursor
     TranscriptAnchor: TuiTextCursor option
     TranscriptFindText: string
+    TranscriptFindCursor: int
     IsFindingTranscript: bool
     ViewPane: TuiViewPane option
     HistoryIndex: int option
@@ -301,10 +320,15 @@ type TransformerTuiModel =
     SuggestionIndex: int
     Overlay: TuiOverlay
     Focus: TuiFocus
+    RecentClick: TuiRecentClick option
+    MouseDragTarget: TuiMouseDragTarget option
+    MouseDragPosition: (int * int) option
+    LastMouseScrollAt: int64
     OverlaySelection: int
     FoldTarget: int option
     CollapsedCommands: Set<int>
     SidebarWidth: int option
+    SidebarScrollOffset: int
     SuggestionHeight: int
     BottomPaneOrder: TuiBottomPaneOrder
     Status: string
@@ -394,6 +418,7 @@ module TransformerTuiModel =
       TranscriptCursor = { Line = 0; Column = 0 }
       TranscriptAnchor = None
       TranscriptFindText = ""
+      TranscriptFindCursor = 0
       IsFindingTranscript = false
       ViewPane = None
       HistoryIndex = None
@@ -402,10 +427,15 @@ module TransformerTuiModel =
       SuggestionIndex = 0
       Overlay = TuiOverlay.None
       Focus = TuiFocus.Shell
+      RecentClick = None
+      MouseDragTarget = None
+      MouseDragPosition = None
+      LastMouseScrollAt = 0L
       OverlaySelection = 0
       FoldTarget = None
       CollapsedCommands = Set.empty
       SidebarWidth = None
+      SidebarScrollOffset = 0
       SuggestionHeight = defaultSuggestionHeight
       BottomPaneOrder = TuiBottomPaneOrder.ShellAboveSuggestions
       Status = "Ready"
@@ -530,6 +560,7 @@ module TransformerTuiModel =
         TranscriptCursor = { Line = 0; Column = 0 }
         TranscriptAnchor = None
         TranscriptFindText = ""
+        TranscriptFindCursor = 0
         IsFindingTranscript = false
         ViewPane = None
         CollapsedCommands = Set.empty
@@ -576,6 +607,12 @@ module TransformerTuiModel =
         PaletteCursor = 0
         PaletteFilter = ""
         PaletteSuggestionIndex = 0 }
+
+  let openCommandPaletteWith input model =
+    { openCommandPalette model with
+        PaletteInput = input
+        PaletteCursor = input.Length
+        PaletteFilter = input }
 
   let closeViewPane model =
     { model with
@@ -850,6 +887,45 @@ module TransformerTuiModel =
         TranscriptViewportStart = None }
     |> clearTranscriptFocusStatus
 
+  let private isWordCharacter character =
+    Char.IsLetterOrDigit character || character = '_'
+
+  let private wordRange (text: string) cursor =
+    if String.IsNullOrEmpty text then
+      0, 0
+    else
+      let index = min (text.Length - 1) cursor
+      let index =
+        let previousWord =
+          index > 0 && isWordCharacter text[index - 1]
+        if previousWord && not (isWordCharacter text[index]) then
+          index - 1
+        else
+          index
+      if not (isWordCharacter text[index]) then
+        index, index + 1
+      else
+        let mutable start = index
+        let mutable finish = index + 1
+        while start > 0 && isWordCharacter text[start - 1] do
+          start <- start - 1
+        while finish < text.Length && isWordCharacter text[finish] do
+          finish <- finish + 1
+        start, finish
+
+  let selectInputWord model =
+    let start, finish = wordRange model.Input model.Cursor
+    { moveInputCursorTo finish false model with InputAnchor = Some start }
+
+  let selectInputLine model =
+    let cursor = model.Cursor
+    let start =
+      if cursor = 0 then 0
+      else model.Input.LastIndexOf('\n', cursor - 1) + 1
+    let finish = model.Input.IndexOf('\n', cursor)
+    let finish = if finish < 0 then model.Input.Length else finish
+    { moveInputCursorTo finish false model with InputAnchor = Some start }
+
   let deleteToStart model =
     let input = model.Input[model.Cursor..]
     editInput input 0 model
@@ -953,6 +1029,26 @@ module TransformerTuiModel =
 
   let setSidebarWidth width model =
     { model with SidebarWidth = width }
+
+  let sidebarValues model =
+    let lastResult =
+      TransformerReplState.tryLastResult model.Session
+      |> Option.map (fun value ->
+        TransformerReplState.LastResultName, value)
+      |> Option.toList
+    let bindings = model.Session.Bindings |> Map.toList
+    lastResult @ bindings
+
+  let sidebarWindowStart visibleRows model =
+    let count = sidebarValues model |> List.length
+    min model.SidebarScrollOffset (max 0 (count - visibleRows))
+
+  let scrollSidebar visibleRows amount model =
+    let count = sidebarValues model |> List.length
+    let maximum = max 0 (count - visibleRows)
+    let offset =
+      model.SidebarScrollOffset + amount |> max 0 |> min maximum
+    { model with SidebarScrollOffset = offset }
 
   let setSuggestionHeight height model =
     { model with SuggestionHeight = max 1 height }
@@ -1422,6 +1518,29 @@ module TransformerTuiModel =
             TranscriptViewportStart = Some layout.ViewportStart
             Status = "Transcript focused" })
 
+  let selectTranscriptWord model =
+    let cursor = model.TranscriptCursor
+    transcriptLines model
+    |> List.tryItem cursor.Line
+    |> Option.map (fun line ->
+      let text = TransformerTuiText.sanitize line.Text
+      let start, finish = wordRange text cursor.Column
+      { model with
+          TranscriptCursor = { cursor with Column = finish }
+          TranscriptAnchor = Some { cursor with Column = start } })
+    |> Option.defaultValue model
+
+  let selectTranscriptLine model =
+    let cursor = model.TranscriptCursor
+    transcriptLines model
+    |> List.tryItem cursor.Line
+    |> Option.map (fun line ->
+      let length = TransformerTuiText.sanitize line.Text |> String.length
+      { model with
+          TranscriptCursor = { cursor with Column = length }
+          TranscriptAnchor = Some { cursor with Column = 0 } })
+    |> Option.defaultValue model
+
   let private horizontalTranscriptColumn rows current offset column =
     let row = (rows: TuiTranscriptLine array)[current]
     if offset > 0 && column >= row.TextEnd then
@@ -1571,19 +1690,42 @@ module TransformerTuiModel =
       let index = List.length positions - 1
       selectTranscriptCommand width height positions index model
 
+  let private insertFindChar (text: string) cursor chr =
+    let cursor = max 0 (min text.Length cursor)
+    text.Insert(cursor, string chr), cursor + 1
+
+  let private backspaceFindChar (text: string) cursor =
+    let cursor = max 0 (min text.Length cursor)
+    if cursor = 0 then text, cursor
+    else text.Remove(cursor - 1, 1), cursor - 1
+
   let setTranscriptFind active model =
-    { model with IsFindingTranscript = active; TranscriptFindText = "" }
+    { model with
+        IsFindingTranscript = active
+        TranscriptFindText = ""
+        TranscriptFindCursor = 0 }
+
+  let setTranscriptFindCursor cursor model =
+    { model with
+        TranscriptFindCursor =
+          max 0 (min model.TranscriptFindText.Length cursor) }
+
+  let moveTranscriptFindCursor offset model =
+    setTranscriptFindCursor (model.TranscriptFindCursor + offset) model
 
   let appendTranscriptFind chr model =
-    { model with TranscriptFindText = model.TranscriptFindText + string chr }
+    let text, cursor =
+      insertFindChar model.TranscriptFindText model.TranscriptFindCursor chr
+    { model with
+        TranscriptFindText = text
+        TranscriptFindCursor = cursor }
 
   let backspaceTranscriptFind model =
-    if String.IsNullOrEmpty model.TranscriptFindText then
-      model
-    else
-      { model with
-          TranscriptFindText =
-            model.TranscriptFindText[..model.TranscriptFindText.Length - 2] }
+    let text, cursor =
+      backspaceFindChar model.TranscriptFindText model.TranscriptFindCursor
+    { model with
+        TranscriptFindText = text
+        TranscriptFindCursor = cursor }
 
   let private transcriptLineContains
     (needle: string)
@@ -1667,10 +1809,12 @@ module TransformerTuiModel =
       { Title = title
         BlockIndex = blockIndex
         Lines = lineArray
+        ItemCommands = [||]
         VisibleLengths = visibleLengths
         Cursor = { Line = 0; Column = 0 }
         Anchor = None
         FindText = ""
+        FindCursor = 0
         IsFinding = false }
     { model with
         Overlay = TuiOverlay.View
@@ -1681,6 +1825,15 @@ module TransformerTuiModel =
 
   let openTextView title lines model =
     openViewPaneWithLines title -1 lines model
+
+  let openCommandView title lines commands model =
+    let model = openTextView title lines model
+    match model.ViewPane with
+    | Some pane ->
+      { model with
+          ViewPane = Some { pane with ItemCommands = commands } }
+    | None ->
+      model
 
   let openViewPane blockIndex model =
     let lines =
@@ -1764,6 +1917,30 @@ module TransformerTuiModel =
       { pane with Cursor = cursor; Anchor = anchor }
     updateViewPane update model
 
+  let selectViewWord model =
+    match model.ViewPane with
+    | Some pane ->
+      let line = pane.Cursor.Line
+      let text = TransformerTuiText.sanitize pane.Lines[line].Text
+      let start, finish = wordRange text pane.Cursor.Column
+      let cursor = { Line = line; Column = finish }
+      let anchor = { Line = line; Column = start }
+      { model with
+          ViewPane = Some { pane with Cursor = cursor; Anchor = Some anchor } }
+    | None ->
+      model
+
+  let selectViewLine model =
+    match model.ViewPane with
+    | Some pane ->
+      let line = pane.Cursor.Line
+      let cursor = { Line = line; Column = pane.VisibleLengths[line] }
+      let anchor = { Line = line; Column = 0 }
+      { model with
+          ViewPane = Some { pane with Cursor = cursor; Anchor = Some anchor } }
+    | None ->
+      model
+
   let moveViewToFirstLine extend model = moveViewCursorTo 0 0 extend model
 
   let moveViewToLastLine extend model =
@@ -1793,20 +1970,30 @@ module TransformerTuiModel =
     updateViewPane update model
 
   let setViewFind active model =
-    let update pane = { pane with IsFinding = active; FindText = "" }
+    let update pane =
+      { pane with IsFinding = active; FindText = ""; FindCursor = 0 }
     updateViewPane update model
+
+  let setViewFindCursor cursor model =
+    let update pane =
+      { pane with FindCursor = max 0 (min pane.FindText.Length cursor) }
+    updateViewPane update model
+
+  let moveViewFindCursor offset model =
+    let cursor =
+      model.ViewPane |> Option.map _.FindCursor |> Option.defaultValue 0
+    setViewFindCursor (cursor + offset) model
 
   let appendViewFind chr model =
     let update pane =
-      { pane with FindText = pane.FindText + string chr }
+      let text, cursor = insertFindChar pane.FindText pane.FindCursor chr
+      { pane with FindText = text; FindCursor = cursor }
     updateViewPane update model
 
   let backspaceViewFind model =
     let update pane =
-      if String.IsNullOrEmpty pane.FindText then
-        pane
-      else
-        { pane with FindText = pane.FindText[..pane.FindText.Length - 2] }
+      let text, cursor = backspaceFindChar pane.FindText pane.FindCursor
+      { pane with FindText = text; FindCursor = cursor }
     updateViewPane update model
 
   let private lineContains (needle: string) (line: TuiLine) =

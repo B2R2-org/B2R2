@@ -239,8 +239,8 @@ module TransformerTuiTerminal =
       let eventFlags = BitConverter.ToUInt32(bytes, offset + 12)
       let button =
         if hasFlag buttonState FirstMouseButton then 0
-        elif hasFlag buttonState RightMouseButton then 1
-        else 0
+        elif hasFlag buttonState RightMouseButton then 2
+        else 3
       if hasFlag eventFlags MouseWheeled then
         let delta = int16 (buttonState >>> 16)
         let button = if delta > 0s then 64 else 65

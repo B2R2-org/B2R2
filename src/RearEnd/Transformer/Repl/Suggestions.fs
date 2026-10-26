@@ -95,6 +95,8 @@ module Suggestions =
       ":undo", "Undo the most recent value change"
       ":values", "Show retained value history" ]
 
+  let commandPaletteMaxItems = 5
+
   let commandPaletteCandidates (input: string) =
     let input = input.TrimStart()
     let input =
@@ -103,7 +105,7 @@ module Suggestions =
     |> List.map (fun (command, detail) -> command[1..], detail)
     |> List.filter (fun (command, _) ->
       command.StartsWith(input, StringComparison.OrdinalIgnoreCase))
-    |> List.truncate 5
+    |> List.truncate commandPaletteMaxItems
 
   let private matches prefix (candidate: string) =
     candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
