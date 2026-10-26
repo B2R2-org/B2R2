@@ -601,8 +601,8 @@ type SymbExecutorValue(binary: Binary,
     spec.Regions |> List.fold applyRegion executor
 
   member _.WithExecutionSetup(entry, layout: ExecutionLayout, symRegs) =
-    let symRegs: SymbSymbolicRegisterAssignment list = symRegs
-    (symRegs |> List.map _.Register)
+    ((symRegs: SymbSymbolicRegisterAssignment list)
+     |> List.map _.Register)
     @ (layout.Buffers |> List.map _.Register)
     |> ExecutionSetup.validateRegisterNames (Binary.Handle binary)
     let nextState = state.Clone()
@@ -1786,11 +1786,11 @@ type SymbExecAction() =
     member _.Metadata with get() = metadata
 
   interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
+    member _.Transform(args, collection, _) =
       transform args collection
 
   interface ICancellableNamedArgumentsAction with
-    member _.TransformNamed(args, collection, _cancellationToken) =
+    member _.TransformNamed(args, collection, _) =
       transformNamed args collection
 
 type SymbSearchAction() =

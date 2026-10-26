@@ -214,14 +214,14 @@ module TransformerRepl =
         { Kind = TuiLineKind.Command; Text = command } :: output)
     replay.Parent @ commandLines
 
-  let private previewTuiLines height cancellationToken (lines: TuiLine seq) =
+  let private previewTuiLines height ct (lines: TuiLine seq) =
     let maxInline = max 6 (height - 2)
     let keep = max 2 (min 8 ((height - 3) / 2))
     let inlineLines = ResizeArray<TuiLine>()
     let tail = Queue<TuiLine>()
     let mutable count = 0
     for line in lines do
-      (cancellationToken: CancellationToken).ThrowIfCancellationRequested()
+      (ct: CancellationToken).ThrowIfCancellationRequested()
       if count < maxInline then inlineLines.Add line else ()
       tail.Enqueue line
       if tail.Count > keep then tail.Dequeue() |> ignore else ()
@@ -369,8 +369,7 @@ module TransformerRepl =
     |> TransformerTuiModel.openTextView (controlViewTitle command) lines
 
   let private startTask origin evaluate registry command model =
-    let model: TransformerTuiModel = model
-    let session = model.Session
+    let session = (model: TransformerTuiModel).Session
     let height = outputPreviewHeight model
     let cancellation = new CancellationTokenSource()
     let task: Task<ReplEvaluation * TuiLine list option> =

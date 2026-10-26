@@ -1240,13 +1240,12 @@ module private ConcExecutorSetup =
     |> Map.ofList
 
 type ConcExecAction() =
-  let transformNamed cancellationToken options collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transformNamed (ct: CancellationToken) options collection =
     let options = Map.ofList options
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? Binary as binary ->
             ConcExecutorSetup.create binary options |> fst |> box
@@ -1257,10 +1256,10 @@ type ConcExecAction() =
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     ConcExecutorSetup.parseOptions args
     |> Map.toList
-    |> fun options -> transformNamed cancellationToken options collection
+    |> fun options -> transformNamed ct options collection
 
   interface IAction with
     member _.ActionID with get() = "make-concrete-executor"
@@ -1274,12 +1273,12 @@ type ConcExecAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
   interface ICancellableNamedArgumentsAction with
-    member _.TransformNamed(args, collection, cancellationToken) =
-      transformNamed cancellationToken args collection
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection
 
 /// Run a concrete executor.
 type RunAction() =
@@ -1327,32 +1326,30 @@ type RunAction() =
                       ct)
     |> box
 
-  let transformNamed cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transformNamed (ct: CancellationToken) args collection =
     let options = Map.ofList args
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            runExecutorNamed cancellationToken options executor
+            runExecutorNamed ct options executor
           | :? Binary as binary ->
-            runBinaryNamed cancellationToken options binary
+            runBinaryNamed ct options binary
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.Run(args, cancellationToken) |> box
+            executor.Run(args, ct) |> box
           | :? Binary as binary ->
-            runBinary cancellationToken args binary
+            runBinary ct args binary
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
@@ -1369,21 +1366,20 @@ type RunAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
   interface ICancellableNamedArgumentsAction with
-    member _.TransformNamed(args, collection, cancellationToken) =
-      transformNamed cancellationToken args collection
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection
 
 /// Read concrete executor memory.
 type ReadMemoryAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
             executor.ReadMemory args |> box
@@ -1400,17 +1396,16 @@ type ReadMemoryAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Write concrete executor memory.
 type WriteMemoryAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
             executor.WriteMemory args |> box
@@ -1427,8 +1422,8 @@ type WriteMemoryAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Step a concrete executor by a small instruction count.
 type StepAction() =
@@ -1440,16 +1435,15 @@ type StepAction() =
     | _ ->
       invalidArg "args" "At most one step count is allowed."
 
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     let count = parseCount args
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.Step(count, cancellationToken) |> box
+            executor.Step(count, ct) |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
@@ -1463,20 +1457,19 @@ type StepAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Trace concrete execution without replacing the executor value.
 type TraceAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.Trace(args, cancellationToken) |> box
+            executor.Trace(args, ct) |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
@@ -1491,17 +1484,16 @@ type TraceAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Show defined concrete registers.
 type RegsAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
             executor.Registers args |> box
@@ -1518,5 +1510,5 @@ type RegsAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

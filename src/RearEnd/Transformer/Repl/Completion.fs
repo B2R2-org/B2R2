@@ -45,8 +45,7 @@ module Completion =
         Char.IsWhiteSpace chr
         || after.StartsWith("|]", StringComparison.Ordinal)
 
-  let insertionText item after =
-    let item: SuggestionItem = item
+  let insertionText (item: SuggestionItem) after =
     let suffix =
       if item.AppendSpace && not (hasInsertionBoundary after) then " " else ""
     item.Text + suffix

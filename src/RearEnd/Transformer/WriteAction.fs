@@ -29,9 +29,8 @@ open System.Threading
 
 /// The `write` action.
 type WriteAction() =
-  let rec write cancellationToken fname (o: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let rec write (ct: CancellationToken) fname (o: obj) =
+    ct.ThrowIfCancellationRequested()
     match o with
     | :? (Instruction[]) as instructions ->
       let lines = instructions |> Array.map string
@@ -39,15 +38,15 @@ type WriteAction() =
     | _ ->
       ReplArtifactWriter.writeText fname o
 
-  let transform cancellationToken (args: string list) collection =
+  let transform ct (args: string list) collection =
     if args.Length = collection.Values.Length then
       let args = List.toArray args
-      Array.iter2 (write cancellationToken) args collection.Values
+      Array.iter2 (write ct) args collection.Values
       { Values = [||] }
     elif args.Length = 1 then
       let fname = List.head args
       let fnames = collection.Values |> Array.mapi (fun i _ -> $"{fname}.{i}")
-      Array.iter2 (write cancellationToken) fnames collection.Values
+      Array.iter2 (write ct) fnames collection.Values
       { Values = [||] }
     else
       invalidArg (nameof args) "Input lengths mismatch."
@@ -64,5 +63,5 @@ type WriteAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

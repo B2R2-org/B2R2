@@ -303,8 +303,7 @@ module ReplValueKind =
 module ActionMetadata =
   let actionName id = "@" + id
 
-  let acceptedInputs metadata =
-    let metadata: ActionMetadata = metadata
+  let acceptedInputs (metadata: ActionMetadata) =
     metadata.Input :: metadata.AlternativeInputs
 
   let argumentKindName = function
@@ -341,8 +340,7 @@ module ActionMetadata =
     | ActionArgumentKind.Choice ->
       "Choice"
 
-  let annotationMatches argument annotation =
-    let argument: ActionArgument = argument
+  let annotationMatches (argument: ActionArgument) annotation =
     let primary = argumentKindName argument.Kind
     let aliases =
       match argument.Kind with
@@ -398,15 +396,13 @@ module ActionMetadata =
     | ActionArgumentKind.Choice ->
       "choice"
 
-  let formatArgument argument =
-    let argument: ActionArgument = argument
+  let formatArgument (argument: ActionArgument) =
     let kind = argumentKindName argument.Kind
     let placeholder = argumentPlaceholder argument.Kind
     let text = $"{argument.Name}:{kind}=<{placeholder}>"
     if argument.IsOptional then $"[{text}]" else text
 
-  let private formatUsageArgument argument =
-    let argument: ActionArgument = argument
+  let private formatUsageArgument (argument: ActionArgument) =
     let placeholder = argumentPlaceholder argument.Kind
     let text = $"{argument.Name}=<{placeholder}>"
     if argument.IsOptional then $"[{text}]" else text
@@ -416,8 +412,7 @@ module ActionMetadata =
     let args = syntax.Arguments |> List.map formatArgument
     String.concat " " (trigger @ args)
 
-  let private formatUsage metadata syntax =
-    let metadata: ActionMetadata = metadata
+  let private formatUsage (metadata: ActionMetadata) syntax =
     let trigger = (syntax: ActionSyntax).Trigger |> Option.toList
     let args = syntax.Arguments |> List.map formatUsageArgument
     let syntax = String.concat " " (trigger @ args)
@@ -426,14 +421,10 @@ module ActionMetadata =
     else
       actionName metadata.ID + " " + syntax
 
-  let private sameArgument left right =
-    let left: ActionArgument = left
-    let right: ActionArgument = right
+  let private sameArgument (left: ActionArgument) (right: ActionArgument) =
     left.Name = right.Name && left.Kind = right.Kind
 
-  let private syntaxSubsumes candidate syntax =
-    let candidate: ActionSyntax = candidate
-    let syntax: ActionSyntax = syntax
+  let private syntaxSubsumes (candidate: ActionSyntax) (syntax: ActionSyntax) =
     let extraArguments =
       candidate.Arguments
       |> List.filter (fun candidate ->
@@ -447,11 +438,9 @@ module ActionMetadata =
     && not (List.isEmpty extraArguments)
     && extraArguments |> List.forall _.IsOptional
 
-  let private inputKinds metadata =
-    let metadata: ActionMetadata = metadata
+  let private inputKinds (metadata: ActionMetadata) =
     metadata.Syntaxes
-    |> List.collect (fun syntax ->
-      let syntax: ActionSyntax = syntax
+    |> List.collect (fun (syntax: ActionSyntax) ->
       if List.isEmpty syntax.Inputs then
         acceptedInputs metadata
       else
@@ -462,11 +451,9 @@ module ActionMetadata =
       | inputs ->
         inputs |> List.distinct
 
-  let private outputKinds metadata =
-    let metadata: ActionMetadata = metadata
+  let private outputKinds (metadata: ActionMetadata) =
     metadata.Syntaxes
-    |> List.map (fun syntax ->
-      let syntax: ActionSyntax = syntax
+    |> List.map (fun (syntax: ActionSyntax) ->
       syntax.Output |> Option.defaultValue metadata.Output)
     |> function
       | [] ->
@@ -474,8 +461,7 @@ module ActionMetadata =
       | outputs ->
         outputs |> List.distinct
 
-  let usageLines metadata =
-    let metadata: ActionMetadata = metadata
+  let usageLines (metadata: ActionMetadata) =
     metadata.Syntaxes
     |> List.filter (fun syntax ->
       metadata.Syntaxes
@@ -484,8 +470,7 @@ module ActionMetadata =
     |> List.map (formatUsage metadata)
     |> List.distinct
 
-  let documentationLines metadata =
-    let metadata: ActionMetadata = metadata
+  let documentationLines (metadata: ActionMetadata) =
     let role = metadata.Role.ToString().ToLowerInvariant()
     let kinds = List.map ReplValueKind.toString >> String.concat ", "
     let description =
@@ -577,8 +562,7 @@ module ActionMetadata =
       input, body, output)
     |> List.distinct
 
-  let private signatureRows metadata =
-    let metadata: ActionMetadata = metadata
+  let private signatureRows (metadata: ActionMetadata) =
     if hasSyntaxSpecifics metadata then
       specificSignatureRows metadata
     else
@@ -711,8 +695,7 @@ module ActionMetadata =
         Priority = priority }
     create
 
-  let syntaxAccepts inputKind syntax =
-    let syntax: ActionSyntax = syntax
+  let syntaxAccepts inputKind (syntax: ActionSyntax) =
     match inputKind with
     | None ->
       true
@@ -787,14 +770,14 @@ module ActionMetadata =
     | _ ->
       output
 
-  let outputForSyntax metadata inputKind syntax =
-    let metadata: ActionMetadata = metadata
-    let syntax: ActionSyntax = syntax
+  let outputForSyntax
+    (metadata: ActionMetadata)
+    inputKind
+    (syntax: ActionSyntax) =
     let output = syntax.Output |> Option.defaultValue metadata.Output
     applyOutputRelation metadata.OutputRelation inputKind output
 
-  let outputForArguments metadata inputKind args =
-    let metadata: ActionMetadata = metadata
+  let outputForArguments (metadata: ActionMetadata) inputKind args =
     metadata.Syntaxes
     |> List.tryFind (fun syntax ->
       syntaxAccepts inputKind syntax
@@ -805,8 +788,7 @@ module ActionMetadata =
       applyOutputRelation
         metadata.OutputRelation inputKind metadata.Output)
 
-  let possibleOutputs metadata inputKind =
-    let metadata: ActionMetadata = metadata
+  let possibleOutputs (metadata: ActionMetadata) inputKind =
     let outputs =
       metadata.Syntaxes
       |> List.filter (syntaxAccepts inputKind)
@@ -844,8 +826,7 @@ module ActionMetadata =
     | [] ->
       syntaxes
 
-  let private inputSyntaxes metadata inputKind =
-    let metadata: ActionMetadata = metadata
+  let private inputSyntaxes (metadata: ActionMetadata) inputKind =
     metadata.Syntaxes |> List.filter (syntaxAccepts inputKind)
 
   let matchingSyntaxes metadata inputKind args =
@@ -853,8 +834,7 @@ module ActionMetadata =
     |> matchingTriggerSyntaxes args
     |> List.filter (syntaxMatchesParameters args)
 
-  let typedSignatureFor metadata inputKind args =
-    let metadata: ActionMetadata = metadata
+  let typedSignatureFor (metadata: ActionMetadata) inputKind args =
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
       if List.isEmpty syntaxes then
@@ -863,8 +843,7 @@ module ActionMetadata =
         syntaxes
     typedSignature { metadata with Syntaxes = syntaxes }
 
-  let typedSignatureForLines metadata inputKind args =
-    let metadata: ActionMetadata = metadata
+  let typedSignatureForLines (metadata: ActionMetadata) inputKind args =
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
       if List.isEmpty syntaxes then

@@ -213,8 +213,8 @@ module internal ReplRendering =
   let private renderHexRow baseAddress (values: byte[]) addressFormat offset =
     let count = min HexViewBytesPerRow (values.Length - offset)
     let address = baseAddress + uint64 offset
-    let addressFormat: string = addressFormat
-    let builder = StringBuilder($"  {address.ToString(addressFormat)}: ")
+    let builder =
+      StringBuilder($"  {address.ToString(addressFormat: string)}: ")
     for index in 0 .. HexViewBytesPerRow - 1 do
       let hex =
         if index < count then
@@ -250,8 +250,7 @@ module internal ReplRendering =
           yield renderHexRow baseAddress values addressFormat offset
     }
 
-  let private renderBinaryBytes mode bytes =
-    let bytes: BinaryBytes = bytes
+  let private renderBinaryBytes mode (bytes: BinaryBytes) =
     let size = bytes.Bytes.Length
     let unit = if size = 1 then "byte" else "bytes"
     let header = $"ByteArray ({size} {unit})"
@@ -272,8 +271,7 @@ module internal ReplRendering =
         yield! renderHexRows bytes.BaseAddress bytes.Bytes
     }
 
-  let private renderFingerprint mode fingerprint =
-    let fingerprint: Fingerprint = fingerprint
+  let private renderFingerprint mode (fingerprint: Fingerprint) =
     seq {
       yield "Fingerprint"
       yield displayField "count" $"{List.length fingerprint.Patterns} patterns"
@@ -294,8 +292,7 @@ module internal ReplRendering =
           yield $"    {hash:x2}@{position}"
     }
 
-  let private renderClusterResult result =
-    let result: ClusterResult = result
+  let private renderClusterResult (result: ClusterResult) =
     seq {
       yield "ClusterResult"
       yield displayField "count" $"{result.Clusters.Length} clusters"
@@ -329,8 +326,7 @@ module internal ReplRendering =
         let fileStart = offset + slice.StartAddress - section.Address
         fileStart, fileStart + slice.Size, section.Name))
 
-  let private renderSlice mode slice =
-    let slice: BinarySlice = slice
+  let private renderSlice mode (slice: BinarySlice) =
     match mode with
     | Preview ->
       [ $"BinarySlice: 0x{slice.StartAddress:x}-0x{slice.EndAddress:x} "
@@ -352,8 +348,7 @@ module internal ReplRendering =
       @ fileRange
       @ [ $"  size: {slice.Size} bytes" ]
 
-  let private renderSection mode section =
-    let section: SectionInfo = section
+  let private renderSection mode (section: SectionInfo) =
     match mode with
     | Preview ->
       [ $"{section.Name}: 0x{section.Address:x} "
@@ -367,8 +362,7 @@ module internal ReplRendering =
         displayField "file-size" $"{section.FileSize} bytes"
         displayField "kind" section.Kind ]
 
-  let private renderFunction mode fn =
-    let fn: FunctionInfo = fn
+  let private renderFunction mode (fn: FunctionInfo) =
     let symbol = fn.Symbol |> Option.defaultValue "<none>"
     match mode with
     | Preview ->
@@ -381,8 +375,7 @@ module internal ReplRendering =
         displayField "entry" $"0x{fn.Entry:x}"
         displayField "symbol" symbol ]
 
-  let private renderStringMatch mode stringMatch =
-    let stringMatch: StringMatch = stringMatch
+  let private renderStringMatch mode (stringMatch: StringMatch) =
     match mode with
     | Preview ->
       [ $"0x{stringMatch.Address:x}: {stringMatch.Text}" ]
@@ -392,8 +385,7 @@ module internal ReplRendering =
         displayField "address" $"0x{stringMatch.Address:x}"
         displayField "text" stringMatch.Text ]
 
-  let private renderRegisterView mode view =
-    let view: RegisterView = view
+  let private renderRegisterView mode (view: RegisterView) =
     let lines =
       view.Registers
       |> Array.map (fun reg -> $"{reg.Name}: {reg.Value}")
@@ -405,8 +397,7 @@ module internal ReplRendering =
       [ "RegisterView"; displayField "pc" $"0x{view.PC:x}" ]
       @ displaySection "registers" lines
 
-  let private renderMemoryView mode view =
-    let view: MemoryView = view
+  let private renderMemoryView mode (view: MemoryView) =
     seq {
       if mode = Full then
         yield "MemoryView"
@@ -437,8 +428,7 @@ module internal ReplRendering =
         yield "    <unreadable>"
     }
 
-  let private renderMemoryDiff mode diff =
-    let diff: MemoryDiff = diff
+  let private renderMemoryDiff mode (diff: MemoryDiff) =
     seq {
       match diff.Before, diff.After with
       | Some before, Some after when before = after ->
@@ -448,8 +438,7 @@ module internal ReplRendering =
         yield! renderMemoryBytes mode "after" diff.Address after
     }
 
-  let private renderMemoryAccess mode access =
-    let access: MemoryAccess = access
+  let private renderMemoryAccess mode (access: MemoryAccess) =
     let head =
       match access.Kind with
       | MemoryAccessKind.Read ->
@@ -475,8 +464,7 @@ module internal ReplRendering =
       yield! violation
     }
 
-  let private renderTrace mode trace =
-    let trace: ExecutionTrace = trace
+  let private renderTrace mode (trace: ExecutionTrace) =
     seq {
       yield $"ExecutionTrace: {trace.InstructionCount} instructions, "
             + $"PC=0x{trace.FinalPC:x}"
@@ -525,8 +513,7 @@ module internal ReplRendering =
         ()
     }
 
-  let renderRequirements needs =
-    let needs: ContextRequirements = needs
+  let renderRequirements (needs: ContextRequirements) =
     let target =
       match needs.EndAddress, needs.Count with
       | Some finish, _ ->
@@ -564,8 +551,7 @@ module internal ReplRendering =
   let private renderAddressValue (value: AddressValue) =
     [ $"0x{value.Address:x}" ]
 
-  let private symbRegionPermission permission =
-    let permission: SymbRegionPermission = permission
+  let private symbRegionPermission (permission: SymbRegionPermission) =
     [ if permission.Read then Some "r" else None
       if permission.Write then Some "w" else None
       if permission.Execute then Some "x" else None ]
@@ -576,8 +562,7 @@ module internal ReplRendering =
       | permissions ->
         String.concat "" permissions
 
-  let private renderSymbExecutor mode executor =
-    let executor: SymbExecutorValue = executor
+  let private renderSymbExecutor mode (executor: SymbExecutorValue) =
     let solver =
       executor.Solver
       |> Option.map (fun solver -> "@" + solver.ID)
@@ -617,8 +602,7 @@ module internal ReplRendering =
       @ displaySection "regions" regions
       @ displaySection "hooks" hooks
 
-  let private renderSymbSolver mode solver =
-    let solver: SymbSolverValue = solver
+  let private renderSymbSolver mode (solver: SymbSolverValue) =
     match mode with
     | Preview ->
       [ "@" + solver.ID ]
@@ -627,8 +611,7 @@ module internal ReplRendering =
         displayField "id" ("@" + solver.ID)
         displayField "description" solver.Description ]
 
-  let private renderConcExecutor mode executor =
-    let executor: ConcExecutorValue = executor
+  let private renderConcExecutor mode (executor: ConcExecutorValue) =
     match mode with
     | Preview ->
       let trace = executor.LastTrace
@@ -675,8 +658,7 @@ module internal ReplRendering =
         |> List.map (fun value -> $"{value.Name}={value.Value}")
     if List.isEmpty fields then "<none>" else String.concat ", " fields
 
-  let private renderSymbRun mode result =
-    let result: SymbRunValue = result
+  let private renderSymbRun mode (result: SymbRunValue) =
     match mode with
     | Full ->
       splitTextForDisplay (result.ToString())
@@ -807,8 +789,7 @@ module internal ReplRendering =
         yield! splitTextForDisplay (value.ToString())
     }
 
-  let private renderValue mode value =
-    let value: ReplValue = value
+  let private renderValue mode (value: ReplValue) =
     let values = value.Collection.Values
     seq {
       if value.IsCollection then
@@ -840,8 +821,7 @@ module internal ReplRendering =
           yield! lines
     }
 
-  let private renderPrintResult mode result =
-    let result: PrintedValue = result
+  let private renderPrintResult mode (result: PrintedValue) =
     result.Values |> Seq.collect (renderValue mode)
 
   let outputValue value =

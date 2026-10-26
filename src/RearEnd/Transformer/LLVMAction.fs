@@ -33,11 +33,10 @@ open B2R2.MiddleEnd.LLVM
 /// The `llvm` action.
 type LLVMAction() =
 
-  let printOut cancellationToken hdl (fn: Function) =
-    let cancellationToken: CancellationToken = cancellationToken
+  let printOut (ct: CancellationToken) hdl (fn: Function) =
     let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
     DiGraph.iterVertex (fun bbl ->
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       let succs =
         fn.CFG.GetSuccs bbl
         |> Array.map (fun s -> s.VData.Internals.PPoint.Address)
@@ -49,22 +48,21 @@ type LLVMAction() =
     ) fn.CFG
     builder.ToString()
 
-  let translate cancellationToken (o: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let translate (ct: CancellationToken) (o: obj) =
+    ct.ThrowIfCancellationRequested()
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let brew = BinaryBrew hdl
     let entryPoint = hdl.File.EntryPoint |> Option.defaultValue 0UL
     let fn = brew.Functions[entryPoint]
-    cancellationToken.ThrowIfCancellationRequested()
+    ct.ThrowIfCancellationRequested()
     { Name = $"llvm-{fn.EntryPoint:x}"
       Extension = ".ll"
-      Content = printOut cancellationToken hdl fn }
+      Content = printOut ct hdl fn }
     |> box
 
-  let transform cancellationToken collection =
-    { Values = collection.Values |> Array.map (translate cancellationToken) }
+  let transform ct collection =
+    { Values = collection.Values |> Array.map (translate ct) }
 
   interface IAction with
     member _.ActionID with get() = "export-llvm"
@@ -82,9 +80,9 @@ type LLVMAction() =
         invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
+    member _.Transform(args, collection, ct) =
       match args with
       | [] ->
-        transform cancellationToken collection
+        transform ct collection
       | _ ->
         invalidArg (nameof args) "Invalid argument."

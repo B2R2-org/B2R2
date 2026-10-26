@@ -1523,8 +1523,8 @@ module TransformerTuiModel =
         FoldTarget = blockAtLine cursor.Line transcript
         Status = "Transcript focused" }
 
-  let private selectTranscriptCommand width height positions index model =
-    let positions: int list = positions
+  let private selectTranscriptCommand
+    width height (positions: int list) index model =
     let line = positions[index]
     let cursor = { Line = line; Column = 0 }
     let next =

@@ -88,20 +88,20 @@ module TransformerReplEvaluator =
     registry
     state
     (input: string)
-    (cancellationToken: CancellationToken) =
+    (ct: CancellationToken) =
     match InputAnalysis.splitTopLevelCommands input with
     | _ :: _ :: _ as commands ->
       let outputs = ResizeArray<string>()
       let folder result command =
         result
         |> Result.bind (fun (currentRegistry, currentState) ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           evaluateInput
             includeSuggestions
             currentRegistry
             currentState
             command
-            cancellationToken
+            ct
           |> resultState
           |> Result.map (fun (nextRegistry, nextState, output) ->
             outputs.AddRange output.Lines
@@ -122,7 +122,7 @@ module TransformerReplEvaluator =
         else
           TransformerReplState.recordCommand input state
       let evaluation =
-        evaluateCore includeSuggestions registry state input cancellationToken
+        evaluateCore includeSuggestions registry state input ct
       stopwatch.Stop()
       addExecutionLog timestamp stopwatch input evaluation
 
@@ -131,13 +131,13 @@ module TransformerReplEvaluator =
     registry
     state
     input
-    cancellationToken =
+    ct =
     evaluateParsed
       includeSuggestions
       registry
       state
       input
-      cancellationToken
+      ct
       (TransformerReplParser.parse input)
 
   and private evaluateControlCore
@@ -145,13 +145,13 @@ module TransformerReplEvaluator =
     registry
     state
     input
-    cancellationToken =
+    ct =
     evaluateParsed
       includeSuggestions
       registry
       state
       input
-      cancellationToken
+      ct
       (TransformerReplParser.parseControl input)
 
   and private evaluateParsed
@@ -159,16 +159,16 @@ module TransformerReplEvaluator =
     registry
     state
     input
-    cancellationToken
+    ct
     parsed =
     let load path =
-      loadScript includeSuggestions registry state path cancellationToken
+      loadScript includeSuggestions registry state path ct
     ReplDispatch.dispatch
       includeSuggestions
       registry
       state
       input
-      cancellationToken
+      ct
       load
       parsed
 
@@ -177,7 +177,7 @@ module TransformerReplEvaluator =
     registry
     state
     path
-    cancellationToken =
+    ct =
     let fullPath = Path.GetFullPath path
     match scriptCommands fullPath with
     | Error message ->
@@ -188,13 +188,13 @@ module TransformerReplEvaluator =
       |> List.fold (fun result command ->
         result
         |> Result.bind (fun (loadedRegistry, loadedState) ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           evaluateInput
             false
             loadedRegistry
             loadedState
             command
-            cancellationToken
+            ct
           |> resultState
           |> Result.bind (fun (nextRegistry, nextState, output) ->
             if output.HasError then
@@ -220,14 +220,14 @@ module TransformerReplEvaluator =
             [ $"Script loaded: {ReplRendering.normalizePath fullPath}" ]
           continueWith registry state (header @ Seq.toList outputs)
 
-  let evaluateCommand registry state input cancellationToken =
-    evaluateInput false registry state input cancellationToken
+  let evaluateCommand registry state input ct =
+    evaluateInput false registry state input ct
 
-  let evaluateControlCommand registry state input cancellationToken =
+  let evaluateControlCommand registry state input ct =
     let timestamp = DateTimeOffset.Now
     let stopwatch = Stopwatch.StartNew()
     let state = TransformerReplState.recordCommand input state
     let evaluation =
-      evaluateControlCore false registry state input cancellationToken
+      evaluateControlCore false registry state input ct
     stopwatch.Stop()
     addExecutionLog timestamp stopwatch input evaluation

@@ -112,8 +112,7 @@ type SliceAction() =
         invalidArg (nameof hdl)
           $"Slice range {range} is outside file-backed sections: {sections}"
 
-  let sliceByAddrRangeInSlice slice startAddress endAddress =
-    let slice: BinarySlice = slice
+  let sliceByAddrRangeInSlice (slice: BinarySlice) startAddress endAddress =
     if startAddress >= endAddress then
       invalidArg (nameof slice) "Invalid address range."
     elif rangeInsideSlice slice startAddress endAddress then
@@ -140,8 +139,7 @@ type SliceAction() =
     | Error _ ->
       invalidArg (nameof secName) $"Section not found: {secName}"
 
-  let sliceBySectionNameInSlice slice secName =
-    let slice: BinarySlice = slice
+  let sliceBySectionNameInSlice (slice: BinarySlice) secName =
     let sliced = sliceBySectionName slice.Source secName
     if rangeInsideSlice slice sliced.StartAddress sliced.EndAddress then
       sliced
@@ -180,9 +178,8 @@ type SliceAction() =
     | _ ->
       invalidArg (nameof args) "Invalid argument."
 
-  let slice cancellationToken args (input: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let slice (ct: CancellationToken) args (input: obj) =
+    ct.ThrowIfCancellationRequested()
     match input with
     | :? Binary as bin ->
       sliceBin args bin
@@ -191,9 +188,9 @@ type SliceAction() =
     | _ ->
       invalidArg (nameof input) "Invalid input type."
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     { Values =
-        collection.Values |> Array.map (slice cancellationToken args) }
+        collection.Values |> Array.map (slice ct args) }
 
   interface IAction with
     member _.ActionID with get() = "slice"
@@ -215,5 +212,5 @@ type SliceAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

@@ -33,8 +33,7 @@ type ReplOutput =
     HasError: bool }
 
 module ReplOutput =
-  let ofLines lines =
-    let lines: string list = lines
+  let ofLines (lines: string list) =
     { Lines = lines
       FullLines = lazy lines
       HasError =

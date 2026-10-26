@@ -401,10 +401,8 @@ module TransformerTuiRenderer =
       Offset: int
       CursorPosition: (int * int) option }
 
-  let private viewCursorRow rows pane first last =
-    let rows: ViewDisplayRow array = rows
-    let pane: TuiViewPane = pane
-    let column = pane.Cursor.Column
+  let private viewCursorRow (rows: ViewDisplayRow array) pane first last =
+    let column = (pane: TuiViewPane).Cursor.Column
     let mutable index = first
     while index < last && rows[index + 1].Start <= column do
       index <- index + 1
@@ -617,8 +615,7 @@ module TransformerTuiRenderer =
         finish <- finish + 1
     finish
 
-  let private wordStyle input bindingStart binding start finish =
-    let input: string = input
+  let private wordStyle (input: string) bindingStart binding start finish =
     let word = input[start..finish - 1]
     let next = scanWhile Char.IsWhiteSpace input finish
     let isBinding =
@@ -941,8 +938,7 @@ module TransformerTuiRenderer =
       else
         Some(start + offset)
 
-  let private ghostText completion selected model =
-    let completion: SuggestionSet = completion
+  let private ghostText (completion: SuggestionSet) selected model =
     if completion.Start + completion.Length <> model.Cursor then
       ""
     else

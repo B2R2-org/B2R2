@@ -28,9 +28,8 @@ open System.Threading
 
 /// The `one` action.
 type OneAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let transform (ct: CancellationToken) args collection =
+    ct.ThrowIfCancellationRequested()
     if List.isEmpty args then
       match collection.Values with
       | [| value |] ->
@@ -53,5 +52,5 @@ type OneAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

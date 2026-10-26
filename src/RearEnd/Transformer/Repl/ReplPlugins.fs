@@ -100,7 +100,7 @@ module internal ReplPlugins =
         else
           pluginFailureText solverID failures |> Error
 
-  let registerSymbSolver registry args cancellationToken =
+  let registerSymbSolver registry args ct =
     match args |> List.tryPick (parameterValue "solver") with
     | None ->
       Ok registry
@@ -109,7 +109,7 @@ module internal ReplPlugins =
       | Some _ ->
         Ok registry
       | None ->
-        tryAutoLoadSolver registry solverID cancellationToken
+        tryAutoLoadSolver registry solverID ct
         |> Result.bind (fun registry ->
           match tryFindAction registry solverID with
           | None ->
@@ -133,7 +133,7 @@ module internal ReplPlugins =
                     registered
                     ReplValue.emptyInput
                     segment
-                    cancellationToken
+                    ct
                 match collection.Values with
                 | [| :? SymbSolverValue as solver |] ->
                   let factory =

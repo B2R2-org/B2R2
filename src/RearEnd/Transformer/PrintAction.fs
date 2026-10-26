@@ -30,51 +30,50 @@ open B2R2
 
 /// The `print` action.
 type PrintAction() =
-  let rec print cancellationToken (o: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let rec print (ct: CancellationToken) (o: obj) =
+    ct.ThrowIfCancellationRequested()
     let typ = o.GetType()
     if typ = typeof<ObjCollection> then
-      printObjCollection cancellationToken o
+      printObjCollection ct o
     elif typ = typeof<ClusterResult> then
-      printClusterResult cancellationToken o
+      printClusterResult ct o
     elif typ.IsArray then
-      printArray cancellationToken o
+      printArray ct o
     elif FSharpType.IsUnion typ
       && typ.BaseType = typeof<OutString> then
       printOutString o
     else
       printsn (o.ToString())
 
-  and printObjCollection cancellationToken (o: obj) =
+  and printObjCollection ct (o: obj) =
     let res = o :?> ObjCollection
     res.Values
     |> Array.iteri (fun idx v ->
-      (cancellationToken: CancellationToken).ThrowIfCancellationRequested()
+      (ct: CancellationToken).ThrowIfCancellationRequested()
       printsn $"[*] result({idx})"
-      print cancellationToken v)
+      print ct v)
 
-  and printClusterResult cancellationToken (o: obj) =
+  and printClusterResult ct (o: obj) =
     let res = o :?> ClusterResult
     res.Clusters
     |> Array.iteri (fun idx cluster ->
       cluster
       |> Array.iter (fun elem ->
-        (cancellationToken: CancellationToken).ThrowIfCancellationRequested()
+        (ct: CancellationToken).ThrowIfCancellationRequested()
         printsn $"  - Cluster({idx}): {elem}"))
 
-  and printArray cancellationToken (o: obj) =
+  and printArray ct (o: obj) =
     let arr = o :?> _[]
-    arr |> Array.iter (print cancellationToken)
+    arr |> Array.iter (print ct)
 
   and printOutString (o: obj) =
     let os = o :?> OutString
     printon os
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     match args with
     | [] ->
-      print cancellationToken (box collection)
+      print ct (box collection)
       { Values = [||] }
     | _ ->
       invalidArg (nameof args) "Invalid argument."
@@ -90,5 +89,5 @@ type PrintAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

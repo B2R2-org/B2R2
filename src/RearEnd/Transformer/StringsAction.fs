@@ -108,8 +108,7 @@ type StringsAction() =
       hdl.File.BaseAddress
       hdl.File.RawBytes.Span
 
-  let collectFromSlice minLength pattern slice =
-    let slice: BinarySlice = slice
+  let collectFromSlice minLength pattern (slice: BinarySlice) =
     collectStrings
       minLength
       pattern
@@ -117,15 +116,14 @@ type StringsAction() =
       slice.StartAddress
       (ReadOnlySpan slice.Bytes)
 
-  let collectWith cancellationToken minLength pattern collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let collectWith (ct: CancellationToken) minLength pattern collection =
     if minLength <= 0 then
       invalidArg "args" "min must be positive."
     else
       { Values =
           collection.Values
           |> Array.collect (fun input ->
-            cancellationToken.ThrowIfCancellationRequested()
+            ct.ThrowIfCancellationRequested()
             match input with
             | :? Binary as binary ->
               collectFromBinary minLength pattern binary
@@ -134,12 +132,12 @@ type StringsAction() =
             | _ ->
               invalidArg (nameof input) "Invalid input type.") }
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     let minLength = parseMinLength args
     let pattern = parsePattern args
-    collectWith cancellationToken minLength pattern collection
+    collectWith ct minLength pattern collection
 
-  let transformNamed cancellationToken args collection =
+  let transformNamed ct args collection =
     let options = Map.ofList args
     let minLength =
       options
@@ -147,7 +145,7 @@ type StringsAction() =
       |> Option.map parseInt
       |> Option.defaultValue defaultMinLength
     let pattern = Map.tryFind "pattern" options
-    collectWith cancellationToken minLength pattern collection
+    collectWith ct minLength pattern collection
 
   interface IAction with
     member _.ActionID with get() = "extract-strings"
@@ -160,9 +158,9 @@ type StringsAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
   interface ICancellableNamedArgumentsAction with
-    member _.TransformNamed(args, collection, cancellationToken) =
-      transformNamed cancellationToken args collection
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection
