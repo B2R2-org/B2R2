@@ -1092,7 +1092,7 @@ type ConcExecutorValue private(binary: Binary,
     |> ExecutionSetup.validateRegisterNames hdl
     let nextState = state.Clone()
     let accessor = accessorFor nextState
-    accessor.SetStackPointer layout.ReturnStackPointer
+    accessor.SetStackPointer layout.InitialStackPointer
     accessor.InitializeFramePointer()
     let setRegister (name, value) =
       match tryGetRegisterID name with
@@ -1208,17 +1208,12 @@ module private ConcExecutorSetup =
       |> Option.map parseArguments
       |> Option.defaultValue []
     let layout =
-      options
-      |> Map.tryFind "buffers"
-      |> Option.orElseWith (fun () ->
-        if List.isEmpty arguments then None else Some "[]")
+      ExecutionSetup.requestedBufferSpec options (not (List.isEmpty arguments))
       |> Option.map (fun buffers ->
-        match Map.tryFind "stack" options with
-        | Some stack ->
-          let stack = ContextParsing.parseAddress stack
-          ExecutionSetup.layoutAt hdl stack buffers
-        | None ->
-          ExecutionSetup.layout hdl buffers)
+        let stack =
+          Map.tryFind "stack" options
+          |> Option.map ContextParsing.parseAddress
+        ExecutionSetup.layoutForStack hdl stack buffers)
     let executor =
       match layout with
       | Some layout ->

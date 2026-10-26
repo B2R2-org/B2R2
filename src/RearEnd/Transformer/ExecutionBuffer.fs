@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.Transformer
 open System
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.Executor
 
 type ExecutionBuffer =
@@ -39,25 +40,40 @@ type ExecutionBuffer =
 and ExecutionLayout =
   { StackTop: Addr
     StackStart: Addr
-    ReturnStackPointer: Addr
+    InitialStackPointer: Addr
     Buffers: ExecutionBuffer list }
+
+type private ExecutionMemoryPolicy =
+  { PageBytes: Addr
+    StackBytes: Addr
+    FirstBufferAddress: Addr
+    StackPermission: ContextRegionPermission }
 
 [<RequireQualifiedAccess>]
 module ExecutionSetup =
-  let private pageSize = 0x1000UL
-
-  let private stackSize = 0x10000UL
-
-  let private bufferBase = 0x70000000UL
+  (* These addresses describe a synthetic execution space, not an OS memory
+     allocation. A 4-KiB placement granularity separates buffers without
+     claiming the target's actual page size. The 64-KiB stack is for short,
+     bounded executions. Buffer search starts at 0x70000000, above typical
+     fixed image addresses and below either default stack. If the image or
+     stack occupies that range, the search continues at the next free
+     page-aligned address. *)
+  let private memoryPolicy =
+    { PageBytes = 0x1000UL
+      StackBytes = 0x10000UL
+      FirstBufferAddress = 0x70000000UL
+      StackPermission =
+        { Read = true; Write = true; Execute = false } }
 
   let private alignUp value =
-    let remainder = value % pageSize
+    let pageBytes = memoryPolicy.PageBytes
+    let remainder = value % pageBytes
     if remainder = 0UL then
       value
-    elif value > UInt64.MaxValue - pageSize + remainder then
+    elif value > UInt64.MaxValue - pageBytes + remainder then
       invalidOp "No address space remains for an execution buffer."
     else
-      value + pageSize - remainder
+      value + pageBytes - remainder
 
   let private overlaps start finish (region: ContextRegion) =
     start < region.Finish && finish > region.Start
@@ -139,6 +155,18 @@ module ExecutionSetup =
       Finish = finish
       Permission = permission }
 
+  let private imageRegions (hdl: BinHandle) addressLimit =
+    BinFileOps.getSegments hdl.File
+    |> Seq.iter (fun segment ->
+      let fits =
+        segment.Address < addressLimit
+        && segment.Size <= addressLimit - segment.Address
+      if segment.Size > 0UL && not fits then
+        invalidOp "The binary image exceeds the execution address space."
+      else
+        ())
+    ContextParsing.imageRegions hdl.File
+
   let layoutAt (hdl: BinHandle) stackPointer bufferText =
     let wordBytes = uint64 (StateAccess.wordBytes hdl)
     if wordBytes <> 4UL && wordBytes <> 8UL then
@@ -147,21 +175,20 @@ module ExecutionSetup =
       ()
     let addressLimit =
       if wordBytes = 4UL then 0x100000000UL else UInt64.MaxValue
-    if stackPointer < stackSize
+    if stackPointer < memoryPolicy.StackBytes
        || stackPointer > addressLimit - wordBytes then
       invalidArg (nameof stackPointer) "The stack pointer is out of range."
     else
       ()
     let stackTop = stackPointer + wordBytes
-    let stackStart = stackTop - stackSize
-    let image = ContextParsing.imageRegions hdl.File
+    let stackStart = stackTop - memoryPolicy.StackBytes
+    let image = imageRegions hdl addressLimit
     if image |> List.exists (overlaps stackStart stackTop) then
-      invalidOp "The default stack overlaps the binary image."
+      invalidOp "The execution stack overlaps the binary image."
     else
       ()
-    let stackPermission =
-      { Read = true; Write = true; Execute = false }
-    let stack = region "stack" stackStart stackTop stackPermission
+    let stack =
+      region "stack" stackStart stackTop memoryPolicy.StackPermission
     let specs = parseBuffers bufferText
     specs
     |> List.map (fun (register, _, _, _) -> register)
@@ -169,7 +196,8 @@ module ExecutionSetup =
     let buffers, _ =
       specs
       |> List.fold (fun (buffers, occupied) (register, name, size, perm) ->
-        let address = findFree bufferBase size addressLimit occupied
+        let address =
+          findFree memoryPolicy.FirstBufferAddress size addressLimit occupied
         let buffer =
           { Register = register
             Name = name
@@ -180,18 +208,29 @@ module ExecutionSetup =
         buffer :: buffers, next :: occupied) ([], stack :: image)
     { StackTop = stackTop
       StackStart = stackStart
-      ReturnStackPointer = stackPointer
+      InitialStackPointer = stackPointer
       Buffers = List.rev buffers }
 
   let layout hdl bufferText =
+    (* The accessor's default top is exclusive. Reserve one word below it
+       for a return address while leaving that word undefined. *)
     let stackPointer =
       StateAccess.defaultStackTop hdl
       - uint64 (StateAccess.wordBytes hdl)
     layoutAt hdl stackPointer bufferText
 
+  let requestedBufferSpec options hasArguments =
+    Map.tryFind "buffers" options
+    |> Option.orElseWith (fun () ->
+      if hasArguments then Some "[]" else None)
+
+  let layoutForStack hdl stackPointer buffers =
+    match stackPointer with
+    | Some stackPointer -> layoutAt hdl stackPointer buffers
+    | None -> layout hdl buffers
+
   let regions layout =
-    let stackPermission =
-      { Read = true; Write = true; Execute = false }
+    let stackPermission = memoryPolicy.StackPermission
     let stack =
       region "stack" layout.StackStart layout.StackTop stackPermission
     stack ::

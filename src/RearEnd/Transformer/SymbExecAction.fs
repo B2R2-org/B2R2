@@ -608,7 +608,7 @@ type SymbExecutorValue(binary: Binary,
     let nextState = state.Clone()
     nextState.PC <- entry
     let accessor = SymbStateAccessor(Binary.Handle binary, nextState)
-    accessor.SetStackPointer layout.ReturnStackPointer
+    accessor.SetStackPointer layout.InitialStackPointer
     accessor.InitializeFramePointer()
     let prepared =
       SymbExecutorValue(binary,
@@ -1585,17 +1585,10 @@ module private SymbExecutorSetup =
     |> SymbArgs.parseContext
 
   let layout binary context options hasArguments =
-    options
-    |> Map.tryFind "buffers"
-    |> Option.orElseWith (fun () ->
-      if hasArguments then Some "[]" else None)
+    ExecutionSetup.requestedBufferSpec options hasArguments
     |> Option.map (fun buffers ->
       let hdl = Binary.Handle binary
-      match context.Stack with
-      | Some stack ->
-        ExecutionSetup.layoutAt hdl stack buffers
-      | None ->
-        ExecutionSetup.layout hdl buffers)
+      ExecutionSetup.layoutForStack hdl context.Stack buffers)
 
   let applyLayout binary layout context (executor: SymbExecutorValue) =
     match layout with
