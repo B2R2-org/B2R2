@@ -606,8 +606,8 @@ module TransformerTuiRenderer =
         Offset = 0
         CursorPosition = None }
 
-  let private takeTranscriptRows count start lines =
-    lines |> List.skip start |> List.truncate count
+  let private takeTranscriptRows count start (lines: TuiTranscriptLine array) =
+    lines |> Array.skip start |> Array.truncate count |> Array.toList
 
   let private scriptRecordText = function
     | ReplReplayMode.Reproducible ->
@@ -617,22 +617,6 @@ module TransformerTuiRenderer =
 
   let private scriptPath model =
     model.Session.SessionPath |> Option.defaultValue "<none>"
-
-  let private selectedBodyIndex body =
-    body
-    |> List.tryFindIndex (fun (kind, _) ->
-      kind = TuiLineKind.Selection || kind = TuiLineKind.Cursor)
-
-  let private transcriptCursorColumn model =
-    model.TranscriptCursor.Column + 3
-
-  let private transcriptCursorPosition model body =
-    if model.Focus = TuiFocus.Transcript
-       && model.Overlay = TuiOverlay.None then
-      selectedBodyIndex body
-      |> Option.map (fun row -> row, transcriptCursorColumn model)
-    else
-      None
 
   let private boxTop color width title =
     let inner = max 0 (width - 2)
@@ -903,12 +887,10 @@ module TransformerTuiRenderer =
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
     | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
-      let lines =
-        TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
-      let start =
-        TransformerTuiModel.transcriptViewportStart
-          bodyWidth bodyHeight model
-      takeTranscriptRows bodyHeight start lines
+      let layout =
+        TransformerTuiModel.transcriptLayout bodyWidth bodyHeight model
+      takeTranscriptRows
+        bodyHeight layout.ViewportStart layout.Rows
       |> List.map renderTranscriptLine
     | _ ->
       let lines = overlayLines bodyWidth registry model
@@ -1546,7 +1528,8 @@ module TransformerTuiRenderer =
         List.replicate (bodyHeight - List.length body)
           (TuiLineKind.Output, "")
       let cursorBodyPosition =
-        transcriptCursorPosition model body
+        TransformerTuiModel.transcriptCursorDisplayPosition
+          leftWidth bodyHeight model
         |> Option.orElse (viewLayout |> Option.bind _.CursorPosition)
       let body = body @ padding
       let sidebar = sidebarLines rightWidth bodyHeight model
