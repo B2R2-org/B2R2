@@ -155,6 +155,27 @@ module internal ReplRendering =
       [ $"{label}"
         $"  error: {error}" ]
 
+  let private renderCFGNode mode (node: CFGNodeInfo) =
+    seq {
+      yield $"node 0x{node.Address:x}:"
+      if mode = Full then
+        match node.Source with
+        | CFG(entry, _, _) ->
+          yield displayField "function-entry" $"0x{entry:x}"
+        | NoCFG _ ->
+          ()
+        yield displayField "instructions"
+          (string node.Disassemblies.Length)
+      else
+        ()
+      if Array.isEmpty node.Disassemblies then
+        yield "  <no instructions>"
+      else
+        let indent = if mode = Full then "    " else "  "
+        for disassembly in node.Disassemblies do
+          yield indent + disassembly
+    }
+
   let private binaryPath binary =
     let hdl = Binary.Handle binary
     if String.IsNullOrWhiteSpace hdl.File.Path then
@@ -480,54 +501,73 @@ module internal ReplRendering =
       yield! violation
     }
 
-  let private renderTrace mode (trace: ExecutionTrace) =
+  let private renderTracePreview (trace: ExecutionTrace) =
+    seq {
+      if Array.isEmpty trace.Instructions then
+        yield $"No instructions executed at 0x{trace.Start:x}"
+      else
+        for ins in trace.Instructions do
+          yield $"0x{ins.Address:x}: {ins.Disassembly}"
+      for change in trace.RegisterDiffs do
+        yield "  " + change
+      for access in trace.MemoryAccesses do
+        let operation =
+          match access.Kind with
+          | MemoryAccessKind.Read -> "read"
+          | MemoryAccessKind.Write -> "write"
+        let suffix =
+          if Option.isSome access.Violation then " (access violation)"
+          else ""
+        yield $"  {operation} 0x{access.Address:x} "
+              + $"({access.Size} bytes) at 0x{access.Instruction:x}{suffix}"
+      for diff in trace.MemoryDiffs do
+        let state =
+          match diff.Before, diff.After with
+          | Some before, Some after when before = after -> "unchanged"
+          | Some _, Some _ -> "changed"
+          | _ -> "unreadable"
+        yield $"  watched 0x{diff.Address:x}: {state}"
+      for reason in trace.StopReasons do
+        if reason <> "instruction limit" then
+          yield "  " + reason
+        else
+          ()
+    }
+
+  let private renderTraceFull (trace: ExecutionTrace) =
     seq {
       yield $"ExecutionTrace: {trace.InstructionCount} instructions, "
             + $"PC=0x{trace.FinalPC:x}"
-      if mode = Full then
-        yield displayField "attempted" (string trace.Instructions.Length)
-        yield displayField "start" $"0x{trace.Start:x}"
-      else
-        ()
+      yield displayField "attempted" (string trace.Instructions.Length)
+      yield displayField "start" $"0x{trace.Start:x}"
       if trace.Instructions.Length = 0 then
-        if mode = Full then
-          yield displayField "instructions" "none"
-        else
-          ()
+        yield displayField "instructions" "none"
       else
-        if mode = Full then yield "  instructions:" else ()
+        yield "  instructions:"
         for ins in trace.Instructions do
-          let indent = if mode = Full then "    " else "  "
-          yield $"{indent}0x{ins.Address:x}: {ins.Disassembly}"
-      if mode = Full || trace.RegisterDiffs.Length > 0 then
-        yield! displaySection "registers" (Array.toList trace.RegisterDiffs)
-      else
-        ()
+          yield $"    0x{ins.Address:x}: {ins.Disassembly}"
+      yield! displaySection "registers" (Array.toList trace.RegisterDiffs)
       if trace.MemoryAccesses.Length = 0 then
-        if mode = Full then
-          yield displayField "memory-accesses" "none"
-        else
-          ()
+        yield displayField "memory-accesses" "none"
       else
         yield "  memory-accesses:"
         for access in trace.MemoryAccesses do
-          for line in renderMemoryAccess mode access do
+          for line in renderMemoryAccess Full access do
             yield "    " + line
       if trace.MemoryDiffs.Length = 0 then
-        if mode = Full then
-          yield displayField "memory-watch" "none"
-        else
-          ()
+        yield displayField "memory-watch" "none"
       else
         yield "  memory-watch:"
         for diff in trace.MemoryDiffs do
-          for line in renderMemoryDiff mode diff do
+          for line in renderMemoryDiff Full diff do
             yield "    " + line
-      if mode = Full || trace.StopReasons.Length > 0 then
-        yield! displaySection "stop-reasons" (Array.toList trace.StopReasons)
-      else
-        ()
+      yield! displaySection "stop-reasons" (Array.toList trace.StopReasons)
     }
+
+  let private renderTrace mode trace =
+    match mode with
+    | Preview -> renderTracePreview trace
+    | Full -> renderTraceFull trace
 
   let renderRequirements (needs: ContextRequirements) =
     let target =
@@ -627,31 +667,49 @@ module internal ReplRendering =
         displayField "id" ("@" + solver.ID)
         displayField "description" solver.Description ]
 
+  let private formatAccessViolation instruction action address =
+    $"Access violation at instruction 0x{instruction:x}: "
+    + $"{action} 0x{address:x}"
+
+  let private renderConcViolations (trace: ExecutionTrace) =
+    trace.MemoryAccesses
+    |> Array.choose (fun access ->
+      access.Violation
+      |> Option.map (fun _ ->
+        let action =
+          match access.Kind with
+          | MemoryAccessKind.Read -> "read from"
+          | MemoryAccessKind.Write -> "write to"
+        formatAccessViolation access.Instruction action access.Address))
+    |> Array.toList
+
   let private renderConcExecutor mode (executor: ConcExecutorValue) =
     match mode with
     | Preview ->
       let trace = executor.LastTrace
+      let violations =
+        trace |> Option.map renderConcViolations |> Option.defaultValue []
       let returnAddress =
         executor.LastStopReasons
         |> Option.bind (function
           | [ ConcStopReason.StoppedAtReturn addr ] -> Some addr
           | _ -> None)
-      match trace, returnAddress with
-      | Some trace, Some addr when
-          trace.MemoryAccesses
-          |> Array.forall (fun access -> Option.isNone access.Violation) ->
+      match violations, trace, returnAddress with
+      | _ :: _, _, _ ->
+        violations
+      | [], Some _, Some addr ->
         [ $"Stopped before return at 0x{addr:x}" ]
       | _ ->
-        let status =
-          match trace with
-          | Some trace ->
-            $"PC=0x{trace.FinalPC:x}, {trace.InstructionCount} instructions"
-          | None ->
-            $"PC=0x{executor.State.PC:x}"
-        [ $"ConcExecutor: {binaryPath executor.Binary}, {status}" ]
-        @ match trace with
-          | Some trace -> Array.toList trace.StopReasons
-          | None -> []
+        match trace with
+        | Some trace ->
+          let reasons = String.concat ", " trace.StopReasons
+          if String.IsNullOrWhiteSpace reasons then
+            [ $"Stopped at 0x{trace.FinalPC:x}" ]
+          else
+            [ $"Stopped at 0x{trace.FinalPC:x}: {reasons}" ]
+        | None ->
+          [ $"ConcExecutor: {binaryPath executor.Binary}, "
+            + $"PC=0x{executor.State.PC:x}" ]
     | Full ->
       executor.SummaryLines
 
@@ -727,8 +785,7 @@ module internal ReplRendering =
                 | MemoryRead -> "read from"
                 | MemoryWrite -> "write to"
               let message =
-                $"Access violation at instruction 0x{target:x}: "
-                + $"{access} 0x{violation.Address:x}"
+                formatAccessViolation target access violation.Address
               yield message
               yield $"  input: {fields}"
             | None ->
@@ -784,6 +841,8 @@ module internal ReplRendering =
         yield "()"
       | :? CFG as cfg ->
         yield! renderCFG mode index cfg
+      | :? CFGNodeInfo as node ->
+        yield! renderCFGNode mode node
       | :? Binary as binary ->
         yield! renderBinary mode binary
       | :? BinaryBytes as bytes ->
