@@ -221,7 +221,8 @@ For a one-off run, a binary can be passed directly to `@run-concrete`. The
 that receives its address, for example `buffers=[RDI=track:0x400:rw]`. Buffer
 contents are not initialized. A synthetic stack is provided by default, and
 the run stops before the outermost return. Use `@make-concrete-executor` when
-the executor must be retained or configured without running it.
+the executor must be retained or configured without running it. If `limit` is
+omitted, the run stops after at most 1,000 instructions.
 
 ### Symbolic execution
 

@@ -112,6 +112,9 @@ module private ConcRegionPerm =
 module private ConcActionParsing =
   let parseUInt64 value = ContextParsing.parseAddress value
 
+module private ConcRunDefaults =
+  let instructionLimit = 1000
+
 type private TracingMemory(inner: ConcMemory,
                            regions: ConcMemoryRegion list) =
   let accesses = ResizeArray<MemoryAccess>()
@@ -934,7 +937,10 @@ type ConcExecutorValue private(binary: Binary,
   member _.RunNamed(entry, limit, breakpoint, ct) =
     let start =
       entry |> Option.map parseUInt64 |> Option.defaultWith defaultStart
-    let limit = limit |> Option.map parseInt |> Option.defaultValue 50000
+    let limit =
+      limit
+      |> Option.map parseInt
+      |> Option.defaultValue ConcRunDefaults.instructionLimit
     let breakpoint = breakpoint |> Option.map parseUInt64
     let stops =
       breakpoint
@@ -1305,7 +1311,7 @@ type RunAction() =
       options
       |> Map.tryFind "limit"
       |> Option.map Int32.Parse
-      |> Option.defaultValue 50000
+      |> Option.defaultValue ConcRunDefaults.instructionLimit
     let start = ContextParsing.parseAddress entry
     executor.RunUntilReturn(start, limit, returnSP, ct) |> box
 
