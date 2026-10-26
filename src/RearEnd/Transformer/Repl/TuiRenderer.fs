@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Generic
 open System.IO
 open System.Text
 
@@ -788,11 +789,10 @@ module TransformerTuiRenderer =
     else
       ()
 
-  let private colorTranscriptText (row: TuiTranscriptLine) =
+  let private colorTranscriptText
+    (styles: string array) lineStart (row: TuiTranscriptLine) =
     let text = TransformerTuiText.stripAnsi row.Line.Text
     let prefixLength = min 2 text.Length
-    let source = TransformerTuiText.sanitize row.OriginalLine.Text
-    let styles = syntaxStyles source
     let selected = transcriptSelectionFlags row.Line.Text
     let prefix = if prefixLength = 0 then "" else text[..prefixLength - 1]
     let background =
@@ -801,7 +801,7 @@ module TransformerTuiRenderer =
     let mutable previousColor = ""
     let mutable previousSelection = false
     for index in prefixLength..text.Length - 1 do
-      let sourceIndex = row.TextStart + index - prefixLength
+      let sourceIndex = lineStart + row.TextStart + index - prefixLength
       let color =
         if sourceIndex < styles.Length then styles[sourceIndex] else ""
       let isSelected = selected[index]
@@ -816,23 +816,34 @@ module TransformerTuiRenderer =
     else ()
     builder.ToString()
 
-  let private renderTranscriptLine (row: TuiTranscriptLine) =
+  let private transcriptSyntaxStyles
+    (cache: Dictionary<string, string array>) source =
+    match cache.TryGetValue source with
+    | true, styles ->
+      styles
+    | _ ->
+      let styles = syntaxStyles source
+      cache.Add(source, styles)
+      styles
+
+  let private renderTranscriptLine cache (row: TuiTranscriptLine) =
     let kind = row.Line.Kind
-    match row.OriginalLine.Kind with
-    | TuiLineKind.Command | TuiLineKind.CommandContinuation
-      when not (containsAnsi row.OriginalLine.Text) ->
-      kind, colorTranscriptText row
+    match row.CommandSyntax with
+    | Some(source, lineStart) when not (containsAnsi row.OriginalLine.Text) ->
+      let styles = transcriptSyntaxStyles cache source
+      kind, colorTranscriptText styles lineStart row
     | _ ->
       kind, row.Line.Text
 
   let private takeBody bodyHeight bodyWidth model =
     match model.Overlay with
     | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
+      let styles = Dictionary<string, string array>(StringComparer.Ordinal)
       let layout =
         TransformerTuiModel.transcriptLayout bodyWidth bodyHeight model
       takeTranscriptRows
         bodyHeight layout.ViewportStart layout.Rows
-      |> List.map renderTranscriptLine
+      |> List.map (renderTranscriptLine styles)
     | _ ->
       let lines = overlayLines bodyWidth model
       let maximumOffset = max 0 (List.length lines - bodyHeight)
