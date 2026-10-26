@@ -30,7 +30,6 @@ open System.Globalization
 open System.IO
 open System.Numerics
 open System.Text
-open System.Text.RegularExpressions
 open System.Threading
 open B2R2
 open B2R2.FrontEnd
@@ -78,6 +77,11 @@ module TransformerReplEvaluator =
     { Syntax: ActionSyntax
       Arguments: string list
       Assignments: (ActionArgument * string) list option }
+
+  type private ValidatedActionArguments =
+    { Syntax: ActionSyntax
+      Arguments: string list
+      Assignments: (string * string) list option }
 
   type private PrintedValue =
     { Values: ReplValue list }
@@ -948,182 +952,6 @@ module TransformerReplEvaluator =
       |> Option.map (fun value -> "current value", value)
       |> ofOption "There is no current value."
 
-  let private isHexString (value: string) =
-    not (String.IsNullOrWhiteSpace value)
-    && value.Length % 2 = 0
-    && value |> Seq.forall Uri.IsHexDigit
-
-  let private tryParseUInt64 (value: string) =
-    let style, value =
-      if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-        NumberStyles.HexNumber, value[2..]
-      else
-        NumberStyles.Integer, value
-    match UInt64.TryParse(value, style, CultureInfo.InvariantCulture) with
-    | true, number ->
-      Some number
-    | _ ->
-      None
-
-  let private isAddress (value: string) =
-    if value.StartsWith '+' then
-      false
-    else
-      match tryParseUInt64 value with
-      | Some _ ->
-        true
-      | None ->
-        false
-
-  let private isSize (value: string) =
-    if value.StartsWith "+0x" then
-      isAddress value[1..]
-    elif value.StartsWith '+' then
-      match tryParseUInt64 value[1..] with
-      | Some size ->
-        size > 0UL
-      | None ->
-        false
-    else
-      match tryParseUInt64 value with
-      | Some size ->
-        size > 0UL
-      | None ->
-        false
-
-  let private isInteger (value: string) =
-    if value.StartsWith '+' then
-      false
-    else
-      let style, value =
-        if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-          NumberStyles.HexNumber, value[2..]
-        else
-          NumberStyles.Integer, value
-      match Int32.TryParse(value, style, CultureInfo.InvariantCulture) with
-      | true, _ ->
-        true
-      | _ ->
-        false
-
-  let private isFloat (value: string) =
-    let style = NumberStyles.Float
-    match Double.TryParse(value, style, CultureInfo.InvariantCulture) with
-    | true, _ ->
-      true
-    | _ ->
-      match Double.TryParse value with
-      | true, _ ->
-        true
-      | _ ->
-        false
-
-  let private isISA (value: string) =
-    try
-      ISA value |> ignore
-      true
-    with _ ->
-      false
-
-  let private isRegex (value: string) =
-    try
-      Regex value |> ignore
-      true
-    with :? ArgumentException ->
-      false
-
-  let private isPath (value: string) =
-    if String.IsNullOrWhiteSpace value then
-      false
-    else
-      try
-        Path.GetFullPath value |> ignore
-        true
-      with _ ->
-        false
-
-  let private sectionExists input sectionName =
-    let sectionInsideSlice (slice: BinarySlice) section =
-      let section: BinSection = section
-      let finish = section.Address + section.FileSize
-      section.Address >= slice.StartAddress && finish <= slice.EndAddress
-    (input: ReplValue).Collection.Values
-    |> Array.exists (function
-      | :? Binary as binary ->
-        let file = (Binary.Handle binary).File
-        BinFileOps.tryFindSectionByName file sectionName |> Result.isOk
-      | :? BinarySlice as slice ->
-        let file = (Binary.Handle slice.Source).File
-        match BinFileOps.tryFindSectionByName file sectionName with
-        | Ok section ->
-          sectionInsideSlice slice section
-        | Error _ ->
-          false
-      | _ ->
-        false)
-
-  let private validateArgument input argument value =
-    let argument: ActionArgument = argument
-    let valid, expected =
-      match argument.Kind with
-      | ActionArgumentKind.Text ->
-        not (String.IsNullOrWhiteSpace value), "non-empty text"
-      | ActionArgumentKind.Path ->
-        isPath value, "a valid path"
-      | ActionArgumentKind.ExistingPath ->
-        File.Exists value || Directory.Exists value, "an existing path"
-      | ActionArgumentKind.OutputPath ->
-        isPath value, "a valid output path"
-      | ActionArgumentKind.ISA ->
-        isISA value, "a supported ISA name"
-      | ActionArgumentKind.Integer ->
-        isInteger value, "a 32-bit integer (0x... hex or decimal)"
-      | ActionArgumentKind.ArbitraryInteger ->
-        let isValid = IntegerParsing.tryParse value |> Option.isSome
-        isValid, "an integer (0x... hex or decimal)"
-      | ActionArgumentKind.Float ->
-        isFloat value, "a floating-point number"
-      | ActionArgumentKind.HexPattern ->
-        isRegex value, "a valid hexadecimal regular expression"
-      | ActionArgumentKind.HexBytes ->
-        isHexString value, "even-length hexadecimal bytes"
-      | ActionArgumentKind.Address ->
-        isAddress value, "an address (0x... hex or decimal)"
-      | ActionArgumentKind.Size ->
-        isSize value, "a positive size (0x... hex or decimal)"
-      | ActionArgumentKind.Section ->
-        sectionExists input value, "a section in the current binary"
-      | ActionArgumentKind.Action ->
-        not (String.IsNullOrWhiteSpace value), "an action reference"
-      | ActionArgumentKind.ParameterFunction ->
-        not (String.IsNullOrWhiteSpace value),
-        "a parameter function"
-      | ActionArgumentKind.Choice ->
-        List.contains value argument.Choices,
-        String.concat "|" argument.Choices
-    if valid then
-      Ok()
-    else
-      Error $"{argument.Name} must be {expected}; received '{value}'."
-
-  let private tryNamedArgument (value: string) =
-    let index = value.IndexOf '='
-    if index <= 0 then
-      None
-    else
-      let key = value[..index - 1].Trim()
-      let key, annotation =
-        let index = key.IndexOf ':'
-        if index <= 0 then
-          key, None
-        else
-          key[..index - 1], Some key[index + 1..]
-      let value = value[index + 1..]
-      if String.IsNullOrWhiteSpace key then
-        None
-      else
-        Some(key.ToLowerInvariant(), annotation, value)
-
   let private bindingText (state: TransformerReplState) name =
     TransformerReplState.tryFind name state
     |> Option.bind (fun value ->
@@ -1175,41 +1003,11 @@ module TransformerReplEvaluator =
         List.rev output
     loop [] args
 
-  let private typeAliases argument =
-    let argument: ActionArgument = argument
-    let primary = ActionMetadata.argumentKindName argument.Kind
-    let aliases =
-      match argument.Kind with
-      | ActionArgumentKind.Text
-      | ActionArgumentKind.Path
-      | ActionArgumentKind.ExistingPath
-      | ActionArgumentKind.OutputPath
-      | ActionArgumentKind.ISA
-      | ActionArgumentKind.Section
-      | ActionArgumentKind.Action
-      | ActionArgumentKind.ParameterFunction
-      | ActionArgumentKind.Choice ->
-        [ "String" ]
-      | ActionArgumentKind.Integer ->
-        [ "Integer" ]
-      | ActionArgumentKind.ArbitraryInteger ->
-        [ "Integer" ]
-      | ActionArgumentKind.Size ->
-        [ "Integer" ]
-      | _ ->
-        []
-    primary :: aliases
-
-  let private annotationMatches argument annotation =
-    typeAliases argument
-    |> List.exists (fun alias ->
-      String.Equals(alias, annotation, StringComparison.OrdinalIgnoreCase))
-
   let private parseArguments args =
     let folder result value =
       result
       |> Result.bind (fun parsed ->
-        match tryNamedArgument value with
+        match ActionMetadata.tryParseNamedArgument value with
         | Some(key, _, _) when Map.containsKey key parsed.Named ->
           Error $"duplicate parameter: {key}."
         | Some(key, annotation, value) ->
@@ -1272,7 +1070,8 @@ module TransformerReplEvaluator =
       match tryFindNamed named argument with
       | Some(key, (annotation, value)) ->
         match annotation with
-        | Some annotation when not (annotationMatches argument annotation) ->
+        | Some annotation when
+            not (ActionMetadata.annotationMatches argument annotation) ->
           let expected = ActionMetadata.argumentKindName argument.Kind
           Error $"{argument.Name} is {expected}, not {annotation}."
         | _ ->
@@ -1315,15 +1114,15 @@ module TransformerReplEvaluator =
         Error "positional arguments are not supported; use name=value."
       elif Map.isEmpty parsed.Named then
         Ok
-          { Syntax = syntax
-            Arguments = addTrigger parsed.Positional
-            Assignments = None }
+          ({ Syntax = syntax
+             Arguments = addTrigger parsed.Positional
+             Assignments = None }: NormalizedSyntax)
       else
         fillArguments parsed.Positional parsed.Named syntax.Arguments [] []
         |> Result.map (fun (args, assignments) ->
-          { Syntax = syntax
-            Arguments = addTrigger args
-            Assignments = Some assignments }))
+           ({ Syntax = syntax
+              Arguments = addTrigger args
+              Assignments = Some assignments }: NormalizedSyntax)))
 
   let private matchesArity (candidate: NormalizedSyntax) =
     let args =
@@ -1355,25 +1154,17 @@ module TransformerReplEvaluator =
           (List.truncate (List.length args) candidate.Syntax.Arguments)
           args
     pairs
-    |> List.map (fun (argument, value) -> validateArgument input argument value)
+    |> List.map (fun (argument, value) ->
+      ActionArgumentValidation.validate input argument value)
     |> List.tryFind Result.isError
     |> Option.defaultValue (Ok())
-
-  let private canonicalArgumentValue argument (value: string) =
-    let argument: ActionArgument = argument
-    match argument.Kind with
-    | ActionArgumentKind.Size
-        when not (value.StartsWith '+') ->
-      "+" + value
-    | _ ->
-      value
 
   let private canonicalArguments candidate =
     let candidate: NormalizedSyntax = candidate
     let rec loop output arguments values =
       match arguments, values with
       | argument :: arguments, value :: values ->
-        let value = canonicalArgumentValue argument value
+        let value = ActionArgumentValidation.canonicalize argument value
         loop (value :: output) arguments values
       | _, [] ->
         List.rev output
@@ -1391,7 +1182,8 @@ module TransformerReplEvaluator =
     |> Option.map (fun assignments ->
       assignments
       |> List.map (fun (argument, value) ->
-        argument.Name, canonicalArgumentValue argument value))
+        argument.Name,
+        ActionArgumentValidation.canonicalize argument value))
 
   let private invalidArguments
     (input: ReplValue)
@@ -1447,7 +1239,9 @@ module TransformerReplEvaluator =
             |> List.map (function
               | Ok candidate ->
                 validateSyntax input candidate |> Result.map (fun () ->
-                  canonicalArguments candidate, canonicalAssignments candidate)
+                  { Syntax = candidate.Syntax
+                    Arguments = canonicalArguments candidate
+                    Assignments = canonicalAssignments candidate })
               | Error error ->
                 Error error)
           match results |> List.tryFind Result.isOk with
@@ -1761,13 +1555,7 @@ module TransformerReplEvaluator =
     (segment: ReplPipelineSegment)
     cancellationToken =
     let metadata = registered.Metadata
-    if metadata.ID = "print" then
-      match segment.Arguments with
-      | [] ->
-        printedResult [ input ] |> Ok
-      | _ ->
-        Error "print does not accept arguments."
-    elif not (ReplTypeAnalysis.acceptsInput input.Kind metadata) then
+    if not (ReplTypeAnalysis.acceptsInput input.Kind metadata) then
       actionInputError input metadata |> Error
     else
       let args =
@@ -1792,10 +1580,15 @@ module TransformerReplEvaluator =
           Ok registry
       ready
       |> Result.bind (fun _ -> validateArguments input metadata args)
-      |> Result.bind (fun (normalizedArgs, assignments) ->
-        let outputKind =
-          ActionMetadata.outputForArguments metadata (Some input.Kind) args
-        transformWith outputKind normalizedArgs assignments)
+      |> Result.bind (fun validated ->
+        if metadata.ID = "print" then
+          printedResult [ input ] |> Ok
+        else
+          let outputKind =
+            ActionMetadata.outputForSyntax
+              metadata (Some input.Kind) validated.Syntax
+          transformWith
+            outputKind validated.Arguments validated.Assignments)
 
   and private appendIterValue
     (output: ResizeArray<obj>)

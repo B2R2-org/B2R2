@@ -93,6 +93,26 @@ type LoadAction() =
     else
       invalidArg (nameof args) "ByteArray input takes no load parameters."
 
+  let transformNamed cancellationToken args collection =
+    let options = Map.ofList args
+    if collection.Values |> Array.forall isNull then
+      let isa =
+        options
+        |> Map.tryFind "isa"
+        |> Option.map (fun (name: string) -> ISA name)
+        |> Option.defaultWith (fun () -> ISA Architecture.Intel)
+      match Map.tryFind "path" options, Map.tryFind "hex" options with
+      | Some path, None ->
+        { Values = loadPath cancellationToken isa path }
+      | None, Some hex ->
+        { Values = loadHex isa hex }
+      | _ ->
+        invalidArg (nameof args) "Invalid load source."
+    elif Map.isEmpty options then
+      { Values = collection.Values |> Array.map (loadBytes cancellationToken) }
+    else
+      invalidArg (nameof args) "ByteArray input takes no load parameters."
+
   interface IAction with
     member _.ActionID with get() = "load"
     member _.Signature with get() =
@@ -113,3 +133,7 @@ type LoadAction() =
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       transform cancellationToken args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, cancellationToken) =
+      transformNamed cancellationToken args collection

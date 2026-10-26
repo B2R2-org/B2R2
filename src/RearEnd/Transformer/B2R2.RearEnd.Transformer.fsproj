@@ -45,6 +45,7 @@
     <Compile Include="WinnowingAction.fs" />
     <Compile Include="WriteAction.fs" />
     <Compile Include="Repl\ReplState.fs" />
+    <Compile Include="Repl\ActionArgumentValidation.fs" />
     <Compile Include="Repl\ReplInspection.fs" />
     <Compile Include="Repl\ReplLanguage.fs" />
     <Compile Include="Repl\InputAnalysis.fs" />
