@@ -56,7 +56,7 @@ type private SuggestionCache =
 
 module TransformerRepl =
   let private printOutput output =
-    (output: ReplOutput).Lines |> Seq.iter (printfn "%s")
+    (output: ReplOutput).FullLines.Value |> List.iter (printfn "%s")
 
   let private readRedirectedLines () =
     let rec loop lines =

@@ -196,10 +196,10 @@ module internal ReplRendering =
           yield "  " + value.ToString()
     }
 
-  let private renderByteRows (values: byte[]) =
+  let private renderByteRows indent (values: byte[]) =
     seq {
       if values.Length = 0 then
-        yield "  <empty>"
+        yield indent + "<empty>"
       else
         for offset in 0 .. HexViewBytesPerRow .. values.Length - 1 do
           let count = min HexViewBytesPerRow (values.Length - offset)
@@ -207,7 +207,7 @@ module internal ReplRendering =
             [ for index in offset .. offset + count - 1 ->
                 values[index].ToString("x2") ]
             |> String.concat " "
-          yield "  " + hex
+          yield indent + hex
     }
 
   let private renderHexRow baseAddress (values: byte[]) addressFormat offset =
@@ -255,11 +255,11 @@ module internal ReplRendering =
     let unit = if size = 1 then "byte" else "bytes"
     let header = $"ByteArray ({size} {unit})"
     seq {
-      yield header
       match mode with
       | Preview ->
-        yield! renderByteRows bytes.Bytes
+        yield! renderByteRows "" bytes.Bytes
       | Full ->
+        yield header
         yield displayField "base" $"0x{bytes.BaseAddress:x}"
         yield displayField "isa" (string bytes.ISA)
         yield displayField "os" (string bytes.OS)
@@ -272,39 +272,51 @@ module internal ReplRendering =
     }
 
   let private renderFingerprint mode (fingerprint: Fingerprint) =
+    let count = List.length fingerprint.Patterns
+    let unit = if count = 1 then "pattern" else "patterns"
     seq {
-      yield "Fingerprint"
-      yield displayField "count" $"{List.length fingerprint.Patterns} patterns"
-      if mode = Full then
+      match mode with
+      | Preview ->
+        yield $"Fingerprint: {count} {unit}"
+      | Full ->
+        yield "Fingerprint"
+        yield displayField "count" $"{count} {unit}"
         yield displayField "n-gram" (string fingerprint.NGramSize)
         yield displayField "window" (string fingerprint.WindowSize)
         if not (String.IsNullOrWhiteSpace fingerprint.Annotation) then
           yield displayField "annotation" fingerprint.Annotation
         else
           ()
-      else
-        ()
-      if List.isEmpty fingerprint.Patterns then
-        yield displayField "patterns" "none"
-      else
-        yield "  patterns:"
-        for hash, position in fingerprint.Patterns do
-          yield $"    {hash:x2}@{position}"
+        if List.isEmpty fingerprint.Patterns then
+          yield displayField "patterns" "none"
+        else
+          yield "  patterns:"
+          for hash, position in fingerprint.Patterns do
+            yield $"    {hash:x2}@{position}"
     }
 
-  let private renderClusterResult (result: ClusterResult) =
+  let private renderClusterResult mode (result: ClusterResult) =
+    let count = result.Clusters.Length
+    let values = result.Clusters |> Array.sumBy Array.length
+    let unit = if count = 1 then "cluster" else "clusters"
+    let valueUnit = if values = 1 then "value" else "values"
     seq {
-      yield "ClusterResult"
-      yield displayField "count" $"{result.Clusters.Length} clusters"
-      if result.Clusters.Length = 0 then
-        yield displayField "clusters" "none"
-      else
-        yield "  clusters:"
-        for index in 0 .. result.Clusters.Length - 1 do
-          let cluster = result.Clusters[index]
-          yield $"    #{index} ({cluster.Length} values):"
-          for item in cluster do
-            yield "      " + item
+      match mode with
+      | Preview ->
+        yield $"{count} {unit}, {values} {valueUnit}"
+      | Full ->
+        yield "ClusterResult"
+        yield displayField "count" $"{count} {unit}"
+        if count = 0 then
+          yield displayField "clusters" "none"
+        else
+          yield "  clusters:"
+          for index in 0 .. count - 1 do
+            let cluster = result.Clusters[index]
+            let unit = if cluster.Length = 1 then "value" else "values"
+            yield $"    #{index} ({cluster.Length} {unit}):"
+            for item in cluster do
+              yield "      " + item
     }
 
   let private formatRange startAddress endAddress =
@@ -407,7 +419,7 @@ module internal ReplRendering =
         yield $"0x{view.Address:x}:"
       match mode with
       | Preview ->
-        yield! renderByteRows view.Bytes
+        yield! renderByteRows "  " view.Bytes
       | Full ->
         yield ""
         yield! renderHexRows view.Address view.Bytes
@@ -420,7 +432,7 @@ module internal ReplRendering =
       | Some bytes ->
         let lines =
           match mode with
-          | Preview -> renderByteRows bytes
+          | Preview -> renderByteRows "  " bytes
           | Full -> renderHexRows addr bytes
         for line in lines do
           yield "  " + line
@@ -753,7 +765,7 @@ module internal ReplRendering =
       | :? Fingerprint as fingerprint ->
         yield! renderFingerprint mode fingerprint
       | :? ClusterResult as result ->
-        yield! renderClusterResult result
+        yield! renderClusterResult mode result
       | :? BinarySlice as slice ->
         yield! renderSlice mode slice
       | :? SectionInfo as section ->
@@ -791,23 +803,28 @@ module internal ReplRendering =
 
   let private renderValue mode (value: ReplValue) =
     let values = value.Collection.Values
+    let showCollection =
+      value.IsCollection && (mode = Full || values.Length <> 1)
     seq {
-      if value.IsCollection then
-        yield $"{typeDescription value} ({values.Length} values)"
+      if showCollection && mode = Full then
+        let unit = if values.Length = 1 then "value" else "values"
+        yield $"{typeDescription value} ({values.Length} {unit})"
+      elif showCollection then
+        yield $"{values.Length} values"
       else
         ()
       for index in 0 .. values.Length - 1 do
         let lines =
           renderObject mode None values[index]
           |> Seq.collect normalizeDisplayLine
-        if value.IsCollection then
+        if showCollection then
           use items = lines.GetEnumerator()
           if items.MoveNext() then
             let first = items.Current
             if mode = Preview && not (items.MoveNext()) then
               yield $"  #{index}: {first}"
             else
-              yield $"  value #{index}:"
+              yield $"  #{index}:"
               yield "    " + first
               if mode = Preview then
                 yield "    " + items.Current

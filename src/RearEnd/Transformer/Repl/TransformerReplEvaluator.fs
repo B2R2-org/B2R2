@@ -91,7 +91,7 @@ module TransformerReplEvaluator =
     (ct: CancellationToken) =
     match InputAnalysis.splitTopLevelCommands input with
     | _ :: _ :: _ as commands ->
-      let outputs = ResizeArray<string>()
+      let outputs = ResizeArray<ReplOutput>()
       let folder result command =
         result
         |> Result.bind (fun (currentRegistry, currentState) ->
@@ -104,13 +104,25 @@ module TransformerReplEvaluator =
             ct
           |> resultState
           |> Result.map (fun (nextRegistry, nextState, output) ->
-            outputs.AddRange output.Lines
+            outputs.Add output
             nextRegistry, nextState))
       commands
       |> List.fold folder (Ok(registry, state))
       |> function
         | Ok(registry, state) ->
-          continueWith registry state (Seq.toList outputs)
+          let preview =
+            seq {
+              for output in outputs do
+                yield! output.Lines
+            }
+          let full =
+            lazy [
+              for output in outputs do
+                yield! output.FullLines.Value
+            ]
+          let output = ReplOutput.ofLazy preview full
+          let hasError = outputs |> Seq.exists (fun item -> item.HasError)
+          Continue(registry, state, { output with HasError = hasError })
         | Error message ->
           fail registry state message
     | _ ->
@@ -183,7 +195,7 @@ module TransformerReplEvaluator =
     | Error message ->
       fail registry state message
     | Ok commands ->
-      let outputs = ResizeArray<string>()
+      let outputs = ResizeArray<string * ReplOutput>()
       commands
       |> List.fold (fun result command ->
         result
@@ -204,8 +216,7 @@ module TransformerReplEvaluator =
                   line.StartsWith("Error:", StringComparison.Ordinal))
               Error error
             else
-              outputs.Add $"> {command}"
-              outputs.AddRange output.Lines
+              outputs.Add(command, output)
               Ok(nextRegistry, nextState))))
         (Ok(registry, TransformerReplState.empty))
       |> function
@@ -218,7 +229,21 @@ module TransformerReplEvaluator =
               (ReplRendering.normalizePath path) state
           let header =
             [ $"Script loaded: {ReplRendering.normalizePath fullPath}" ]
-          continueWith registry state (header @ Seq.toList outputs)
+          let preview =
+            seq {
+              yield! header
+              for command, output in outputs do
+                yield $"> {command}"
+                yield! output.Lines
+            }
+          let full =
+            lazy [
+              yield! header
+              for command, output in outputs do
+                yield $"> {command}"
+                yield! output.FullLines.Value
+            ]
+          Continue(registry, state, ReplOutput.ofLazy preview full)
 
   let evaluateCommand registry state input ct =
     evaluateInput false registry state input ct

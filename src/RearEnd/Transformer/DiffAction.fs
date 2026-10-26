@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.Collections.Generic
 open System.Threading
 open B2R2
 open B2R2.RearEnd.Transformer.Utils
@@ -64,13 +63,15 @@ type DiffAction() =
     appendText color (byteText byte) cs
 
   let appendSide (bytes: byte[]) (other: byte[]) color offset cs =
-    [ 0 .. NumBytesPerLine - 1 ]
+    let count =
+      min NumBytesPerLine (max bytes.Length other.Length - offset)
+    [ 0 .. count - 1 ]
     |> List.fold (fun cs column ->
       let index = offset + column
       let byte = byteAt bytes index
       let otherByte = byteAt other index
       let cs = appendByte (byteColor byte otherByte color) byte cs
-      if column = NumBytesPerLine - 1 then cs else appendText NoColor " " cs)
+      if column = count - 1 then cs else appendText NoColor " " cs)
       cs
 
   let appendByteRow marker bytes other color baseAddress (offset: int) cs =
@@ -114,20 +115,10 @@ type DiffAction() =
     leftBase
     rightBase
     (changed: int list)
-    rowCount
     cs =
-    let changed = HashSet<int>(changed)
-    let rec loop row equalRows cs =
-      if row = rowCount then
-        appendEqualRows equalRows cs
-      elif changed.Contains row then
-        cs
-        |> appendEqualRows equalRows
-        |> appendChangedByteRow left right leftBase rightBase row
-        |> loop (row + 1) 0
-      else
-        loop (row + 1) (equalRows + 1) cs
-    loop 0 0 cs
+    (cs, changed)
+    ||> List.fold (fun cs row ->
+      appendChangedByteRow left right leftBase rightBase row cs)
 
   let buildLcsTable (left: string[]) (right: string[]) =
     let table = Array2D.zeroCreate (left.Length + 1) (right.Length + 1)
@@ -211,7 +202,6 @@ type DiffAction() =
 
   let diffBytes
     (ct: CancellationToken)
-    title
     leftBase
     rightBase
     (bs1: byte[])
@@ -229,8 +219,7 @@ type DiffAction() =
     else
       let cs = ColoredString()
       cs
-      |> appendLine NoColor title
-      |> appendByteDiffRows bs1 bs2 leftBase rightBase changedRows rowCount
+      |> appendByteDiffRows bs1 bs2 leftBase rightBase changedRows
       |> OutputColored
 
   let binaryBase (bin: Binary) =
@@ -249,7 +238,6 @@ type DiffAction() =
   let diffBinary ct bin1 bin2 =
     diffBytes
       ct
-      "byte diff"
       (binaryBase bin1)
       (binaryBase bin2)
       (binaryBytes bin1)
@@ -276,7 +264,6 @@ type DiffAction() =
     | Some(leftBase, leftBytes), Some(rightBase, rightBytes) ->
       diffBytes
         ct
-        "byte diff"
         leftBase
         rightBase
         leftBytes
@@ -286,7 +273,6 @@ type DiffAction() =
       | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
         diffBytes
           ct
-          "byte diff"
           left.BaseAddress
           right.BaseAddress
           left.Bytes
