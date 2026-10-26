@@ -41,6 +41,7 @@ type private TuiInputRow =
     CursorColumn: int
     Ghost: string
     Diagnostics: (int * int) list
+    Styles: string array
     Selection: (int * int) option }
 
 type private TuiInputRenderState =
@@ -48,6 +49,7 @@ type private TuiInputRenderState =
     Model: TransformerTuiModel
     CursorLine: int
     CursorColumn: int
+    Styles: string array
     Selection: (int * int) option }
 
 module TransformerTuiRenderer =
@@ -76,6 +78,14 @@ module TransformerTuiRenderer =
   let private paletteFg = "\x1b[97m"
   /// Light gray foreground used for the command palette completion preview.
   let private paletteGhostFg = "\x1b[38;2;184;184;184m"
+  let private identifierFg = "\x1b[38;2;212;212;212m"
+  let private actionFg = "\x1b[38;2;220;220;170m"
+  let private parameterFg = "\x1b[38;2;206;145;120m"
+  let private numberFg = "\x1b[38;2;181;206;168m"
+  let private stringFg = "\x1b[38;2;156;220;254m"
+  let private keywordFg = "\x1b[38;2;197;134;192m"
+  let private commentFg = "\x1b[38;2;106;153;85m"
+  let private commandBg = "\x1b[48;2;37;47;60m"
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -154,9 +164,9 @@ module TransformerTuiRenderer =
 
   let private lineStyle = function
     | TuiLineKind.Command ->
-      cyan
+      ""
     | TuiLineKind.CommandContinuation ->
-      cyan
+      ""
     | TuiLineKind.Output ->
       ""
     | TuiLineKind.Error ->
@@ -599,24 +609,6 @@ module TransformerTuiRenderer =
   let private takeTranscriptRows count start lines =
     lines |> List.skip start |> List.truncate count
 
-  let private takeBody bodyHeight bodyWidth registry model =
-    match model.Overlay with
-    | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
-      let lines: (TuiLineKind * string) list =
-        TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
-        |> List.map (fun (line: TuiTranscriptLine) ->
-          line.Line.Kind, line.Line.Text)
-      let start =
-        TransformerTuiModel.transcriptViewportStart
-          bodyWidth bodyHeight model
-      takeTranscriptRows bodyHeight start lines
-    | _ ->
-      let lines = overlayLines bodyWidth registry model
-      let maximumOffset = max 0 (List.length lines - bodyHeight)
-      lines
-      |> List.skip (min model.ScrollOffset maximumOffset)
-      |> List.truncate bodyHeight
-
   let private scriptRecordText = function
     | ReplReplayMode.Reproducible ->
       "on"
@@ -745,27 +737,220 @@ module TransformerTuiRenderer =
       else
         None)
 
-  let private styleInputText (text: string) diagnostics selection =
+  let private isIdentifierStart chr = Char.IsLetter chr || chr = '_'
+
+  let private isIdentifierPart chr =
+    Char.IsLetterOrDigit chr || chr = '_' || chr = '-'
+
+  let private scanWhile predicate (text: string) start =
+    let mutable finish = start
+    while finish < text.Length && predicate text[finish] do
+      finish <- finish + 1
+    finish
+
+  let private markSyntaxStyle (styles: string array) start finish style =
+    for index in start..finish - 1 do
+      styles[index] <- style
+
+  let private stringEnd (input: string) quote start =
+    let mutable finish = start + 1
+    let mutable closed = false
+    while finish < input.Length && not closed do
+      if input[finish] = '\\' && finish + 1 < input.Length then
+        finish <- finish + 2
+      elif input[finish] = quote then
+        finish <- finish + 1
+        closed <- true
+      else
+        finish <- finish + 1
+    finish
+
+  let private wordStyle input bindingStart binding start finish =
+    let input: string = input
+    let word = input[start..finish - 1]
+    let next = scanWhile Char.IsWhiteSpace input finish
+    let isBinding =
+      start = bindingStart
+      && (binding |> Option.exists (fun header -> header.Name = word))
+    let hasEquals = next < input.Length && input[next] = '='
+    let isAssignment =
+      hasEquals && (next + 1 = input.Length || input[next + 1] <> '=')
+    if word = "iter" || word = "iteri" || word = "fun" then
+      keywordFg
+    elif word = "true" || word = "false" then
+      numberFg
+    elif not isBinding && isAssignment then
+      parameterFg
+    else
+      identifierFg
+
+  let private numberEnd (input: string) index =
+    let isHex =
+      if index + 1 < input.Length then
+        input[index] = '0'
+        && (input[index + 1] = 'x' || input[index + 1] = 'X')
+      else
+        false
+    if isHex then
+      scanWhile Uri.IsHexDigit input (index + 2)
+    else
+      scanWhile Char.IsDigit input (index + 1)
+
+  let private syntaxStyles (input: string) =
+    let styles = Array.create input.Length ""
+    let binding = ReplLanguage.bindingHeader input
+    let bindingStart = scanWhile Char.IsWhiteSpace input 0
+    let rec scan index =
+      if index >= input.Length then
+        ()
+      else
+        match input[index] with
+        | '#' ->
+          let finish = scanWhile ((<>) '\n') input index
+          markSyntaxStyle styles index finish commentFg
+          scan finish
+        | '"' | '\'' as quote ->
+          let finish = stringEnd input quote index
+          markSyntaxStyle styles index finish stringFg
+          scan finish
+        | '@' when index + 1 < input.Length
+                   && isIdentifierStart input[index + 1] ->
+          let finish = scanWhile isIdentifierPart input (index + 2)
+          markSyntaxStyle styles index finish actionFg
+          scan finish
+        | chr when isIdentifierStart chr ->
+          let finish = scanWhile isIdentifierPart input (index + 1)
+          let style = wordStyle input bindingStart binding index finish
+          markSyntaxStyle styles index finish style
+          scan finish
+        | chr when Char.IsDigit chr ->
+          let finish = numberEnd input index
+          markSyntaxStyle styles index finish numberFg
+          scan finish
+        | _ ->
+          scan (index + 1)
+    scan 0
+    styles
+
+  let private transcriptSelectionFlags (text: string) =
+    let length = TransformerTuiText.stripAnsi text |> String.length
+    let flags = Array.create length false
+    let mutable index = 0
+    let mutable visible = 0
+    let mutable selected = false
+    while index < text.Length do
+      let matched = TransformerTuiText.matchAnsi text index
+      if matched.Success && matched.Index = index then
+        match matched.Value with
+        | value when value = reverse -> selected <- true
+        | value when value = reset -> selected <- false
+        | _ -> ()
+        index <- index + matched.Length
+      else
+        flags[visible] <- selected
+        visible <- visible + 1
+        index <- index + 1
+    flags
+
+  let private appendTranscriptStyle
+    (builder: StringBuilder) color selected previousColor previousSelection =
+    if color <> previousColor then
+      builder.Append(if color = "" then "\x1b[39m" else color) |> ignore
+    else
+      ()
+    if selected <> previousSelection then
+      builder.Append(if selected then reverse else "\x1b[27m") |> ignore
+    else
+      ()
+
+  let private colorTranscriptText (row: TuiTranscriptLine) =
+    let text = TransformerTuiText.stripAnsi row.Line.Text
+    let prefixLength = min 2 text.Length
+    let source = TransformerTuiText.sanitize row.OriginalLine.Text
+    let styles = syntaxStyles source
+    let selected = transcriptSelectionFlags row.Line.Text
+    let prefix = if prefixLength = 0 then "" else text[..prefixLength - 1]
+    let background =
+      if row.Line.Kind = TuiLineKind.Selection then "" else commandBg
+    let builder = StringBuilder(background + prefix)
+    let mutable previousColor = ""
+    let mutable previousSelection = false
+    for index in prefixLength..text.Length - 1 do
+      let sourceIndex = row.TextStart + index - prefixLength
+      let color =
+        if sourceIndex < styles.Length then styles[sourceIndex] else ""
+      let isSelected = selected[index]
+      appendTranscriptStyle
+        builder color isSelected previousColor previousSelection
+      builder.Append text[index] |> ignore
+      previousColor <- color
+      previousSelection <- isSelected
+    if previousColor <> "" then builder.Append "\x1b[39m" |> ignore
+    else ()
+    if previousSelection then builder.Append "\x1b[27m" |> ignore
+    else ()
+    builder.ToString()
+
+  let private renderTranscriptLine (row: TuiTranscriptLine) =
+    let kind = row.Line.Kind
+    match row.OriginalLine.Kind with
+    | TuiLineKind.Command | TuiLineKind.CommandContinuation
+      when not (containsAnsi row.OriginalLine.Text) ->
+      kind, colorTranscriptText row
+    | _ ->
+      kind, row.Line.Text
+
+  let private takeBody bodyHeight bodyWidth registry model =
+    match model.Overlay with
+    | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
+      let lines =
+        TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
+      let start =
+        TransformerTuiModel.transcriptViewportStart
+          bodyWidth bodyHeight model
+      takeTranscriptRows bodyHeight start lines
+      |> List.map renderTranscriptLine
+    | _ ->
+      let lines = overlayLines bodyWidth registry model
+      let maximumOffset = max 0 (List.length lines - bodyHeight)
+      lines
+      |> List.skip (min model.ScrollOffset maximumOffset)
+      |> List.truncate bodyHeight
+
+  let private clippedInputRange length (start, count) =
+    let start = max 0 start
+    let finish = min length (start + count)
+    if start < finish then Some(start, finish) else None
+
+  let private syntaxBoundaries start length (styles: string array) =
+    if length < 2 then
+      []
+    else
+      styles[start..start + length - 1]
+      |> Array.pairwise
+      |> Array.indexed
+      |> Array.choose (fun (index, (left, right)) ->
+        if left = right then None else Some(index + 1))
+      |> Array.toList
+
+  let private inputStyleBoundaries length start styles ranges selection =
+    [ 0; length ]
+    @ syntaxBoundaries start length styles
+    @ (ranges |> List.collect (fun (first, last) -> [ first; last ]))
+    @ (selection
+       |> Option.map (fun (first, last) -> [ first; last ])
+       |> Option.defaultValue [])
+    |> List.distinct
+    |> List.sort
+
+  let private styleInputText
+    (text: string) startIndex (styles: string array) diagnostics selection =
     let ranges =
       diagnostics
-      |> List.choose (fun (start, length) ->
-        let start = max 0 start
-        let finish = min text.Length (start + length)
-        if start < finish then Some(start, finish) else None)
-    let selection =
-      selection
-      |> Option.bind (fun (start, length) ->
-        let start = max 0 start
-        let finish = min text.Length (start + length)
-        if start < finish then Some(start, finish) else None)
+      |> List.choose (clippedInputRange text.Length)
+    let selection = selection |> Option.bind (clippedInputRange text.Length)
     let boundaries =
-      [ 0; text.Length ]
-      @ (ranges |> List.collect (fun (start, finish) -> [ start; finish ]))
-      @ (selection
-         |> Option.map (fun (start, finish) -> [ start; finish ])
-         |> Option.defaultValue [])
-      |> List.distinct
-      |> List.sort
+      inputStyleBoundaries text.Length startIndex styles ranges selection
     boundaries
     |> List.pairwise
     |> List.map (fun (start, finish) ->
@@ -776,8 +961,9 @@ module TransformerTuiRenderer =
         selection
         |> Option.exists (fun (first, last) -> first <= start && start < last)
       let style =
-        (if isDiagnostic then red + underline else "")
-        + (if isSelected then reverse else "")
+        if isSelected then reverse
+        elif isDiagnostic then red + underline
+        else styles[startIndex + start]
       paint style text[start..finish - 1])
     |> String.concat ""
 
@@ -976,8 +1162,10 @@ module TransformerTuiRenderer =
       let last = min last finish
       if first < last then Some(first - start, last - first) else None)
 
-  let private styleInputSegment (row: TuiInputRow) start text diagnostics =
-    styleInputText text diagnostics (selectionInInputRow row start text.Length)
+  let private styleInputSegment
+    (row: TuiInputRow) start (text: string) diagnostics =
+    let selection = selectionInInputRow row start text.Length
+    styleInputText text start row.Styles diagnostics selection
 
   let private inputRow width (row: TuiInputRow) =
     let available = max 1 (width - row.Prompt.Length)
@@ -1039,6 +1227,7 @@ module TransformerTuiRenderer =
         CursorColumn = column
         Ghost = ghost
         Diagnostics = diagnostics
+        Styles = state.Styles
         Selection = state.Selection }
     inputRow width row, isCursorLine
 
@@ -1058,6 +1247,7 @@ module TransformerTuiRenderer =
         Model = model
         CursorLine = cursorLine
         CursorColumn = cursorColumn
+        Styles = syntaxStyles model.Input
         Selection = inputSelection model }
     let rows, cursor =
       visible
