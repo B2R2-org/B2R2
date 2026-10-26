@@ -1986,9 +1986,9 @@ type SymbSearchAction() =
   let check =
     SymbMetadata.choice
       "check"
-      false
+      true
       [ "access-violation" ]
-      "Condition to search for."
+      "Condition to search for. Default: access-violation."
   let cond =
     SymbMetadata.arg
       "cond"
@@ -2025,8 +2025,10 @@ type SymbSearchAction() =
       true
       [ "true"; "false" ]
       "Use the solver to prune infeasible paths. Default: true."
-  let condArgs =
+  let executorCondArgs =
     [ cond; precond; maxDepth; maxStates; loopBound; prune; avoid; hooks ]
+  let executorDefaultArgs =
+    [ check; precond; maxDepth; maxStates; loopBound; prune; avoid; hooks ]
   let setupArgs =
     [ entry
       solver
@@ -2055,8 +2057,9 @@ type SymbSearchAction() =
     + "[stack=<addr>] [regs=[...]] [mem=[...]] [sym-mem=[...]] "
     + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
     + "[buffers=[...]] [avoid=[...]] [hooks=[...]] "
-    + "(check=access-violation | cond=<fun>) | "
-    + "SymbExecutor -> @run-symbolic cond:ParameterFunction=<fun> "
+    + "[check=access-violation | cond=<fun>] | "
+    + "SymbExecutor -> @run-symbolic "
+    + "[check=access-violation | cond:ParameterFunction=<fun>] "
     + "[precond:String=<conditions>] [max-depth:Int=<n>] "
     + "[max-states:Int=<n>] "
     + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] "
@@ -2068,10 +2071,10 @@ type SymbSearchAction() =
         ReplValueKind.SymbRunResult
         ActionRole.Transform
         signature
-        "Search for symbolic inputs satisfying a state condition."
+        ("Search for symbolic inputs satisfying a state condition. "
+         + "By default, search for a memory access violation.")
         [ "binary |> @run-symbolic entry=<addr> "
-          + "sym-regs=[ESI=idx:4] buffers=[RDI=buf:0x400:rw] "
-          + "check=access-violation"
+          + "sym-regs=[ESI=idx:4] buffers=[RDI=buf:0x400:rw]"
           "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
           "sx |> @run-symbolic precond=ESI>99:u32 "
           + "cond=(fun _ -> mem.accessViolation())"
@@ -2086,7 +2089,9 @@ type SymbSearchAction() =
             { SymbMetadata.syntax None directCondArgs with
                 Inputs =
                   [ ReplValueKind.Binary; ReplValueKind.BinarySlice ] }
-            { SymbMetadata.syntax None condArgs with
+            { SymbMetadata.syntax None executorDefaultArgs with
+                Inputs = [ ReplValueKind.SymbExecutor ] }
+            { SymbMetadata.syntax None executorCondArgs with
                 Inputs = [ ReplValueKind.SymbExecutor ] } ] }
 
   let withPrecondition hdl options (executor: SymbExecutorValue) =
@@ -2099,14 +2104,19 @@ type SymbSearchAction() =
     | None ->
       executor
 
-  let directCondition options =
+  let defaultCondition = "(fun _ -> mem.accessViolation())"
+
+  let conditionText options =
     match Map.tryFind "check" options, Map.tryFind "cond" options with
+    | None, None
     | Some "access-violation", None ->
-      "(fun _ -> mem.accessViolation())"
+      defaultCondition
     | None, Some condition ->
       condition
+    | Some check, None ->
+      invalidArg (nameof options) $"Unsupported check: {check}"
     | _ ->
-      invalidArg (nameof options) "Specify one of check= or cond=."
+      invalidArg (nameof options) "Specify either check= or cond=."
 
   let stopAtReturn hdl (executor: SymbExecutorValue) =
     let returnSP =
@@ -2157,7 +2167,7 @@ type SymbSearchAction() =
     let hdl = Binary.Handle binary
     let executor = withPrecondition hdl options executor
     let condition =
-      directCondition options
+      conditionText options
       |> SymbCondition.parse
     let predicate, analyzer =
       SymbCondition.toQueryPredicate
@@ -2176,6 +2186,12 @@ type SymbSearchAction() =
 
   let runBinary ct args binary =
     match args with
+    | [ entry; registers; buffers ] ->
+      Map.ofList
+        [ "entry", entry
+          "sym-regs", registers
+          "buffers", buffers ]
+      |> fun options -> runBinaryNamed ct options binary
     | [ entry; registers; buffers; check ] ->
       Map.ofList
         [ "entry", entry
@@ -2213,44 +2229,44 @@ type SymbSearchAction() =
     | :? BinarySlice as slice ->
       runBinary ct args (slice.ToBinary())
     | :? SymbExecutorValue as executor ->
-      match args with
-      | cond :: rest ->
-        let hdl = Binary.Handle executor.Binary
-        let precond, rest = splitPrecondition rest
-        let executor =
-          match precond with
-          | Some precond ->
-            let condition = SymbCondition.parsePreconditions precond
-            let predicate =
-              SymbCondition.toPredicate hdl executor.Regions condition
-            executor.WithPrecondition predicate.Invoke
-          | None ->
-            executor
-        let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
-        let condition = SymbCondition.parse cond
-        let result =
-          match SymbCondition.trySatisfyAddress condition with
-          | Some target ->
-            executor.RunSatisfy(target,
-                                maxDepth,
-                                maxStates,
-                                loopBound,
-                                prune,
-                                ct)
-          | None ->
-            let predicate, analyzer =
-              SymbCondition.toQueryPredicate
-                hdl executor.Regions executor.Solver condition
-            executor.RunSatisfyCondition(predicate,
-                                         maxDepth,
-                                         maxStates,
-                                         loopBound,
-                                         prune,
-                                         ct,
-                                         ?violationAnalyzer = analyzer)
-        result |> box
-      | _ ->
-        invalidArg (nameof args) "Invalid run-symbolic arguments."
+      let cond, rest =
+        match args with
+        | [] -> defaultCondition, []
+        | cond :: rest -> cond, rest
+      let hdl = Binary.Handle executor.Binary
+      let precond, rest = splitPrecondition rest
+      let executor =
+        match precond with
+        | Some precond ->
+          let condition = SymbCondition.parsePreconditions precond
+          let predicate =
+            SymbCondition.toPredicate hdl executor.Regions condition
+          executor.WithPrecondition predicate.Invoke
+        | None ->
+          executor
+      let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
+      let condition = SymbCondition.parse cond
+      let result =
+        match SymbCondition.trySatisfyAddress condition with
+        | Some target ->
+          executor.RunSatisfy(target,
+                              maxDepth,
+                              maxStates,
+                              loopBound,
+                              prune,
+                              ct)
+        | None ->
+          let predicate, analyzer =
+            SymbCondition.toQueryPredicate
+              hdl executor.Regions executor.Solver condition
+          executor.RunSatisfyCondition(predicate,
+                                       maxDepth,
+                                       maxStates,
+                                       loopBound,
+                                       prune,
+                                       ct,
+                                       ?violationAnalyzer = analyzer)
+      result |> box
     | value ->
       invalidOp $"run-symbolic expects SymbExecutor: {value}"
 
@@ -2265,7 +2281,7 @@ type SymbSearchAction() =
     let option name fallback =
       Map.tryFind name options |> Option.defaultValue fallback
     let executorArgs () =
-      [ Map.find "cond" options ]
+      [ conditionText options ]
       @ (Map.tryFind "precond" options |> Option.toList)
       @ [ option "max-depth" "512"
           option "max-states" "2048"
