@@ -346,11 +346,7 @@ module TransformerRepl =
         |> TransformerTuiModel.setStatus status
       let title = controlViewTitle command
       let lines =
-        match documentationViewTitle command, hasError with
-        | Some "Help", false ->
-          TransformerTuiModel.helpViewLines
-        | _ ->
-          output.Lines |> Seq.map toTuiLine |> Seq.toList
+        output.Lines |> Seq.map toTuiLine |> Seq.toList
       let model = TransformerTuiModel.openTextView title lines model
       registry, model, false
 

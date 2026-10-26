@@ -44,7 +44,9 @@ module TransformerTuiInputController =
     | _ ->
       TransformerTuiModel.openTextView
         "Help"
-        TransformerTuiModel.helpViewLines
+        (ReplHelp.guideLines
+         |> List.map (fun text ->
+           { Kind = TuiLineKind.Output; Text = text }))
         model
 
   let private toggleView model =
@@ -662,6 +664,8 @@ module TransformerTuiInputController =
         toggleCommandPalette model |> TuiInputResult.Update
       elif control && key.Key = ConsoleKey.C then
         copySelection model |> TuiInputResult.Update
+      elif key.Key = ConsoleKey.F1 then
+        toggleHelp model |> TuiInputResult.Update
       elif model.Overlay = TuiOverlay.CommandPalette then
         handleCommandPaletteKey key model
       elif model.Overlay = TuiOverlay.View && key.Key = ConsoleKey.F3 then
@@ -699,8 +703,6 @@ module TransformerTuiInputController =
         handleControlKey completion key model |> TuiInputResult.Update
       else
         match key.Key with
-        | ConsoleKey.F1 ->
-          toggleHelp model |> TuiInputResult.Update
         | ConsoleKey.F4 ->
           toggleView model |> TuiInputResult.Update
         | ConsoleKey.Escape when model.Overlay <> TuiOverlay.None ->

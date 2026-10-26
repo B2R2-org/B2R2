@@ -184,9 +184,6 @@ type TuiTranscriptLayout =
 [<RequireQualifiedAccess>]
 type TuiOverlay =
   | None
-  | Help
-  | Actions
-  | Bindings
   | View
   | Inspect
   | Values
@@ -326,62 +323,6 @@ module TransformerTuiModel =
   let private transcriptLineBudget = 5000
 
   let defaultSuggestionHeight = 7
-
-  let private helpLine text = { Kind = TuiLineKind.System; Text = text }
-
-  let helpViewLines =
-    [ helpLine "REPL GUIDE"
-      helpLine ""
-      helpLine "Pipelines"
-      helpLine "  <name> = <expression>           Bind an analysis result"
-      helpLine
-        "  <value> |> @<action> [args]      Transform the preceding value"
-      helpLine "  <expression>                      Evaluate without binding"
-      helpLine ""
-      helpLine "Controls"
-      helpLine "  F2                   Open the control command prompt"
-      helpLine "  help                           Show this guide"
-      helpLine
-        "  help @<action>                 Show action usage and examples"
-      helpLine "  actions                        List action documentation"
-      helpLine "  values                         List retained values"
-      helpLine "  history                        List evaluated commands"
-      helpLine "  layout order=toggle            Swap shell and suggestions"
-      helpLine "  script save|load|record ...    Manage replay scripts"
-      helpLine "  plugin load path=<dll>         Load a plugin"
-      helpLine "  quit                           Leave the TUI"
-      helpLine ""
-      helpLine "Shell"
-      helpLine "  Enter                          Insert a new line"
-      helpLine "  ;; then Enter                  Execute the current input"
-      helpLine
-        "  Tab / Shift+Tab                Apply completion / insert spaces"
-      helpLine
-        "  Up / Down                      Browse history, suggestions, or lines"
-      helpLine
-        "  Ctrl+N / Ctrl+P                Select next / previous completion"
-      helpLine "  Ctrl+A / Ctrl+E                Move to input start / end"
-      helpLine
-        "  Ctrl+W / Ctrl+Backspace        Delete the previous input word"
-      helpLine "  Ctrl+U / Ctrl+K                Delete to input start / end"
-      helpLine "  Ctrl+C             Copy selection or cancel an action"
-      helpLine "  Ctrl+D                         Leave when input is empty"
-      helpLine "  Click a suggestion             Apply that completion"
-      helpLine "  Copy / paste                   Use the terminal's shortcuts"
-      helpLine ""
-      helpLine "Transcript and view"
-      helpLine
-        "  Shift+Up / Shift+Down          Enter / leave transcript focus"
-      helpLine
-        "  Enter or F4                    Open the selected result in view"
-      helpLine "  PageUp / PageDown              Scroll the active pane"
-      helpLine "  Ctrl+Up / Ctrl+Down            Move by command in transcript"
-      helpLine "  Shift+Arrows                   Select text in view"
-      helpLine "  F3                   Find text in transcript or view"
-      helpLine "  Ctrl+F                         Find text in view"
-      helpLine "  Ctrl+Enter           Insert view selection into input"
-      helpLine "  Alt+Arrows                     Resize sidebar or suggestions"
-      helpLine "  Esc                            Close a panel or clear input" ]
 
   let private fixedFrameRows = 5
 
