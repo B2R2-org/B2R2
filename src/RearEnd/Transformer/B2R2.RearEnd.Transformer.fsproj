@@ -14,6 +14,7 @@
     <Compile Include="IAction.fs" />
     <Compile Include="PluginLoader.fs" />
     <Compile Include="Repl\ActionMetadata.fs" />
+    <Compile Include="Repl\ReplHelp.fs" />
     <Compile Include="Repl\QueryCapabilities.fs" />
     <Compile Include="AsmAction.fs" />
     <Compile Include="ByteArrayAction.fs" />

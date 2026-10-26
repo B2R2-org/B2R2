@@ -188,80 +188,6 @@ module TransformerTuiRenderer =
   let private valueTypeDescription value =
     ReplValueKind.toString (value: ReplValue).Kind
 
-  let private helpLines =
-    [ "REPL GUIDE"
-      ""
-      "Pipelines"
-      "  <name> = <expression>           Bind an analysis result"
-      "  <value> |> @<action> [args]      Transform the preceding value"
-      "  <expression>                      Evaluate without binding"
-      ""
-      "Controls"
-      "  F2                             Open the control command prompt"
-      "  help                           Show control command usage"
-      "  help @<action>                 Show action usage and examples"
-      "  actions                        List concise action summaries"
-      "  values                         List retained values"
-      "  history                        List evaluated commands"
-      "  layout order=toggle            Swap shell and suggestions"
-      "  script save|load|record ...    Manage replay scripts"
-      "  plugin load path=<dll>         Load a plugin"
-      "  quit                           Leave the TUI"
-      ""
-      "Shell"
-      "  Enter                          Insert a new line"
-      "  ;; then Enter                  Execute the current input"
-      "  Tab / Shift+Tab                Apply completion / insert spaces"
-      "  Up / Down                      Browse history, suggestions, or lines"
-      "  Ctrl+N / Ctrl+P                Select next / previous completion"
-      "  Ctrl+C                         Copy selected text"
-      "  Ctrl+A / Ctrl+E                Move to input start / end"
-      "  Ctrl+W / Ctrl+Backspace        Delete the previous input word"
-      "  Ctrl+U / Ctrl+K                Delete to input start / end"
-      "  Click a suggestion             Apply that completion"
-      "  Ctrl+C                         Cancel a running action"
-      "  Ctrl+D                         Leave when input is empty"
-      "  Copy / paste                   Use the terminal's shortcuts"
-      ""
-      "Transcript and view"
-      "  Shift+Up / Shift+Down          Enter / leave transcript focus"
-      "  Enter or F4                    Open the selected result in view"
-      "  PageUp / PageDown              Scroll the active pane"
-      "  Ctrl+Up / Ctrl+Down            Move by command in transcript"
-      "  Shift+Arrows                   Select text in view"
-      "  F3                             Find text in transcript or view"
-      "  Ctrl+F                         Find text in view"
-      "  Ctrl+Enter                     Insert view selection into input"
-      "  Alt+Arrows                     Resize sidebar or suggestions"
-      "  Esc                            Close a panel or clear input" ]
-
-  let private actionLines registry =
-    let format registered =
-      let metadata = (registered: RegisteredAction).Metadata
-      let name = ActionMetadata.actionName metadata.ID
-      $"{name.PadRight 28} {metadata.Description}"
-    [ "AVAILABLE ACTIONS"
-      "Use the F2 prompt with help @<action> for details."
-      "" ]
-    @ (ActionRegistry.getAll registry |> List.map format)
-
-  let private bindingLines model =
-    let lastResult =
-      TransformerReplState.tryLastResult model.Session
-      |> Option.map (fun value ->
-        $"{TransformerReplState.LastResultName}  {valueTypeDescription value}")
-      |> Option.toList
-    let bindings =
-      model.Session.Bindings
-      |> Map.toList
-      |> List.map (fun (name, value) ->
-        $"{name}  {valueTypeDescription value}")
-    let values = lastResult @ bindings
-    if List.isEmpty values then
-      [ "VALUES"; ""; "No values yet." ]
-    else
-      "VALUES" :: "" :: values
-
   let private selectionLine selected text =
     { Kind =
         if selected then TuiLineKind.Selection else TuiLineKind.System
@@ -311,7 +237,7 @@ module TransformerTuiRenderer =
         { Kind = TuiLineKind.System
           Text = $"{entry.ID}: {status} {elapsed:F1} ms  {entry.Command}" })
 
-  let private overlayLines width registry model =
+  let private overlayLines width model =
     match model.Overlay with
     | TuiOverlay.View ->
       let pane = model.ViewPane
@@ -327,22 +253,8 @@ module TransformerTuiRenderer =
       valueLines model |> List.collect (wrapLine width)
     | TuiOverlay.Log ->
       logLines model |> List.collect (wrapLine width)
-    | overlay ->
-      let lines =
-        match overlay with
-        | TuiOverlay.Help ->
-          helpLines
-        | TuiOverlay.Actions ->
-          actionLines registry
-        | TuiOverlay.Bindings ->
-          bindingLines model
-        | TuiOverlay.None | TuiOverlay.View | TuiOverlay.Inspect
-        | TuiOverlay.Values | TuiOverlay.Log | TuiOverlay.Message
-        | TuiOverlay.CommandPalette ->
-          []
-      lines
-      |> List.collect (fun text ->
-        wrapLine width { Kind = TuiLineKind.System; Text = text })
+    | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
+      []
 
   let private selectedTextKind selected kind =
     if selected then TuiLineKind.Selection else kind
@@ -840,7 +752,7 @@ module TransformerTuiRenderer =
     | _ ->
       kind, row.Line.Text
 
-  let private takeBody bodyHeight bodyWidth registry model =
+  let private takeBody bodyHeight bodyWidth model =
     match model.Overlay with
     | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
       let layout =
@@ -849,7 +761,7 @@ module TransformerTuiRenderer =
         bodyHeight layout.ViewportStart layout.Rows
       |> List.map renderTranscriptLine
     | _ ->
-      let lines = overlayLines bodyWidth registry model
+      let lines = overlayLines bodyWidth model
       let maximumOffset = max 0 (List.length lines - bodyHeight)
       lines
       |> List.skip (min model.ScrollOffset maximumOffset)
@@ -1470,7 +1382,7 @@ module TransformerTuiRenderer =
     | _ ->
       None
 
-  let render width height registry model completion =
+  let render width height _registry model completion =
     if width < 40 || height < 15 then
       let message = "Terminal too small. Resize to at least 40 x 15."
       { Lines = [| clearLine + fit width message |]
@@ -1498,7 +1410,7 @@ module TransformerTuiRenderer =
         viewLayout
         |> Option.map _.Lines
         |> Option.defaultWith (fun () ->
-          takeBody bodyHeight leftWidth registry model)
+          takeBody bodyHeight leftWidth model)
       let padding =
         List.replicate (bodyHeight - List.length body)
           (TuiLineKind.Output, "")

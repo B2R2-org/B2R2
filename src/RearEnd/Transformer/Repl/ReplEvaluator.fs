@@ -137,10 +137,6 @@ module TransformerReplEvaluator =
     let name = ActionMetadata.actionName metadata.ID
     $"{name.PadRight 28} {metadata.Description}"
 
-  let private actionDetails registered =
-    let metadata = (registered: RegisteredAction).Metadata
-    ActionMetadata.documentationLines metadata
-
   let private typeDescription value =
     formatKind (value: ReplValue).Kind
 
@@ -2020,19 +2016,14 @@ module TransformerReplEvaluator =
       fail registry state $"Could not infer the type of: {expression}"
 
   let private showActions registry state =
-    ActionRegistry.getAll registry
-    |> List.collect (fun action -> actionDetails action @ [ "" ])
-    |> List.append
-      [ "AVAILABLE ACTIONS"
-        "Usage, parameters, and examples are listed for every action."
-        "" ]
+    ReplHelp.actionsLines registry
     |> continueWith registry state
 
   let private showActionHelp registry state (name: string) =
     let name = name.TrimStart '@'
     match ActionRegistry.tryFind name registry with
     | Some action ->
-      actionDetails action |> continueWith registry state
+      ReplHelp.actionLines action |> continueWith registry state
     | None ->
       fail registry state $"Unknown action: @{name}"
 
@@ -2266,23 +2257,6 @@ module TransformerReplEvaluator =
     | Exit _ ->
       Error "A script cannot contain :quit."
 
-  let private help =
-    [ "REPL COMMANDS"
-      ""
-      "Pipelines"
-      "  <name> = <expression>           Bind an analysis result"
-      "  <value> |> @<action> [args]      Transform the preceding value"
-      "  <expression>                      Evaluate without binding"
-      ""
-      "Controls are available from the F2 command prompt."
-      "  actions                        List action summaries"
-      "  help [@action]                 Show command or action help"
-      "  values                         List retained values"
-      "  history                        List evaluated commands"
-      "  script save|load|record ...    Manage replay scripts"
-      "  plugin load path=<dll>         Load a plugin"
-      "  quit                           Leave the REPL" ]
-
   let private addExecutionLog
     timestamp
     (stopwatch: Stopwatch)
@@ -2405,7 +2379,7 @@ module TransformerReplEvaluator =
     | Ok Quit ->
       Exit(registry, state)
     | Ok(Help None) ->
-      continueWith registry state help
+      continueWith registry state ReplHelp.guideLines
     | Ok(Help(Some action)) ->
       showActionHelp registry state action
     | Ok Actions ->
