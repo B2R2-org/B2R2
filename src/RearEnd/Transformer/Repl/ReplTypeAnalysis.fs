@@ -51,6 +51,15 @@ module ReplTypeAnalysis =
       Output: ReplValueKind option
       Diagnostics: ReplTypeDiagnostic list }
 
+  type Cache =
+    private
+      { Registry: ActionRegistry
+        State: TransformerReplState
+        BaseOffset: int
+        Expression: string
+        Segments: ReplPartialSegment array
+        Results: SegmentResult array }
+
   let private isActionReference (head: string) =
     head.StartsWith("@", StringComparison.Ordinal) && head.Length > 1
 
@@ -353,25 +362,109 @@ module ReplTypeAnalysis =
   let analyze registry state baseOffset (expression: string) =
     textSegments expression |> analyzeSegments registry state baseOffset
 
-  let analyzePartial
+  let private partialTextSegment (expression: string) segment =
+    let segment: ReplPartialSegment = segment
+    let text =
+      if segment.Start >= expression.Length then
+        ""
+      else
+        let last = min (expression.Length - 1) (segment.End - 1)
+        expression[segment.Start..last]
+    { Text = text
+      Start = segment.Start
+      Length = segment.End - segment.Start
+      Tokens = segment.Tokens }
+
+  let private samePartialSegment
+    (previous: string)
+    (expression: string)
+    oldSegment
+    segment =
+    let oldSegment: ReplPartialSegment = oldSegment
+    let segment: ReplPartialSegment = segment
+    let length = segment.End - segment.Start
+    oldSegment.Start = segment.Start
+    && oldSegment.End = segment.End
+    && oldSegment.Tokens = segment.Tokens
+    && length >= 0
+    && oldSegment.End <= previous.Length
+    && segment.End <= expression.Length
+    && String.CompareOrdinal(
+      previous, oldSegment.Start, expression, segment.Start, length
+    ) = 0
+
+  let private matchingCache registry state baseOffset previous =
+    previous
+    |> Option.filter (fun (cache: Cache) ->
+      Object.ReferenceEquals(cache.Registry, registry)
+      && Object.ReferenceEquals(cache.State, state)
+      && cache.BaseOffset = baseOffset)
+
+  let private reusablePrefixLength previous (current: Cache) =
+    let mutable reused = 0
+    match previous with
+    | Some cache ->
+      let limit = min cache.Segments.Length current.Segments.Length
+      while reused < limit
+            && samePartialSegment
+                 cache.Expression
+                 current.Expression
+                 cache.Segments[reused]
+                 current.Segments[reused] do
+        reused <- reused + 1
+    | None ->
+      ()
+    reused
+
+  let private analyzeMissingSegments previous reused (current: Cache) =
+    previous
+    |> Option.iter (fun cache ->
+      Array.blit cache.Results 0 current.Results 0 reused)
+    for index in reused..current.Segments.Length - 1 do
+      let segment =
+        partialTextSegment current.Expression current.Segments[index]
+      current.Results[index] <-
+        if index = 0 then
+          firstResult
+            current.Registry current.State current.BaseOffset segment
+        else
+          transformResult
+            current.Registry current.BaseOffset
+            current.Results[index - 1].Output segment
+
+  let private summarizeCache (cache: Cache) =
+    if cache.Results.Length = 0 then
+      { CurrentInput = None; Output = None; Diagnostics = [] }
+    else
+      let last = cache.Results[cache.Results.Length - 1]
+      { CurrentInput = last.Input
+        Output = last.Output
+        Diagnostics =
+          cache.Results |> Array.toList |> List.collect _.Diagnostics }
+
+  let analyzePartialWithCache
+    previous
     registry
     state
     baseOffset
     (expression: string)
     (pipeline: ReplPartialPipeline) =
-    pipeline.Segments
-    |> List.map (fun segment ->
-      let text =
-        if segment.Start >= expression.Length then
-          ""
-        else
-          let last = min (expression.Length - 1) (segment.End - 1)
-          expression[segment.Start..last]
-      { Text = text
-        Start = segment.Start
-        Length = segment.End - segment.Start
-        Tokens = segment.Tokens })
-    |> analyzeSegments registry state baseOffset
+    let segments = pipeline.Segments |> List.toArray
+    let cache =
+      { Registry = registry
+        State = state
+        BaseOffset = baseOffset
+        Expression = expression
+        Segments = segments
+        Results = Array.zeroCreate segments.Length }
+    let previous = matchingCache registry state baseOffset previous
+    let reused = reusablePrefixLength previous cache
+    analyzeMissingSegments previous reused cache
+    summarizeCache cache, cache
+
+  let analyzePartial registry state baseOffset expression pipeline =
+    analyzePartialWithCache None registry state baseOffset expression pipeline
+    |> fst
 
   let outputBeforeLastPartial
     registry
