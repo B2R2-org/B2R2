@@ -71,7 +71,8 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
   let getOrCreateExternalBuilder (reference: ExternalFunctionReference) name =
     let addr = reference.ReferenceAddress
     match builders.TryGetValue addr with
-    | true, builder -> builder
+    | true, builder ->
+      builder
     | false, _ ->
       let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
       let builder =

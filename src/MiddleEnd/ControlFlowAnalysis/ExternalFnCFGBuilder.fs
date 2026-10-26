@@ -34,10 +34,9 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl: BinHandle, exnInfo, reference: ExternalFunctionReference,
-         name, noretStatus) =
+  public(hdl: BinHandle, exnInfo, reference, name, noretStatus) =
 
-  let entryPoint = reference.ReferenceAddress
+  let entryPoint = (reference: ExternalFunctionReference).ReferenceAddress
 
   let ctx =
     { FunctionAddress = entryPoint

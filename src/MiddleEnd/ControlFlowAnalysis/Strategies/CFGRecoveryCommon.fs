@@ -341,9 +341,11 @@ module internal CFGRecoveryCommon =
 
   /// Resolves a call whose target is loaded from a PC-relative relocation
   /// slot.
-  let tryHandleRelocationBackedCall
-      ctx cfgRec srcVertex ppoint callsite isTailCall e =
-    let callsiteAddr = (callsite: CallSite).CallSiteAddress
+  let tryHandleRelocationBackedCall ctx cfgRec srcVertex isTailCall e =
+    let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
+    let ppoint = srcBBL.PPoint
+    let callsiteAddr = srcBBL.LastInstruction.Address
+    let callsite = LeafCallSite callsiteAddr
     match e with
     | Load(Addr = BinOp(Op = BinOpType.ADD; Left = PCVar _; Right = Num bv)) ->
       let relocationSlotAddr = callsiteAddr + bv.ToUInt64()
@@ -552,19 +554,18 @@ module internal CFGRecoveryCommon =
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
         | InterJmp(Target = e; Kind = InterJmpKind.Base) -> (* Indirect jmp *)
-          let callsite = LeafCallSite srcData.LastInstruction.Address
-          match tryHandleRelocationBackedCall ctx cfgRec srcVertex ppoint
-                                               callsite true e with
-          | Some r -> result <- r
+          match tryHandleRelocationBackedCall ctx cfgRec srcVertex true e with
+          | Some r ->
+            result <- r
           | None ->
             cfgRec.AnalyzeIndirectJump(ctx, queue, ppoint, srcVertex)
             |> Option.iter (fun r -> result <- r)
         | InterJmp(Target = e; Kind = InterJmpKind.IsCall) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
-          match tryHandleRelocationBackedCall ctx cfgRec srcVertex ppoint
-                                               callsite false e with
-          | Some r -> result <- r
+          match tryHandleRelocationBackedCall ctx cfgRec srcVertex false e with
+          | Some r ->
+            result <- r
           | None ->
             addCallerVertex ctx callsite srcVertex
             actionQueue.Push(prioritizer, MakeIndCall(callsite))
@@ -585,9 +586,7 @@ module internal CFGRecoveryCommon =
         | SideEffect(Effect = UndefinedInstruction)
         | SideEffect(Effect = Exception _)
         | SideEffect(Effect = Terminate)
-        | SideEffect(Effect = UndefinedInstruction)
         | SideEffect(Effect = Breakpoint) ->
-
           ()
 #if DEBUG
         | ISMark _ | LMark _ ->
@@ -935,15 +934,18 @@ module internal CFGRecoveryCommon =
         && v.VData.Internals.Range.IsIncluding addr)
     for jmptbl in ctx.JumpTables.Values do
       match jmptbl.WaitingInstructions with
-      | [] -> ()
+      | [] ->
+        ()
       | waitingInstructions ->
         match tryFindVertexByInstruction jmptbl.InsAddr with
-        | None -> ()
+        | None ->
+          ()
         | Some originalVertex ->
           let recoveredEdges = ctx.CFG.GetSuccEdges originalVertex
           for insAddr in waitingInstructions do
             match tryFindVertexByInstruction insAddr with
-            | None -> ()
+            | None ->
+              ()
             | Some waitingVertex ->
               for edge in recoveredEdges do
                 connectEdge ctx cfgRec waitingVertex edge.Second edge.Label

@@ -101,7 +101,8 @@ type SSAConstantPropagation(hdl: BinHandle, ?initialValueProvider) =
             match initialValueProvider.TryGetInitialValue rid with
             | Some bv -> ConstantDomain.Const bv
             | None -> ConstantDomain.NotAConst
-          | _ -> ConstantDomain.NotAConst
+          | _ ->
+            ConstantDomain.NotAConst
         member _.EvalExpr e = evalExpr state e }
 
   and state =

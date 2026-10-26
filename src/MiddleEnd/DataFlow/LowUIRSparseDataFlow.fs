@@ -101,7 +101,8 @@ type State<'Lattice when 'Lattice: equality>
 
   let spGetInitialAbsValue varKind =
     match spInitial with
-    | Some(stackVar, c) when varKind = stackVar -> c
+    | Some(stackVar, c) when varKind = stackVar ->
+      c
     | _ ->
       match RegisterInitialValueProvider.tryGetInitialVarValue
               initialValueProvider varKind with
@@ -597,7 +598,8 @@ module internal AnalysisCore = begin
     let phiInfos = (state: State<_>).MutablePhiInfos
     if not <| phiInfos.ContainsKey v then phiInfos[v] <- PhiInfo () else ()
     let phiInfo = phiInfos[v]
-    if phiInfo.ContainsKey varKind then false
+    if phiInfo.ContainsKey varKind then
+      false
     else
       phiInfo[varKind] <- Dictionary ()
       true
@@ -678,15 +680,19 @@ module internal AnalysisCore = begin
     for varKind in getDefinedVarKinds memo state affectingVertex do
       if isInnerScopeVarKind v varKind || not (everUsed.Contains varKind) then
         ()
-      elif placePhi state v varKind then changed <- true
-      else ()
+      elif placePhi state v varKind then
+        changed <- true
+      else
+        ()
     (buf: ResizeArray<_>).Clear()
     buf.AddRange(getPhiVarKinds state affectingVertex)
     for varKind in buf do
       if isInnerScopeVarKind v varKind || not (everUsed.Contains varKind) then
         ()
-      elif placePhi state v varKind then changed <- true
-      else ()
+      elif placePhi state v varKind then
+        changed <- true
+      else
+        ()
     changed
 
   /// Maps each vertex to the insertion points whose inverse dominance frontier
@@ -731,7 +737,8 @@ module internal AnalysisCore = begin
       for affectingVertex in invDFs[v] do
         if placePhisFrom everUsed state buf memo v affectingVertex then
           changed <- true
-        else ()
+        else
+          ()
       match dependents.TryGetValue v with
       | true, lst when changed ->
         for dependent in lst do

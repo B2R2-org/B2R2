@@ -509,11 +509,13 @@ type TaskScheduler<'FnCtx, 'GlCtx
       let ctx = builders[fnAddr].Context
       match ctx.JumpTables.TryGetValue jmptbl.TableAddress with
       | true, ownerTbl ->
-        if List.contains jmptbl.InsAddr ownerTbl.WaitingInstructions then ()
+        if List.contains jmptbl.InsAddr ownerTbl.WaitingInstructions then
+          ()
         else
           ownerTbl.WaitingInstructions <-
             jmptbl.InsAddr :: ownerTbl.WaitingInstructions
-      | false, _ -> ()
+      | false, _ ->
+        ()
       StopRecoveryAndContinue
     | OverlappingNote oldNote ->
       let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
