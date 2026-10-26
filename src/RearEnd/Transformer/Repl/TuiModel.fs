@@ -171,6 +171,7 @@ type TuiTranscriptSource =
 type TuiTranscriptLine =
   { Source: TuiTranscriptSource
     OriginalLine: TuiLine
+    CommandSyntax: (string * int) option
     TextStart: int
     TextEnd: int
     Line: TuiLine }
@@ -1303,7 +1304,20 @@ module TransformerTuiModel =
         line.Line.Kind = TuiLineKind.Command
         || line.Line.Kind = TuiLineKind.CommandContinuation
       List.takeWhile isCommandText lines, List.skipWhile isCommandText lines
-    let command = command |> List.map (markTranscriptCursor model)
+    let commandText =
+      command
+      |> List.map (fun line ->
+        TransformerTuiText.sanitize line.OriginalLine.Text)
+      |> String.concat "\n"
+    let rec annotateCommand offset = function
+      | [] ->
+        []
+      | line :: rest ->
+        let text = TransformerTuiText.sanitize line.OriginalLine.Text
+        { line with CommandSyntax = Some(commandText, offset) }
+        :: annotateCommand (offset + text.Length + 1) rest
+    let command =
+      command |> annotateCommand 0 |> List.map (markTranscriptCursor model)
     if Set.contains index model.CollapsedCommands then
       let source = sourceRange output
       let selected = cursorOnSource model source
@@ -1312,6 +1326,7 @@ module TransformerTuiModel =
       command @
         [ { Source = source
             OriginalLine = folded
+            CommandSyntax = None
             TextStart = 0
             TextEnd = 0
             Line = folded } ]
@@ -1337,6 +1352,7 @@ module TransformerTuiModel =
       let line =
         { Source = TuiTranscriptSource.Line lineIndex
           OriginalLine = line
+          CommandSyntax = None
           TextStart = 0
           TextEnd = 0
           Line = line }
