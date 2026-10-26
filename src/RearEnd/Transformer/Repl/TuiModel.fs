@@ -94,6 +94,56 @@ module TransformerTuiText =
   let wrap width text =
     wrapWithOffsets width text |> List.map (fun (_, _, line) -> line)
 
+  let private styleAfterAnsi style (sequence: string) =
+    if sequence.EndsWith "m" then
+      let parameters = sequence[2..sequence.Length - 2]
+      if parameters = "" || parameters = "0" then
+        ""
+      elif parameters.Split(';')[0] = "0" then
+        sequence
+      else
+        style + sequence
+    else
+      style
+
+  let wrapPreservingAnsiWithOffsets width (text: string) =
+    let rows = wrapWithOffsets width text
+    if not (containsAnsi text) then
+      rows
+    else
+      let mutable rawIndex = 0
+      let mutable visibleIndex = 0
+      let mutable ansiMatch = ansiPattern.Match text
+      let mutable style = ""
+      let advance (builder: Text.StringBuilder option) =
+        if ansiMatch.Success && ansiMatch.Index = rawIndex then
+          let sequence = ansiMatch.Value
+          builder |> Option.iter (fun b -> b.Append sequence |> ignore)
+          style <- styleAfterAnsi style sequence
+          rawIndex <- rawIndex + ansiMatch.Length
+          ansiMatch <- ansiMatch.NextMatch()
+        else
+          let chr = text[rawIndex]
+          if chr = '\t' then
+            builder |> Option.iter (fun b -> b.Append ' ' |> ignore)
+            visibleIndex <- visibleIndex + 1
+          elif not (Char.IsControl chr) then
+            builder |> Option.iter (fun b -> b.Append chr |> ignore)
+            visibleIndex <- visibleIndex + 1
+          else
+            ()
+          rawIndex <- rawIndex + 1
+      let advanceTo finish builder =
+        while visibleIndex < finish && rawIndex < text.Length do
+          advance builder
+      rows
+      |> List.map (fun (start, finish, _) ->
+        advanceTo start None
+        let builder = Text.StringBuilder style
+        advanceTo finish (Some builder)
+        builder.Append "\x1b[0m" |> ignore
+        start, finish, builder.ToString())
+
   let linePrefix = function
     | TuiLineKind.Command ->
       "> "
@@ -166,6 +216,7 @@ type TuiViewPane =
   { Title: string
     BlockIndex: int
     Lines: TuiLine array
+    VisibleLengths: int array
     Cursor: TuiTextCursor
     Anchor: TuiTextCursor option
     FindText: string
@@ -1126,24 +1177,21 @@ module TransformerTuiModel =
 
   let private wrapTranscriptLine width model (line: TuiTranscriptLine) =
     let prefix = TransformerTuiText.linePrefix line.Line.Kind
-    if TransformerTuiText.containsAnsi line.Line.Text then
-      [ { line with
-            TextStart = 0
-            TextEnd = TransformerTuiText.sanitize line.Line.Text
-                      |> String.length
-            Line = { line.Line with Text = prefix + line.Line.Text } } ]
-    else
-      let selection =
-        transcriptSelectionRange model line.Source line.Line.Text.Length
-      line.Line.Text
-      |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
-      |> List.mapi (fun index (start, finish, text) ->
-        let prefix = if index = 0 then prefix else "  "
-        let text = markTranscriptSelection selection start finish text
-        { line with
-            TextStart = start
-            TextEnd = finish
-            Line = { line.Line with Text = prefix + text } })
+    let cleanText = TransformerTuiText.sanitize line.Line.Text
+    let selection =
+      transcriptSelectionRange model line.Source cleanText.Length
+    let text =
+      if selection.IsSome then cleanText else line.Line.Text
+    text
+    |> TransformerTuiText.wrapPreservingAnsiWithOffsets
+      (max 1 (width - prefix.Length))
+    |> List.mapi (fun index (start, finish, text) ->
+      let prefix = if index = 0 then prefix else "  "
+      let text = markTranscriptSelection selection start finish text
+      { line with
+          TextStart = start
+          TextEnd = finish
+          Line = { line.Line with Text = prefix + text } })
 
   let private sourceContains line source =
     match source with
@@ -1669,10 +1717,16 @@ module TransformerTuiModel =
         [ { Kind = TuiLineKind.System; Text = "This command has no output." } ]
       else
         lines
+    let lineArray = List.toArray lines
+    let visibleLengths =
+      lineArray
+      |> Array.map (fun line ->
+        TransformerTuiText.sanitize line.Text |> String.length)
     let pane =
       { Title = title
         BlockIndex = blockIndex
-        Lines = List.toArray lines
+        Lines = lineArray
+        VisibleLengths = visibleLengths
         Cursor = { Line = 0; Column = 0 }
         Anchor = None
         FindText = ""
@@ -1717,38 +1771,32 @@ module TransformerTuiModel =
   let private clampViewCursor pane cursor =
     let lineCount = pane.Lines.Length
     let line = max 0 (min cursor.Line (max 0 (lineCount - 1)))
-    let text =
-      pane.Lines
-      |> Array.tryItem line
-      |> Option.map _.Text
-      |> Option.defaultValue ""
-    { Line = line; Column = max 0 (min cursor.Column text.Length) }
+    let length = pane.VisibleLengths[line]
+    { Line = line; Column = max 0 (min cursor.Column length) }
 
   let private moveViewCursorHorizontally pane offset =
     let cursor = clampViewCursor pane pane.Cursor
     let direction = sign offset
     let mutable line = cursor.Line
     let mutable column = cursor.Column
+    let mutable length = pane.VisibleLengths[line]
     let mutable remaining = abs offset
     while remaining > 0 do
-      let text =
-        pane.Lines
-        |> Array.tryItem line
-        |> Option.map _.Text
-        |> Option.defaultValue ""
-      if direction > 0 && column < text.Length then
+      if direction > 0 && column < length then
         column <- column + 1
         remaining <- remaining - 1
       elif direction > 0 && line < pane.Lines.Length - 1 then
         line <- line + 1
         column <- 0
+        length <- pane.VisibleLengths[line]
         remaining <- remaining - 1
       elif direction < 0 && column > 0 then
         column <- column - 1
         remaining <- remaining - 1
       elif direction < 0 && line > 0 then
         line <- line - 1
-        column <- pane.Lines[line].Text.Length
+        length <- pane.VisibleLengths[line]
+        column <- length
         remaining <- remaining - 1
       else
         remaining <- 0
@@ -1769,12 +1817,9 @@ module TransformerTuiModel =
         else
           None
       let line = max 0 (min line (pane.Lines.Length - 1))
-      let maximumColumn =
-        pane.Lines
-        |> Array.tryItem line
-        |> Option.map (fun line -> line.Text.Length)
-        |> Option.defaultValue 0
-      let cursor = { Line = line; Column = min column maximumColumn }
+      let maximumColumn = pane.VisibleLengths[line]
+      let cursor =
+        { Line = line; Column = max 0 (min column maximumColumn) }
       { pane with Cursor = cursor; Anchor = anchor }
     updateViewPane update model
 
@@ -1784,11 +1829,7 @@ module TransformerTuiModel =
     match model.ViewPane with
     | Some pane ->
       let line = pane.Lines.Length - 1
-      let column =
-        pane.Lines
-        |> Array.tryItem line
-        |> Option.map (fun line -> line.Text.Length)
-        |> Option.defaultValue 0
+      let column = pane.VisibleLengths[line]
       moveViewCursorTo line column extend model
     | None ->
       model
@@ -1810,9 +1851,6 @@ module TransformerTuiModel =
       { pane with Cursor = cursor; Anchor = anchor }
     updateViewPane update model
 
-  let pageViewCursor amount extend model =
-    moveViewCursor amount 0 extend model
-
   let setViewFind active model =
     let update pane = { pane with IsFinding = active; FindText = "" }
     updateViewPane update model
@@ -1831,7 +1869,8 @@ module TransformerTuiModel =
     updateViewPane update model
 
   let private lineContains (needle: string) (line: TuiLine) =
-    line.Text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
+    let text = TransformerTuiText.sanitize line.Text
+    text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
 
   let findInView model =
     match model.ViewPane with
@@ -1843,8 +1882,9 @@ module TransformerTuiModel =
           (indexed |> Array.truncate start)
       match candidates |> Array.tryFind (snd >> lineContains pane.FindText) with
       | Some(index, line) ->
+        let text = TransformerTuiText.sanitize line.Text
         let column =
-          line.Text.IndexOf(pane.FindText, StringComparison.OrdinalIgnoreCase)
+          text.IndexOf(pane.FindText, StringComparison.OrdinalIgnoreCase)
         let cursor = { Line = index; Column = max 0 column }
         let pane = { pane with Cursor = cursor; IsFinding = false }
         { model with
@@ -1866,18 +1906,7 @@ module TransformerTuiModel =
       cursor, anchor
 
   let selectedViewText pane =
-    let cleanText (text: string) =
-      let text = TransformerTuiText.stripAnsi text
-      text
-      |> Seq.map (fun chr ->
-        if chr = '\t' then
-          ' '
-        elif Char.IsControl chr then
-          ' '
-        else
-          chr)
-      |> Array.ofSeq
-      |> String
+    let cleanText = TransformerTuiText.sanitize
     let sliceText start finish (text: string) =
       let text = cleanText text
       let start = max 0 (min start text.Length)

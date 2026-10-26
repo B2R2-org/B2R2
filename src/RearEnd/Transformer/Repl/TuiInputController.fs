@@ -396,16 +396,24 @@ module TransformerTuiInputController =
       | ConsoleKey.F4 ->
         TransformerTuiModel.closeViewPane model |> TuiInputResult.Update
       | ConsoleKey.PageUp ->
-        TransformerTuiModel.pageViewCursor (-(pageHeight model)) shift model
+        let width, height = TransformerTuiTerminal.dimensions ()
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height (-(pageHeight model)) shift model
         |> TuiInputResult.Update
       | ConsoleKey.PageDown ->
-        TransformerTuiModel.pageViewCursor (pageHeight model) shift model
+        let width, height = TransformerTuiTerminal.dimensions ()
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height (pageHeight model) shift model
         |> TuiInputResult.Update
       | ConsoleKey.UpArrow ->
-        TransformerTuiModel.moveViewCursor -1 0 shift model
+        let width, height = TransformerTuiTerminal.dimensions ()
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height -1 shift model
         |> TuiInputResult.Update
       | ConsoleKey.DownArrow ->
-        TransformerTuiModel.moveViewCursor 1 0 shift model
+        let width, height = TransformerTuiTerminal.dimensions ()
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height 1 shift model
         |> TuiInputResult.Update
       | ConsoleKey.LeftArrow ->
         TransformerTuiModel.moveViewCursor 0 -1 shift model
@@ -530,10 +538,8 @@ module TransformerTuiInputController =
       TransformerTuiModel.scrollTranscript
         bodyWidth bodyHeight (-direction) model
     | TuiOverlay.View ->
-      let model = TransformerTuiModel.moveViewCursor (-direction) 0 false model
-      let scrollOffset =
-        TransformerTuiRenderer.viewScrollOffset width height model
-      { model with ScrollOffset = scrollOffset }
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height (-direction) false model
     | _ ->
       TransformerTuiModel.scroll (-direction) model
 
