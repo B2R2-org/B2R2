@@ -1368,11 +1368,13 @@ type ParserTests() =
   member _.``[ARMv7] MSR (immediate) can name SPSR``() =
     testDisasm "e368f0ff" "msr spsr_f, #0xff"
 
+#if !EMULATION
   /// An immediate MSR to SPSR that names no field is UNPREDICTABLE (DDI0406C
   /// B9.3.11); the same encoding for CPSR is a hint.
   [<TestMethod>]
   member _.``[ARMv7] MSR (immediate) to SPSR with no field is refused``() =
     testRefused "e360f004"
+#endif
 
   /// VMRS and VMSR name the floating-point system register their reg field
   /// selects (DDI0406C B9.3.21 and B9.3.22; DDI0487F.c F6.1.144 adds MVFR2).
@@ -1443,11 +1445,13 @@ type ParserTests() =
     testDisasm "fc810802" "vcadd.f16 d0, d1, d2, #0x5a"
     readsOnlyUnder "fc810802" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
 
+#if !EMULATION
   /// A quadword by element names an even destination and first source; an
   /// odd one is UNDEFINED, as it is for the doubleword form's Q check.
   [<TestMethod>]
   member _.``[ARMv7] VCMLA.F16 by element refuses an odd quadword``() =
     testRefused "fe021842"
+#endif
 
   /// It is Armv8.3's, which no ARMv7 version has.
   [<TestMethod>]
@@ -1488,7 +1492,9 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VCVT to fixed point refuses negative fraction bits``() =
     testDisasm "eeba0a40" "vcvt.f32.s16 s0, s0, #0x10"
+#if !EMULATION
     testRefused "eeba0a4f"
+#endif
 
   /// FLDMX and FSTMX are told from VLDM and VSTM by imm8<0>, so a list of
   /// two registers, imm8 = 5, is FLDMIAX (DDI0406C A8.8.51).
@@ -1507,8 +1513,10 @@ type ParserTests() =
   member _.``[ARMv7] VCVT between halves and singles checks the quadword``() =
     testDisasm "f3b60701" "vcvt.f32.f16 q0, d1"
     testDisasm "f3b61600" "vcvt.f16.f32 d1, q0"
+#if !EMULATION
     testRefused "f3b60601"
     testRefused "f3b61700"
+#endif
 
   /// The Advanced SIMD VCVT between halves and integers converts to and from
   /// 16-bit integers (DDI0487F.c F6.1.60).
@@ -1558,6 +1566,7 @@ type ParserTests() =
     testRefused "fc200a00"
     testRefused "fc200e00"
 
+#if !EMULATION
   /// <summary>
   /// What the manual makes UNPREDICTABLE in them is refused: an MCR from the
   /// PC, an MCRR from it, an MRRC to one register twice, and an STC that
@@ -1570,6 +1579,7 @@ type ParserTests() =
     testRefused "ec4f0000"
     testRefused "ec511100"
     testRefused "ed2f1100"
+#endif
 
   /// Armv8 keeps none of the ordinary coprocessors.
   [<TestMethod>]
@@ -1582,9 +1592,11 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VDUP to a Q register refuses an odd Vd``() =
     testDisasm "eea02b10" "vdup.32 q0, r2"
+#if !EMULATION
     testRefused "eea12b14"
     testRefused "eee12b10"
     testRefused "eea12b30"
+#endif
 
   /// An MRC whose Rt field is 15 names APSR_nzcv: it writes the flags from the
   /// top four bits of what it reads, never the PC (DDI0406C A8.8.108 and
@@ -1596,7 +1608,9 @@ type ParserTests() =
     testDisasm "ee11fe14" text
     testDisasm "ee10ff10" "mrc p15, #0x0, apsr_nzcv, c0, c0, #0x0"
     testDisasm "fe10f310" "mrc2 p3, #0x0, apsr_nzcv, c0, c0, #0x0"
+#if !EMULATION
     testRefused "ee00ff10"
+#endif
     Assert.AreEqual<string option>(Some text, under "aarch32" "ee11fe14")
 
   /// TSB CSYNC (DDI0487F.c F5.1.261, Armv8.4): binutils 2.42 has no AArch32

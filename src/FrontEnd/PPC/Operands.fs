@@ -32,11 +32,14 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
+  | SixOperands of Operand * Operand * Operand * Operand * Operand * Operand
 
 /// Represents an operand used in a PPC instruction.
 and Operand =
   | OprReg of Register
   | OprMem of Disp * Register
+  /// The signed 34-bit displacement of a prefixed storage instruction.
+  | OprMem64 of int64 * Register
   | OprImm of Imm
   | OprAddr of TargetAddr
   | OprBI of uint32

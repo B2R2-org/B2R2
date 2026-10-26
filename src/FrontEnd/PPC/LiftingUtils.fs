@@ -147,6 +147,8 @@ let transOpr (bld: ILowUIRBuilder) = function
     regVar bld reg
   | OprMem(d, b) -> (* FIXME *)
     loadNative bld bld.RegType (regVar bld b .+ numI32 d bld.RegType)
+  | OprMem64 _ ->
+    raise InvalidOperandException
   | OprImm imm ->
     numU64 imm bld.RegType
   | OprAddr addr ->
@@ -289,15 +291,6 @@ let floatingNeg bld dst src rt =
     dst := tmp
   }
 
-/// <summary>
-/// A double converted to the integer it stands for, rounded in whichever
-/// direction FPSCR[RN] names. That is what a bare conversion is: an expression
-/// no <c>RoundCtrl</c> encloses rounds by the target's own control register, so
-/// the four directions the field can name need neither be spelled out nor
-/// branched between.
-/// </summary>
-let roundingToCastInt frb = AST.cast CastKind.FloatToSInt 64<rt> frb
-
 let setCR0Reg (bld: ILowUIRBuilder) result =
   append bld {
     let zero = AST.num0 bld.RegType
@@ -349,10 +342,35 @@ let setFPRF bld result =
     fu := IEEE754Double.isNaN result .| IEEE754Double.isInfinity result
   }
 
-let setCarryOut bld carry =
+/// A bit of XER, numbered from the least significant of the 32 kept here: the
+/// Power ISA's bit 32 + n is bit 31 - n, so SO, OV and CA are 31, 30 and 29,
+/// and ISA 3.0's OV32 and CA32 are 19 and 18.
+let xerBit bld pos = AST.extract (regVar bld Register.XER) 1<rt> pos
+
+/// Whether the processor has OV32 and CA32, the 32-bit twins ISA 3.0 gave OV
+/// and CA. A 32-bit processor predates them and keeps bits 44 and 45 of XER
+/// reserved, so only a 64-bit one writes them.
+let private hasTwins (bld: ILowUIRBuilder) = bld.RegType = 64<rt>
+
+/// Writes XER[CA], and XER[CA32] where the processor has it.
+let setCarry bld carry carry32 =
+  let xer = regVar bld Register.XER
+  let mask = if hasTwins bld then 0xdffbffffu else 0xdfffffffu
+  let ca = AST.zext 32<rt> carry << numI32 29 32<rt>
+  let bits =
+    if hasTwins bld then ca .| (AST.zext 32<rt> carry32 << numI32 18 32<rt>)
+    else ca
   append bld {
-    let xerCA = AST.extract (regVar bld Register.XER) 1<rt> 29
-    xerCA := carry
+    xer := (xer .& numU32 mask 32<rt>) .| bits
+  }
+
+/// Writes XER[OV], and XER[OV32] where the processor has it, and ORs OV into
+/// the sticky XER[SO]. Both values are read before any bit is written.
+let setOverflow bld ov ov32 =
+  append bld {
+    xerBit bld 30 := ov
+    if hasTwins bld then xerBit bld 19 := ov32 else ()
+    xerBit bld 31 := ov .| xerBit bld 31
   }
 
 /// The XER[CA] carry-in widened to a register-wide 0 or 1.
@@ -366,94 +384,93 @@ let setCRRegValue bld cr =
       crbit := AST.extract cr 1<rt> i
   }
 
-/// Records an overflow in XER[OV]/XER[SO]: a signed add or subtract overflows
-/// when both operands share a sign that the result does not. The operands are
-/// register-wide, so taking their top bit covers either word size.
+/// Records an overflow in XER[OV], XER[OV32] and XER[SO]: a signed add or
+/// subtract overflows when both operands share a sign that the result does
+/// not. OV takes the signs at the register's top bit, OV32 the signs of the
+/// low words, which is what OV would be in 32-bit mode.
 let isAddSubOV bld expA expB result =
+  let signsAt pos =
+    let a = AST.extract expA 1<rt> pos
+    (a == AST.extract expB 1<rt> pos) .& (a <+> AST.extract result 1<rt> pos)
+  let struct (ov, ov32) = tmpVars2 bld 1<rt>
   append bld {
-    let struct (checkOF, t1, t2) = tmpVars3 bld 1<rt>
-    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-    t1 := AST.xthi 1<rt> expA
-    t2 := AST.xthi 1<rt> result
-    checkOF := (t1 == AST.xthi 1<rt> expB) .& (t1 <+> t2)
-    xerOV := checkOF
-    xerSO := checkOF .| xerSO
+    ov := signsAt (int (Expr.typeOf expA) - 1)
+    ov32 := signsAt 31
+    setOverflow bld ov ov32
   }
 
+/// As in ARM's AddWithCarry, constant carry-ins need only a comparison;
+/// otherwise the top bit of the carry vector gives the carry out.
+let private carryOutBit a b c result =
+  match c with
+  | Num(Value = n) when n.IsZero -> AST.lt result a
+  | Num(Value = n) when n.IsOne -> AST.le result a
+  | _ -> AST.xthi 1<rt> ((a .& b) .| ((a .| b) .& AST.not result))
+
 /// Adds a + b + c (c a register-wide carry-in of 0 or 1) into dst, recording
-/// the carry-out in XER[CA]. Each partial sum's unsigned wrap gives its carry,
-/// so no intermediate wider than a register is needed.
+/// the carry-out in XER[CA]. The operands must be captured before dst is
+/// written so aliased source registers retain their values. The carry of the
+/// low word, CA32, is the carry into bit 32, which is bit 32 of a ^ b ^ sum
+/// since the carry-in only reaches bit 0.
 let addWithCarryOut (bld: ILowUIRBuilder) dst a b c =
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let struct (c1, c2) = tmpVars2 bld 1<rt>
+  let result = tmpVar bld bld.RegType
+  let sum =
+    match c with
+    | Num(Value = n) when n.IsZero -> a .+ b
+    | _ -> a .+ b .+ c
   append bld {
-    t1 := a .+ b
-    c1 := t1 .< a
-    t2 := t1 .+ c
-    c2 := t2 .< t1
-    dst := t2
+    result := sum
+    dst := result
   }
-  setCarryOut bld (c1 .| c2)
+  let carry = carryOutBit a b c result
+  let carry32 =
+    if hasTwins bld then AST.extract (a <+> b <+> result) 1<rt> 32
+    else carry
+  setCarry bld carry carry32
+
+/// Records a multiply's or a divide's overflow, which is the same in either
+/// mode: OV32 is OV.
+let setWholeOverflow bld cond =
+  let ov = tmpVar bld 1<rt>
+  append bld {
+    ov := cond
+    setOverflow bld ov ov
+  }
 
 /// Records an overflow of mullw, whose 32-bit operands make a product that does
 /// not fit a signed word.
 let isMulwOV bld expA expB =
+  let prod = tmpVar bld 64<rt>
+  let a = AST.sext 64<rt> (AST.xtlo 32<rt> expA)
+  let b = AST.sext 64<rt> (AST.xtlo 32<rt> expB)
   append bld {
-    let prod = tmpVar bld 64<rt>
-    let checkOF = tmpVar bld 1<rt>
-    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-    let a = AST.sext 64<rt> (AST.xtlo 32<rt> expA)
-    let b = AST.sext 64<rt> (AST.xtlo 32<rt> expB)
     prod := a .* b
-    checkOF := prod != AST.sext 64<rt> (AST.xtlo 32<rt> prod)
-    xerOV := checkOF
-    xerSO := checkOF .| xerSO
+    setWholeOverflow bld (prod != AST.sext 64<rt> (AST.xtlo 32<rt> prod))
   }
 
 /// Records an overflow of mulld, whose doubleword product does not fit a signed
 /// doubleword.
 let isMuldOV bld expA expB =
+  let prod = tmpVar bld 128<rt>
+  let a = AST.sext 128<rt> (AST.xtlo 64<rt> expA)
+  let b = AST.sext 128<rt> (AST.xtlo 64<rt> expB)
   append bld {
-    let prod = tmpVar bld 128<rt>
-    let checkOF = tmpVar bld 1<rt>
-    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-    let a = AST.sext 128<rt> (AST.xtlo 64<rt> expA)
-    let b = AST.sext 128<rt> (AST.xtlo 64<rt> expB)
     prod := a .* b
-    checkOF := prod != AST.sext 128<rt> (AST.xtlo 64<rt> prod)
-    xerOV := checkOF
-    xerSO := checkOF .| xerSO
+    setWholeOverflow bld (prod != AST.sext 128<rt> (AST.xtlo 64<rt> prod))
   }
 
 /// Records an overflow of a signed divide of the given width: a zero divisor,
 /// or the most negative dividend divided by -1.
 let isSignedDivOV bld rt expA expB =
-  append bld {
-    let checkOF = tmpVar bld 1<rt>
-    let minValue = AST.num1 rt << numI32 (int rt - 1) rt
-    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-    let dz = expB == AST.num0 rt
-    let ovf = (expA == minValue) .& (expB == AST.not (AST.num0 rt))
-    checkOF := dz .| ovf
-    xerOV := checkOF
-    xerSO := checkOF .| xerSO
-  }
+  let minValue = AST.num1 rt << numI32 (int rt - 1) rt
+  let dz = expB == AST.num0 rt
+  let ovf = (expA == minValue) .& (expB == AST.not (AST.num0 rt))
+  setWholeOverflow bld (dz .| ovf)
 
 /// Records an overflow of an unsigned divide of the given width: a zero
 /// divisor is the only case.
 let isUnsignedDivOV bld rt expB =
-  append bld {
-    let checkOF = tmpVar bld 1<rt>
-    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-    checkOF := expB == AST.num0 rt
-    xerOV := checkOF
-    xerSO := checkOF .| xerSO
-  }
+  setWholeOverflow bld (expB == AST.num0 rt)
 
 let sideEffects (ins: Instruction) bld name =
   lift bld ins {

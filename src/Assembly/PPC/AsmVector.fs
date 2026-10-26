@@ -59,13 +59,13 @@ let private vsxIndexed xo ins =
     wrongOperands ins
 
 /// A VX-form "vD, vA, vB".
-let private vx xo ins =
+let vx xo ins =
   match ins.Operands with
   | [ Rg d; Rg a; Rg b ] -> word 4u (vr d) (vr a) (vr b) xo
   | _ -> wrongOperands ins
 
 /// A VX-form "vD, vB", whose middle field no register fills.
-let private vx2 xo ins =
+let vx2 xo ins =
   match ins.Operands with
   | [ Rg d; Rg b ] -> word 4u (vr d) 0u (vr b) xo
   | _ -> wrongOperands ins
@@ -79,7 +79,7 @@ let private vxSplatImm xo ins =
 
 /// A VX-form "vD, vB, UIM", whose number says which element of the source to
 /// fill the whole of the destination with.
-let private vxSplat xo ins =
+let vxSplat xo ins =
   match ins.Operands with
   | [ Rg d; Rg b; Im u ] -> word 4u (vr d) (unsigned 5 u) (vr b) xo
   | _ -> wrongOperands ins
@@ -98,7 +98,7 @@ let private vxOneB xo ins =
   | _ -> wrongOperands ins
 
 /// A VA-form "vD, vA, vB, vC".
-let private va xo ins =
+let va xo ins =
   match ins.Operands with
   | [ Rg d; Rg a; Rg b; Rg c ] ->
     word 4u (vr d) (vr a) (vr b) (((vr c) <<< 6) ||| xo)
@@ -116,7 +116,7 @@ let private vaShift ins =
 
 /// A VC-form comparison, whose record bit sits above its extended opcode
 /// rather than below it.
-let private vc xo rc ins =
+let vc xo rc ins =
   match ins.Operands with
   | [ Rg d; Rg a; Rg b ] -> word 4u (vr d) (vr a) (vr b) ((rc <<< 10) ||| xo)
   | _ -> wrongOperands ins

@@ -86,11 +86,14 @@ let private fpSetStatusBit xo rc ins =
   | _ -> wrongOperands ins
 
 /// mtfsfi, which writes one field of that register with what is written
-/// beside it.
+/// beside it, of its low word or, where W is 1, of its high word.
 let private fpSetStatusField rc ins =
   match ins.Operands with
   | [ Im f; Im v ] ->
     xForm 63u ((unsigned 3 f) <<< 2) 0u ((unsigned 4 v) <<< 1) 134u rc
+  | [ Im f; Im v; Im w ] ->
+    let field = (unsigned 3 f) <<< 2
+    xForm 63u field (unsigned 1 w) ((unsigned 4 v) <<< 1) 134u rc
   | _ ->
     wrongOperands ins
 
@@ -123,14 +126,18 @@ let private fpReadStatusSetRoundImm ins =
   | _ -> wrongOperands ins
 
 /// mtfsf, whose mask says which fields of that register it writes and lies
-/// across the two fields the other forms keep registers in.
+/// across the two fields the other forms keep registers in, beside L (the
+/// whole register) and W (its high word).
 let private fpWriteStatus rc ins =
-  match ins.Operands with
-  | [ Im m; Rg b ] ->
+  let encode m b l w =
     let mask = unsigned 8 m
-    word 63u (mask >>> 4) ((mask &&& 0xFu) <<< 1) (fpr b) ((711u <<< 1) ||| rc)
-  | _ ->
-    wrongOperands ins
+    let d = ((unsigned 1 l) <<< 4) ||| (mask >>> 4)
+    let a = ((mask &&& 0xFu) <<< 1) ||| unsigned 1 w
+    word 63u d a (fpr b) ((711u <<< 1) ||| rc)
+  match ins.Operands with
+  | [ Im m; Rg b ] -> encode m b 0UL 0UL
+  | [ Im m; Rg b; Im l; Im w ] -> encode m b l w
+  | _ -> wrongOperands ins
 
 /// A D-form load or store of a floating-point register.
 let private fpMemory po ins =
@@ -228,6 +235,237 @@ let private memoryAndStatusEncoders () =
     Op.MTFSFdot, fpWriteStatus 1u
     Op.FCPSGN, fpArith 63u 8u 0u ]
 
+/// The five bits that name the even register of an even-odd pair of
+/// floating-point registers, which an odd register cannot name.
+let private fprPair reg =
+  let n = fpr reg
+  if n &&& 1u = 0u then n else fail $"{reg} does not begin a register pair"
+
+/// ftsqrt, which tests one number into a field of the condition register.
+let private fpTestOne xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg b ] -> xForm 63u ((crf f) <<< 2) 0u (fpr b) xo 0u
+  | _ -> wrongOperands ins
+
+/// mffsce, which reads the status register and clears its enables.
+let private fpReadStatusClearEnables ins =
+  match ins.Operands with
+  | [ Rg d ] -> xForm 63u (fpr d) 1u 0u 583u 0u
+  | _ -> wrongOperands ins
+
+/// mffscdrn, which reads the control bits and puts the decimal rounding mode
+/// a floating-point register names in force.
+let private fpReadStatusSetDecimalRound ins =
+  match ins.Operands with
+  | [ Rg d; Rg b ] -> xForm 63u (fpr d) 20u (fpr b) 583u 0u
+  | _ -> wrongOperands ins
+
+/// mffscdrni, which names that rounding mode outright, in three bits.
+let private fpReadStatusSetDecimalRoundImm ins =
+  match ins.Operands with
+  | [ Rg d; Im m ] -> xForm 63u (fpr d) 21u (unsigned 3 m) 583u 0u
+  | _ -> wrongOperands ins
+
+/// lfdp and stfdp, the DS-form accesses of a register pair.
+let private fpPairMemory po ins =
+  match ins.Operands with
+  | [ Rg f; Mem(disp, b) ] ->
+    dForm po (fprPair f) (gpr b) (wordDisplacement disp)
+  | _ ->
+    wrongOperands ins
+
+/// lfdpx and stfdpx, the X-form accesses of a register pair.
+let private fpPairIndexed xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] -> xForm 31u (fprPair f) (gpr a) (gpr b) xo 0u
+  | _ -> wrongOperands ins
+
+/// The instructions the Floating-Point Facility added after the first
+/// PowerPC: the estimates, the merges, the software divide and square root
+/// tests, and the register pair accesses.
+let private laterEncoders () =
+  List.concat
+    [ recording (fpUnary 63u) 24u Op.FRE Op.FREdot
+      recording (fpUnary 59u) 26u Op.FRSQRTES Op.FRSQRTESdot
+      [ Op.FCPSGNdot, fpArith 63u 8u 1u
+        Op.FMRGEW, fpArith 63u 966u 0u
+        Op.FMRGOW, fpArith 63u 838u 0u
+        Op.FTDIV, fpCompare 128u
+        Op.FTSQRT, fpTestOne 160u
+        Op.LFDP, fpPairMemory 57u
+        Op.STFDP, fpPairMemory 61u
+        Op.LFDPX, fpPairIndexed 791u
+        Op.MFFSCE, fpReadStatusClearEnables
+        Op.MFFSCDRN, fpReadStatusSetDecimalRound
+        Op.MFFSCDRNI, fpReadStatusSetDecimalRoundImm
+        Op.STFDPX, fpPairIndexed 919u ] ]
+
+/// <summary>
+/// The four opcodes of a DFP instruction with a record bit: the long form in
+/// primary opcode 59, which takes no register pair, and the quad form in 63,
+/// which takes as a pair each operand pairs marks, as (FRT, FRA, FRB).
+///
+/// A form here is given the primary opcode, those marks, the extended opcode
+/// and the record bit.
+/// </summary>
+let private dfpRecording form pairs xo (long, longDot) (quad, quadDot) =
+  recording (form 59u (false, false, false)) xo long longDot
+  @ recording (form 63u pairs) xo quad quadDot
+
+/// The five bits that name a DFP operand's register: where a quad form takes
+/// the operand in the extended format, the even register of the pair holding
+/// it.
+let private dfpr isPair reg = if isPair then fprPair reg else fpr reg
+
+/// An X-form "FRT, FRA, FRB": dadd, dmul, dsub, ddiv and diex.
+let private dfpArith po (pt, pa, pb) xo rc ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Rg b ] -> xForm po (dfpr pt t) (dfpr pa a) (dfpr pb b) xo rc
+  | _ -> wrongOperands ins
+
+/// The two opcodes of a DFP instruction with no record bit, the long form and
+/// the quad one, which takes as a pair each operand pairs marks.
+let private dfpPlain form pairs xo long quad =
+  [ long, form 59u (false, false, false) xo 0u; quad, form 63u pairs xo 0u ]
+
+/// An X-form "BF, FRA, FRB", which compares or tests into a field of the
+/// condition register: dcmpo, dcmpu, dtstex and dtstsf.
+let private dfpCompare po (_, pa, pb) xo rc ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] ->
+    xForm po ((crf f) <<< 2) (dfpr pa a) (dfpr pb b) xo rc
+  | _ ->
+    wrongOperands ins
+
+/// dtstsfi, "BF, UIM, FRB", whose six-bit UIM reaches past the FRA field into
+/// the lowest bit of the field BF is in.
+let private dfpTestImm po (_, _, pb) xo rc ins =
+  match ins.Operands with
+  | [ Rg f; Im u; Rg b ] ->
+    xForm po ((crf f) <<< 2) (unsigned 6 u) (dfpr pb b) xo rc
+  | _ ->
+    wrongOperands ins
+
+/// An X-form "FRT, FRB", whose FRA field is reserved: the conversions and the
+/// roundings between the formats, and dxex.
+let private dfpUnary po (pt, _, pb) xo rc ins =
+  match ins.Operands with
+  | [ Rg t; Rg b ] -> xForm po (dfpr pt t) 0u (dfpr pb b) xo rc
+  | _ -> wrongOperands ins
+
+/// ddedpd "SP, FRT, FRB" and denbcd "S, FRT, FRB", whose immediate is the
+/// given number of bits at the top of the FRA field.
+let private dfpCode width po (pt, _, pb) xo rc ins =
+  match ins.Operands with
+  | [ Im s; Rg t; Rg b ] ->
+    let field = (unsigned width s) <<< (5 - width)
+    xForm po (dfpr pt t) field (dfpr pb b) xo rc
+  | _ ->
+    wrongOperands ins
+
+/// One Z22-form word, whose six-bit field fills the FRB field and the bit
+/// below it, above a nine-bit extended opcode.
+let private z22Form po d a field xo rc =
+  word po d a 0u (((unsigned 6 field) <<< 10) ||| (xo <<< 1) ||| rc)
+
+/// dscli and dscri, "FRT, FRA, SH", which shift the significand.
+let private dfpShift po (pt, pa, _) xo rc ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Im sh ] -> z22Form po (dfpr pt t) (dfpr pa a) sh xo rc
+  | _ -> wrongOperands ins
+
+/// dtstdc and dtstdg, "BF, FRA, DCM" and "BF, FRA, DGM", which test the data
+/// class or group into a field of the condition register.
+let private dfpTestData po (_, pa, _) xo rc ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Im m ] -> z22Form po ((crf f) <<< 2) (dfpr pa a) m xo rc
+  | _ -> wrongOperands ins
+
+/// One Z23-form word, whose two-bit RMC sits above an eight-bit extended
+/// opcode.
+let private z23Form po d a b rmc xo rc =
+  word po d a b (((unsigned 2 rmc) <<< 9) ||| (xo <<< 1) ||| rc)
+
+/// dqua and drrnd, "FRT, FRA, FRB, RMC".
+let private dfpQuantize po (pt, pa, pb) xo rc ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Rg b; Im m ] ->
+    z23Form po (dfpr pt t) (dfpr pa a) (dfpr pb b) m xo rc
+  | _ ->
+    wrongOperands ins
+
+/// dquai "TE, FRT, FRB, RMC" and drintx and drintn "R, FRT, FRB, RMC", whose
+/// first operand fills the FRA field as the given field encodes it.
+let private dfpImmQuantize field po (pt, _, pb) xo rc ins =
+  match ins.Operands with
+  | [ Im i; Rg t; Rg b; Im m ] ->
+    z23Form po (dfpr pt t) (field i) (dfpr pb b) m xo rc
+  | _ ->
+    wrongOperands ins
+
+/// The TE of dquai, a signed exponent of five bits.
+let private exponentField te = signed 5 (int64 te)
+
+/// dcffixqq, "FRTp, VRB", which only primary opcode 63 holds.
+let private dfpFromQuadword ins =
+  match ins.Operands with
+  | [ Rg t; Rg b ] -> xForm 63u (fprPair t) 0u (vr b) 994u 0u
+  | _ -> wrongOperands ins
+
+/// dctfixqq, "VRT, FRBp", which a 1 in the FRA field tells from dcffixqq.
+let private dfpToQuadword ins =
+  match ins.Operands with
+  | [ Rg t; Rg b ] -> xForm 63u (vr t) 1u (fprPair b) 994u 0u
+  | _ -> wrongOperands ins
+
+/// The instructions of the Decimal Floating-Point Facility. Each is written
+/// in primary opcode 59 for the long format and in 63, under the same
+/// extended opcode, for the extended one.
+let private decimalEncoders () =
+  let tb = (true, false, true)
+  let arith = dfpRecording dfpArith (true, true, true)
+  let insert = dfpRecording dfpArith tb
+  let compare = dfpPlain dfpCompare (false, true, true)
+  let significance = dfpPlain dfpCompare (false, false, true)
+  let widen = dfpRecording dfpUnary (true, false, false)
+  let narrow = dfpRecording dfpUnary tb
+  let toFixed = dfpRecording dfpUnary (false, false, true)
+  let code width = dfpRecording (dfpCode width) tb
+  let shift = dfpRecording dfpShift (true, true, false)
+  let testData = dfpPlain dfpTestData (false, true, false)
+  let quantize = dfpRecording dfpQuantize (true, true, true)
+  let reround = dfpRecording dfpQuantize tb
+  let quantizeImm = dfpRecording (dfpImmQuantize exponentField) tb
+  let roundInt = dfpRecording (dfpImmQuantize (unsigned 1)) tb
+  List.concat
+    [ arith 2u (Op.DADD, Op.DADDdot) (Op.DADDQ, Op.DADDQdot)
+      arith 34u (Op.DMUL, Op.DMULdot) (Op.DMULQ, Op.DMULQdot)
+      arith 514u (Op.DSUB, Op.DSUBdot) (Op.DSUBQ, Op.DSUBQdot)
+      arith 546u (Op.DDIV, Op.DDIVdot) (Op.DDIVQ, Op.DDIVQdot)
+      insert 866u (Op.DIEX, Op.DIEXdot) (Op.DIEXQ, Op.DIEXQdot)
+      compare 130u Op.DCMPO Op.DCMPOQ
+      compare 642u Op.DCMPU Op.DCMPUQ
+      compare 162u Op.DTSTEX Op.DTSTEXQ
+      significance 674u Op.DTSTSF Op.DTSTSFQ
+      dfpPlain dfpTestImm (false, false, true) 675u Op.DTSTSFI Op.DTSTSFIQ
+      widen 258u (Op.DCTDP, Op.DCTDPdot) (Op.DCTQPQ, Op.DCTQPQdot)
+      narrow 770u (Op.DRSP, Op.DRSPdot) (Op.DRDPQ, Op.DRDPQdot)
+      widen 802u (Op.DCFFIX, Op.DCFFIXdot) (Op.DCFFIXQ, Op.DCFFIXQdot)
+      toFixed 290u (Op.DCTFIX, Op.DCTFIXdot) (Op.DCTFIXQ, Op.DCTFIXQdot)
+      toFixed 354u (Op.DXEX, Op.DXEXdot) (Op.DXEXQ, Op.DXEXQdot)
+      code 2 322u (Op.DDEDPD, Op.DDEDPDdot) (Op.DDEDPDQ, Op.DDEDPDQdot)
+      code 1 834u (Op.DENBCD, Op.DENBCDdot) (Op.DENBCDQ, Op.DENBCDQdot)
+      shift 66u (Op.DSCLI, Op.DSCLIdot) (Op.DSCLIQ, Op.DSCLIQdot)
+      shift 98u (Op.DSCRI, Op.DSCRIdot) (Op.DSCRIQ, Op.DSCRIQdot)
+      testData 194u Op.DTSTDC Op.DTSTDCQ
+      testData 226u Op.DTSTDG Op.DTSTDGQ
+      quantize 3u (Op.DQUA, Op.DQUAdot) (Op.DQUAQ, Op.DQUAQdot)
+      reround 35u (Op.DRRND, Op.DRRNDdot) (Op.DRRNDQ, Op.DRRNDQdot)
+      quantizeImm 67u (Op.DQUAI, Op.DQUAIdot) (Op.DQUAIQ, Op.DQUAIQdot)
+      roundInt 99u (Op.DRINTX, Op.DRINTXdot) (Op.DRINTXQ, Op.DRINTXQdot)
+      roundInt 227u (Op.DRINTN, Op.DRINTNdot) (Op.DRINTNQ, Op.DRINTNQdot)
+      [ Op.DCFFIXQQ, dfpFromQuadword; Op.DCTFIXQQ, dfpToQuadword ] ]
+
 /// Every instruction of the floating-point unit.
 let floatEncoders () =
   List.concat
@@ -249,4 +487,6 @@ let floatEncoders () =
       recording fpSetStatusBit 38u Op.MTFSB1 Op.MTFSB1dot
       recording fpSetStatusBit 70u Op.MTFSB0 Op.MTFSB0dot
       unaryEncoders ()
-      memoryAndStatusEncoders () ]
+      memoryAndStatusEncoders ()
+      laterEncoders ()
+      decimalEncoders () ]

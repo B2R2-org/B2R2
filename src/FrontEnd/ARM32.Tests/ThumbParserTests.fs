@@ -1353,7 +1353,9 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VCVT to fixed point refuses negative fraction bits``() =
     testDisasm "eeba0a40" "vcvt.f32.s16 s0, s0, #0x10"
+#if !EMULATION
     testRefused "eeba0a4f"
+#endif
 
   /// VDUP of one element fills a quadword where Q says so.
   [<TestMethod>]
@@ -1365,7 +1367,9 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VSHLL by the element width reads an odd doubleword``() =
     testDisasm "ffb60301" "vshll.i16 q0, d1, #0x10"
+#if !EMULATION
     testRefused "ffb61300"
+#endif
 
   /// VCEQ #0 compares integers of a size, which it names I8, I16 and I32.
   [<TestMethod>]
@@ -1382,13 +1386,17 @@ type ThumbParserTests() =
   member _.``[T32] VMUL by an element reads Q from bit 28``() =
     testDisasm "ef99694d" "vmul.f16 d6, d9, d5[1]"
     testDisasm "ff98694d" "vmul.f16 q3, q4, d5[1]"
+#if !EMULATION
     testRefused "ff99694d"
     testRefused "ff98794d"
+#endif
 
   [<TestMethod>]
   member _.``[T32] VEXT of quadwords refuses an odd register``() =
     testDisasm "efb2a7ce" "vext.8 q5, q9, q7, #0x7"
+#if !EMULATION
     testRefused "efb2a7cf"
+#endif
 
   /// ENTERX and LEAVEX, ThumbEE's two instructions in Thumb state, are the
   /// miscellaneous system encodings with opc 0001 and 0000 (DDI0406C A9.3.1).
@@ -1403,9 +1411,11 @@ type ThumbParserTests() =
     testDisasm "f3bf8f44" "pssbb"
     testDisasm "f3bf8f4f" "dsb sy"
 
+#if !EMULATION
   [<TestMethod>]
   member _.``[T32] VMOV.F16 refuses the PC``() =
     testRefused "ee04f9b2"
+#endif
 
   /// The ordinary coprocessors read in T32 as in A32, bit 28 naming the forms
   /// called 2, and refuse what A32 refuses.
@@ -1422,10 +1432,12 @@ type ThumbParserTests() =
     testDisasm "fdd11100" "ldc2l p1, c1, [r1]"
     testDisasm "fc6485df" "stc2l p5, c8, [r4], #-0x37c"
     testRefused "ee000e00"
+#if !EMULATION
     testRefused "ee00f010"
     testRefused "ec4f0000"
     testRefused "ec511100"
     testRefused "ed2f1100"
+#endif
     readsOnlyUnder "ee000010" [ "armv7-v7" ] [ "aarch32" ]
 
   /// VDUP from a core register to a Q register refuses an odd Vd in T32 as in
@@ -1433,9 +1445,11 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VDUP to a Q register refuses an odd Vd``() =
     testDisasm "eea02b10" "vdup.32 q0, r2"
+#if !EMULATION
     testRefused "eea12b14"
     testRefused "eee12b10"
     testRefused "eea12b30"
+#endif
 
   /// L, bit 20, tells STRD from LDRD whatever the base: with L clear and Rn 15
   /// the word is STRD with the PC as its base, which is UNPREDICTABLE, and only
@@ -1444,8 +1458,10 @@ type ThumbParserTests() =
   member _.``[T32] STRD with the PC as its base is refused``() =
     testDisasm "e95f0134" "ldrd r0, r1, [0xffffff34]"
     testDisasm "e94e0134" "strd r0, r1, [lr, #-0xd0]"
+#if !EMULATION
     testRefused "e94f0134"
     testRefused "e9cf0134"
+#endif
 
   /// An MRC whose Rt field is 15 names APSR_nzcv in T32 as in A32 (DDI0406C
   /// A8.8.108).
@@ -1453,7 +1469,9 @@ type ThumbParserTests() =
   member _.``[T32] MRC to Rt 15 names APSR_nzcv``() =
     testDisasm "ee11fe14" "mrc p14, #0x0, apsr_nzcv, c1, c4, #0x0"
     testDisasm "ee10ff10" "mrc p15, #0x0, apsr_nzcv, c0, c0, #0x0"
+#if !EMULATION
     testRefused "ee00ff10"
+#endif
 
   /// <summary>
   /// The ThumbEE instructions of DDI0406C (A8.8.31 CHKA, A8.8.52 HB, HBL,

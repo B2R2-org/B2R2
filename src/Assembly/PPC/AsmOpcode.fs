@@ -736,18 +736,17 @@ let private xSegmentIndirect xo ins =
   | [ Rg r; Rg b ] -> xForm 31u (gpr r) 0u (gpr b) xo 0u
   | _ -> wrongOperands ins
 
-/// <summary>
-/// mfocrf, which reads the one field of the condition register its mask names.
-///
-/// Every other field of what it writes is left undefined, so which field the
-/// mask names is not something the disassembler has to print; the mask written
-/// here therefore names the first field, and any other would say the same
-/// thing.
-/// </summary>
+/// mfocrf, which reads the one field of the condition register its mask
+/// names. The mask straddles the two fields an X-form keeps registers in,
+/// above the bit that tells it from mfcr.
 let private xReadOneCondField ins =
   match ins.Operands with
-  | [ Rg d ] -> word 31u (gpr d) 0x18u 0u (19u <<< 1)
-  | _ -> wrongOperands ins
+  | [ Rg d; Im fxm ] ->
+    let mask = unsigned 8 fxm
+    let high = (1u <<< 4) ||| (mask >>> 4)
+    word 31u (gpr d) high ((mask &&& 0xFu) <<< 1) (19u <<< 1)
+  | _ ->
+    wrongOperands ins
 
 /// mtcrf and mtocrf, which write the fields of the condition register their
 /// mask names. The mask straddles the two fields an X-form keeps registers in.
@@ -808,6 +807,14 @@ let private xBare po xo ins =
   | _ -> wrongOperands ins
 
 /// lwsync, which is the barrier the field above it tells from the whole one.
+/// dcbt, dcbtst and dcbf, which take their TH or L hint as an optional third
+/// operand, kept where an X form keeps rD.
+let private xCacheHint xo ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] -> xForm 31u 0u (gpr a) (gpr b) xo 0u
+  | [ Rg a; Rg b; Im h ] -> xForm 31u (unsigned 5 h) (gpr a) (gpr b) xo 0u
+  | _ -> wrongOperands ins
+
 let private xLightBarrier ins =
   match ins.Operands with
   | [] -> xForm 31u 1u 0u 0u 598u 0u
@@ -851,9 +858,9 @@ let systemEncoders () =
     Op.CRCLR, xCondConstant 193u
     Op.CRSET, xCondConstant 289u
     Op.DCBST, xAb 54u
-    Op.DCBF, xAb 86u
-    Op.DCBTST, xAb 246u
-    Op.DCBT, xAb 278u
+    Op.DCBF, xCacheHint 86u
+    Op.DCBTST, xCacheHint 246u
+    Op.DCBT, xCacheHint 278u
     Op.DCBI, xAb 470u
     Op.DCBA, xAb 758u
     Op.ICBI, xAb 982u
@@ -866,3 +873,271 @@ let systemEncoders () =
     Op.EIEIO, xNone 854u
     Op.ISYNC, xBare 19u 150u
     Op.RFI, xBare 19u 50u ]
+
+(* Lane A: the integer, branch, storage and system instructions added since
+   the forms above. *)
+/// bctar and bctarl, which take the BH hint as an optional third operand, in
+/// the two bits below the field naming the CR bit.
+let private targetBranch link ins =
+  let go bo bi bh = word 19u (unsigned 5 bo) bi bh ((560u <<< 1) ||| link)
+  match ins.Operands with
+  | [ Im bo; Bit bi ] -> go bo bi 0u
+  | [ Im bo; Bit bi; Im bh ] -> go bo bi (unsigned 2 bh)
+  | _ -> wrongOperands ins
+
+/// rfebb, whose one operand is the bit it sets BESCR[GE] to.
+let private eventReturn ins =
+  match ins.Operands with
+  | [ Im s ] -> word 19u 0u 0u (unsigned 1 s) (146u <<< 1)
+  | _ -> wrongOperands ins
+
+/// mfbhrbe, whose entry number fills the ten bits above the extended opcode
+/// in order.
+let private historyEntry ins =
+  match ins.Operands with
+  | [ Rg d; Im entry ] ->
+    let n = unsigned 10 entry
+    word 31u (gpr d) (n >>> 5) (n &&& 0x1Fu) (302u <<< 1)
+  | _ ->
+    wrongOperands ins
+
+/// icbt, which takes its CT hint as an optional first operand.
+let private cacheTouch ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] -> xForm 31u 0u (gpr a) (gpr b) 22u 0u
+  | [ Im ct; Rg a; Rg b ] -> xForm 31u (unsigned 4 ct) (gpr a) (gpr b) 22u 0u
+  | _ -> wrongOperands ins
+
+/// <summary>
+/// lqarx and stqcx., which name the even register of the pair they move. An
+/// odd one is an invalid form; so, for lqarx, is a pair that rA or rB names,
+/// which the processor refuses.
+/// </summary>
+let private quadReserve xo rc ins =
+  match ins.Operands with
+  | [ Rg p; Rg a; Rg b ] when gpr p % 2u <> 0u ->
+    fail $"{ins.Opcode} needs the even register of a pair, not {p}"
+  | [ Rg p; Rg a; Rg b ] when rc = 0u && (p = a || p = b) ->
+    fail $"{ins.Opcode} cannot load a pair rA or rB names"
+  | [ Rg p; Rg a; Rg b ] ->
+    xForm 31u (gpr p) (gpr a) (gpr b) xo rc
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// lq, which names the even register of the pair it loads and reaches whole
+/// quadwords only. An odd register is an invalid form, and so is a pair that
+/// rA names, which the processor refuses.
+/// </summary>
+let private loadQuad ins =
+  match ins.Operands with
+  | [ Rg p; Mem(_, _) ] when gpr p % 2u <> 0u ->
+    fail $"lq needs the even register of a pair, not {p}"
+  | [ Rg p; Mem(_, b) ] when p = b ->
+    fail "lq cannot load a pair rA names"
+  | [ Rg p; Mem(disp, b) ] when disp % 16 = 0 ->
+    dForm 56u (gpr p) (gpr b) (displacement disp)
+  | [ Rg _; Mem(_, _) ] ->
+    fail "lq cannot reach a place that is not a whole quadword away"
+  | _ ->
+    wrongOperands ins
+
+/// stq, which names the even register of the pair it stores; an odd one is
+/// an invalid form.
+let private storeQuad ins =
+  match ins.Operands with
+  | [ Rg p; Mem(_, _) ] when gpr p % 2u <> 0u ->
+    fail $"stq needs the even register of a pair, not {p}"
+  | [ Rg p; Mem(disp, b) ] ->
+    dForm 62u (gpr p) (gpr b) ((wordDisplacement disp) ||| 2u)
+  | _ ->
+    wrongOperands ins
+
+/// setb, whose CR field fills the top three bits of the rA field.
+let private setBoolean ins =
+  match ins.Operands with
+  | [ Rg d; Rg f ] -> xForm 31u (gpr d) ((crf f) <<< 2) 0u 128u 0u
+  | _ -> wrongOperands ins
+
+/// addex, whose CY operand has no value but 0 that is not reserved.
+let private addExtended ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg b; Im 0UL ] -> xForm 31u (gpr d) (gpr a) (gpr b) 170u 0u
+  | [ Rg _; Rg _; Rg _; Im cy ] -> fail $"addex has no CY {cy}"
+  | _ -> wrongOperands ins
+
+/// cmprb, whose L sits below the CR field, one reserved bit apart.
+let private compareRanged ins =
+  match ins.Operands with
+  | [ Rg f; Im l; Rg a; Rg b ] ->
+    let field = ((crf f) <<< 2) ||| unsigned 1 l
+    xForm 31u field (gpr a) (gpr b) 192u 0u
+  | _ ->
+    wrongOperands ins
+
+/// cmpeqb and mcrxrx, which name a CR field and what they compare.
+let private compareField xo ins =
+  match ins.Opcode, ins.Operands with
+  | Op.CMPEQB, [ Rg f; Rg a; Rg b ] ->
+    xForm 31u ((crf f) <<< 2) (gpr a) (gpr b) xo 0u
+  | Op.MCRXRX, [ Rg f ] ->
+    xForm 31u ((crf f) <<< 2) 0u 0u xo 0u
+  | _ ->
+    wrongOperands ins
+
+/// darn, whose L fills the low two bits of the rA field.
+let private deliverRandom ins =
+  match ins.Operands with
+  | [ Rg d; Im l ] when l < 3UL ->
+    xForm 31u (gpr d) (uint32 l) 0u 755u 0u
+  | _ ->
+    wrongOperands ins
+
+/// extswsli, an XS form whose six-bit shift keeps its high bit in bit 30.
+let private signExtendShift rc ins =
+  match ins.Operands with
+  | [ Rg a; Rg s; Im shift ] ->
+    let sh = unsigned 6 shift
+    let rest = (445u <<< 2) ||| ((sh >>> 5) <<< 1) ||| rc
+    word 31u (gpr s) (gpr a) (sh &&& 0x1Fu) rest
+  | _ ->
+    wrongOperands ins
+
+/// addpcis, whose sixteen-bit D is split into d0, d1 and d2.
+let private addPCImmediate bitLen ins =
+  match ins.Operands with
+  | [ Rg d; Im v ] ->
+    let value = immediate16 bitLen v
+    let d1 = (value >>> 1) &&& 0x1Fu
+    let rest = (value &&& 0xFFC0u) ||| (2u <<< 1) ||| (value &&& 1u)
+    word 19u (gpr d) d1 0u rest
+  | _ ->
+    wrongOperands ins
+
+/// setbc and its kin, which name a CR bit where an X form keeps rA.
+let private setCondition xo ins =
+  match ins.Operands with
+  | [ Rg d; Bit bi ] -> xForm 31u (gpr d) bi 0u xo 0u
+  | _ -> wrongOperands ins
+
+/// lwat, ldat, stwat and stdat, whose function code fills the rB field.
+let private atomicForm xo ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Im fc ] -> xForm 31u (gpr t) (gpr a) (unsigned 5 fc) xo 0u
+  | _ -> wrongOperands ins
+
+/// copy, whose bit 10 is always set, and paste[.], whose L sits there.
+let private copyPaste xo rc ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] ->
+    xForm 31u 1u (gpr a) (gpr b) xo rc
+  | [ Rg a; Rg b; Im 1UL ] ->
+    xForm 31u 1u (gpr a) (gpr b) xo rc
+  | [ Rg a; Rg b; Im l ] when ins.Opcode <> Op.COPY ->
+    xForm 31u (unsigned 1 l) (gpr a) (gpr b) xo rc
+  | _ ->
+    wrongOperands ins
+
+/// wait WC, PL, both optional.
+let private waitForm ins =
+  match ins.Operands with
+  | [] ->
+    xForm 31u 0u 0u 0u 30u 0u
+  | [ Im wc ] when wc < 3UL ->
+    xForm 31u (uint32 wc) 0u 0u 30u 0u
+  | [ Im wc; Im pl ] when wc < 3UL ->
+    xForm 31u (uint32 wc) (unsigned 2 pl) 0u 30u 0u
+  | _ ->
+    wrongOperands ins
+
+/// scv LEV.
+let private vectoredCall ins =
+  match ins.Operands with
+  | [ Im lev ] -> word 17u 0u 0u 0u (((unsigned 7 lev) <<< 5) ||| 1u)
+  | _ -> wrongOperands ins
+
+/// A sync whose L and SC name one of its barriers.
+let private barrier l sc ins =
+  match ins.Operands with
+  | [] -> xForm 31u l sc 0u 598u 0u
+  | _ -> wrongOperands ins
+
+/// The extended divides, by extended opcode, with the names of their plain
+/// and their overflow-recording forms.
+let private extendedDivides =
+  [ 393u, (Op.DIVDEU, Op.DIVDEUdot), (Op.DIVDEUO, Op.DIVDEUOdot)
+    395u, (Op.DIVWEU, Op.DIVWEUdot), (Op.DIVWEUO, Op.DIVWEUOdot)
+    425u, (Op.DIVDE, Op.DIVDEdot), (Op.DIVDEO, Op.DIVDEOdot)
+    427u, (Op.DIVWE, Op.DIVWEdot), (Op.DIVWEO, Op.DIVWEOdot) ]
+
+/// The ISA 2.06 and 2.07 forms of lane A: the server branch, event and
+/// history facilities, the quadword moves and the decimal assists.
+let private serverEncoders =
+  let divide (xo, plain, ovf) = overflowing xDab xo plain ovf
+  [ Op.BCTAR, targetBranch 0u
+    Op.BCTARL, targetBranch 1u
+    Op.RFEBB, eventReturn
+    Op.CLRBHRB, xNone 430u
+    Op.MFBHRBE, historyEntry
+    Op.ICBT, cacheTouch
+    Op.LQARX, quadReserve 276u 0u
+    Op.STQCXdot, quadReserve 182u 1u
+    Op.LQ, loadQuad
+    Op.STQ, storeQuad
+    Op.ADDG6S, xDab 74u 0u
+    Op.CDTBCD, xAs 282u 0u
+    Op.CBCDTD, xAs 314u 0u ]
+  @ List.collect divide extendedDivides
+
+/// The ISA 3.0 forms of lane A.
+let private power9Encoders bitLen =
+  [ Op.SETB, setBoolean
+    Op.ADDEX, addExtended
+    Op.CMPRB, compareRanged
+    Op.CMPEQB, compareField 224u
+    Op.MCRXRX, compareField 576u
+    Op.DARN, deliverRandom
+    Op.EXTSWSLI, signExtendShift 0u
+    Op.EXTSWSLIdot, signExtendShift 1u
+    Op.ADDPCIS, addPCImmediate bitLen
+    Op.MODUD, xDab 265u 0u
+    Op.MODUW, xDab 267u 0u
+    Op.MODSD, xDab 777u 0u
+    Op.MODSW, xDab 779u 0u
+    Op.LWAT, atomicForm 582u
+    Op.LDAT, atomicForm 614u
+    Op.STWAT, atomicForm 710u
+    Op.STDAT, atomicForm 742u ]
+  @ recording xAs 538u Op.CNTTZW Op.CNTTZWdot
+  @ recording xAs 570u Op.CNTTZD Op.CNTTZDdot
+
+/// The ISA 3.1 forms of lane A, the barriers among them.
+let private power10Encoders =
+  [ Op.BRD, xAs 187u 0u
+    Op.BRW, xAs 155u 0u
+    Op.BRH, xAs 219u 0u
+    Op.CFUGED, xAsb 220u 0u
+    Op.CNTLZDM, xAsb 59u 0u
+    Op.CNTTZDM, xAsb 571u 0u
+    Op.PDEPD, xAsb 156u 0u
+    Op.PEXTD, xAsb 188u 0u
+    Op.SETBC, setCondition 384u
+    Op.SETBCR, setCondition 416u
+    Op.SETNBC, setCondition 448u
+    Op.SETNBCR, setCondition 480u
+    Op.PTESYNC, barrier 2u 0u
+    Op.PHWSYNC, barrier 4u 0u
+    Op.PLWSYNC, barrier 5u 0u
+    Op.STNCISYNC, barrier 1u 1u
+    Op.STCISYNC, barrier 0u 2u
+    Op.STSYNC, barrier 0u 3u
+    Op.COPY, copyPaste 774u 0u
+    Op.PASTE, copyPaste 902u 0u
+    Op.PASTEdot, copyPaste 902u 1u
+    Op.CPABORT, xNone 838u
+    Op.WAIT, waitForm
+    Op.SCV, vectoredCall ]
+
+/// The instructions of lane A.
+let laneAEncoders bitLen =
+  serverEncoders @ power9Encoders bitLen @ power10Encoders
