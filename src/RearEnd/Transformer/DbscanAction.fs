@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.Collections.Generic
+open System.Globalization
 open System.Threading
 
 [<Struct>]
@@ -47,6 +48,10 @@ with
 
 /// The `dbscan` action.
 type DbscanAction() =
+  let defaultEps = 0.2
+  let defaultMinPts = 3
+  let parseEps (value: string) =
+    Double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture)
   let buildDistanceCache cancellationToken (elms: DbscanElement[]) =
     let cancellationToken: CancellationToken = cancellationToken
     let cacheSize = elms.Length * (elms.Length - 1) / 2
@@ -150,22 +155,39 @@ type DbscanAction() =
           clusters.Add(cluster.ToArray()) |> ignore
     [| box { Clusters = clusters.ToArray() } |]
 
+  let clusterWith cancellationToken eps minPts collection =
+    { Values =
+        collection.Values
+        |> Array.map unbox<Fingerprint>
+        |> cluster cancellationToken eps minPts }
+
   let transform cancellationToken args collection =
     let args: string list = args
     let eps, minPts =
       match args with
       | eps :: minPts :: [] ->
-        Convert.ToDouble eps, Convert.ToInt32 minPts
+        parseEps eps, Convert.ToInt32 minPts
       | eps :: [] ->
-        Convert.ToDouble eps, 3
+        parseEps eps, defaultMinPts
       | [] ->
-        0.2, 3
+        defaultEps, defaultMinPts
       | _ ->
         invalidArg (nameof args) "Too many arguments given."
-    { Values =
-        collection.Values
-        |> Array.map unbox<Fingerprint>
-        |> cluster cancellationToken eps minPts }
+    clusterWith cancellationToken eps minPts collection
+
+  let transformNamed cancellationToken args collection =
+    let options = Map.ofList args
+    let eps =
+      options
+      |> Map.tryFind "eps"
+      |> Option.map parseEps
+      |> Option.defaultValue defaultEps
+    let minPts =
+      options
+      |> Map.tryFind "min-points"
+      |> Option.map (fun (value: string) -> Convert.ToInt32 value)
+      |> Option.defaultValue defaultMinPts
+    clusterWith cancellationToken eps minPts collection
 
   interface IAction with
     member _.ActionID with get() = "dbscan"
@@ -185,3 +207,7 @@ type DbscanAction() =
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       transform cancellationToken args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, cancellationToken) =
+      transformNamed cancellationToken args collection

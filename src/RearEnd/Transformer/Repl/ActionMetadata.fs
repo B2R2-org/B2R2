@@ -341,6 +341,31 @@ module ActionMetadata =
     | ActionArgumentKind.Choice ->
       "Choice"
 
+  let annotationMatches argument annotation =
+    let argument: ActionArgument = argument
+    let primary = argumentKindName argument.Kind
+    let aliases =
+      match argument.Kind with
+      | ActionArgumentKind.Text
+      | ActionArgumentKind.Path
+      | ActionArgumentKind.ExistingPath
+      | ActionArgumentKind.OutputPath
+      | ActionArgumentKind.ISA
+      | ActionArgumentKind.Section
+      | ActionArgumentKind.Action
+      | ActionArgumentKind.ParameterFunction
+      | ActionArgumentKind.Choice ->
+        [ "String" ]
+      | ActionArgumentKind.Integer
+      | ActionArgumentKind.ArbitraryInteger
+      | ActionArgumentKind.Size ->
+        [ "Integer" ]
+      | _ ->
+        []
+    primary :: aliases
+    |> List.exists (fun name ->
+      String.Equals(name, annotation, StringComparison.OrdinalIgnoreCase))
+
   let private argumentPlaceholder = function
     | ActionArgumentKind.Text ->
       "text"
@@ -705,18 +730,34 @@ module ActionMetadata =
     | _ ->
       None
 
-  let private tokenParameterName (token: string) =
+  let private tryParameterHeader (token: string) =
     let index = token.IndexOf '='
     if index <= 0 then
       None
     else
-      let key = token[..index - 1]
+      let key = token[..index - 1].Trim()
       let typeIndex = key.IndexOf ':'
-      let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
-      Some(key.ToLowerInvariant())
+      let name, annotation =
+        if typeIndex <= 0 then
+          key, None
+        else
+          key[..typeIndex - 1], Some key[typeIndex + 1..]
+      if String.IsNullOrWhiteSpace name then
+        None
+      else
+        Some(name.ToLowerInvariant(), annotation, index)
+
+  let tryParseNamedArgument token =
+    tryParameterHeader token
+    |> Option.map (fun (name, annotation, index) ->
+      name, annotation, token[index + 1..])
+
+  let tryParameterName token =
+    tryParameterHeader token
+    |> Option.map (fun (name, _, _) -> name)
 
   let private syntaxMatchesOutputArguments args syntax =
-    let names = args |> List.choose tokenParameterName
+    let names = args |> List.choose tryParameterName
     if List.isEmpty args || List.isEmpty names then
       true
     else
@@ -735,18 +776,6 @@ module ActionMetadata =
     | Some _, [] ->
       false
 
-  let private outputForSyntaxes metadata inputKind args =
-    let metadata: ActionMetadata = metadata
-    metadata.Syntaxes
-    |> List.filter (syntaxAccepts inputKind)
-    |> List.tryPick (fun syntax ->
-      if syntaxMatchesOutputTrigger args syntax
-         && syntaxMatchesOutputArguments args syntax then
-        syntax.Output
-      else
-        None)
-    |> Option.defaultValue metadata.Output
-
   let private applyOutputRelation relation inputKind output =
     match relation, inputKind with
     | ActionOutputRelation.CollectionElement, Some input ->
@@ -758,20 +787,36 @@ module ActionMetadata =
     | _ ->
       output
 
+  let outputForSyntax metadata inputKind syntax =
+    let metadata: ActionMetadata = metadata
+    let syntax: ActionSyntax = syntax
+    let output = syntax.Output |> Option.defaultValue metadata.Output
+    applyOutputRelation metadata.OutputRelation inputKind output
+
   let outputForArguments metadata inputKind args =
     let metadata: ActionMetadata = metadata
-    let output =
-      outputForSyntaxes metadata inputKind args
-    applyOutputRelation metadata.OutputRelation inputKind output
+    metadata.Syntaxes
+    |> List.tryFind (fun syntax ->
+      syntaxAccepts inputKind syntax
+      && syntaxMatchesOutputTrigger args syntax
+      && syntaxMatchesOutputArguments args syntax)
+    |> Option.map (outputForSyntax metadata inputKind)
+    |> Option.defaultWith (fun () ->
+      applyOutputRelation
+        metadata.OutputRelation inputKind metadata.Output)
 
   let possibleOutputs metadata inputKind =
     let metadata: ActionMetadata = metadata
     let outputs =
       metadata.Syntaxes
       |> List.filter (syntaxAccepts inputKind)
-      |> List.choose (fun syntax -> syntax.Output)
+      |> List.map (outputForSyntax metadata inputKind)
       |> List.distinct
-    if List.isEmpty outputs then [ metadata.Output ] else outputs
+    if List.isEmpty outputs then
+      [ applyOutputRelation
+          metadata.OutputRelation inputKind metadata.Output ]
+    else
+      outputs
 
   let syntaxHasParameter (name: string) syntax =
     (syntax: ActionSyntax).Arguments
@@ -779,7 +824,7 @@ module ActionMetadata =
       argumentKeys argument |> List.contains (name.ToLowerInvariant()))
 
   let syntaxMatchesParameters args syntax =
-    let names = args |> List.choose tokenParameterName
+    let names = args |> List.choose tryParameterName
     names |> List.forall (fun name -> syntaxHasParameter name syntax)
 
   let private matchingTriggerSyntaxes args syntaxes =
@@ -1035,7 +1080,7 @@ module ActionMetadata =
       required "asm" ActionArgumentKind.Text
         "Replacement instruction assembled at the start address."
     let isa =
-      optional "isa" ActionArgumentKind.Text
+      optional "isa" ActionArgumentKind.ISA
         "Instruction-set architecture used for assembly."
     overloadContract
       "edit"

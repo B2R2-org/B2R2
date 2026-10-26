@@ -807,20 +807,12 @@ module Suggestions =
           |> List.exists (ReplValueKind.isCompatible value.Kind))
       && match value.Collection.Values with
          | [| item |] ->
-           ReplValue.tryArgumentText item |> Option.isSome
+           ReplValue.tryArgumentText item
+           |> Option.exists
+             (ActionArgumentValidation.canSuggestBinding argument)
          | _ ->
            false)
     |> List.map bindingItem
-
-  let private tryParameterName (token: string) =
-    let index = token.IndexOf '='
-    if index <= 0 then
-      None
-    else
-      let key = token[..index - 1]
-      let typeIndex = key.IndexOf ':'
-      let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
-      Some(key.ToLowerInvariant())
 
   let private isAttachedValuePrefix (segment: string) tokenStart =
     tokenStart > 0 && not (Char.IsWhiteSpace segment[tokenStart - 1])
@@ -856,7 +848,7 @@ module Suggestions =
         syntaxes |> List.filter (fun syntax -> syntax.Trigger.IsNone)
       else
         triggered
-    let names = completed |> List.choose tryParameterName
+    let names = completed |> List.choose ActionMetadata.tryParameterName
     syntaxes
     |> List.collect (fun syntax -> syntax.Arguments)
     |> List.filter (fun argument ->
@@ -1037,7 +1029,9 @@ module Suggestions =
         CursorOffset = None } ]
 
   let private parameterNameSet tokens =
-    tokens |> List.choose tryParameterName |> Set.ofList
+    tokens
+    |> List.choose ActionMetadata.tryParameterName
+    |> Set.ofList
 
   let private hasCompleteRequiredParameters metadata inputKind completed =
     let metadata: ActionMetadata = metadata
@@ -1138,7 +1132,7 @@ module Suggestions =
               if endsWithSpace then body else InputAnalysis.allButLast body
             let inputKind = Some kind
             let candidates =
-              match current |> Option.bind tryParameterName with
+              match current |> Option.bind ActionMetadata.tryParameterName with
               | Some name ->
                 namedArgumentCandidates
                   registry
@@ -1283,7 +1277,7 @@ module Suggestions =
             beforeWords
             |> List.rev
             |> List.tryHead
-            |> Option.bind tryParameterName
+            |> Option.bind ActionMetadata.tryParameterName
           else
             None
         match parameter with
@@ -1344,7 +1338,7 @@ module Suggestions =
         |> List.tryFind (fun argument -> matchesArgumentName name argument)
       let current =
         token
-        |> Option.bind tryParameterName
+        |> Option.bind ActionMetadata.tryParameterName
         |> Option.bind findArgument
       match current with
       | Some argument ->

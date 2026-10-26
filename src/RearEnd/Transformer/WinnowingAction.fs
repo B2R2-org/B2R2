@@ -31,6 +31,8 @@ open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction() =
+  let defaultNgramSize = 4
+  let defaultWindowSize = 4
   let computeFingerprint
     cancellationToken
     annot
@@ -85,21 +87,38 @@ type WinnowingAction() =
       |> computeFingerprint cancellationToken annot n wsz
       |> box
 
+  let fingerprintWith cancellationToken n wsz collection =
+    { Values =
+        collection.Values
+        |> Array.map (winnowing cancellationToken n wsz) }
+
   let transform cancellationToken args collection =
     let args: string list = args
     let n, wsz =
       match args with
       | [] ->
-        4, 4
+        defaultNgramSize, defaultWindowSize
       | [ n ] ->
-        Convert.ToInt32 n, 4
+        Convert.ToInt32 n, defaultWindowSize
       | n :: w :: [] ->
         Convert.ToInt32 n, Convert.ToInt32 w
       | _ ->
         invalidArg (nameof args) "Too many arguments given."
-    { Values =
-        collection.Values
-        |> Array.map (winnowing cancellationToken n wsz) }
+    fingerprintWith cancellationToken n wsz collection
+
+  let transformNamed cancellationToken args collection =
+    let options = Map.ofList args
+    let n =
+      options
+      |> Map.tryFind "n-gram-size"
+      |> Option.map (fun (value: string) -> Convert.ToInt32 value)
+      |> Option.defaultValue defaultNgramSize
+    let wsz =
+      options
+      |> Map.tryFind "window-size"
+      |> Option.map (fun (value: string) -> Convert.ToInt32 value)
+      |> Option.defaultValue defaultWindowSize
+    fingerprintWith cancellationToken n wsz collection
 
   interface IAction with
     member _.ActionID with get() = "winnowing"
@@ -120,3 +139,7 @@ type WinnowingAction() =
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       transform cancellationToken args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, cancellationToken) =
+      transformNamed cancellationToken args collection
