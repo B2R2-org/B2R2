@@ -76,10 +76,12 @@ type TuiRendererTests() =
       { Title = "View"
         BlockIndex = 1
         Lines = [| { Kind = TuiLineKind.Output; Text = "needle" } |]
+        ItemCommands = [||]
         VisibleLengths = [| 6 |]
         Cursor = { Line = 0; Column = 0 }
         Anchor = None
         FindText = "needle"
+        FindCursor = 6
         IsFinding = true }
     let model =
       { TransformerTuiModel.initial with

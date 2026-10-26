@@ -70,7 +70,16 @@ module ReplHelp =
       "  Ctrl+F                         Find text in view"
       "  Ctrl+Enter           Insert view selection into input"
       "  Alt+Arrows                     Resize sidebar or suggestions"
-      "  Esc                            Close a panel or clear input" ]
+      "  Esc                            Close a panel or clear input"
+      ""
+      "Mouse"
+      "  Click F1-F4 / Run / Copy       Use the header controls"
+      "  Click a value                 Insert a compatible binding"
+      "  Double-click transcript text Select a word"
+      "  Double-click a control item   Prepare that command"
+      "  Right-click                  Cancel popup/find or close view"
+      "  Drag text or a divider        Select text or resize a pane"
+      "  Wheel                         Scroll the pointed pane" ]
 
   let actionLines registered =
     let metadata = (registered: RegisteredAction).Metadata

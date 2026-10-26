@@ -34,6 +34,12 @@ type TuiInputResult =
   | Stop of TransformerTuiModel
 
 module TransformerTuiInputController =
+  [<Literal>]
+  let private MultiClickWindowMilliseconds = 500L
+
+  [<Literal>]
+  let private MouseAutoScrollIntervalMilliseconds = 75L
+
   let private hasModifier modifier (key: ConsoleKeyInfo) =
     key.Modifiers &&& modifier = modifier
 
@@ -355,6 +361,21 @@ module TransformerTuiInputController =
       TransformerTuiModel.findInView model |> TuiInputResult.Update
     | ConsoleKey.Escape ->
       TransformerTuiModel.setViewFind false model |> TuiInputResult.Update
+    | ConsoleKey.LeftArrow ->
+      TransformerTuiModel.moveViewFindCursor -1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.RightArrow ->
+      TransformerTuiModel.moveViewFindCursor 1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.Home ->
+      TransformerTuiModel.setViewFindCursor 0 model
+      |> TuiInputResult.Update
+    | ConsoleKey.End ->
+      let length =
+        model.ViewPane |> Option.map (fun pane -> pane.FindText.Length)
+        |> Option.defaultValue 0
+      TransformerTuiModel.setViewFindCursor length model
+      |> TuiInputResult.Update
     | ConsoleKey.Backspace ->
       TransformerTuiModel.backspaceViewFind model |> TuiInputResult.Update
     | _ when not (Char.IsControl key.KeyChar) ->
@@ -371,6 +392,19 @@ module TransformerTuiInputController =
       |> TuiInputResult.Update
     | ConsoleKey.Escape ->
       TransformerTuiModel.setTranscriptFind false model |> TuiInputResult.Update
+    | ConsoleKey.LeftArrow ->
+      TransformerTuiModel.moveTranscriptFindCursor -1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.RightArrow ->
+      TransformerTuiModel.moveTranscriptFindCursor 1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.Home ->
+      TransformerTuiModel.setTranscriptFindCursor 0 model
+      |> TuiInputResult.Update
+    | ConsoleKey.End ->
+      TransformerTuiModel.setTranscriptFindCursor
+        model.TranscriptFindText.Length model
+      |> TuiInputResult.Update
     | ConsoleKey.Backspace ->
       TransformerTuiModel.backspaceTranscriptFind model |> TuiInputResult.Update
     | _ when not (Char.IsControl key.KeyChar) ->
@@ -528,18 +562,58 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
-  let private scrollWithMouse width height direction model =
+  let private scrollWithMouse width height completion mouse direction model =
+    let row = (mouse: TuiMouseEvent).Row
+    let column = mouse.Column
     match model.Overlay with
     | TuiOverlay.None ->
-      let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
-      let bodyHeight = TransformerTuiModel.transcriptHeight height model
-      TransformerTuiModel.scrollTranscript
-        bodyWidth bodyHeight (-direction) model
+      if TransformerTuiRenderer.isSidebarAt
+           width height model row column then
+        let visible = TransformerTuiModel.transcriptHeight height model
+        TransformerTuiModel.scrollSidebar visible (-direction) model
+      elif TransformerTuiRenderer.isSuggestionPaneAt
+             width height model row column then
+        TransformerTuiModel.selectSuggestion
+          (-direction) (List.length (completion: SuggestionSet).Items) model
+      elif TransformerTuiRenderer.tryInputCursorAt
+             width height model row column |> Option.isSome then
+        model
+      elif TransformerTuiRenderer.isMainBodyAt
+             width height model row column then
+        let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+        let bodyHeight = TransformerTuiModel.transcriptHeight height model
+        TransformerTuiModel.scrollTranscript
+          bodyWidth bodyHeight (-direction) model
+      else
+        model
     | TuiOverlay.View ->
-      TransformerTuiRenderer.moveViewCursorByRows
-        width height (-direction) false model
+      if TransformerTuiRenderer.isSidebarAt
+           width height model row column then
+        let visible = TransformerTuiModel.transcriptHeight height model
+        TransformerTuiModel.scrollSidebar visible (-direction) model
+      elif TransformerTuiRenderer.isMainBodyAt
+             width height model row column then
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height (-direction) false model
+      else
+        model
+    | TuiOverlay.CommandPalette ->
+      match TransformerTuiRenderer.paletteHitAt
+              width height model row column with
+      | TransformerTuiRenderer.PaletteCandidate _
+      | TransformerTuiRenderer.PaletteInside ->
+        let candidates =
+          Suggestions.commandPaletteCandidates model.PaletteFilter
+        TransformerTuiModel.selectPaletteSuggestion
+          (if direction > 0 then -1 else 1) candidates model
+      | _ ->
+        model
     | _ ->
-      TransformerTuiModel.scroll (-direction) model
+      if TransformerTuiRenderer.isMainBodyAt
+           width height model row column then
+        TransformerTuiModel.scroll (-direction) model
+      else
+        model
 
   let private selectViewText width height (mouse: TuiMouseEvent) extend model =
     match TransformerTuiRenderer.tryViewCursorAt
@@ -573,6 +647,60 @@ module TransformerTuiInputController =
     | None ->
       model
 
+  let private applySidebarValue name model =
+    let model =
+      if model.Overlay = TuiOverlay.View then
+        TransformerTuiModel.closeViewPane model
+      else
+        model
+    model
+    |> TransformerTuiModel.focusShell
+    |> TransformerTuiModel.insertText name
+
+  let private applyHeaderClick hit model =
+    match hit, model.Overlay with
+    | TransformerTuiRenderer.HeaderRun, TuiOverlay.None ->
+      submitShellInput model
+    | TransformerTuiRenderer.HeaderCopy, _ ->
+      copySelection model |> TuiInputResult.Update
+    | TransformerTuiRenderer.HeaderKey ConsoleKey.F1, _ ->
+      toggleHelp model |> TuiInputResult.Update
+    | TransformerTuiRenderer.HeaderKey ConsoleKey.F2, _ ->
+      toggleCommandPalette model |> TuiInputResult.Update
+    | TransformerTuiRenderer.HeaderKey ConsoleKey.F3, TuiOverlay.View ->
+      TransformerTuiModel.setViewFind true model |> TuiInputResult.Update
+    | TransformerTuiRenderer.HeaderKey ConsoleKey.F3, TuiOverlay.None ->
+      TransformerTuiModel.setTranscriptFind true model
+      |> TuiInputResult.Update
+    | TransformerTuiRenderer.HeaderKey ConsoleKey.F4, TuiOverlay.View
+    | TransformerTuiRenderer.HeaderKey ConsoleKey.F4, TuiOverlay.None ->
+      toggleView model |> TuiInputResult.Update
+    | _ ->
+      TuiInputResult.Update model
+
+  let private applyPaletteClick
+    width height (mouse: TuiMouseEvent) clickCount model =
+    match TransformerTuiRenderer.paletteHitAt
+            width height model mouse.Row mouse.Column with
+    | TransformerTuiRenderer.PaletteOutside ->
+      TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
+    | TransformerTuiRenderer.PaletteInput cursor ->
+      TransformerTuiModel.movePaletteCursor
+        (cursor - model.PaletteCursor) model
+      |> TuiInputResult.Update
+    | TransformerTuiRenderer.PaletteCandidate index ->
+      let candidates =
+        Suggestions.commandPaletteCandidates model.PaletteFilter
+      let model =
+        model
+        |> TransformerTuiModel.selectPaletteSuggestion
+          (index - model.PaletteSuggestionIndex) candidates
+        |> TransformerTuiModel.applyPaletteSuggestion candidates
+      if clickCount = 2 then submitCommandPalette model
+      else TuiInputResult.Update model
+    | TransformerTuiRenderer.PaletteInside ->
+      TuiInputResult.Update model
+
   let private selectTranscriptLine
     width
     height
@@ -589,21 +717,127 @@ module TransformerTuiInputController =
       TransformerTuiModel.moveInputCursorTo cursor extend model)
 
   let private extendMouseSelection width height (mouse: TuiMouseEvent) model =
-    match model.Overlay with
-    | TuiOverlay.View ->
+    match model.MouseDragTarget with
+    | Some TuiMouseDragTarget.View ->
       selectViewText width height mouse true model
-    | TuiOverlay.None when model.Focus = TuiFocus.Shell ->
+    | Some TuiMouseDragTarget.Input ->
       match selectInputText width height mouse true model with
       | Some model ->
         model
       | None ->
         model
-    | TuiOverlay.None ->
+    | Some TuiMouseDragTarget.Transcript ->
       match selectTranscriptLine width height mouse true model with
       | Some model ->
         model
       | None ->
         model
+    | _ ->
+      model
+
+  let private resizeWithMouse width height (mouse: TuiMouseEvent) model =
+    match model.MouseDragTarget with
+    | Some TuiMouseDragTarget.SidebarDivider ->
+      TransformerTuiModel.setSidebarWidth
+        (Some(width - mouse.Column)) model
+    | Some TuiMouseDragTarget.SuggestionDivider ->
+      let inputRows = TransformerTuiModel.visibleShellInputRows height model
+      let spaceBelow =
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          0
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          inputRows
+      TransformerTuiModel.setSuggestionHeight
+        (height - spaceBelow - mouse.Row) model
+    | _ ->
+      model
+
+  let private moveMouseDrag width height mouse model =
+    match model.MouseDragTarget with
+    | Some TuiMouseDragTarget.SidebarDivider
+    | Some TuiMouseDragTarget.SuggestionDivider ->
+      resizeWithMouse width height mouse model
+    | _ ->
+      extendMouseSelection width height mouse model
+
+  let private autoScrollTranscript width height mouse direction model =
+    let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    let model =
+      TransformerTuiModel.scrollTranscript
+        bodyWidth bodyHeight direction model
+    let edgeRow = if direction < 0 then 4 else 3 + bodyHeight
+    let edgeColumn = max 2 (min (bodyWidth - 1) mouse.Column)
+    let edge = { mouse with Row = edgeRow; Column = edgeColumn }
+    selectTranscriptLine width height edge true model
+    |> Option.defaultValue model
+
+  let private inputAutoScrollDirection height mouse model =
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    let suggestions = TransformerTuiModel.suggestionHeight height model
+    let inputRows = TransformerTuiModel.visibleShellInputRows height model
+    let start =
+      match model.BottomPaneOrder with
+      | TuiBottomPaneOrder.ShellAboveSuggestions ->
+        5 + bodyHeight
+      | TuiBottomPaneOrder.SuggestionsAboveShell ->
+        5 + bodyHeight + suggestions
+    if mouse.Row < start then -1
+    elif mouse.Row >= start + inputRows then 1
+    else 0
+
+  let private autoScrollInput direction model =
+    let anchor = model.InputAnchor |> Option.orElse (Some model.Cursor)
+    let model = TransformerTuiModel.moveCursorLine direction model
+    { model with InputAnchor = anchor }
+
+  let advanceMouseDrag width height (model: TransformerTuiModel) =
+    let interactive = TransformerTuiRenderer.isInteractiveSize width height
+    match interactive, model.MouseDragTarget, model.MouseDragPosition with
+    | true, Some target, Some(row, column) ->
+      let now = Environment.TickCount64
+      if now - model.LastMouseScrollAt <
+         MouseAutoScrollIntervalMilliseconds then
+        model
+      else
+        let mouse =
+          { Button = 0
+            Row = row
+            Column = column
+            IsRelease = false
+            IsDrag = true }
+        let bodyHeight = TransformerTuiModel.transcriptHeight height model
+        let direction =
+          if row < 4 then -1
+          elif row >= 4 + bodyHeight then 1
+          else 0
+        let inputDirection =
+          if target = TuiMouseDragTarget.Input then
+            inputAutoScrollDirection height mouse model
+          else
+            0
+        let shouldScroll =
+          match target with
+          | TuiMouseDragTarget.View
+          | TuiMouseDragTarget.Transcript -> direction <> 0
+          | TuiMouseDragTarget.Input -> inputDirection <> 0
+          | _ -> false
+        let next =
+          match target with
+          | TuiMouseDragTarget.View when direction <> 0 ->
+            TransformerTuiRenderer.moveViewCursorByRows
+              width height direction true model
+          | TuiMouseDragTarget.Transcript when direction <> 0 ->
+            autoScrollTranscript width height mouse direction model
+          | TuiMouseDragTarget.Input when inputDirection <> 0 ->
+            autoScrollInput inputDirection model
+          | _ ->
+            model
+        if shouldScroll then
+          { next with LastMouseScrollAt = now }
+        else
+          model
     | _ ->
       model
 
@@ -618,33 +852,249 @@ module TransformerTuiInputController =
     | _ ->
       false
 
-  let handleMouse width height completion (mouse: TuiMouseEvent) model =
-    if mouse.Button = 64 then
-      scrollWithMouse width height 3 model |> TuiInputResult.Update
-    elif mouse.Button = 65 then
-      scrollWithMouse width height -3 model |> TuiInputResult.Update
-    elif mouse.IsDrag then
-      extendMouseSelection width height mouse model |> TuiInputResult.Update
-    elif mouse.IsRelease then
-      if hasMouseSelection model then
-        extendMouseSelection width height mouse model |> TuiInputResult.Update
+  let private rememberClick (mouse: TuiMouseEvent) model =
+    if mouse.IsRelease || mouse.IsDrag || mouse.Button >= 64 then
+      model, 0
+    else
+      let now = Environment.TickCount64
+      let count =
+        match model.RecentClick with
+        | Some previous when previous.Button = mouse.Button
+                             && previous.Row = mouse.Row
+                             && abs (previous.Column - mouse.Column) <= 1
+                             && now - previous.At <=
+                                MultiClickWindowMilliseconds ->
+          min 3 (previous.Count + 1)
+        | _ ->
+          1
+      let recent =
+        { Button = mouse.Button
+          Row = mouse.Row
+          Column = mouse.Column
+          At = now
+          Count = count }
+      { model with RecentClick = Some recent }, count
+
+  let private handleContentClick
+    width height completion (mouse: TuiMouseEvent) clickCount model =
+    match selectTranscriptLine width height mouse false model with
+    | Some model ->
+      let model =
+        match clickCount with
+        | 2 -> TransformerTuiModel.selectTranscriptWord model
+        | 3 -> TransformerTuiModel.selectTranscriptLine model
+        | _ -> model
+      let model =
+        { model with
+            MouseDragTarget = Some TuiMouseDragTarget.Transcript }
+      TuiInputResult.Update model
+    | None ->
+      match selectInputText width height mouse false model with
+      | Some model ->
+        let model =
+          match clickCount with
+          | 2 -> TransformerTuiModel.selectInputWord model
+          | 3 -> TransformerTuiModel.selectInputLine model
+          | _ -> model
+        { model with MouseDragTarget = Some TuiMouseDragTarget.Input }
+        |> TuiInputResult.Update
+      | None ->
+        applySuggestionClick width height completion mouse model
+        |> TuiInputResult.Update
+
+  let private applyViewClick clickCount model =
+    let itemCommand =
+      model.ViewPane
+      |> Option.bind (fun pane ->
+        pane.ItemCommands |> Array.tryItem pane.Cursor.Line)
+    match clickCount, itemCommand with
+    | 2, Some command when command.StartsWith ':' ->
+      model
+      |> TransformerTuiModel.closeViewPane
+      |> TransformerTuiModel.openCommandPaletteWith command[1..]
+    | 2, Some command ->
+      model
+      |> TransformerTuiModel.closeViewPane
+      |> TransformerTuiModel.setInput command command.Length
+    | 2, None ->
+      TransformerTuiModel.selectViewWord model
+    | 3, _ ->
+      TransformerTuiModel.selectViewLine model
+    | _ ->
+      model
+
+  let private applyFindClick cursor model =
+    let model =
+      if model.Overlay = TuiOverlay.View then
+        TransformerTuiModel.setViewFindCursor cursor model
       else
-        TuiInputResult.Update model
+        TransformerTuiModel.setTranscriptFindCursor cursor model
+    TuiInputResult.Update model
+
+  let private applyViewPress width height mouse clickCount model =
+    let model = selectViewText width height mouse false model
+    let model = applyViewClick clickCount model
+    let target =
+      if model.Overlay = TuiOverlay.View then
+        Some TuiMouseDragTarget.View
+      else
+        None
+    { model with MouseDragTarget = target } |> TuiInputResult.Update
+
+  let private cancelTransientWithMouse model =
+    match model.Overlay with
+    | TuiOverlay.View ->
+      match model.ViewPane with
+      | Some pane when pane.IsFinding ->
+        TransformerTuiModel.setViewFind false model
+      | _ ->
+        TransformerTuiModel.closeViewPane model
+    | TuiOverlay.None when model.IsFindingTranscript ->
+      TransformerTuiModel.setTranscriptFind false model
+    | TuiOverlay.None ->
+      model
+    | _ ->
+      TransformerTuiModel.closeOverlay model
+
+  let private handleBodyPress
+    width height completion (mouse: TuiMouseEvent) clickCount model =
+    if TransformerTuiRenderer.isSidebarDividerAt
+         width height model mouse.Row mouse.Column then
+      { model with
+          MouseDragTarget = Some TuiMouseDragTarget.SidebarDivider }
+      |> TuiInputResult.Update
+    elif model.Overlay = TuiOverlay.None
+         && TransformerTuiRenderer.isSuggestionDividerAt
+              width height model mouse.Row mouse.Column then
+      { model with
+          MouseDragTarget = Some TuiMouseDragTarget.SuggestionDivider }
+      |> TuiInputResult.Update
+    elif model.Overlay = TuiOverlay.View then
+      applyViewPress width height mouse clickCount model
+    else
+      handleContentClick width height completion mouse clickCount model
+
+  let private handleMousePress
+    width height completion (mouse: TuiMouseEvent) clickCount model =
+    let header =
+      TransformerTuiRenderer.tryHeaderHitAt
+        width mouse.Row mouse.Column
+    let findCursor =
+      TransformerTuiRenderer.tryFindCursorAt
+        width height model mouse.Row mouse.Column
+    let sidebarValue =
+      TransformerTuiRenderer.trySidebarValueAt
+        width height model mouse.Row mouse.Column
+    if mouse.Button = 2 then
+      cancelTransientWithMouse model |> TuiInputResult.Update
     elif mouse.Button &&& 3 <> 0 || mouse.Button >= 64 then
       TuiInputResult.Update model
-    elif model.Overlay = TuiOverlay.View then
-      selectViewText width height mouse false model |> TuiInputResult.Update
+    elif model.Overlay = TuiOverlay.CommandPalette then
+      applyPaletteClick width height mouse clickCount model
+    elif model.Overlay = TuiOverlay.Message then
+      TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
+    elif header.IsSome then
+      header
+      |> Option.map (fun key -> applyHeaderClick key model)
+      |> Option.defaultValue (TuiInputResult.Update model)
+    elif findCursor.IsSome then
+      findCursor
+      |> Option.map (fun cursor -> applyFindClick cursor model)
+      |> Option.defaultValue (TuiInputResult.Update model)
+    elif sidebarValue.IsSome then
+      sidebarValue
+      |> Option.map (fun name -> applySidebarValue name model)
+      |> Option.map TuiInputResult.Update
+      |> Option.defaultValue (TuiInputResult.Update model)
     else
+      handleBodyPress width height completion mouse clickCount model
+
+  let private handleMouseAtSize
+    width height completion (mouse: TuiMouseEvent) model =
+    let model, clickCount = rememberClick mouse model
+    if mouse.Button = 64 || mouse.Button = 65 then
+      let direction = if mouse.Button = 64 then 3 else -3
+      scrollWithMouse width height completion mouse direction model
+      |> TuiInputResult.Update
+    elif mouse.IsDrag && mouse.Button = 0 then
+      match model.MouseDragTarget with
+      | Some _ ->
+        let model =
+          { model with MouseDragPosition = Some(mouse.Row, mouse.Column) }
+        moveMouseDrag width height mouse model |> TuiInputResult.Update
+      | None ->
+        TuiInputResult.Update model
+    elif mouse.IsDrag then
+      TuiInputResult.Update model
+    elif mouse.IsRelease then
+      let model =
+        if model.MouseDragPosition.IsSome && hasMouseSelection model then
+          moveMouseDrag width height mouse model
+        else
+          resizeWithMouse width height mouse model
+      { model with MouseDragTarget = None; MouseDragPosition = None }
+      |> TuiInputResult.Update
+    else
+      handleMousePress width height completion mouse clickCount model
+
+  let handleMouse width height completion (mouse: TuiMouseEvent) model =
+    if not (TransformerTuiRenderer.isInteractiveSize width height) then
+      let model =
+        if mouse.IsRelease then
+          { model with MouseDragTarget = None; MouseDragPosition = None }
+        else
+          model
+      TuiInputResult.Update model
+    else
+      handleMouseAtSize width height completion mouse model
+
+  let private handlePassiveSelection width height mouse model =
+    if model.Overlay = TuiOverlay.View then
+      let model = selectViewText width height mouse false model
+      let target =
+        if TransformerTuiRenderer.isMainBodyAt
+             width height model mouse.Row mouse.Column then
+          Some TuiMouseDragTarget.View
+        else
+          None
+      { model with MouseDragTarget = target }
+    elif model.Overlay = TuiOverlay.None then
       match selectTranscriptLine width height mouse false model with
       | Some model ->
-        TuiInputResult.Update model
+        { model with
+            MouseDragTarget = Some TuiMouseDragTarget.Transcript }
       | None ->
-        match selectInputText width height mouse false model with
-        | Some model ->
-          TuiInputResult.Update model
-        | None ->
-          applySuggestionClick width height completion mouse model
-          |> TuiInputResult.Update
+        selectInputText width height mouse false model
+        |> Option.defaultValue model
+    else
+      model
+
+  let private handlePassiveMouseAtSize
+    width height completion mouse model =
+    let isWheel = mouse.Button = 64 || mouse.Button = 65
+    let isMotion = mouse.IsDrag || mouse.IsRelease
+    let isCopy =
+      match TransformerTuiRenderer.tryHeaderHitAt
+              width mouse.Row mouse.Column with
+      | Some TransformerTuiRenderer.HeaderCopy -> true
+      | _ -> false
+    if isWheel || isMotion then
+      handleMouse width height completion mouse model
+    elif mouse.Button = 0 && isCopy then
+      copySelection model |> TuiInputResult.Update
+    elif mouse.Button = 2 then
+      cancelTransientWithMouse model |> TuiInputResult.Update
+    elif mouse.Button = 0 then
+      handlePassiveSelection width height mouse model
+      |> TuiInputResult.Update
+    else
+      TuiInputResult.Update model
+
+  let handlePassiveMouse width height completion mouse model =
+    if TransformerTuiRenderer.isInteractiveSize width height then
+      handlePassiveMouseAtSize width height completion mouse model
+    else
+      handleMouse width height completion mouse model
 
   let handle completion (key: ConsoleKeyInfo) model =
     let control = hasModifier ConsoleModifiers.Control key

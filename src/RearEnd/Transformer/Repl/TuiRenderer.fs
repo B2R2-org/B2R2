@@ -53,6 +53,26 @@ type private TuiInputRenderState =
     Selection: (int * int) option }
 
 module TransformerTuiRenderer =
+  [<Literal>]
+  let private MinimumTerminalWidth = 40
+
+  [<Literal>]
+  let private MinimumTerminalHeight = 15
+
+  let isInteractiveSize width height =
+    width >= MinimumTerminalWidth && height >= MinimumTerminalHeight
+
+  type HeaderHit =
+    | HeaderKey of ConsoleKey
+    | HeaderRun
+    | HeaderCopy
+
+  type PaletteHit =
+    | PaletteInput of int
+    | PaletteCandidate of int
+    | PaletteInside
+    | PaletteOutside
+
   let private reset = "\x1b[0m"
   let private bold = "\x1b[1m"
   let private dim = "\x1b[2m"
@@ -501,21 +521,77 @@ module TransformerTuiRenderer =
   let private rawBoxRow = "\x00raw\x00"
 
   let private sidebarLines rightWidth height model =
-    let lastResult =
-      TransformerReplState.tryLastResult model.Session
-      |> Option.map (fun value ->
-        let name = TransformerReplState.LastResultName
-        let kind = valueTypeDescription value
-        "", $"{name}: {kind}")
-      |> Option.toList
-    let bindings =
-      model.Session.Bindings
-      |> Map.toList
-      |> List.map (fun (name, value) ->
-        let kind = valueTypeDescription value
-        "", $"{name}: {kind}")
-    lastResult @ bindings
+    TransformerTuiModel.sidebarValues model
+    |> List.skip (TransformerTuiModel.sidebarWindowStart height model)
     |> List.truncate height
+    |> List.map (fun (name, value) ->
+      let kind = valueTypeDescription value
+      "", $"{name}: {kind}")
+
+  let isSidebarAt width height model row column =
+    let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    let rightStart = leftWidth + 2
+    rightStart < width
+    && row >= 4
+    && row < 4 + bodyHeight
+    && column > rightStart
+    && column < width
+
+  let isMainBodyAt width height model row column =
+    let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    row >= 4 && row < 4 + bodyHeight
+    && column >= 2 && column < leftWidth
+
+  let trySidebarValueAt width height model row column =
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    let index =
+      TransformerTuiModel.sidebarWindowStart bodyHeight model + row - 4
+    let hasSidebarValue =
+      model.Overlay = TuiOverlay.None
+      || model.Overlay = TuiOverlay.View
+    if not hasSidebarValue
+       || not (isSidebarAt width height model row column) then
+      None
+    else
+      TransformerTuiModel.sidebarValues model
+      |> List.tryItem index
+      |> Option.map fst
+
+  let isSuggestionPaneAt width height model row column =
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    let suggestions = TransformerTuiModel.suggestionHeight height model
+    let inputRows = TransformerTuiModel.visibleShellInputRows height model
+    let start =
+      match model.BottomPaneOrder with
+      | TuiBottomPaneOrder.ShellAboveSuggestions ->
+        5 + bodyHeight + inputRows
+      | TuiBottomPaneOrder.SuggestionsAboveShell ->
+        5 + bodyHeight
+    column >= 1 && column <= width
+    && row >= start && row < start + suggestions
+
+  let isSidebarDividerAt width height model row column =
+    let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    leftWidth < width
+    && column = leftWidth + 1
+    && row >= 3 && row <= 4 + bodyHeight
+
+  let isSuggestionDividerAt width height model row column =
+    let suggestions = TransformerTuiModel.suggestionHeight height model
+    let bodyHeight = TransformerTuiModel.transcriptHeight height model
+    let inputRows = TransformerTuiModel.visibleShellInputRows height model
+    let start =
+      match model.BottomPaneOrder with
+      | TuiBottomPaneOrder.ShellAboveSuggestions ->
+        5 + bodyHeight + inputRows
+      | TuiBottomPaneOrder.SuggestionsAboveShell ->
+        5 + bodyHeight
+    suggestions > 2
+    && row = start
+    && column >= 1 && column <= width
 
   let private renderBodyRow leftWidth rightWidth left right =
     let leftKind, leftText = left
@@ -1154,31 +1230,58 @@ module TransformerTuiRenderer =
     let text = $" cwd: {cwd}  script: {script}  record: {record}"
     paint dim (fit width text)
 
-  let private activeFindText model =
+  let private activeFindInput model =
     match model.ViewPane with
     | Some pane when model.Overlay = TuiOverlay.View && pane.IsFinding ->
-      Some pane.FindText
+      Some(pane.FindText, pane.FindCursor)
     | _ when model.IsFindingTranscript ->
-      Some model.TranscriptFindText
+      Some(model.TranscriptFindText, model.TranscriptFindCursor)
+    | _ ->
+      None
+
+  let private findInputStart width (text: string) cursor =
+    let inputWidth = max 0 (width - " find: ".Length)
+    max 0 (cursor - inputWidth + 1) |> min text.Length
+
+  let tryFindCursorAt width height model row column =
+    match activeFindInput model with
+    | Some(text, cursor) when row = height
+                              && column >= 1
+                              && column <= width ->
+      let start = findInputStart width text cursor
+      let position = start + max 0 (column - " find: ".Length - 1)
+      Some(min text.Length position)
     | _ ->
       None
 
   let private findFooter width model =
-    match activeFindText model with
-    | Some findText ->
+    match activeFindInput model with
+    | Some(findText, cursor) ->
       let prompt = " find: "
       let inputWidth = max 0 (width - prompt.Length)
-      let start = max 0 (findText.Length - inputWidth)
-      let input =
-        if start < findText.Length then findText[start..] else ""
+      let start = findInputStart width findText cursor
+      let length = min inputWidth (findText.Length - start)
+      let input = findText.Substring(start, length)
       let padding = String.replicate (inputWidth - input.Length) " "
       let row = paint (paletteInputBg + paletteFg) (prompt + input + padding)
-      row, Some(prompt.Length + input.Length + 1)
+      row, Some(prompt.Length + cursor - start + 1)
     | _ ->
       contextFooter width model, None
 
   let private keyButton active label =
     if active then paint reverse $" {label} " else paint dim $" {label} "
+
+  let private headerButtons =
+    [ HeaderKey ConsoleKey.F1, "F1 help"
+      HeaderKey ConsoleKey.F2, "F2 command"
+      HeaderKey ConsoleKey.F3, "F3 find"
+      HeaderKey ConsoleKey.F4, "F4 view"
+      HeaderRun, "Run"
+      HeaderCopy, "Copy" ]
+
+  let private headerMargin = " "
+
+  let private headerGap = "  "
 
   let private keyHeader width model =
     let isHelpView =
@@ -1187,11 +1290,37 @@ module TransformerTuiRenderer =
         pane.Title = "Help"
       | _ ->
         false
-    let f1 = keyButton isHelpView "F1 help"
-    let f2 = keyButton (model.Overlay = TuiOverlay.CommandPalette) "F2 command"
-    let f3 = keyButton (activeFindText model |> Option.isSome) "F3 find"
-    let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
-    fit width (" " + f1 + "  " + f2 + "  " + f3 + "  " + f4 + " ")
+    let buttons =
+      headerButtons
+      |> List.map (fun (hit, label) ->
+        let active =
+          match hit with
+          | HeaderKey ConsoleKey.F1 ->
+            isHelpView
+          | HeaderKey ConsoleKey.F2 ->
+            model.Overlay = TuiOverlay.CommandPalette
+          | HeaderKey ConsoleKey.F3 ->
+            activeFindInput model |> Option.isSome
+          | HeaderKey ConsoleKey.F4 ->
+            model.Overlay = TuiOverlay.View
+          | _ ->
+            false
+        keyButton active label)
+    fit width
+      (headerMargin + String.concat headerGap buttons + headerMargin)
+
+  let tryHeaderHitAt width row column =
+    if row <> 2 || column < 1 || column > width then
+      None
+    else
+      headerButtons
+      |> List.fold (fun (start, found) (hit, label) ->
+        let finish = start + label.Length + 1
+        let found =
+          if column >= start && column <= finish then Some hit else found
+        finish + headerGap.Length + 1, found)
+        (headerMargin.Length + 1, None)
+      |> snd
 
   let private centerPad width (text: string) =
     let text = if text.Length > width then text[..width - 1] else text
@@ -1268,8 +1397,45 @@ module TransformerTuiRenderer =
       + paint (paletteInputBg + paletteGhostFg) ghost
       + paint paletteInputBg padding
     let candidateRows = commandPaletteCandidateRows boxWidth model candidates
-    let padding = List.replicate (5 - List.length candidateRows) blank
+    let padding =
+      List.replicate
+        (Suggestions.commandPaletteMaxItems - List.length candidateRows)
+        blank
     [ blank; prompt ] @ candidateRows @ padding @ [ blank ], start
+
+  let private paletteBoxWidth width = max 24 (min 60 (width - 8))
+
+  let private paletteOrigin width height boxWidth boxHeight =
+    let startCol = max 0 ((width - boxWidth) / 2)
+    let startRow = max 0 ((height - boxHeight) / 2)
+    startCol, startRow
+
+  let paletteHitAt width height model row column =
+    let boxWidth = paletteBoxWidth width
+    let boxHeight = Suggestions.commandPaletteMaxItems + 3
+    let startCol, startRow =
+      paletteOrigin width height boxWidth boxHeight
+    let inside =
+      row > startRow && row <= startRow + boxHeight
+      && column > startCol && column <= startCol + boxWidth
+    if not inside then
+      PaletteOutside
+    elif row = startRow + 2 then
+      let inputWidth = max 1 (boxWidth - 2)
+      let start = max 0 (model.PaletteCursor - inputWidth + 1)
+      let cursor = start + max 0 (column - startCol - 3)
+      PaletteInput(min model.PaletteInput.Length cursor)
+    elif row >= startRow + 3
+         && row < startRow + 3 + Suggestions.commandPaletteMaxItems then
+      let index = row - startRow - 3
+      let candidates =
+        Suggestions.commandPaletteCandidates model.PaletteFilter
+      if index < List.length candidates then
+        PaletteCandidate index
+      else
+        PaletteInside
+    else
+      PaletteInside
 
   /// Paints `boxContent` over `line`, starting at the visible column
   /// `startCol`; `boxContent` must already be exactly `boxWidth` visible
@@ -1308,11 +1474,11 @@ module TransformerTuiRenderer =
     if model.Overlay <> TuiOverlay.CommandPalette then
       lines, None
     else
-      let boxWidth = max 24 (min 60 (width - 8))
+      let boxWidth = paletteBoxWidth width
       let boxRows, inputStart = commandPaletteRows boxWidth model
       let boxHeight = List.length boxRows
-      let startCol = max 0 ((width - boxWidth) / 2)
-      let startRow = max 0 ((height - boxHeight) / 2)
+      let startCol, startRow =
+        paletteOrigin width height boxWidth boxHeight
       boxRows
       |> List.iteri (fun offset boxRow ->
         let row = startRow + offset
@@ -1379,7 +1545,7 @@ module TransformerTuiRenderer =
       None
 
   let render width height _registry model completion =
-    if width < 40 || height < 15 then
+    if not (isInteractiveSize width height) then
       let message = "Terminal too small. Resize to at least 40 x 15."
       { Lines = [| clearLine + fit width message |]
         CursorRow = 1
