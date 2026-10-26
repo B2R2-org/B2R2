@@ -27,11 +27,25 @@ namespace B2R2.RearEnd.Transformer
 open System.Threading
 open System.Text
 open B2R2.BinIR
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// The `lift` action.
 type LiftAction() =
+  let appendInstruction (sb: StringBuilder) (instr: IInstruction) stmts =
+    sb.Append("0x").Append(instr.Address.ToString("x"))
+      .Append(": ").AppendLine(instr.Disasm()) |> ignore
+    for stmt in stmts do
+      match stmt with
+      | ISMark _
+      | IEMark _ ->
+        ()
+      | _ ->
+        sb.Append("  ").AppendLine(PrettyPrinter.ToString stmt)
+        |> ignore
+
   let rec lift
     (ct: CancellationToken)
     (sb: StringBuilder)
@@ -40,12 +54,16 @@ type LiftAction() =
     ct.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
-      | Ok instr ->
-        let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString
+      | Ok instr when instr.Length > 0u
+                      && int instr.Length <= ptr.ReadableAmount ->
+        let stmts = lifter.LiftInstruction instr
+        appendInstruction sb instr stmts
         let ptr = ptr.Advance(instr.Length)
-        lift ct (sb.Append s) lifter ptr
-      | Error _ ->
-        "Bad instruction found"
+        lift ct sb lifter ptr
+      | _ ->
+        sb.Append("0x").Append(ptr.Addr.ToString("x"))
+          .AppendLine(": <undecodable>") |> ignore
+        sb.ToString()
     else
       sb.ToString()
 
