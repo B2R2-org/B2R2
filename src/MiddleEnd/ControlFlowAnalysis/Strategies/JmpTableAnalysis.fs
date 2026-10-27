@@ -75,6 +75,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
       Load(v, rt, simplify e)
     | Store(v, rt, e1, e2) ->
       Store(v, rt, simplify e1, simplify e2)
+    | BinOp(BinOpType.ADD, _, e, Num v)
+    | BinOp(BinOpType.ADD, _, Num v, e) when v.IsZero ->
+      simplify e
     | BinOp(BinOpType.ADD, rt, BinOp(BinOpType.ADD, _, Num v1, e), Num v2)
     | BinOp(BinOpType.ADD, rt, BinOp(BinOpType.ADD, _, e, Num v1), Num v2)
     | BinOp(BinOpType.ADD, rt, Num v1, BinOp(BinOpType.ADD, _, e, Num v2))
@@ -161,15 +164,21 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     match e with
     | Num _ ->
       e
-    | Var({ Kind = PCVar _ } as v) -> (* regard PC as a constant *)
+    | Var({ Kind = PCVar _ } as v) ->
       match findConst v with
       | ConstantDomain.Const bv -> Num bv
       | _ -> e
-    | Var v when v.Identifier <> 0 && doNext ->
+    | Var v when v.Identifier = 0 ->
+      match findConst v with
+      | ConstantDomain.Const bv -> Num bv
+      | _ -> e
+    | Var v when doNext ->
       match findDef v with
       | Some(Def(_, e)) -> symbExpand expandPhi findConst findDef false e
       | Some(Phi(_, ids)) -> expandPhi findConst v ids e
       | _ -> e
+    | Var _ ->
+      e
     | Load(m, rt, addr) ->
       let e = symbExpand expandPhi findConst findDef doNext addr
       Load(m, rt, e)
@@ -299,6 +308,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
            TableAddress = tblAddr
            EntrySize = RegType.toByteWidth rt
            NumEntries = 0
+           WaitingInstructions = []
            IsSingleEntry = singleEntry
            IsFunctionPointerTable = false })
     | _ ->

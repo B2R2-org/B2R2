@@ -66,7 +66,7 @@ let private runWithBrewLoader files (opts: BinExploreOpts) =
         member _.LoadBrew file =
           let hdl = BinHandle.LoadFile(file, opts.ISA, None)
           let exnInfo = ExceptionInfo hdl
-          let cfgRecovery = Strategies.CFGRecovery()
+          let cfgRecovery = Strategies.CFGRecovery(hdl.ISA, false)
           let strategy = cfgRecovery :> ICFGBuildingStrategy<_, _>
           BinaryBrew(hdl, exnInfo, strategy) }
     |> startServerAndUI files opts

@@ -67,6 +67,10 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
         member _.GetBuildingContext(addr) =
           manager.PostAndReply(fun _ ch -> GetBuildingContext(addr, ch))
 
+        member _.GetExternalBuildingContext(reference, name) =
+          manager.PostAndReply(fun _ ch ->
+            GetExternalBuildingContext(reference, name, ch))
+
         member _.GetNextFunctionAddress(addr) =
           manager.PostAndReply(fun _ ch -> GetNextFunctionAddress(addr, ch))
 
@@ -146,6 +150,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
         PendingCallActions = Dictionary()
         CallerVertices = Dictionary()
         UnwindingBytes = 0
+        ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
         UserContext = fnCtx
         IsExternal = false
         ManagerChannel = null

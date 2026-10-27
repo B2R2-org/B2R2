@@ -30,7 +30,9 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Performs sparse constant propagation over the LowUIR representation.
-type ConstantPropagation(hdl, vs) =
+type ConstantPropagation(hdl, vs, ?initialValueProvider) =
+  let initialValueProvider =
+    defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | PCVar(Type = rt) ->
@@ -91,7 +93,11 @@ type ConstantPropagation(hdl, vs) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<ConstantDomain.Lattice> with
-        member _.GetBaseCase _ = ConstantDomain.NotAConst
+        member _.GetBaseCase varKind =
+          match RegisterInitialValueProvider.tryGetInitialVarValue
+                  initialValueProvider varKind with
+          | Some bv -> ConstantDomain.Const bv
+          | None -> ConstantDomain.NotAConst
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =

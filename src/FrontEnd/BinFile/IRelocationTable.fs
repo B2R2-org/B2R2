@@ -58,6 +58,21 @@ type IRelocationTable =
   abstract TryGetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
 
   /// <summary>
+  /// Tries to resolve the pointer that the slot at the given address holds
+  /// once the loader has relocated it. Where <see
+  /// cref="IRelocationTable.TryGetRelocatedAddr"/> can only compute a number,
+  /// this names the symbol that the loader binds the slot to. A slot that the
+  /// program can overwrite after loading has no such pointer, as what the
+  /// loader wrote is no longer what a call through the slot reaches.
+  /// </summary>
+  /// <param name="relocAddr">Virtual address of the slot.</param>
+  /// <returns>
+  /// Returns the format-agnostic relocated pointer on success.
+  /// </returns>
+  abstract TryGetRelocatedPointer:
+    relocAddr: Addr -> Result<BinRelocatedPointer, ErrorCase>
+
+  /// <summary>
   /// Tries to resolve the relocation at the given address to a function that
   /// is defined within this binary itself (rather than imported from another
   /// module). This covers a relocation targeting a locally-defined function

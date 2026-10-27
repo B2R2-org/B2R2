@@ -34,7 +34,9 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl: BinHandle, exnInfo, entryPoint, name, noretStatus) =
+  public(hdl: BinHandle, exnInfo, reference, name, noretStatus) =
+
+  let entryPoint = (reference: ExternalFunctionReference).ReferenceAddress
 
   let ctx =
     { FunctionAddress = entryPoint
@@ -58,10 +60,16 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
       PendingCallActions = null
       CallerVertices = Dictionary()
       UnwindingBytes = 0
+      ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
       UserContext = new 'FnCtx()
       IsExternal = true
       ManagerChannel = null
       ThreadID = -1 }
+
+  /// The location in this binary that refers to the external function. An
+  /// import trampoline is executable code, whereas a relocation slot is
+  /// non-executable data containing the loader's resolved function address.
+  member _.ExternalReference = reference
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
     member _.BuilderState with get() = Finished

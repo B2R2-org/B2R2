@@ -39,6 +39,9 @@ type JmpTableInfo =
     EntrySize: int
     /// The number of entries in the jump table.
     mutable NumEntries: int
+    /// Indirect branch instructions that share this table and should receive
+    /// the same recovered outgoing edges as the original instruction.
+    mutable WaitingInstructions: Addr list
     /// Indicates whether the jump table has only a single entry. We use this
     /// information when the jump table is accessed via a constant address
     /// without any index computation (e.g., jmp qword ptr [constant_address]).

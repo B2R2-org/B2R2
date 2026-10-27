@@ -62,7 +62,8 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
     | _ -> Terminator.impossible ()
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
-    member _.Summarize(ctx, ret, unwinding, _ins) =
+    member _.Summarize(ctx, calleeInfo, _ins) =
+      let ret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
       let entryPoint = ctx.FunctionAddress
       let returnTargetStackOff = ctx.UserContext.ReturnTargetStackOff
       let hdl = ctx.BinHandle
@@ -70,7 +71,7 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
       let abs = FunctionSummary(entryPoint, unwinding, rundown, false, ret)
       abs
 
-    member _.MakeUnknownFunctionSummary(_, _) = Terminator.impossible ()
+    member _.MakeUnknownFunctionSummary(_, _, _) = Terminator.impossible ()
 
     member _.ComputeUnwindingAmount _ = Terminator.impossible ()
 

@@ -39,8 +39,7 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx
   /// instruction that calls the function.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-     * retStatus: NonReturningStatus
-     * unwindingBytes: int
+     * calleeInfo: CalleeInfo
      * ins: IInstruction
     -> FunctionSummary<LowUIR.Stmt>
 
@@ -48,6 +47,7 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx
   abstract MakeUnknownFunctionSummary:
        hdl: BinHandle
      * ins: IInstruction
+     * unwindingBytes: int
     -> FunctionSummary<LowUIR.Stmt>
 
   /// Compute the stack unwinding amount of a function based on the given

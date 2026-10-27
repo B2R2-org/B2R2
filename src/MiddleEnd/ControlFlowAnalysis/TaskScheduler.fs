@@ -120,7 +120,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
 
   let notifySuccessToCaller calleeAddr calleeInfo callerAddr =
     let callerBuilder = builders[callerAddr]
-    assert (fst calleeInfo <> UnknownNoRet)
+    assert (calleeInfo.Status <> UnknownNoRet)
     assert (callerBuilder.BuilderState <> Invalid)
 #if CFGDEBUG
     dbglog ManagerTid "NotifySuccess" $"{calleeAddr:x} -> {callerAddr:x}"
@@ -201,8 +201,11 @@ type TaskScheduler<'FnCtx, 'GlCtx
     let nextStatus = targetBuilder.Context.NonReturningStatus
     let nextStatus = (* preserve old status so the algo terminates. *)
       if nextStatus = UnknownNoRet then NoRet else nextStatus
-    let unwindingBytes = targetBuilder.Context.UnwindingBytes
-    let calleeInfo = nextStatus, unwindingBytes
+    let ctx = targetBuilder.Context
+    let calleeInfo =
+      { Status = nextStatus
+        Unwinding = ctx.UnwindingBytes
+        Clobbered = Set.ofSeq ctx.ClobberedRegs }
     let calleeAddr = targetBuilder.EntryPoint
     resetBuilder targetBuilder
     targetBuilder.ForceFinish()
@@ -319,7 +322,10 @@ type TaskScheduler<'FnCtx, 'GlCtx
   let updateCallers (callee: ICFGBuildable<_, _>) caller =
     let calleeCtx = callee.Context
     let calleeAddr = callee.EntryPoint
-    let calleeInfo = calleeCtx.NonReturningStatus, calleeCtx.UnwindingBytes
+    let calleeInfo =
+      { Status = calleeCtx.NonReturningStatus
+        Unwinding = calleeCtx.UnwindingBytes
+        Clobbered = Set.ofSeq calleeCtx.ClobberedRegs }
     if (caller: ICFGBuildable<_, _>).BuilderState <> InProgress then
 #if CFGDEBUG
       dbglog ManagerTid "ReloadDueCalleeChange"
@@ -393,9 +399,11 @@ type TaskScheduler<'FnCtx, 'GlCtx
       ()
 #endif
     builder.Finalize()
-    let retStatus = builder.Context.NonReturningStatus
-    let unwindingBytes = builder.Context.UnwindingBytes
-    let calleeInfo = retStatus, unwindingBytes
+    let ctx = builder.Context
+    let calleeInfo =
+      { Status = ctx.NonReturningStatus
+        Unwinding = ctx.UnwindingBytes
+        Clobbered = Set.ofSeq ctx.ClobberedRegs }
     dependenceMap.Confirm entryPoint
     |> Array.iter (notifySuccessToCaller entryPoint calleeInfo)
 
@@ -458,30 +466,32 @@ type TaskScheduler<'FnCtx, 'GlCtx
       dbglog ManagerTid "JumpTable failed"
       <| $"{jmptbl.InsAddr:x}:{jmptbl.TableAddress:x} shared by two funcs."
 #endif
-      (* We found two distinct functions for the same jump table. This is only
-         possible when a function had a bogus edge that goes beyond the boundary
-         of a function, but we were unlucky to find the bogus edge because the
-         next function was not fully loaded yet. But we happened to find the
-         next function and both functions share the same basic block, which
-         includes the indirect branch instruction. In this case, a function that
-         has a greater address is closer to the indirect branch instruction and
-         should be the one that includes the indirect branch. Therefore, if we
-         simply reload the function that has the lower address (which has a
-         problematic CFG expansion), then we will be able to detect the bogus
-         edge. *)
-      if oldFnAddr < fnAddr then
+      let smallerFnAddr = min oldFnAddr fnAddr
+      let largerFnAddr = max oldFnAddr fnAddr
+      let ownerFnAddr =
+        if jmptbl.InsAddr < largerFnAddr then smallerFnAddr else largerFnAddr
+      if oldFnAddr = ownerFnAddr then
 #if CFGDEBUG
-        dbglog ManagerTid "JumpTable failed" $"so, reload {oldFnAddr:x}"
+        dbglog ManagerTid "JumpTable shared"
+        <| $"keep owner {oldFnAddr:x}; continue waiter {fnAddr:x}"
 #endif
-        jmptblNotes.Unregister(jmptbl.TableAddress, oldFnAddr)
-        jmptblNotes.Register(fnAddr, jmptbl) |> ignore
-        restartBuilderIfNotInProgress builders[oldFnAddr]
+        jmptblNotes.AddWaitingFunction(jmptbl.TableAddress, fnAddr)
         GoRecovery
       else
+        assert (fnAddr = ownerFnAddr)
 #if CFGDEBUG
-        dbglog ManagerTid "JumpTable failed" $"so, reload {fnAddr:x}"
+        dbglog ManagerTid "JumpTable shared"
+        <| $"change owner from {oldFnAddr:x} to {fnAddr:x}"
 #endif
-        StopRecoveryButReload
+        let waitingFunctions =
+          jmptblNotes.Unregister(jmptbl.TableAddress, oldFnAddr)
+        restartBuilderIfNotInProgress builders[oldFnAddr]
+        let result = jmptblNotes.Register(fnAddr, jmptbl)
+        assert (result = RegistrationSucceeded)
+        jmptblNotes.AddWaitingFunction(jmptbl.TableAddress, oldFnAddr)
+        for waitingFnAddr in waitingFunctions do
+          jmptblNotes.AddWaitingFunction(jmptbl.TableAddress, waitingFnAddr)
+        GoRecovery
     | SharedByInstructions ->
 #if CFGDEBUG
       let insAddr = jmptbl.InsAddr
@@ -491,6 +501,21 @@ type TaskScheduler<'FnCtx, 'GlCtx
       (* We found two different jmp instructions for the same jump table, in
          which case we cannot decide which one is wrong. Thus, we just ignore
          this error, meaning that we ignore the later found one. *)
+      (* Instead, we add the instruction to the waiting list of the owning
+         function's own jump table so that the edges can be added after the
+         table is recovered by the first instruction. We deliberately keep this
+         list in the function context (not in the global note) so that it is
+         discarded together with the CFG whenever the builder is rolled back. *)
+      let ctx = builders[fnAddr].Context
+      match ctx.JumpTables.TryGetValue jmptbl.TableAddress with
+      | true, ownerTbl ->
+        if List.contains jmptbl.InsAddr ownerTbl.WaitingInstructions then
+          ()
+        else
+          ownerTbl.WaitingInstructions <-
+            jmptbl.InsAddr :: ownerTbl.WaitingInstructions
+      | false, _ ->
+        ()
       StopRecoveryAndContinue
     | OverlappingNote oldNote ->
       let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
@@ -603,6 +628,11 @@ type TaskScheduler<'FnCtx, 'GlCtx
         builders.TryGetBuilder addr
         |> toBuilderMessage
         |> ch.Reply
+      | GetExternalBuildingContext(reference, name, ch) ->
+        builders.GetOrCreateExternalBuilder(reference, name)
+        |> Ok
+        |> toBuilderMessage
+        |> ch.Reply
       | GetNextFunctionAddress(addr, ch) ->
         builders[addr].NextFunctionAddress
         |> ch.Reply
@@ -614,7 +644,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
 #if CFGDEBUG
         dbglog ManagerTid "JumpTable canceled" $"{insAddr:x} @ {fnAddr:x}"
 #endif
-        jmptblNotes.Unregister(tblAddr, fnAddr)
+        jmptblNotes.Unregister(tblAddr, fnAddr) |> ignore
       | ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextTarget, isFPTab, ch) ->
         ch.Reply
         <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget isFPTab

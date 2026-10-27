@@ -402,6 +402,24 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
         |> Seq.toArray
       Array.append classic fixupRelocs |> ImmutableArray.ofArray
 
+  let tryGetRelocatedAddr relocAddr =
+    match fixupMap.Value.TryGetValue relocAddr with
+    | true, fixup ->
+      match fixup.FixupTarget with
+      | Rebase target -> Ok target
+      | Bind _ -> Error ErrorCase.ItemNotFound
+    | false, _ ->
+      Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
+
+  let tryGetRelocatedPointer relocAddr =
+    match fixupMap.Value.TryGetValue relocAddr with
+    | true, fixup ->
+      match fixup.FixupTarget with
+      | Rebase target -> Ok(BinRelocatedPointer.Rebased target)
+      | Bind(name, _, _) -> Ok(BinRelocatedPointer.Bound name)
+    | false, _ ->
+      tryGetRelocatedAddr relocAddr |> Result.map BinRelocatedPointer.Rebased
+
   let relocations =
     Some { new IRelocationTable with
       member _.Relocations = binRelocations.Value
@@ -410,13 +428,10 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
         relocMap.Value.ContainsKey addr || fixupMap.Value.ContainsKey addr
 
       member _.TryGetRelocatedAddr relocAddr =
-        match fixupMap.Value.TryGetValue relocAddr with
-        | true, fixup ->
-          match fixup.FixupTarget with
-          | Rebase target -> Ok target
-          | Bind _ -> Error ErrorCase.ItemNotFound
-        | false, _ ->
-          Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
+        tryGetRelocatedAddr relocAddr
+
+      member _.TryGetRelocatedPointer relocAddr =
+        tryGetRelocatedPointer relocAddr
 
       member _.TryGetInternalFunctionAddr _relocAddr =
         Error ErrorCase.SymbolNotFound

@@ -31,7 +31,9 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
 /// Performs sparse conditional constant propagation over an SSA CFG.
-type SSAConstantPropagation(hdl: BinHandle) =
+type SSAConstantPropagation(hdl: BinHandle, ?initialValueProvider) =
+  let initialValueProvider =
+    defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
   let evalLoad (state: State<_>) m rt addr =
     match addr with
     | ConstantDomain.Const addr ->
@@ -93,7 +95,14 @@ type SSAConstantPropagation(hdl: BinHandle) =
         member _.IsPhiTarget var = isPhiTarget var
         member _.ReadMemFromBinaryFile(_rt, _addr) =
           ConstantDomain.NotAConst
-        member _.GetBaseCase _ = ConstantDomain.NotAConst
+        member _.GetBaseCase var =
+          match var.Kind with
+          | RegVar(_, rid, _) ->
+            match initialValueProvider.TryGetInitialValue rid with
+            | Some bv -> ConstantDomain.Const bv
+            | None -> ConstantDomain.NotAConst
+          | _ ->
+            ConstantDomain.NotAConst
         member _.EvalExpr e = evalExpr state e }
 
   and state =

@@ -162,6 +162,18 @@ type ELFTests() =
   /// it needs of its own.
   static let x64SonameFile = parseFile "elf_x64_soname"
 
+  /// A small x86-64 PIE with a function pointer variable in .data and a
+  /// read-only table of function pointers in .data.rel.ro, both filled by
+  /// RELATIVE relocations, plus GLOB_DAT slots in .got. The loader fills them
+  /// all, but only .data.rel.ro and .got are read-only once the loading is
+  /// done, as GNU_RELRO covers them.
+  static let x64RelocTargetFile = parseFile "elf_x64_reloc_target"
+
+  /// Checks the pointer that a relocated pointer lookup returned.
+  static let assertRelocatedPointer
+    (expected: Result<BinRelocatedPointer, ErrorCase>) actual =
+    Assert.AreEqual<Result<BinRelocatedPointer, ErrorCase>>(expected, actual)
+
   /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
   /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
   /// factory. This returns a fresh instance every time, as the laziness tests
@@ -172,6 +184,10 @@ type ELFTests() =
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     ELFBinFile(fileName, bytes, None, Some regFactory)
+
+  /// Checks the (register, offset) pair that a CFA lookup returned.
+  static let assertCFA (expected: (RegisterID * int) option) actual =
+    Assert.AreEqual<(RegisterID * int) option>(expected, actual)
 
   /// The shared instance of the .eh_frame fixture, for tests that do not care
   /// about which parts of it have already been evaluated.
@@ -1197,6 +1213,29 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
 
   [<TestMethod>]
+  member _.``[ELF] x64 relocated pointer of a read-only slot test``() =
+    let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
+    (* .data.rel.ro is in the range that GNU_RELRO protects. *)
+    assertRelocatedPointer (Ok(BinRelocatedPointer.Rebased 0x1129UL))
+                           (relocs.TryGetRelocatedPointer 0x3df0UL)
+    assertRelocatedPointer (Ok(BinRelocatedPointer.Rebased 0x113cUL))
+                           (relocs.TryGetRelocatedPointer 0x3df8UL)
+    (* .got is in that range, too, and the loader binds the slot to the
+       symbol. *)
+    assertRelocatedPointer (Ok(BinRelocatedPointer.Bound "__libc_start_main"))
+                           (relocs.TryGetRelocatedPointer 0x3fd8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relocated pointer of a writable slot test``() =
+    let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
+    (* The variable in .data can be overwritten, so what the loader wrote tells
+       nothing about a call through it. The relocated address is still the
+       value that the loader writes. *)
+    assertRelocatedPointer (Error ErrorCase.ItemNotFound)
+                           (relocs.TryGetRelocatedPointer 0x4010UL)
+    Assert.AreEqual(Ok 0x1129UL, relocs.TryGetRelocatedAddr 0x4010UL)
+
+  [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =
     (* Both the site and the value it resolves to shift with the load base. *)
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
@@ -1994,8 +2033,8 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] x64 frame lookup keeps unwinding unevaluated``() =
-    (* An unevaluated FDE also proves that the unified unwinding table stayed
-       unevaluated, as building it forces every FDE of the file. *)
+    (* An unevaluated FDE also proves that looking up frames does not decode
+       any unwinding. *)
     let file = parseEhFrameFile ()
     (file :> IBinFile).ExceptionTable.Value.Frames |> ignore
     let fdes =
@@ -2028,17 +2067,54 @@ type ELFTests() =
     let first = fde.UnwindingInfo.Value
     let second = fde.UnwindingInfo.Value
     Assert.AreEqual<bool>(true, obj.ReferenceEquals(first, second))
-    let tbl = file.UnwindingTable
-    Assert.AreEqual<bool>(true, obj.ReferenceEquals(tbl, file.UnwindingTable))
 
   [<TestMethod>]
-  member _.``[ELF] x64 unwinding table does not depend on the FDE order``() =
+  member _.``[ELF] x64 CFA lookup does not depend on the FDE order``() =
     let file = parseEhFrameFile ()
     for cfi in file.ExceptionFrame do
       for fde in Array.rev cfi.FDEs do
         fde.UnwindingInfo.Value |> ignore
-    let expected = x64EhFrameFile.UnwindingTable
-    Assert.AreEqual<bool>(true, file.UnwindingTable = expected)
+    for cfi in x64EhFrameFile.ExceptionFrame do
+      for fde in cfi.FDEs do
+        for row in fde.UnwindingInfo.Value do
+          let expected = x64EhFrameFile.TryFindCFARegOffset row.Location
+          assertCFA expected (file.TryFindCFARegOffset row.Location)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 CFA lookup finds the row in effect``() =
+    let file = parseEhFrameFile ()
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rsp = DWRegister.toRegID isa 7uy
+    let cfaOf (row: UnwindingEntry) =
+      match row.CanonicalFrameAddress with
+      | RegPlusOffset(rid, off) -> Some(rid, off)
+      | _ -> None
+    let startsAtRspPlus8 (fde: FDE) =
+      cfaOf (List.head fde.UnwindingInfo.Value) = Some(rsp, 8)
+    let fde =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.find (fun fde ->
+        List.length fde.UnwindingInfo.Value > 1 && startsAtRspPlus8 fde)
+    let rows = fde.UnwindingInfo.Value
+    let first, last = List.head rows, List.last rows
+    assertCFA (Some(rsp, 8)) (file.TryFindCFARegOffset fde.PCBegin)
+    assertCFA (cfaOf first) (file.TryFindCFARegOffset first.Location)
+    assertCFA (cfaOf last) (file.TryFindCFARegOffset last.Location)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 CFA lookup finds nothing outside the FDEs``() =
+    let file = parseEhFrameFile ()
+    let fdes =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.sortBy (fun fde -> fde.PCBegin)
+    let first, last = List.head fdes, List.last fdes
+    assertCFA None (file.TryFindCFARegOffset(first.PCBegin - 1UL))
+    assertCFA None (file.TryFindCFARegOffset last.PCEnd)
+    let hasGap (a: FDE, b: FDE) = a.PCEnd < b.PCBegin
+    let gapStart = (fdes |> List.pairwise |> List.find hasGap |> fst).PCEnd
+    assertCFA None (file.TryFindCFARegOffset gapStart)
 
   [<TestMethod>]
   member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =
@@ -2095,7 +2171,8 @@ type ELFTests() =
     let empty =
       fdes |> List.forall (fun f -> List.isEmpty f.UnwindingInfo.Value)
     Assert.AreEqual<bool>(true, empty)
-    Assert.AreEqual<int>(0, Map.count arm32ExidxFile.UnwindingTable)
+    for fde in fdes do
+      assertCFA None (arm32ExidxFile.TryFindCFARegOffset fde.PCBegin)
 
   [<TestMethod>]
   member _.``[ELF] x86 ISA test``() =

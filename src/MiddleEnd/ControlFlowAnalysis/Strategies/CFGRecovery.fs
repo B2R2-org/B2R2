@@ -37,6 +37,7 @@ module private CFGRecovery =
                queue
                syscallAnalysis
                jmptblAnalysis
+               sretAnalysis
                useTCHeuristic
                (action: CFGAction) =
     try
@@ -76,7 +77,7 @@ module private CFGRecovery =
         dbglog ctx.ThreadID (nameof MakeIndCall)
         <| $"{callsiteAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-        connectIndirectCallEdge ctx cfgRec callsiteAddr
+        connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr
       | MakeSyscall(callsiteAddr, isExit) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
@@ -128,7 +129,7 @@ module private CFGRecovery =
         sendJmpTblRecoverySuccess ctx queue jmptbl idx
       | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        let noret, unwinding = calleeInfo
+        let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
         let fnAddr = ctx.FunctionAddress
         dbglog ctx.ThreadID (nameof UpdateCallEdges)
         <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
@@ -163,6 +164,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
   and 'GlCtx: (new: unit -> 'GlCtx)>
   public(summarizer: IFunctionSummarizable<'FnCtx, 'GlCtx>,
          jmptblAnalysis: IJmpTableAnalyzable<'FnCtx, 'GlCtx>,
+         sretAnalysis: ISRetAnalyzable<'FnCtx, 'GlCtx>,
          syscallAnalysis: ISyscallAnalyzable,
          postAnalysis: ICFGAnalysis<_>,
          useTailcallHeuristic,
@@ -194,6 +196,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
                queue
                syscallAnalysis
                jmptblAnalysis
+               sretAnalysis
                useTailcallHeuristic
                action
 
@@ -218,7 +221,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
   new(allowBBLOverlap, useSSA) = CFGRecovery(allowBBLOverlap, useSSA, All)
 
-  new(allowBBLOverlap, useSSA, recoveryTargets) =
+  new(sretAnalysis, allowBBLOverlap, useSSA, recoveryTargets) =
     let summarizer = FunctionSummarizer()
     let syscallAnalysis = SyscallAnalysis()
     let jmptblAnalysis, postAnalysis =
@@ -228,19 +231,34 @@ type CFGRecovery<'FnCtx, 'GlCtx
         let ssaOnly = ICFGAnalysis.map onlyGraph ssaLifter
         let jmpTableAnalysis =
           JmpTableAnalysis(Some ssaOnly) :> IJmpTableAnalyzable<_, _>
-        jmpTableAnalysis, ssaLifter <+> CondAwareNoretAnalysis()
+        let noret = ssaLifter <+> CondAwareNoretAnalysis()
+        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
       else
         let jmpTableAnalysis =
           JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>
-        jmpTableAnalysis, CondAwareNoretAnalysis()
+        let noret = CondAwareNoretAnalysis() :> ICFGAnalysis<unit -> unit>
+        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
     CFGRecovery(summarizer,
                 jmptblAnalysis,
+                sretAnalysis,
                 syscallAnalysis,
                 postAnalysis,
                 true,
                 allowBBLOverlap,
                 useSSA,
                 recoveryTargets)
+
+  new(isa: ISA, allowBBLOverlap, useSSA, recoveryTargets) =
+    let sretAnalysis: ISRetAnalyzable<'FnCtx, 'GlCtx> =
+      match isa with
+      | X86 -> Intel32SRetAnalysis()
+      | _ -> SRetAnalysis()
+    CFGRecovery(sretAnalysis, allowBBLOverlap, useSSA, recoveryTargets)
+
+  new(allowBBLOverlap, useSSA, recoveryTargets) =
+    let sretAnalysis =
+      SRetAnalysis() :> ISRetAnalyzable<_, _>
+    CFGRecovery(sretAnalysis, allowBBLOverlap, useSSA, recoveryTargets)
 
 /// Base strategy for building a CFG without any customizable context.
 type CFGRecovery =
@@ -256,14 +274,43 @@ type CFGRecovery =
                                                       false,
                                                       recoveryTargets) }
 
+  new(sretAnalysis: ISRetAnalyzable<DummyContext, DummyContext>,
+      allowBBLOverlap) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(sretAnalysis,
+                                                      allowBBLOverlap,
+                                                      false,
+                                                      All) }
+
+  new(sretAnalysis: ISRetAnalyzable<DummyContext, DummyContext>,
+      allowBBLOverlap,
+      recoveryTargets) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(sretAnalysis,
+                                                      allowBBLOverlap,
+                                                      false,
+                                                      recoveryTargets) }
+
+  new(isa: ISA, allowBBLOverlap) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(isa,
+                                                      allowBBLOverlap,
+                                                      false,
+                                                      All) }
+
+  new(isa: ISA, allowBBLOverlap, recoveryTargets) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(isa,
+                                                      allowBBLOverlap,
+                                                      false,
+                                                      recoveryTargets) }
+
   new(summarizer,
       jmptblAnalysis,
+      sretAnalysis,
       syscallAnalysis,
       postAnalysis,
       useTailcallHeuristic,
       allowBBLOverlap) =
     { inherit CFGRecovery<DummyContext, DummyContext>(summarizer,
                                                       jmptblAnalysis,
+                                                      sretAnalysis,
                                                       syscallAnalysis,
                                                       postAnalysis,
                                                       useTailcallHeuristic,
@@ -273,6 +320,7 @@ type CFGRecovery =
 
   new(summarizer,
       jmptblAnalysis,
+      sretAnalysis,
       syscallAnalysis,
       postAnalysis,
       useTailcallHeuristic,
@@ -280,6 +328,7 @@ type CFGRecovery =
       recoveryTargets) =
     { inherit CFGRecovery<DummyContext, DummyContext>(summarizer,
                                                       jmptblAnalysis,
+                                                      sretAnalysis,
                                                       syscallAnalysis,
                                                       postAnalysis,
                                                       useTailcallHeuristic,
