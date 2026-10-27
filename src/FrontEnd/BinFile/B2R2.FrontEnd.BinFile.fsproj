@@ -15,7 +15,7 @@
     <Compile Include="BinSegment.fs" />
     <Compile Include="BinImport.fs" />
     <Compile Include="BinRelocation.fs" />
-    <Compile Include="BinRelocatedPointer.fs" />
+    <Compile Include="BinRelocationValue.fs" />
     <Compile Include="BinSymbol.fs" />
     <Compile Include="BinCodeModeMarker.fs" />
     <Compile Include="BinCodeModeTable.fs" />

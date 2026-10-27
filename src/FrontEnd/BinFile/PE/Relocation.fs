@@ -107,7 +107,7 @@ let private readSlot (bytes: byte[]) pe relocAddr size =
   | None ->
     Error ErrorCase.ItemNotFound
 
-let tryGetRelocatedAddr bytes pe index relocAddr =
+let tryComputeRelocationValue bytes pe index relocAddr =
   match (index: RelocationIndex).Kinds.TryGetValue relocAddr with
   | true, BaseRelocType.IMAGE_REL_BASED_HIGHLOW ->
     readSlot bytes pe relocAddr 4

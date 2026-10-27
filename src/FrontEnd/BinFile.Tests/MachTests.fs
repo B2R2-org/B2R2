@@ -552,21 +552,21 @@ type MachTests() =
     Assert.AreEqual(false, reloc.IsRelocationAddr 0x4UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 TryGetRelocatedAddr external symbol test``() =
+  member _.``[Mach] X64 TryComputeRelocationValue external symbol test``() =
     let reloc = (x64RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x10UL, reloc.TryGetRelocatedAddr 0x0UL)
-    Assert.AreEqual(Ok 0x38UL, reloc.TryGetRelocatedAddr 0x8UL)
+    Assert.AreEqual(Ok 0x10UL, reloc.TryComputeRelocationValue 0x0UL)
+    Assert.AreEqual(Ok 0x38UL, reloc.TryComputeRelocationValue 0x8UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 TryGetRelocatedAddr section test``() =
+  member _.``[Mach] X64 TryComputeRelocationValue section test``() =
     let reloc = (x64RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x18UL, reloc.TryGetRelocatedAddr 0x10UL)
+    Assert.AreEqual(Ok 0x18UL, reloc.TryComputeRelocationValue 0x10UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 TryGetRelocatedAddr not found test``() =
+  member _.``[Mach] X64 TryComputeRelocationValue not found test``() =
     let reloc = (x64RelocFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    reloc.TryGetRelocatedAddr 0x4UL)
+                    reloc.TryComputeRelocationValue 0x4UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 exports trie test``() =
@@ -626,13 +626,13 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups rebase test``() =
     let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1010UL)
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryComputeRelocationValue 0x1010UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups bind test``() =
     let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    reloc.TryGetRelocatedAddr 0x1000UL)
+                    reloc.TryComputeRelocationValue 0x1000UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups linkage entries test``() =
@@ -658,7 +658,7 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 dyld info rebase test``() =
     let reloc = (x64DyldInfoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1010UL)
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryComputeRelocationValue 0x1010UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 dyld info bind linkage test``() =
@@ -705,8 +705,8 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] arm64e chained fixups rebase test``() =
     let reloc = (arm64eChainedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x4010UL, reloc.TryGetRelocatedAddr 0x4018UL)
-    Assert.AreEqual(Ok 0x370UL, reloc.TryGetRelocatedAddr 0x4020UL)
+    Assert.AreEqual(Ok 0x4010UL, reloc.TryComputeRelocationValue 0x4018UL)
+    Assert.AreEqual(Ok 0x370UL, reloc.TryComputeRelocationValue 0x4020UL)
 
   [<TestMethod>]
   member _.``[Mach] arm64e chained fixups bind linkage test``() =
@@ -725,9 +725,10 @@ type MachTests() =
        be added back. The second entry also sets high8, which the ARM64 C++ ABI
        uses to mark a unique type_info name. *)
     let reloc = (arm64ExcFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x100004048UL, reloc.TryGetRelocatedAddr 0x100004040UL)
+    Assert.AreEqual(Ok 0x100004048UL,
+                    reloc.TryComputeRelocationValue 0x100004040UL)
     Assert.AreEqual(Ok 0x80000001000007e0UL,
-                    reloc.TryGetRelocatedAddr 0x100004050UL)
+                    reloc.TryComputeRelocationValue 0x100004050UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 weak dylib counts toward library ordinals test``() =
@@ -897,7 +898,7 @@ type MachTests() =
        reading the slot eight bytes wide would drag that word into the
        target. *)
     let reloc = (i386DyldInfoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1004UL)
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryComputeRelocationValue 0x1004UL)
 
   [<TestMethod>]
   member _.``[Mach] I386 dyld info bind linkage test``() =
@@ -920,7 +921,7 @@ type MachTests() =
        Its field holds the absolute target, 0x10 past the 0x2000 the entry
        measures from. *)
     let reloc = (i386RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x2010UL, reloc.TryGetRelocatedAddr 0x0UL)
+    Assert.AreEqual(Ok 0x2010UL, reloc.TryComputeRelocationValue 0x0UL)
 
   [<TestMethod>]
   member _.``[Mach] I386 PC-relative relocation has no target test``() =
@@ -929,12 +930,12 @@ type MachTests() =
        so no absolute target can be named. *)
     let reloc = (i386RelocFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    reloc.TryGetRelocatedAddr 0x4UL)
+                    reloc.TryComputeRelocationValue 0x4UL)
 
   [<TestMethod>]
   member _.``[Mach] I386 external relocation addend test``() =
     let reloc = (i386RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x30UL, reloc.TryGetRelocatedAddr 0x8UL)
+    Assert.AreEqual(Ok 0x30UL, reloc.TryComputeRelocationValue 0x8UL)
 
   [<TestMethod>]
   member _.``[Mach] I386 relocation symbol names test``() =
@@ -1026,13 +1027,13 @@ type MachTests() =
        the __TEXT vmaddr of 0x1000, so the entry at 0x1000 relocates 0x2000.
        It names _data_base, at 0x2000, and its field holds an addend of 0x10. *)
     let reloc = (x64ExtRelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x2010UL, reloc.TryGetRelocatedAddr 0x2000UL)
+    Assert.AreEqual(Ok 0x2010UL, reloc.TryComputeRelocationValue 0x2000UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 local relocation table test``() =
     (* A local entry keeps its unslid target in place. *)
     let reloc = (x64ExtRelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x2000UL, reloc.TryGetRelocatedAddr 0x2008UL)
+    Assert.AreEqual(Ok 0x2000UL, reloc.TryComputeRelocationValue 0x2008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 image relocation addresses test``() =
@@ -1053,8 +1054,8 @@ type MachTests() =
        each up to the one marked last. Reading the index as an offset would
        find neither chain. *)
     let reloc = (x64MultiChainFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1000UL)
-    Assert.AreEqual(Ok 0x1018UL, reloc.TryGetRelocatedAddr 0x1010UL)
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryComputeRelocationValue 0x1000UL)
+    Assert.AreEqual(Ok 0x1018UL, reloc.TryComputeRelocationValue 0x1010UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 multi-chain page marks both chains test``() =

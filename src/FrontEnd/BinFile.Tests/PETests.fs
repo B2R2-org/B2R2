@@ -671,11 +671,12 @@ type PETests() =
     Assert.AreEqual<bool>(false, relocs.IsRelocationAddr 0x140001290UL)
 
   [<TestMethod>]
-  member _.``[PE] x64 TryGetRelocatedAddr test``() =
+  member _.``[PE] x64 TryComputeRelocationValue test``() =
     let relocs = (x64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x140001630UL, relocs.TryGetRelocatedAddr 0x140002150UL)
+    Assert.AreEqual(Ok 0x140001630UL,
+                    relocs.TryComputeRelocationValue 0x140002150UL)
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x140001290UL)
+                    relocs.TryComputeRelocationValue 0x140001290UL)
 
   [<TestMethod>]
   member _.``[PE] x64 exception table is parsed from .pdata``() =

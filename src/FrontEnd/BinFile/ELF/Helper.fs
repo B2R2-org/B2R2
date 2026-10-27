@@ -76,7 +76,7 @@ let makeRegionTable shdrs txtOffset phdrs loadables =
     else regionsOfSegments phdrs
   BinRegionTable regions
 
-let getRelocatedAddr toolBox (relocInfo: RelocationInfo) relocAddr =
+let computeRelocationValue toolBox (relocInfo: RelocationInfo) relocAddr =
   match relocInfo.TryFind relocAddr with
   | Ok rel ->
     match RelocationKind.GetSemantics rel.RelKind, rel.RelSymbol with
@@ -124,8 +124,8 @@ let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   for ofs in 0 .. entrySize .. secSize - entrySize do
     let fnAddr = readUIntByWordSize span toolBox.Reader readType ofs
     if fnAddr = 0UL then
-      match getRelocatedAddr toolBox relocInfo (addr + uint64 ofs) with
-      | Ok relocatedAddr -> lst.Add relocatedAddr
+      match computeRelocationValue toolBox relocInfo (addr + uint64 ofs) with
+      | Ok value -> lst.Add value
       | Error _ -> ()
     else
       lst.Add fnAddr

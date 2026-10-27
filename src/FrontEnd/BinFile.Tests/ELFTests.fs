@@ -169,10 +169,10 @@ type ELFTests() =
   /// done, as GNU_RELRO covers them.
   static let x64RelocTargetFile = parseFile "elf_x64_reloc_target"
 
-  /// Checks the pointer that a relocated pointer lookup returned.
-  static let assertRelocatedPointer
-    (expected: Result<BinRelocatedPointer, ErrorCase>) actual =
-    Assert.AreEqual<Result<BinRelocatedPointer, ErrorCase>>(expected, actual)
+  /// Checks the relocation value that a resolution returned.
+  static let assertRelocationValue
+    (expected: Result<BinRelocationValue, ErrorCase>) actual =
+    Assert.AreEqual<Result<BinRelocationValue, ErrorCase>>(expected, actual)
 
   /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
   /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
@@ -1204,43 +1204,43 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x4008UL, addendAt 0x4008UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 relr relocated addr test``() =
+  member _.``[ELF] x64 relr relocation value test``() =
     let relocs = (x64RelrFile :> IBinFile).Relocations.Value
     Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x3c50UL)
     (* A bitmap marks whole words, so the middle of one is not a site. *)
     Assert.AreEqual<bool>(false, relocs.IsRelocationAddr 0x3c54UL)
-    Assert.AreEqual(Ok 0x1140UL, relocs.TryGetRelocatedAddr 0x3c50UL)
-    Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
+    Assert.AreEqual(Ok 0x1140UL, relocs.TryComputeRelocationValue 0x3c50UL)
+    Assert.AreEqual(Ok 0x4008UL, relocs.TryComputeRelocationValue 0x4008UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 relocated pointer of a read-only slot test``() =
+  member _.``[ELF] x64 resolved relocation value of a read-only slot test``() =
     let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
     (* .data.rel.ro is in the range that GNU_RELRO protects. *)
-    assertRelocatedPointer (Ok(BinRelocatedPointer.Rebased 0x1129UL))
-                           (relocs.TryGetRelocatedPointer 0x3df0UL)
-    assertRelocatedPointer (Ok(BinRelocatedPointer.Rebased 0x113cUL))
-                           (relocs.TryGetRelocatedPointer 0x3df8UL)
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x1129UL))
+                          (relocs.TryResolveRelocationValue 0x3df0UL)
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x113cUL))
+                          (relocs.TryResolveRelocationValue 0x3df8UL)
     (* .got is in that range, too, and the loader binds the slot to the
        symbol. *)
-    assertRelocatedPointer (Ok(BinRelocatedPointer.Bound "__libc_start_main"))
-                           (relocs.TryGetRelocatedPointer 0x3fd8UL)
+    assertRelocationValue (Ok(BinRelocationValue.Bound "__libc_start_main"))
+                          (relocs.TryResolveRelocationValue 0x3fd8UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 relocated pointer of a writable slot test``() =
+  member _.``[ELF] x64 resolved relocation value of a writable slot test``() =
     let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
     (* The variable in .data can be overwritten, so what the loader wrote tells
-       nothing about a call through it. The relocated address is still the
-       value that the loader writes. *)
-    assertRelocatedPointer (Error ErrorCase.ItemNotFound)
-                           (relocs.TryGetRelocatedPointer 0x4010UL)
-    Assert.AreEqual(Ok 0x1129UL, relocs.TryGetRelocatedAddr 0x4010UL)
+       nothing about a call through it. The computed relocation value is still
+       what the loader writes. *)
+    assertRelocationValue (Error ErrorCase.ItemNotFound)
+                          (relocs.TryResolveRelocationValue 0x4010UL)
+    Assert.AreEqual(Ok 0x1129UL, relocs.TryComputeRelocationValue 0x4010UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =
     (* Both the site and the value it resolves to shift with the load base. *)
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
     Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x403c50UL)
-    Assert.AreEqual(Ok 0x401140UL, relocs.TryGetRelocatedAddr 0x403c50UL)
+    Assert.AreEqual(Ok 0x401140UL, relocs.TryComputeRelocationValue 0x403c50UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 nosec has no section headers test``() =
@@ -1499,57 +1499,57 @@ type ELFTests() =
   member _.``[ELF] x64 reloc JUMP_SLOT resolves to symbol address test``() =
     (* write is an undefined import, so its symbol address resolves to 0. *)
     let relocs = (x64RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x404000UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x404000UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 reloc GLOB_DAT resolves to symbol address test``() =
     (* __libc_start_main is an undefined import, so it resolves to 0. *)
     let relocs = (x64RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x403fd8UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x403fd8UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 pie RELATIVE resolves to base plus addend test``() =
     let relocs = (x64PieFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1170UL, relocs.TryGetRelocatedAddr 0x3db8UL)
-    Assert.AreEqual(Ok 0x1130UL, relocs.TryGetRelocatedAddr 0x3dc0UL)
-    Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
+    Assert.AreEqual(Ok 0x1170UL, relocs.TryComputeRelocationValue 0x3db8UL)
+    Assert.AreEqual(Ok 0x1130UL, relocs.TryComputeRelocationValue 0x3dc0UL)
+    Assert.AreEqual(Ok 0x4008UL, relocs.TryComputeRelocationValue 0x4008UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 pie RELATIVE honors the load base test``() =
     (* The addend is a link-time address, so a non-zero load base must shift
        the resolved target along with it. *)
     let relocs = (x64PieRebasedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x401170UL, relocs.TryGetRelocatedAddr 0x403db8UL)
+    Assert.AreEqual(Ok 0x401170UL, relocs.TryComputeRelocationValue 0x403db8UL)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 JUMP_SLOT and GLOB_DAT resolve test``() =
     let relocs = (aarch64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x420010UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x41ffd0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x420010UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x41ffd0UL)
 
   [<TestMethod>]
   member _.``[ELF] mips32 JUMP_SLOT resolves to symbol address test``() =
     (* write and abort are undefined imports, so they resolve to 0. *)
     let relocs = (mips32PltFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x420008UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x42000cUL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x420008UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x42000cUL)
 
   [<TestMethod>]
   member _.``[ELF] mips32 COPY is not an address relocation test``() =
     let relocs = (mips32PltFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x420050UL)
+                    relocs.TryComputeRelocationValue 0x420050UL)
 
   [<TestMethod>]
   member _.``[ELF] mips32 local REL32 resolves to base plus addend test``() =
     (* A local REL32 names no symbol, so it resolves against the load base,
        taking its addend from the slot it relocates. *)
     let relocs = (mips32SoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x510UL, relocs.TryGetRelocatedAddr 0x1fff0UL)
-    Assert.AreEqual(Ok 0x4a4UL, relocs.TryGetRelocatedAddr 0x1fff4UL)
-    Assert.AreEqual(Ok 0x20000UL, relocs.TryGetRelocatedAddr 0x1fff8UL)
-    Assert.AreEqual(Ok 0x20004UL, relocs.TryGetRelocatedAddr 0x1fffcUL)
-    Assert.AreEqual(Ok 0x20044UL, relocs.TryGetRelocatedAddr 0x20044UL)
+    Assert.AreEqual(Ok 0x510UL, relocs.TryComputeRelocationValue 0x1fff0UL)
+    Assert.AreEqual(Ok 0x4a4UL, relocs.TryComputeRelocationValue 0x1fff4UL)
+    Assert.AreEqual(Ok 0x20000UL, relocs.TryComputeRelocationValue 0x1fff8UL)
+    Assert.AreEqual(Ok 0x20004UL, relocs.TryComputeRelocationValue 0x1fffcUL)
+    Assert.AreEqual(Ok 0x20044UL, relocs.TryComputeRelocationValue 0x20044UL)
 
   [<TestMethod>]
   member _.``[ELF] mips32 REL entries expose the implicit addend test``() =
@@ -1567,8 +1567,8 @@ type ELFTests() =
     (* The n64 r_info carries R_MIPS_REL32 alongside R_MIPS_64; reading the
        whole 32-bit type field of a generic ELF64 file would yield neither. *)
     let relocs = (mips64SoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x7d8UL, relocs.TryGetRelocatedAddr 0x1ffe0UL)
-    Assert.AreEqual(Ok 0x768UL, relocs.TryGetRelocatedAddr 0x1ffe8UL)
+    Assert.AreEqual(Ok 0x7d8UL, relocs.TryComputeRelocationValue 0x1ffe0UL)
+    Assert.AreEqual(Ok 0x768UL, relocs.TryComputeRelocationValue 0x1ffe8UL)
 
   [<TestMethod>]
   member _.``[ELF] mips32 REL32 honors the load base test``() =
@@ -1576,14 +1576,14 @@ type ELFTests() =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     let file = ELFBinFile(fileName, bytes, Some 0x400000UL, None)
     let relocs = (file :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x400510UL, relocs.TryGetRelocatedAddr 0x41fff0UL)
+    Assert.AreEqual(Ok 0x400510UL, relocs.TryComputeRelocationValue 0x41fff0UL)
 
   [<TestMethod>]
   member _.``[ELF] riscv64 resolves every relocation family test``() =
     let relocs = (riscv64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x672UL, relocs.TryGetRelocatedAddr 0x1da0UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fd8UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb8UL)
+    Assert.AreEqual(Ok 0x672UL, relocs.TryComputeRelocationValue 0x1da0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fd8UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fb8UL)
 
   [<TestMethod>]
   member _.``[ELF] riscv64 preinit_array names a function test``() =
@@ -1637,7 +1637,7 @@ type ELFTests() =
     (* resolve_f sits at 0x686, and that is the addend of the IRELATIVE entry
        the loader fills 0x1fd0 with. *)
     let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x686UL, relocs.TryGetRelocatedAddr 0x1fd0UL)
+    Assert.AreEqual(Ok 0x686UL, relocs.TryComputeRelocationValue 0x1fd0UL)
 
   [<TestMethod>]
   member _.``[ELF] riscv64 ifunc is an internal function test``() =
@@ -1712,17 +1712,17 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] ppc32 resolves every relocation family test``() =
     let relocs = (ppc32SoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x4d0UL, relocs.TryGetRelocatedAddr 0x1fefcUL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1ff08UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fff0UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20000UL)
+    Assert.AreEqual(Ok 0x4d0UL, relocs.TryComputeRelocationValue 0x1fefcUL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1ff08UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fff0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20000UL)
 
   [<TestMethod>]
   member _.``[ELF] ppc64 resolves RELATIVE and ADDR64 test``() =
     let relocs = (ppc64SoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1fed0UL, relocs.TryGetRelocatedAddr 0x1fca8UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1ff08UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
+    Assert.AreEqual(Ok 0x1fed0UL, relocs.TryComputeRelocationValue 0x1fca8UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1ff08UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20018UL)
 
   [<TestMethod>]
   member _.``[ELF] ppc64 ELFv1 imports test``() =
@@ -1773,30 +1773,30 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] sh4 resolves every relocation family test``() =
     let relocs = (sh4SoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x490UL, relocs.TryGetRelocatedAddr 0x1ff28UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20024UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
+    Assert.AreEqual(Ok 0x490UL, relocs.TryComputeRelocationValue 0x1ff28UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20024UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20018UL)
 
   [<TestMethod>]
   member _.``[ELF] s390x resolves every relocation family test``() =
     let relocs = (s390xFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x800UL, relocs.TryGetRelocatedAddr 0x1d98UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fd0UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb0UL)
+    Assert.AreEqual(Ok 0x800UL, relocs.TryComputeRelocationValue 0x1d98UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fd0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fb0UL)
 
   [<TestMethod>]
   member _.``[ELF] m68k resolves every relocation family test``() =
     let relocs = (m68kSoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x494UL, relocs.TryGetRelocatedAddr 0x3f28UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x4018UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x400cUL)
+    Assert.AreEqual(Ok 0x494UL, relocs.TryComputeRelocationValue 0x3f28UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x4018UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x400cUL)
 
   [<TestMethod>]
   member _.``[ELF] parisc IPLT resolves and COPY does not test``() =
     let relocs = (pariscFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x12028UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x12028UL)
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x12088UL)
+                    relocs.TryComputeRelocationValue 0x12088UL)
 
   [<TestMethod>]
   member _.``[ELF] parisc imports test``() =
@@ -1846,18 +1846,18 @@ type ELFTests() =
     (* .init sits at 0x41c and the addend is 0x1be8, so this is the one case
        across the fixtures where both halves of S + A are non-zero. *)
     let relocs = (pariscSoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x2004UL, relocs.TryGetRelocatedAddr 0x1f20UL)
+    Assert.AreEqual(Ok 0x2004UL, relocs.TryComputeRelocationValue 0x1f20UL)
 
   [<TestMethod>]
   member _.``[ELF] parisc local DIR32 falls back to the base test``() =
     let relocs = (pariscSoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1f28UL, relocs.TryGetRelocatedAddr 0x2074UL)
+    Assert.AreEqual(Ok 0x1f28UL, relocs.TryComputeRelocationValue 0x2074UL)
 
   [<TestMethod>]
   member _.``[ELF] parisc PLABEL32 is not an address relocation test``() =
     let relocs = (pariscSoFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x1f14UL)
+                    relocs.TryComputeRelocationValue 0x1f14UL)
 
   [<TestMethod>]
   member _.``[ELF] sparc64 imports test``() =
@@ -1918,48 +1918,48 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] sparc64 resolves every relocation family test``() =
     let relocs = (sparc64SoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x69cUL, relocs.TryGetRelocatedAddr 0x3e30UL)
-    Assert.AreEqual(Ok 0x41e8UL, relocs.TryGetRelocatedAddr 0x3e40UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x4010UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x4180UL)
+    Assert.AreEqual(Ok 0x69cUL, relocs.TryComputeRelocationValue 0x3e30UL)
+    Assert.AreEqual(Ok 0x41e8UL, relocs.TryComputeRelocationValue 0x3e40UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x4010UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x4180UL)
 
   [<TestMethod>]
   member _.``[ELF] alpha resolves every relocation family test``() =
     let relocs = (alphaSoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x5e0UL, relocs.TryGetRelocatedAddr 0x1fe60UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20010UL)
+    Assert.AreEqual(Ok 0x5e0UL, relocs.TryComputeRelocationValue 0x1fe60UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20018UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20010UL)
 
   [<TestMethod>]
   member _.``[ELF] avr resolves the direct kinds only test``() =
     (* Both entries target the .data section symbol, two bytes apart, so the
        gap between the two results is the addend being added to it. *)
     let relocs = (avrObjFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x38UL, relocs.TryGetRelocatedAddr 0x0UL)
-    Assert.AreEqual(Ok 0x3aUL, relocs.TryGetRelocatedAddr 0x2UL)
+    Assert.AreEqual(Ok 0x38UL, relocs.TryComputeRelocationValue 0x0UL)
+    Assert.AreEqual(Ok 0x3aUL, relocs.TryComputeRelocationValue 0x2UL)
 
   [<TestMethod>]
   member _.``[ELF] avr instruction field kinds are unresolved test``() =
     let relocs = (avrObjFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0xcUL)
+                    relocs.TryComputeRelocationValue 0xcUL)
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x26UL)
+                    relocs.TryComputeRelocationValue 0x26UL)
 
   [<TestMethod>]
   member _.``[ELF] bpf resolves ABS64 only test``() =
     let relocs = (bpfObjFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0xc0UL, relocs.TryGetRelocatedAddr 0x8UL)
+    Assert.AreEqual(Ok 0xc0UL, relocs.TryComputeRelocationValue 0x8UL)
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x30UL)
+                    relocs.TryComputeRelocationValue 0x30UL)
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x78UL)
+                    relocs.TryComputeRelocationValue 0x78UL)
 
   [<TestMethod>]
   member _.``[ELF] arm32 JUMP_SLOT and GLOB_DAT resolve test``() =
     let relocs = (arm32File :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x12014UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1201cUL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x12014UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1201cUL)
 
   [<TestMethod>]
   member _.``[ELF] arm32 empty rel.plt names no import test``() =

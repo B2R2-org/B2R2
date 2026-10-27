@@ -367,7 +367,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     Array.exists isRelro phdrs.Value
     || Array.exists isReadOnlySegment loadables.Value
 
-  let tryGetRelocatedPointer relocAddr =
+  let tryResolveRelocationValue relocAddr =
     match relocs.Value.TryFind relocAddr with
     | Ok _ when not (isReadOnlyAfterLoading relocAddr) ->
       Error ErrorCase.ItemNotFound
@@ -377,18 +377,18 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | Ok({ RelKind = RelocationKind(MachineType.EM_X86_64, kind)
            RelSymbol = Some({ SymName = name }) })
       when kind = uint64 RelocationX64.R_X86_64_GLOB_DATA ->
-      Ok(BinRelocatedPointer.Bound name)
+      Ok(BinRelocationValue.Bound name)
     (* RELATIVE writes loadBase + addend without symbol lookup. IRELATIVE is
        intentionally excluded because its addend names a resolver, not the
        address ultimately written into the slot. *)
     | Ok({ RelKind = RelocationKind(MachineType.EM_386, kind)
            RelAddend = target })
       when kind = uint64 RelocationX86.R_386_RELATIVE && target <> 0UL ->
-      Ok(BinRelocatedPointer.Rebased(toolBox.BaseAddress + target))
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
     | Ok({ RelKind = RelocationKind(MachineType.EM_X86_64, kind)
            RelAddend = target })
       when kind = uint64 RelocationX64.R_X86_64_RELATIVE && target <> 0UL ->
-      Ok(BinRelocatedPointer.Rebased(toolBox.BaseAddress + target))
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
     | _ ->
       Error ErrorCase.ItemNotFound
 
@@ -398,11 +398,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
       member _.IsRelocationAddr addr = relocs.Value.Contains addr
 
-      member _.TryGetRelocatedAddr relocAddr =
-        getRelocatedAddr toolBox relocs.Value relocAddr
+      member _.TryComputeRelocationValue relocAddr =
+        computeRelocationValue toolBox relocs.Value relocAddr
 
-      member _.TryGetRelocatedPointer relocAddr =
-        tryGetRelocatedPointer relocAddr
+      member _.TryResolveRelocationValue relocAddr =
+        tryResolveRelocationValue relocAddr
 
       member _.TryGetInternalFunctionAddr relocAddr =
         match relocs.Value.TryFind relocAddr with

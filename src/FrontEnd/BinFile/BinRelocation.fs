@@ -33,13 +33,13 @@ type BinRelocation =
   { /// <summary>
     /// Virtual address of the relocation site, i.e., the location being
     /// patched. This is the value accepted by
-    /// <see cref="IRelocationTable.TryGetRelocatedAddr"/>.
+    /// <see cref="IRelocationTable.TryComputeRelocationValue"/>.
     /// </summary>
     Address: Addr
     /// Name of the symbol referenced by this relocation, if any. None for
     /// symbol-less relocations such as PE base relocations or ELF relative
     /// relocations that use only an addend.
     SymbolName: string option
-    /// Constant addend applied when computing the relocated value, if the
+    /// Constant addend applied when computing the relocation value, if the
     /// format carries one. None for PE base relocations.
     Addend: int64 option }

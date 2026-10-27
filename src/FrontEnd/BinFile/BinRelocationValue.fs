@@ -26,9 +26,10 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Represents the pointer that a slot holds once the loader has relocated it.
+/// Represents the value that a relocation writes into its slot, resolved as far
+/// as the binary alone allows.
 [<RequireQualifiedAccess>]
-type BinRelocatedPointer =
+type BinRelocationValue =
   /// The loader rebases the slot to this address, which the binary alone
   /// determines.
   | Rebased of Addr

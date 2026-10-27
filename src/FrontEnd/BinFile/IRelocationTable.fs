@@ -48,29 +48,30 @@ type IRelocationTable =
   abstract IsRelocationAddr: Addr -> bool
 
   /// <summary>
-  /// Returns a relocation target address of the given virtual address if there
-  /// is a corresponding relocation entry.
+  /// Tries to compute the value that the relocation at the given address
+  /// writes into its slot, using only what the binary itself records.
   /// </summary>
   /// <param name="relocAddr">Virtual address to be relocated.</param>
   /// <returns>
-  /// Returns a relocated address for a given virtual address.
+  /// Returns the relocation value on success.
   /// </returns>
-  abstract TryGetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
+  abstract TryComputeRelocationValue:
+    relocAddr: Addr -> Result<Addr, ErrorCase>
 
   /// <summary>
-  /// Tries to resolve the pointer that the slot at the given address holds
-  /// once the loader has relocated it. Where <see
-  /// cref="IRelocationTable.TryGetRelocatedAddr"/> can only compute a number,
-  /// this names the symbol that the loader binds the slot to. A slot that the
-  /// program can overwrite after loading has no such pointer, as what the
-  /// loader wrote is no longer what a call through the slot reaches.
+  /// Tries to resolve the value that the relocation at the given address
+  /// writes into its slot. Where <see
+  /// cref="IRelocationTable.TryComputeRelocationValue"/> can only compute a
+  /// number, this names the symbol that the loader binds the slot to. A slot
+  /// that the program can overwrite after loading has no such value, as what
+  /// the loader wrote is no longer what a call through the slot reaches.
   /// </summary>
   /// <param name="relocAddr">Virtual address of the slot.</param>
   /// <returns>
-  /// Returns the format-agnostic relocated pointer on success.
+  /// Returns the format-agnostic relocation value on success.
   /// </returns>
-  abstract TryGetRelocatedPointer:
-    relocAddr: Addr -> Result<BinRelocatedPointer, ErrorCase>
+  abstract TryResolveRelocationValue:
+    relocAddr: Addr -> Result<BinRelocationValue, ErrorCase>
 
   /// <summary>
   /// Tries to resolve the relocation at the given address to a function that

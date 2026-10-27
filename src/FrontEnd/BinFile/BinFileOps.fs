@@ -195,19 +195,20 @@ let isRelocationAddr (file: IBinFile) addr =
   | Some relocs -> relocs.IsRelocationAddr addr
   | None -> false
 
-/// Tries to find the relocated target address of the given address.
-[<CompiledName "TryGetRelocatedAddr">]
-let tryGetRelocatedAddr (file: IBinFile) relocAddr =
+/// Tries to compute the value that the relocation at the given address writes
+/// into its slot, using only what the binary itself records.
+[<CompiledName "TryComputeRelocationValue">]
+let tryComputeRelocationValue (file: IBinFile) relocAddr =
   match file.Relocations with
-  | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
+  | Some relocs -> relocs.TryComputeRelocationValue relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
-/// Tries to resolve the pointer that the slot at the given address holds once
-/// the loader has relocated it.
-[<CompiledName "TryGetRelocatedPointer">]
-let tryGetRelocatedPointer (file: IBinFile) relocAddr =
+/// Tries to resolve the value that the relocation at the given address writes
+/// into its slot, provided the slot keeps that value after loading.
+[<CompiledName "TryResolveRelocationValue">]
+let tryResolveRelocationValue (file: IBinFile) relocAddr =
   match file.Relocations with
-  | Some relocs -> relocs.TryGetRelocatedPointer relocAddr
+  | Some relocs -> relocs.TryResolveRelocationValue relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to resolve the relocation at the given address to an internal

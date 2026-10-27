@@ -349,9 +349,9 @@ module internal CFGRecoveryCommon =
     match e with
     | Load(Addr = BinOp(Op = BinOpType.ADD; Left = PCVar _; Right = Num bv)) ->
       let relocationSlotAddr = callsiteAddr + bv.ToUInt64()
-      match BinFileOps.tryGetRelocatedPointer
+      match BinFileOps.tryResolveRelocationValue
               ctx.BinHandle.File relocationSlotAddr with
-      | Ok(BinFile.BinRelocatedPointer.Bound name) ->
+      | Ok(BinFile.BinRelocationValue.Bound name) ->
         let ch = ctx.ManagerChannel
         let reference = RelocationSlot relocationSlotAddr
         match ch.GetExternalBuildingContext(reference, name) with
@@ -367,7 +367,7 @@ module internal CFGRecoveryCommon =
           |> Some
         | _ ->
           Terminator.impossible ()
-      | Ok(BinFile.BinRelocatedPointer.Rebased target) ->
+      | Ok(BinFile.BinRelocationValue.Rebased target) ->
         let action =
           if isTailCall then
             MakeTlCall(callsite, target, CalleeInfo.Unknown)

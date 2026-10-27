@@ -204,13 +204,13 @@ module internal Reloc =
         Addend = Some addend }
     result
 
-  /// Computes the relocated target address for the given virtual address. An
+  /// Computes the relocation value for the given virtual address. An
   /// external entry resolves to (symbol address + addend), while a local one
   /// keeps the unslid target in place, so the addend is the target and only
   /// the load address moves it. A PC-relative entry says nothing here, because
   /// its field is measured from the end of the instruction it sits in and the
   /// entry records neither that instruction's length nor where it starts.
-  let getRelocatedAddr toolBox (relocMap: RelocationMap) store relocAddr =
+  let computeRelocationValue toolBox (relocMap: RelocationMap) store relocAddr =
     let symbols = (store: SymbolStore).SymbolArray
     match relocMap.TryGetValue relocAddr with
     | true, reloc when not reloc.IsPCRel ->
