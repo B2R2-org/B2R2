@@ -3,10 +3,12 @@
   x86 and x64 for now.
 
     dotnet fsi .github/jumptable-test.fsx <binaryDir> <groundTruthDir>
+    dotnet fsi .github/jumptable-test.fsx <binary> <groundTruth.json>
 
-  Every <groundTruthDir>/<case>.json is compared against <binaryDir>/<case>.
-  Exits non-zero when any table or target is missed or invented, so it can
-  gate a build as it stands.
+  Given two directories, every <groundTruthDir>/<case>.json is compared
+  against <binaryDir>/<case>; given two files, the one binary is compared
+  against the one ground truth. Exits non-zero when any table or target is
+  missed or invented, so it can gate a build as it stands.
 *)
 
 (* Release, because scoring a hundred binaries is CPU bound; run
@@ -174,14 +176,26 @@ let private scoreCase case expected actual =
 let private f1 tp fp fn =
   if tp = 0 then 0.0 else 2.0 * float tp / float (2 * tp + fp + fn)
 
+/// Counts the tables and targets a score missed or invented.
+let private errorsOf (score: Score) =
+  score.TableFP + score.TableFN + score.TargetFP + score.TargetFN
+
 let private report (score: Score) =
-  let verdict =
-    if score.TableFP + score.TableFN + score.TargetFP + score.TargetFN = 0 then
-      "ok"
-    else "FAIL"
+  let verdict = if errorsOf score = 0 then "ok" else "FAIL"
   printfn "%-4s %-34s tables %d/%d/%d  targets %d/%d/%d  skipped %d"
     verdict score.Case score.TableTP score.TableFP score.TableFN
     score.TargetTP score.TargetFP score.TargetFN score.Skipped
+
+/// Scores one binary against one ground truth file and reports the result.
+let private scoreFile case binPath jsonPath =
+  let arch, expected = readTruth jsonPath
+  match load case binPath arch with
+  | None ->
+    None
+  | Some hdl ->
+    let score = scoreCase case expected (recover hdl)
+    report score
+    Some score
 
 let private runCase binDir jsonPath =
   let case = Path.GetFileNameWithoutExtension(jsonPath: string)
@@ -190,14 +204,7 @@ let private runCase binDir jsonPath =
     eprintfn "no binary for %s at %s" case binPath
     None
   else
-    let arch, expected = readTruth jsonPath
-    match load case binPath arch with
-    | None ->
-      None
-    | Some hdl ->
-      let score = scoreCase case expected (recover hdl)
-      report score
-      Some score
+    scoreFile case binPath jsonPath
 
 let private summarize scores =
   let sum f = scores |> List.sumBy f
@@ -209,25 +216,47 @@ let private summarize scores =
   printfn "targets  tp %d  fp %d  fn %d  f1 %.4f" gTP gFP gFN (f1 gTP gFP gFN)
   tFP + tFN + gFP + gFN
 
-let private main (argv: string[]) =
-  if argv.Length <> 2 then
-    eprintfn "usage: jumptable-test.fsx <binaryDir> <groundTruthDir>"
+/// Scores every case the ground truth directory holds and prints the totals.
+let private runDirs binDir jsonDir =
+  let files = Directory.GetFiles(jsonDir, "*.json") |> Array.sort
+  if Array.isEmpty files then
+    eprintfn "no ground truth in %s" jsonDir
     2
   else
-    let binDir, jsonDir = argv[0], argv[1]
-    let missing = [ binDir; jsonDir ] |> List.filter (Directory.Exists >> not)
-    if not (List.isEmpty missing) then
-      eprintfn "no such directory: %s" (String.concat ", " missing)
-      2
-    else
-    let files = Directory.GetFiles(jsonDir, "*.json") |> Array.sort
-    if Array.isEmpty files then
-      eprintfn "no ground truth in %s" jsonDir
-      2
-    else
-      let scores = files |> Array.toList |> List.choose (runCase binDir)
-      if List.isEmpty scores then 2
-      elif summarize scores = 0 then 0
-      else 1
+    let scores = files |> Array.toList |> List.choose (runCase binDir)
+    if List.isEmpty scores then 2
+    elif summarize scores = 0 then 0
+    else 1
+
+/// Scores a single binary, naming the case after it. The one line report
+/// already says everything a summary would.
+let private runFiles binPath jsonPath =
+  match scoreFile (Path.GetFileName(binPath: string)) binPath jsonPath with
+  | None -> 2
+  | Some score -> if errorsOf score = 0 then 0 else 1
+
+/// Explains why two paths are neither two directories nor two files.
+let private complain paths =
+  let exists p = File.Exists p || Directory.Exists p
+  match List.filter (exists >> not) paths with
+  | [] ->
+    eprintfn "expected two directories or two files, not one of each"
+  | missing ->
+    eprintfn "no such file or directory: %s" (String.concat ", " missing)
+
+let private main (argv: string[]) =
+  match argv with
+  | [| bin; json |] when Directory.Exists bin && Directory.Exists json ->
+    runDirs bin json
+  | [| bin; json |] when File.Exists bin && File.Exists json ->
+    runFiles bin json
+  | [| bin; json |] ->
+    complain [ bin; json ]
+    2
+  | _ ->
+    (* Straight to stderr: B2R2's eprintfn would label usage an error. *)
+    stderr.WriteLine("usage: jumptable-test.fsx <binaryDir> <groundTruthDir>")
+    stderr.WriteLine("       jumptable-test.fsx <binary> <groundTruth.json>")
+    2
 
 exit (main (Array.skip 1 fsi.CommandLineArgs))
