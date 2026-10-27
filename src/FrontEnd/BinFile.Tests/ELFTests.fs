@@ -2143,6 +2143,19 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, starts |> List.forall (fun (b, l) -> b = l))
 
   [<TestMethod>]
+  member _.``[ELF] x64 only the PLT FDE starts mid-frame``() =
+    (* PLT0 is entered from a stub that has already pushed a relocation index,
+       so the PLT's FDE starts at CFA rsp+16; every other FDE describes a
+       function from its entry. *)
+    let starts =
+      x64EhFrameFile.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.filter (fun fde -> fde.StartsMidFrame)
+      |> List.map (fun fde -> fde.PCBegin)
+      |> List.toArray
+    CollectionAssert.AreEqual([| 0x1020UL |], starts)
+
+  [<TestMethod>]
   member _.``[ELF] arm32 exidx exception table is parsed``() =
     let frames = (arm32ExidxFile :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<bool>(true, frames.Length > 0)
