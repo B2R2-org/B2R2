@@ -27,7 +27,7 @@ module B2R2.RearEnd.Transformer.Program
 open B2R2.RearEnd.Transformer
 
 let private usage = """Usage:
-  b2r2 transformer [repl [-d <plugin>]]
+  b2r2 transformer [repl [-d <plugin>] [--layout pane|console]]
   b2r2 transformer script [-d <plugin>] <script>
 
 Start the interactive Transformer REPL, or evaluate a saved REPL script.
@@ -36,9 +36,25 @@ Press F1 in the interactive REPL for the usage guide."""
 let private printUsage () =
   printfn "%s" usage
 
-let private runRepl plugin =
-  ActionRegistry.create plugin |> TransformerRepl.run
+let private runRepl plugin layout =
+  ActionRegistry.create plugin |> TransformerRepl.runWithLayout layout
   0
+
+let private parseReplOptions args =
+  let rec loop (plugin: string option) layout = function
+    | [] ->
+      Some(plugin, layout)
+    | "-d" :: file :: rest when plugin.IsNone ->
+      loop (Some file) layout rest
+    | "--layout" :: name :: rest ->
+      TuiLayout.tryParse name
+      |> Option.bind (fun layout -> loop plugin layout rest)
+    | option :: rest when option.StartsWith "--layout=" ->
+      TuiLayout.tryParse option[9..]
+      |> Option.bind (fun layout -> loop plugin layout rest)
+    | _ ->
+      None
+  loop None TuiLayout.Pane args
 
 let private runScript plugin path =
   ActionRegistry.create plugin
@@ -47,11 +63,15 @@ let private runScript plugin path =
 [<EntryPoint>]
 let main argv =
   match List.ofArray argv with
-  | []
-  | [ "repl" ] ->
-    runRepl None
-  | [ "repl"; "-d"; file ] ->
-    runRepl (Some file)
+  | [] ->
+    runRepl None TuiLayout.Pane
+  | "repl" :: options ->
+    match parseReplOptions options with
+    | Some(plugin, layout) ->
+      runRepl plugin layout
+    | None ->
+      eprintfn "%s" usage
+      1
   | "script" :: path :: [] ->
     runScript None path
   | "script" :: "-d" :: file :: path :: [] ->

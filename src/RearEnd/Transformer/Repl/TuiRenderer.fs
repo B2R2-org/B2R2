@@ -542,8 +542,13 @@ module TransformerTuiRenderer =
   let isMainBodyAt width height model row column =
     let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
     let bodyHeight = TransformerTuiModel.transcriptHeight height model
-    row >= 4 && row < 4 + bodyHeight
-    && column >= 2 && column < leftWidth
+    let start = TransformerTuiModel.bodyStartRow model
+    let inColumn =
+      match model.Layout with
+      | TuiLayout.Console -> column >= 1 && column <= leftWidth
+      | TuiLayout.Pane -> column >= 2 && column < leftWidth
+    row >= start && row < start + bodyHeight
+    && inColumn
 
   let trySidebarValueAt width height model row column =
     let bodyHeight = TransformerTuiModel.transcriptHeight height model
@@ -570,7 +575,8 @@ module TransformerTuiRenderer =
         5 + bodyHeight + inputRows
       | TuiBottomPaneOrder.SuggestionsAboveShell ->
         5 + bodyHeight
-    column >= 1 && column <= width
+    model.Layout = TuiLayout.Pane
+    && column >= 1 && column <= width
     && row >= start && row < start + suggestions
 
   let isSidebarDividerAt width height model row column =
@@ -997,7 +1003,8 @@ module TransformerTuiRenderer =
     row
     column =
     let itemCount = List.length completion.Items
-    if model.Overlay <> TuiOverlay.None
+    if model.Layout = TuiLayout.Console
+       || model.Overlay <> TuiOverlay.None
        || model.IsBusy
        || itemCount = 0
        || row < 1
@@ -1209,14 +1216,7 @@ module TransformerTuiRenderer =
         cursorInputPosition model.Input model.Cursor
       let first =
         if cursorLine < maxRows then 0 else cursorLine - maxRows + 1
-      let inputStart =
-        let afterBody =
-          5 + TransformerTuiModel.transcriptHeight height model
-        match model.BottomPaneOrder with
-        | TuiBottomPaneOrder.ShellAboveSuggestions ->
-          afterBody
-        | TuiBottomPaneOrder.SuggestionsAboveShell ->
-          afterBody + TransformerTuiModel.suggestionHeight height model
+      let inputStart = TransformerTuiModel.inputStartRow height model
       let offset = row - inputStart
       let absolute = first + offset
       let isOutsideInput = offset < 0 || offset >= visibleRows
@@ -1238,7 +1238,8 @@ module TransformerTuiRenderer =
     let cwd = compactPath Environment.CurrentDirectory
     let script = normalizePath (scriptPath model)
     let record = scriptRecordText model.Session.ReplayMode
-    let text = $" cwd: {cwd}  script: {script}  record: {record}"
+    let text =
+      $" {model.Status}  cwd: {cwd}  script: {script}  record: {record}"
     paint dim (fit width text)
 
   let private activeFindInput model =
@@ -1320,8 +1321,13 @@ module TransformerTuiRenderer =
     fit width
       (headerMargin + String.concat headerGap buttons + headerMargin)
 
-  let tryHeaderHitAt width row column =
-    if row <> 2 || column < 1 || column > width then
+  let tryHeaderHitAt width model row column =
+    let isOutside =
+      model.Layout = TuiLayout.Console
+      || row <> 2
+      || column < 1
+      || column > width
+    if isOutside then
       None
     else
       headerButtons
@@ -1534,23 +1540,26 @@ module TransformerTuiRenderer =
     | Some pane when model.Overlay = TuiOverlay.View ->
       let bodyHeight = TransformerTuiModel.transcriptHeight height model
       let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
-      let bodyRow = row - 4
+      let bodyRow = row - TransformerTuiModel.bodyStartRow model
       let layout = viewPaneLayout bodyWidth bodyHeight model.ScrollOffset model
       let rowIndex = layout.Offset + bodyRow
       let rows = viewRows bodyWidth pane
       let isInBody =
         bodyRow >= 0
         && bodyRow < bodyHeight
-        && column >= 2
-        && column < bodyWidth
+        && isMainBodyAt width height model row column
       let isDisplayRow = rowIndex >= 0 && rowIndex < rows.Rows.Length
       if not isInBody || not isDisplayRow then
         None
       else
         let row = rows.Rows[rowIndex]
+        let contentStart =
+          if model.Layout = TuiLayout.Console then 3 else 4
         let cursor =
           { Line = row.SourceLine
-            Column = max row.Start (min row.Finish (column - 4 + row.Start)) }
+            Column =
+              max row.Start (min row.Finish
+                (column - contentStart + row.Start)) }
         Some cursor
     | _ ->
       None
@@ -1584,6 +1593,16 @@ module TransformerTuiRenderer =
         |> Option.map _.Lines
         |> Option.defaultWith (fun () ->
           takeBody bodyHeight leftWidth model)
+      let body =
+        if model.Layout = TuiLayout.Console
+           && viewLayout.IsNone then
+          let layout =
+            TransformerTuiModel.transcriptLayout leftWidth bodyHeight model
+          let count =
+            TransformerTuiModel.transcriptTopPadding bodyHeight model layout
+          List.replicate count (TuiLineKind.Output, "") @ body
+        else
+          body
       let padding =
         List.replicate (bodyHeight - List.length body)
           (TuiLineKind.Output, "")
@@ -1592,11 +1611,17 @@ module TransformerTuiRenderer =
           leftWidth bodyHeight model
         |> Option.orElse (viewLayout |> Option.bind _.CursorPosition)
       let body = body @ padding
-      let sidebar = sidebarLines rightWidth bodyHeight model
+      let sidebar =
+        if hasSidebar then sidebarLines rightWidth bodyHeight model else []
       let sidebar = sidebar @ List.replicate (bodyHeight - List.length sidebar)
                                       ("", "")
       let bodyRows =
-        List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
+        if model.Layout = TuiLayout.Console then
+          body
+          |> List.map (fun (kind, text) ->
+            paint (lineStyle kind) (fit width text))
+        else
+          List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
       let titleBar =
         let text = " B2R2 TRANSFORMER   Interactive Binary Analysis"
         paint (bannerBg + bannerFg + bold) (fit width text)
@@ -1618,29 +1643,37 @@ module TransformerTuiRenderer =
         else
           boxBottom border leftWidth
       let suggestions =
-        suggestionRows suggestionCount width completion model.SuggestionIndex
-      let context, findCursor = findFooter width model
+        if model.Layout = TuiLayout.Console then
+          []
+        else
+          suggestionRows
+            suggestionCount width completion model.SuggestionIndex
+      let context, findCursor =
+        match model.Layout, activeFindInput model with
+        | TuiLayout.Console, None -> "", None
+        | _ -> findFooter width model
       let bottomRows =
-        match model.BottomPaneOrder with
-        | TuiBottomPaneOrder.ShellAboveSuggestions ->
-          inputRows @ suggestions
-        | TuiBottomPaneOrder.SuggestionsAboveShell ->
-          suggestions @ inputRows
-      let inputStartRow =
-        let afterBody = 5 + bodyHeight
-        match model.BottomPaneOrder with
-        | TuiBottomPaneOrder.ShellAboveSuggestions ->
-          afterBody
-        | TuiBottomPaneOrder.SuggestionsAboveShell ->
-          afterBody + List.length suggestions
+        if model.Layout = TuiLayout.Console then
+          inputRows
+        else
+          match model.BottomPaneOrder with
+          | TuiBottomPaneOrder.ShellAboveSuggestions ->
+            inputRows @ suggestions
+          | TuiBottomPaneOrder.SuggestionsAboveShell ->
+            suggestions @ inputRows
+      let inputStartRow = TransformerTuiModel.inputStartRow height model
       let rows =
-        [ titleBar
-          keyHeader width model
-          boxTopRow ]
-        @ bodyRows
-        @ [ boxBottomRow ]
-        @ bottomRows
-        @ [ context ]
+        if model.Layout = TuiLayout.Console then
+          bodyRows @ bottomRows
+          @ (if findCursor.IsSome then [ context ] else [])
+        else
+          [ titleBar
+            keyHeader width model
+            boxTopRow ]
+          @ bodyRows
+          @ [ boxBottomRow ]
+          @ bottomRows
+          @ [ context ]
       let lines =
         rows
         |> List.map (fun row -> clearLine + row + reset)
@@ -1655,7 +1688,8 @@ module TransformerTuiRenderer =
           |> Option.orElse (findCursor |> Option.map (fun _ -> height))
           |> Option.orElseWith (fun () ->
             cursorBodyPosition
-            |> Option.map (fun (row, _) -> 4 + row))
+            |> Option.map (fun (row, _) ->
+              TransformerTuiModel.bodyStartRow model + row))
           |> Option.defaultValue (
             let row, _ = inputCursor
             inputStartRow + row)
@@ -1665,7 +1699,11 @@ module TransformerTuiRenderer =
           |> Option.orElse findCursor
           |> Option.orElseWith (fun () ->
             cursorBodyPosition
-            |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1)))
+            |> Option.map (fun (_, column) ->
+              let offset =
+                if model.Layout = TuiLayout.Console
+                   && model.Overlay = TuiOverlay.View then 0 else 1
+              min width (column + offset)))
           |> Option.defaultValue (
             let _, column = inputCursor
             min width column) }

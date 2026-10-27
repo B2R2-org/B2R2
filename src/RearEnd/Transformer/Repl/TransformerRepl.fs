@@ -493,10 +493,12 @@ module TransformerRepl =
       | ControlEvaluation ->
         TransformerTuiModel.setStatus "Cancelling command" model
 
-  let private runTui initialRegistry =
+  let private runTui initialLayout initialRegistry =
     let restoreTerminal = TransformerTuiTerminal.enter ()
     let mutable registry = initialRegistry
-    let mutable model = TransformerTuiModel.initial
+    let mutable model =
+      TransformerTuiModel.initial
+      |> TransformerTuiModel.setLayout initialLayout
     let mutable running: RunningEvaluation option = None
     let mutable shouldExit = false
     let mutable dirty = true
@@ -530,6 +532,8 @@ module TransformerRepl =
         TuiInputEvent.Key(restoreKey ConsoleKey.PageUp)
       | "[6~" ->
         TuiInputEvent.Key(restoreKey ConsoleKey.PageDown)
+      | "[17~" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.F6)
       | _ ->
         keys |> Seq.iter addPendingKey
         TuiInputEvent.Key first
@@ -804,8 +808,10 @@ module TransformerRepl =
     finally
       restoreTerminal ()
 
-  let run registry =
+  let runWithLayout layout registry =
     if TransformerTuiTerminal.isInteractive () then
-      runTui registry
+      runTui layout registry
     else
       runLineMode registry
+
+  let run registry = runWithLayout TuiLayout.Pane registry

@@ -293,6 +293,21 @@ type TuiShellInputMode =
   | HistoryBrowsing
   | HistoryEditing
 
+[<RequireQualifiedAccess>]
+type TuiLayout =
+  | Pane
+  | Console
+
+module TuiLayout =
+  let name = function
+    | TuiLayout.Pane -> "pane"
+    | TuiLayout.Console -> "console"
+
+  let tryParse = function
+    | "pane" -> Some TuiLayout.Pane
+    | "console" -> Some TuiLayout.Console
+    | _ -> None
+
 /// UI state independent from terminal rendering and key reading.
 type TransformerTuiModel =
   { Session: TransformerReplState
@@ -332,6 +347,7 @@ type TransformerTuiModel =
     SidebarScrollOffset: int
     SuggestionHeight: int
     BottomPaneOrder: TuiBottomPaneOrder
+    Layout: TuiLayout
     Status: string
     IsBusy: bool
     SpinnerFrame: int }
@@ -341,7 +357,7 @@ module TransformerTuiModel =
     { Model: TransformerTuiModel
       Width: int
       Height: int
-      Layout: TuiTranscriptLayout }
+      TranscriptLayout: TuiTranscriptLayout }
 
   let mutable private transcriptLayoutCache: TranscriptLayoutCache option = None
 
@@ -349,22 +365,41 @@ module TransformerTuiModel =
 
   let defaultSuggestionHeight = 7
 
-  let private fixedFrameRows = 5
+  let private paneFrameRows = 5
+
+  let private fixedFrameRows model =
+    match model.Layout with
+    | TuiLayout.Pane ->
+      paneFrameRows
+    | TuiLayout.Console ->
+      let viewFind =
+        model.Overlay = TuiOverlay.View
+        && (model.ViewPane |> Option.exists _.IsFinding)
+      if model.IsFindingTranscript || viewFind then 1 else 0
+
+  let bodyStartRow model =
+    match model.Layout with
+    | TuiLayout.Pane -> 4
+    | TuiLayout.Console -> 1
 
   let private inputLineCount (input: string) =
     input.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
     |> Array.length
 
   let private maximumSuggestionHeight terminalHeight =
-    max 1 (terminalHeight - fixedFrameRows - 2)
+    max 1 (terminalHeight - paneFrameRows - 2)
 
   let suggestionHeight terminalHeight (model: TransformerTuiModel) =
-    let maximum = maximumSuggestionHeight terminalHeight
-    max 1 (min maximum model.SuggestionHeight)
+    match model.Layout with
+    | TuiLayout.Pane ->
+      let maximum = maximumSuggestionHeight terminalHeight
+      max 1 (min maximum model.SuggestionHeight)
+    | TuiLayout.Console ->
+      0
 
   let shellInputCapacity terminalHeight model =
     let suggestions = suggestionHeight terminalHeight model
-    max 1 (terminalHeight - fixedFrameRows - suggestions - 1)
+    max 1 (terminalHeight - (fixedFrameRows model) - suggestions - 1)
 
   let visibleShellInputRows terminalHeight model =
     min (shellInputCapacity terminalHeight model) (inputLineCount model.Input)
@@ -372,22 +407,36 @@ module TransformerTuiModel =
   let transcriptHeight terminalHeight model =
     let suggestions = suggestionHeight terminalHeight model
     let inputRows = visibleShellInputRows terminalHeight model
-    max 1 (terminalHeight - fixedFrameRows - suggestions - inputRows)
+    max 1 (terminalHeight - (fixedFrameRows model) - suggestions - inputRows)
+
+  let inputStartRow terminalHeight model =
+    let bodyEnd = transcriptHeight terminalHeight model
+    match model.Layout, model.BottomPaneOrder with
+    | TuiLayout.Console, _ ->
+      bodyStartRow model + bodyEnd
+    | TuiLayout.Pane, TuiBottomPaneOrder.ShellAboveSuggestions ->
+      5 + bodyEnd
+    | TuiLayout.Pane, TuiBottomPaneOrder.SuggestionsAboveShell ->
+      5 + bodyEnd + suggestionHeight terminalHeight model
 
   let transcriptBodyWidth terminalWidth model =
-    let defaultRightWidth =
-      if terminalWidth >= 100 then min 34 (terminalWidth / 3) else 0
-    let rightWidth =
-      match (model: TransformerTuiModel).SidebarWidth with
-      | Some requested when requested <= 0 ->
-        0
-      | Some requested when terminalWidth >= 60 ->
-        max 20 (min (terminalWidth - 40) requested)
-      | Some _ ->
-        0
-      | None ->
-        defaultRightWidth
-    terminalWidth - rightWidth - (if rightWidth > 0 then 1 else 0)
+    match model.Layout with
+    | TuiLayout.Console ->
+      terminalWidth
+    | TuiLayout.Pane ->
+      let defaultRightWidth =
+        if terminalWidth >= 100 then min 34 (terminalWidth / 3) else 0
+      let rightWidth =
+        match (model: TransformerTuiModel).SidebarWidth with
+        | Some requested when requested <= 0 ->
+          0
+        | Some requested when terminalWidth >= 60 ->
+          max 20 (min (terminalWidth - 40) requested)
+        | Some _ ->
+          0
+        | None ->
+          defaultRightWidth
+      terminalWidth - rightWidth - (if rightWidth > 0 then 1 else 0)
 
   let private isCommandLine line =
     line.Kind = TuiLineKind.Command
@@ -395,15 +444,16 @@ module TransformerTuiModel =
   let private isCommandContinuation line =
     line.Kind = TuiLineKind.CommandContinuation
 
+  let private welcomeLines =
+    [ { Kind = TuiLineKind.System
+        Text = "Welcome to B2R2 Transformer interactive analysis." }
+      { Kind = TuiLineKind.System
+        Text =
+          "Enter a pipeline below. Tab completes; F1 opens the guide." } ]
+
   let initial =
     { Session = TransformerReplState.empty
-      Transcript =
-        [ { Kind = TuiLineKind.System
-            Text = "Welcome to B2R2 Transformer interactive analysis." }
-          { Kind = TuiLineKind.System
-            Text =
-              "Enter a pipeline below. Tab completes; F1 opens the guide." } ]
-        |> TuiTranscript.ofList
+      Transcript = welcomeLines |> TuiTranscript.ofList
       ResultBlocks = Map.empty
       LastViewLines = []
       Input = ""
@@ -439,6 +489,7 @@ module TransformerTuiModel =
       SidebarScrollOffset = 0
       SuggestionHeight = defaultSuggestionHeight
       BottomPaneOrder = TuiBottomPaneOrder.ShellAboveSuggestions
+      Layout = TuiLayout.Pane
       Status = "Ready"
       IsBusy = false
       SpinnerFrame = 0 }
@@ -1054,6 +1105,14 @@ module TransformerTuiModel =
   let setSuggestionHeight height model =
     { model with SuggestionHeight = max 1 height }
 
+  let setLayout layout model =
+    { model with
+        Layout = layout
+        TranscriptViewportStart = None
+        ScrollOffset = 0
+        MouseDragTarget = None
+        MouseDragPosition = None }
+
   let bottomPaneOrderName model =
     match model.BottomPaneOrder with
     | TuiBottomPaneOrder.ShellAboveSuggestions ->
@@ -1356,13 +1415,19 @@ module TransformerTuiModel =
           TextStart = 0
           TextEnd = 0
           Line = line }
-      match line.Line.Kind with
-      | TuiLineKind.Command ->
-        flush ()
-        blockIndex <- blockIndex + 1
-        block.Add line
-      | _ ->
-        block.Add line
+      let isWelcome =
+        model.Layout = TuiLayout.Console
+        && (welcomeLines |> List.tryItem lineIndex) = Some line.Line
+      if not isWelcome then
+        match line.Line.Kind with
+        | TuiLineKind.Command ->
+          flush ()
+          blockIndex <- blockIndex + 1
+          block.Add line
+        | _ ->
+          block.Add line
+      else
+        ()
       lineIndex <- lineIndex + 1
     flush ()
     Seq.toList output
@@ -1408,13 +1473,16 @@ module TransformerTuiModel =
       else
         None
     let start =
-      match selected with
-      | Some selected when selected < anchor ->
-        selected
-      | Some selected when selected >= anchor + height ->
-        selected - height + 1
-      | _ ->
-        anchor
+      if model.Layout = TuiLayout.Console && selected.IsNone then
+        maximumStart
+      else
+        match selected with
+        | Some selected when selected < anchor ->
+          selected
+        | Some selected when selected >= anchor + height ->
+          selected - height + 1
+        | _ ->
+          anchor
     max 0 (min maximumStart start)
 
   let transcriptLayout width height model =
@@ -1422,7 +1490,7 @@ module TransformerTuiModel =
     | Some cache when cache.Width = width
                       && cache.Height = height
                       && Object.ReferenceEquals(cache.Model, model) ->
-      cache.Layout
+      cache.TranscriptLayout
     | _ ->
       let rows =
         transcriptDisplayLines model
@@ -1439,8 +1507,17 @@ module TransformerTuiModel =
         Some { Model = model
                Width = width
                Height = height
-               Layout = layout }
+               TranscriptLayout = layout }
       layout
+
+  let transcriptTopPadding height model layout =
+    match model.Layout, model.Overlay with
+    | TuiLayout.Console, TuiOverlay.None
+    | TuiLayout.Console, TuiOverlay.Message
+    | TuiLayout.Console, TuiOverlay.CommandPalette ->
+      max 0 (height - layout.Rows.Length)
+    | _ ->
+      0
 
   let scrollTranscript width height amount model =
     let layout = transcriptLayout width height model
@@ -1456,6 +1533,7 @@ module TransformerTuiModel =
       None
     else
       let layout = transcriptLayout width height model
+      let padding = transcriptTopPadding height model layout
       transcriptCursorRowIndex model layout.Rows
       |> Option.bind (fun index ->
         if index < layout.ViewportStart
@@ -1467,7 +1545,11 @@ module TransformerTuiModel =
             model.TranscriptCursor.Column - row.TextStart
             |> max 0
             |> min (row.TextEnd - row.TextStart)
-          Some(index - layout.ViewportStart, 3 + local))
+          let column =
+            match model.Layout with
+            | TuiLayout.Pane -> 3 + local
+            | TuiLayout.Console -> 2 + local
+          Some(padding + index - layout.ViewportStart, column))
 
   let private transcriptLineOfSource direction model source =
     match source with
@@ -1495,22 +1577,30 @@ module TransformerTuiModel =
       transcriptLineOfSource 0 model displayLine.Source
       |> Option.defaultValue model.TranscriptCursor.Line
     let length = displayLine.TextEnd - displayLine.TextStart
-    let local = max 0 (min length (column - 4))
+    let prefix =
+      match model.Layout with
+      | TuiLayout.Pane -> 4
+      | TuiLayout.Console -> 3
+    let local = max 0 (min length (column - prefix))
     { Line = line; Column = displayLine.TextStart + local }
     |> clampCursor transcript
 
   let trySelectTranscriptAt width height row column extend model =
     let bodyWidth = transcriptBodyWidth width model
     let bodyHeight = transcriptHeight height model
-    let bodyRow = row - 4
+    let bodyRow = row - bodyStartRow model
     let layout = transcriptLayout bodyWidth bodyHeight model
-    let displayIndex = layout.ViewportStart + bodyRow
+    let padding = transcriptTopPadding bodyHeight model layout
+    let displayIndex = layout.ViewportStart + bodyRow - padding
+    let inColumn =
+      match model.Layout with
+      | TuiLayout.Console -> column >= 1 && column <= bodyWidth
+      | TuiLayout.Pane -> column >= 2 && column < bodyWidth
     let isInBody =
       model.Overlay = TuiOverlay.None
       && bodyRow >= 0
       && bodyRow < bodyHeight
-      && column >= 2
-      && column < bodyWidth
+      && inColumn
     if not isInBody then
       None
     else

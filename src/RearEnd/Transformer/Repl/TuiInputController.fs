@@ -134,27 +134,38 @@ module TransformerTuiInputController =
       None
 
   let private layoutSummary (model: TransformerTuiModel) =
-    let sidebar =
-      match model.SidebarWidth with
-      | None ->
-        "auto"
-      | Some 0 ->
-        "off"
-      | Some width ->
-        string width
-    $"layout sidebar={sidebar} "
-    + $"suggestions={model.SuggestionHeight} "
-    + $"order={TransformerTuiModel.bottomPaneOrderName model}"
+    match model.Layout with
+    | TuiLayout.Console ->
+      "layout mode=console"
+    | TuiLayout.Pane ->
+      let sidebar =
+        match model.SidebarWidth with
+        | None -> "auto"
+        | Some 0 -> "off"
+        | Some width -> string width
+      $"layout mode=pane sidebar={sidebar} "
+      + $"suggestions={model.SuggestionHeight} "
+      + $"order={TransformerTuiModel.bottomPaneOrderName model}"
 
   let private applyLayoutOption (optionText: string) model =
     let index = optionText.IndexOf '='
     if index <= 0 then
-      Error $"Invalid layout option: {optionText}"
+      match TuiLayout.tryParse (optionText.ToLowerInvariant()) with
+      | Some layout ->
+        Ok(TransformerTuiModel.setLayout layout model)
+      | None ->
+        Error $"Invalid layout option: {optionText}"
     else
       let key = optionText.Substring(0, index).Trim().ToLowerInvariant()
       let value =
         optionText.Substring(index + 1).Trim().ToLowerInvariant()
       match key, value with
+      | "mode", _ ->
+        match TuiLayout.tryParse value with
+        | Some layout ->
+          Ok(TransformerTuiModel.setLayout layout model)
+        | None ->
+          Error "mode must be pane or console."
       | "suggestions", "auto" ->
         Ok(TransformerTuiModel.setSuggestionHeight
              TransformerTuiModel.defaultSuggestionHeight
@@ -197,10 +208,6 @@ module TransformerTuiInputController =
     let command =
       if command.StartsWith ':' then command else ":" + command
     let words = InputAnalysis.splitWords command
-    let model =
-      model
-      |> TransformerTuiModel.appendCommand command
-      |> TransformerTuiModel.clearInput
     let result =
       match words with
       | [ ":layout" ] ->
@@ -215,13 +222,11 @@ module TransformerTuiInputController =
     | Ok next ->
       let summary = layoutSummary next
       next
-      |> TransformerTuiModel.appendLines TuiLineKind.Output [ summary ]
       |> TransformerTuiModel.setStatus summary
       |> TuiInputResult.Update
     | Error message ->
       model
-      |> TransformerTuiModel.appendLines TuiLineKind.Error [ message ]
-      |> TransformerTuiModel.setStatus "Layout failed"
+      |> TransformerTuiModel.setStatus message
       |> TuiInputResult.Update
 
   let private isLayoutCommand (input: string) =
@@ -233,7 +238,9 @@ module TransformerTuiInputController =
 
   let private submitPhrase command model =
     if isLayoutCommand command then
-      applyLayoutCommand command model
+      model
+      |> TransformerTuiModel.clearInput
+      |> applyLayoutCommand command
     else
       TuiInputResult.Execute(model, command)
 
@@ -307,20 +314,22 @@ module TransformerTuiInputController =
   let private tryHandleLayoutShortcut (key: ConsoleKeyInfo) model =
     let width, height = TransformerTuiTerminal.dimensions ()
     let defaultWidth = if width >= 100 then min 34 (width / 3) else 34
-    match key.Key with
-    | ConsoleKey.LeftArrow ->
+    match model.Layout, key.Key with
+    | TuiLayout.Console, _ ->
+      None
+    | TuiLayout.Pane, ConsoleKey.LeftArrow ->
       TransformerTuiModel.adjustSidebarWidth defaultWidth 2 model
       |> TuiInputResult.Update
       |> Some
-    | ConsoleKey.RightArrow ->
+    | TuiLayout.Pane, ConsoleKey.RightArrow ->
       TransformerTuiModel.adjustSidebarWidth defaultWidth -2 model
       |> TuiInputResult.Update
       |> Some
-    | ConsoleKey.UpArrow ->
+    | TuiLayout.Pane, ConsoleKey.UpArrow ->
       TransformerTuiModel.adjustSuggestionHeight height 1 model
       |> TuiInputResult.Update
       |> Some
-    | ConsoleKey.DownArrow ->
+    | TuiLayout.Pane, ConsoleKey.DownArrow ->
       TransformerTuiModel.adjustSuggestionHeight height -1 model
       |> TuiInputResult.Update
       |> Some
@@ -519,10 +528,17 @@ module TransformerTuiInputController =
 
   let private submitCommandPalette model =
     let command = model.PaletteInput.Trim()
+    let viewPane = model.ViewPane
     let model = TransformerTuiModel.closeOverlay model
     if String.IsNullOrEmpty command then
       TuiInputResult.Update model
     elif isLayoutCommand command then
+      let model =
+        match viewPane with
+        | Some pane ->
+          { model with Overlay = TuiOverlay.View; ViewPane = Some pane }
+        | None ->
+          model
       applyLayoutCommand command model
     else
       TuiInputResult.ExecuteCommand(model, command)
@@ -567,7 +583,12 @@ module TransformerTuiInputController =
     let column = mouse.Column
     match model.Overlay with
     | TuiOverlay.None ->
-      if TransformerTuiRenderer.isSidebarAt
+      if model.Layout = TuiLayout.Console then
+        let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+        let bodyHeight = TransformerTuiModel.transcriptHeight height model
+        TransformerTuiModel.scrollTranscript
+          bodyWidth bodyHeight (-direction) model
+      elif TransformerTuiRenderer.isSidebarAt
            width height model row column then
         let visible = TransformerTuiModel.transcriptHeight height model
         TransformerTuiModel.scrollSidebar visible (-direction) model
@@ -587,7 +608,10 @@ module TransformerTuiInputController =
       else
         model
     | TuiOverlay.View ->
-      if TransformerTuiRenderer.isSidebarAt
+      if model.Layout = TuiLayout.Console then
+        TransformerTuiRenderer.moveViewCursorByRows
+          width height (-direction) false model
+      elif TransformerTuiRenderer.isSidebarAt
            width height model row column then
         let visible = TransformerTuiModel.transcriptHeight height model
         TransformerTuiModel.scrollSidebar visible (-direction) model
@@ -767,22 +791,16 @@ module TransformerTuiInputController =
     let model =
       TransformerTuiModel.scrollTranscript
         bodyWidth bodyHeight direction model
-    let edgeRow = if direction < 0 then 4 else 3 + bodyHeight
+    let start = TransformerTuiModel.bodyStartRow model
+    let edgeRow = if direction < 0 then start else start + bodyHeight - 1
     let edgeColumn = max 2 (min (bodyWidth - 1) mouse.Column)
     let edge = { mouse with Row = edgeRow; Column = edgeColumn }
     selectTranscriptLine width height edge true model
     |> Option.defaultValue model
 
   let private inputAutoScrollDirection height mouse model =
-    let bodyHeight = TransformerTuiModel.transcriptHeight height model
-    let suggestions = TransformerTuiModel.suggestionHeight height model
     let inputRows = TransformerTuiModel.visibleShellInputRows height model
-    let start =
-      match model.BottomPaneOrder with
-      | TuiBottomPaneOrder.ShellAboveSuggestions ->
-        5 + bodyHeight
-      | TuiBottomPaneOrder.SuggestionsAboveShell ->
-        5 + bodyHeight + suggestions
+    let start = TransformerTuiModel.inputStartRow height model
     if mouse.Row < start then -1
     elif mouse.Row >= start + inputRows then 1
     else 0
@@ -808,9 +826,10 @@ module TransformerTuiInputController =
             IsRelease = false
             IsDrag = true }
         let bodyHeight = TransformerTuiModel.transcriptHeight height model
+        let bodyStart = TransformerTuiModel.bodyStartRow model
         let direction =
-          if row < 4 then -1
-          elif row >= 4 + bodyHeight then 1
+          if row < bodyStart then -1
+          elif row >= bodyStart + bodyHeight then 1
           else 0
         let inputDirection =
           if target = TuiMouseDragTarget.Input then
@@ -978,7 +997,7 @@ module TransformerTuiInputController =
     width height completion (mouse: TuiMouseEvent) clickCount model =
     let header =
       TransformerTuiRenderer.tryHeaderHitAt
-        width mouse.Row mouse.Column
+        width model mouse.Row mouse.Column
     let findCursor =
       TransformerTuiRenderer.tryFindCursorAt
         width height model mouse.Row mouse.Column
@@ -1075,7 +1094,7 @@ module TransformerTuiInputController =
     let isMotion = mouse.IsDrag || mouse.IsRelease
     let isCopy =
       match TransformerTuiRenderer.tryHeaderHitAt
-              width mouse.Row mouse.Column with
+              width model mouse.Row mouse.Column with
       | Some TransformerTuiRenderer.HeaderCopy -> true
       | _ -> false
     if isWheel || isMotion then
@@ -1108,6 +1127,11 @@ module TransformerTuiInputController =
     | None ->
       if key.Key = ConsoleKey.F2 then
         toggleCommandPalette model |> TuiInputResult.Update
+      elif key.Key = ConsoleKey.F6 then
+        let layout =
+          if model.Layout = TuiLayout.Console then TuiLayout.Pane
+          else TuiLayout.Console
+        TransformerTuiModel.setLayout layout model |> TuiInputResult.Update
       elif control && key.Key = ConsoleKey.C then
         copySelection model |> TuiInputResult.Update
       elif key.Key = ConsoleKey.F1 then
