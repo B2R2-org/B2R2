@@ -201,5 +201,6 @@ let parse (bytes: byte[]) (reader: IBinReader) secOffset secSize imageBase =
             | _ -> None
           { FuncStart = imageBase + uint64 entry.Start
             FuncEnd = imageBase + uint64 fend
+            IsFragment = false
             LSDAPointer = lsda
             PersonalityRoutine = toPersonality slots entry.Encoding } ]

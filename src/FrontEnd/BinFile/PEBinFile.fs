@@ -334,6 +334,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
       [| for f in unwindFrames.Value do
            { FunctionStart = f.FuncStart
              FunctionEnd = f.FuncEnd - 1UL
+             IsFragment = f.IsChained
              PersonalityRoutine = f.Personality
              Handlers =
                f.Handlers

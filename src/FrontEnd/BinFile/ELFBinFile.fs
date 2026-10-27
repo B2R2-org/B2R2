@@ -435,6 +435,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
            for fde in cfi.FDEs do
              { FunctionStart = fde.PCBegin
                FunctionEnd = fde.PCEnd - 1UL
+               IsFragment = fde.StartsMidFrame
                PersonalityRoutine = personality
                Handlers = toExceptionHandlers fde } |]
       |> ImmutableArray.ofArray

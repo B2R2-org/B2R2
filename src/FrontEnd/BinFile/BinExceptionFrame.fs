@@ -29,10 +29,17 @@ open B2R2
 /// Represents format-agnostic exception/unwinding information for one function
 /// frame, such as a DWARF FDE in ELF/Mach-O or a RUNTIME_FUNCTION in PE x64.
 type BinExceptionFrame =
-  { /// Start address of the function (inclusive).
+  { /// Start address of the function (inclusive), or of the fragment when
+    /// the frame is one.
     FunctionStart: Addr
     /// End address of the function (inclusive).
     FunctionEnd: Addr
+    /// Whether this frame carries on a function that starts elsewhere rather
+    /// than opening one of its own: a part that a compiler split off the
+    /// function, such as a GCC cold part, whose DWARF FDE starts in the middle
+    /// of the function's frame, or a PE RUNTIME_FUNCTION chained to the
+    /// function's.
+    IsFragment: bool
     /// Address of the personality/handler routine that governs this frame, if
     /// any (e.g., a DWARF CIE personality or a PE UNWIND_INFO handler). A CIE
     /// that encodes its personality indirectly gives the address of the slot

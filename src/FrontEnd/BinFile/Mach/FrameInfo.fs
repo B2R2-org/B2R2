@@ -33,6 +33,10 @@ type internal FrameInfo =
     FuncStart: Addr
     /// End address of the function (exclusive).
     FuncEnd: Addr
+    /// Whether the frame carries on a function that starts elsewhere, as a
+    /// DWARF FDE starting in the middle of a frame does. A compact unwind
+    /// entry does not say, so it is taken to open a function.
+    IsFragment: bool
     /// Address of the LSDA governing this frame, if any.
     LSDAPointer: Addr option
     /// Address at which this frame's personality routine is recorded: the 'P'

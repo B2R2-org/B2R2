@@ -2156,6 +2156,14 @@ type ELFTests() =
     CollectionAssert.AreEqual([| 0x1020UL |], starts)
 
   [<TestMethod>]
+  member _.``[ELF] x64 only the PLT frame is a fragment``() =
+    let fragments =
+      (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
+      |> ImmutableArray.choose (fun f ->
+        if f.IsFragment then Some f.FunctionStart else None)
+    CollectionAssert.AreEqual([| 0x1020UL |], fragments)
+
+  [<TestMethod>]
   member _.``[ELF] arm32 exidx exception table is parsed``() =
     let frames = (arm32ExidxFile :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<bool>(true, frames.Length > 0)
