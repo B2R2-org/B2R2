@@ -24,6 +24,7 @@
     <Compile Include="LoggingTests.fs" />
     <Compile Include="ISATests.fs" />
     <Compile Include="AddrTests.fs" />
+    <Compile Include="AgentTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -57,6 +57,13 @@ type TaskManager<'FnCtx, 'GlCtx
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
+  /// Stops the scheduler, which would otherwise wait forever for a message once
+  /// the workers are done, holding on to every builder while it waits.
+  let stopScheduler () =
+    cts.Cancel()
+    managerMsgbox.Task.Wait()
+    cts.Dispose()
+
   /// Update callers of each builder.
   let updateCallers () =
     for builder in builders.Values do
@@ -99,6 +106,7 @@ type TaskManager<'FnCtx, 'GlCtx
     createBuilders candidates targetAddrs
     startBuildingCFGs targetAddrs
     waitForWorkers ()
+    stopScheduler ()
     updateCallers ()
 #if CFGDEBUG
     for tid in 0 .. numThreads do flushLog tid

@@ -11,6 +11,7 @@
     <Compile Include="BBLCutTests.fs" />
     <Compile Include="BBLScanTests.fs" />
     <Compile Include="FunctionSummaryTests.fs" />
+    <Compile Include="BinaryBrewTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

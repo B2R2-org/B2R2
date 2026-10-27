@@ -39,11 +39,15 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
   member _.Task with get() = task
 
   /// Starts a new agent with a given task function and a cancellation token.
+  /// Cancelling the token stops the agent, even one waiting for a message.
   static member Start(taskFn: IAgentMessageReceivable<'Msg> -> unit, token) =
     let ch = BufferBlock<'Msg>()
     let receivable =
       { new IAgentMessageReceivable<'Msg> with
           member _.Receive() =
+            (* GetResult rather than Result, so that a cancelled wait raises
+               OperationCanceledException itself, not one wrapped in an
+               AggregateException, for the agent to recognize below. *)
             task {
               let! isAvailable = ch.OutputAvailableAsync token
               if isAvailable then
@@ -52,12 +56,16 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
                 | false, _ -> return raise <| InvalidOperationException()
               else
                 return raise <| OperationCanceledException()
-            } |> fun task -> task.Result
+            } |> fun task -> task.GetAwaiter().GetResult()
           member _.Complete() = ch.Complete()
           member _.IsCancelled with get() = token.IsCancellationRequested
           member _.Count with get() = ch.Count }
     let fn = fun () ->
-      try taskFn receivable with e -> e.ToString() |> Terminator.fatalExit
+      try
+        taskFn receivable
+      with
+      | :? OperationCanceledException when token.IsCancellationRequested -> ()
+      | e -> e.ToString() |> Terminator.fatalExit
     Agent(ch, Task.Run(fn, cancellationToken = token))
 
   /// Posts a message to the agent.
