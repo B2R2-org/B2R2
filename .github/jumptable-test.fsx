@@ -148,11 +148,14 @@ let private recover (hdl: BinHandle) =
   finally
     Console.SetOut saved
 
-/// Compares the targets of two tables that matched on their branch address.
-/// Function pointer tables become tail calls rather than intraprocedural
-/// edges, so their targets are counted as skipped instead of scored.
+/// Tells whether the targets of a table are scored. Function pointer tables
+/// become tail calls rather than intraprocedural edges, so theirs are not.
+let private isScored (table: Table) = table.Kind <> "functionPointerTable"
+
+/// Compares the targets of two tables that matched on their branch address,
+/// counting a table whose targets are not scored as skipped.
 let private scoreTargets (score: Score) (expected: Table) (actual: Table) =
-  if expected.Kind = "functionPointerTable" then
+  if not (isScored expected) then
     { score with Skipped = score.Skipped + 1 }
   else
     let tp = Set.intersect expected.Targets actual.Targets |> Set.count
@@ -161,8 +164,10 @@ let private scoreTargets (score: Score) (expected: Table) (actual: Table) =
         TargetFP = score.TargetFP + (Set.count actual.Targets - tp)
         TargetFN = score.TargetFN + (Set.count expected.Targets - tp) }
 
+let private byAddr tables =
+  tables |> List.map (fun t -> t.InsAddr, t) |> Map.ofList
+
 let private scoreCase case expected actual =
-  let byAddr = List.map (fun t -> t.InsAddr, t) >> Map.ofList
   let expected, actual = byAddr expected, byAddr actual
   let matched = Map.keys expected |> Seq.filter actual.ContainsKey |> List.ofSeq
   let score =
@@ -186,6 +191,43 @@ let private report (score: Score) =
     verdict score.Case score.TableTP score.TableFP score.TableFN
     score.TargetTP score.TargetFP score.TargetFN score.Skipped
 
+let private hexes (addrs: Set<Addr>) =
+  addrs |> Seq.map (sprintf "0x%x") |> String.concat " "
+
+let private listAddrs label addrs =
+  if Set.isEmpty addrs then [] else [ label + " " + hexes addrs ]
+
+/// Says which targets of a matched table B2R2 missed and which it invented.
+let private diffTargets (expected: Table) (actual: Table) =
+  listAddrs "missing" (expected.Targets - actual.Targets)
+  @ listAddrs "extra" (actual.Targets - expected.Targets)
+  |> String.concat "; "
+
+/// Says what B2R2 got wrong at one branch address, if anything.
+let private diagnose expected actual addr =
+  match Map.tryFind addr expected, Map.tryFind addr actual with
+  | Some(e: Table), None ->
+    Some $"missed table ({e.Kind}, {e.Targets.Count} targets)"
+  | None, Some(a: Table) ->
+    Some $"invented table ({a.Kind}, {a.Targets.Count} targets)"
+  | Some e, Some a when isScored e && e.Targets <> a.Targets ->
+    Some(diffTargets e a)
+  | _ ->
+    None
+
+/// Prints a line for every branch B2R2 got wrong, with its instruction, so a
+/// failing case can be chased down from its addresses. A case that passed
+/// prints nothing here.
+let private explain (hdl: BinHandle) expected actual =
+  let expected, actual = byAddr expected, byAddr actual
+  let keys m = Map.keys m |> Set.ofSeq
+  let lu = hdl.NewLiftingUnit()
+  for addr in Set.union (keys expected) (keys actual) do
+    diagnose expected actual addr
+    |> Option.iter (fun problem ->
+      let ins = lu.ParseInstruction(addr: Addr).Disasm()
+      printfn "  0x%x %s: %s" addr ins problem)
+
 /// Scores one binary against one ground truth file and reports the result.
 let private scoreFile case binPath jsonPath =
   let arch, expected = readTruth jsonPath
@@ -193,8 +235,10 @@ let private scoreFile case binPath jsonPath =
   | None ->
     None
   | Some hdl ->
-    let score = scoreCase case expected (recover hdl)
+    let actual = recover hdl
+    let score = scoreCase case expected actual
     report score
+    explain hdl expected actual
     Some score
 
 let private runCase binDir jsonPath =
