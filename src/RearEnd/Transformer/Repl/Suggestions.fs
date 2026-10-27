@@ -668,12 +668,12 @@ module Suggestions =
         [ "buf=0x70000000..0x70001000:rw"
           "stack=0x70fff000..0x71000000:rw"
           "code=0x401000..0x402000:rx" ]
-    | "buffers" ->
+    | "ptr-regs" ->
       valueCandidates
         SuggestionKind.Argument
         "allocated buffer"
         prefix
-        [ "RDI=track:0x400:rw" ]
+        [ "RDI=0x400:rw" ]
     | "sym-args" ->
       valueCandidates
         SuggestionKind.Argument
@@ -720,8 +720,8 @@ module Suggestions =
           contextListValueCandidates "sym-mem" context.Prefix |> Some
         | Some "regions" ->
           contextListValueCandidates "regions" context.Prefix |> Some
-        | Some "buffers" ->
-          contextListValueCandidates "buffers" context.Prefix |> Some
+        | Some "ptr-regs" ->
+          contextListValueCandidates "ptr-regs" context.Prefix |> Some
         | Some "sym-args" ->
           contextListValueCandidates "sym-args" context.Prefix |> Some
         | Some "args" ->
@@ -947,7 +947,8 @@ module Suggestions =
           requiredMemoryCandidates "=" state prefix
         elif isExecutionAction registered.Metadata.ID
              && List.contains name
-               [ "sym-mem"; "regions"; "buffers"; "sym-args"; "args" ] then
+               [ "sym-mem"; "regions"; "ptr-regs"; "sym-args"; "args" ]
+             then
           contextListValueCandidates name prefix
         else
           arguments

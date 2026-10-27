@@ -926,8 +926,8 @@ module ActionMetadata =
       optional "args" ActionArgumentKind.Text
         "ABI arguments: [0=0x1; 1=0x2]."
     let buffers =
-      optional "buffers" ActionArgumentKind.Text
-        "Allocated buffers: [RDI=track:0x400:rw]."
+      optional "ptr-regs" ActionArgumentKind.Text
+        "Pointer registers: [RDI=0x400:rw]."
     overloadContract
       "make-concrete-executor"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
@@ -936,7 +936,7 @@ module ActionMetadata =
       20
       ("make-concrete-executor [stack=<addr>] [regs=[...]] "
        + "[mem=[...]] [regions=[...]] [args=[...]] "
-       + "[buffers=[...]] -> ConcExecutor")
+       + "[ptr-regs=[...]] -> ConcExecutor")
       [ "binary |> @make-concrete-executor"
         "binary |> @make-concrete-executor regs=[RDI=0x70000000]"
         "binary |> @make-concrete-executor args=[0=0x70000000]" ]
@@ -1191,8 +1191,8 @@ module ActionMetadata =
           DefaultValue = Some ActionArgumentDefault.EmptyList
           Choices = [ "[]" ] }
     let buffers =
-      { required "buffers" ActionArgumentKind.Text
-          "Allocated buffers: [RDI=track:0x400:rw]." with
+      { required "ptr-regs" ActionArgumentKind.Text
+          "Pointer registers: [RDI=0x400:rw]." with
           IsOptional = true
           DefaultValue = Some ActionArgumentDefault.EmptyList
           Choices = [ "[]" ] }
@@ -1238,10 +1238,10 @@ module ActionMetadata =
       ActionRole.Transform
       20
       ("Binary -> run-concrete entry=<addr> [stack=<addr>] [regs=[...]] "
-       + "[mem=[...]] [regions=[...]] [args=[...]] [buffers=[...]] "
+       + "[mem=[...]] [regions=[...]] [args=[...]] [ptr-regs=[...]] "
        + "[limit=<n>] | ConcExecutor -> run-concrete [entry=<addr>] "
        + "[limit=<n>] [break=<addr>] -> ConcExecutor")
-      [ "binary |> @run-concrete entry=<entry> regs=[...] buffers=[...]"
+      [ "binary |> @run-concrete entry=<entry> ptr-regs=[...]"
         "executor |> @run-concrete entry=<entry> limit=<limit>"
         "executor |> @run-concrete entry=<entry> limit=<limit> break=<addr>" ]
       [ binarySyntax; executorSyntax ]

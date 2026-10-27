@@ -88,16 +88,20 @@ module ExecutionSetup =
   let private parseBuffer (entry: string) =
     let register, spec = ContextParsing.splitAssignment entry
     let parts = spec.Split(':')
-    if parts.Length <> 3 || String.IsNullOrWhiteSpace parts[0] then
-      invalidArg (nameof entry)
-        $"Expected buffer REG=name:size:permission: {entry}"
-    else
-      ()
-    let size = ContextParsing.parseAddress parts[1]
+    let name, sizeText, permissionText =
+      match parts with
+      | [| size; permission |] ->
+        register, size, permission
+      | [| name; size; permission |] ->
+        ContextParsing.parseQuotedName entry name, size, permission
+      | _ ->
+        invalidArg (nameof entry)
+          $"Expected REG=[\"name\":]size:permission: {entry}"
+    let size = ContextParsing.parseAddress sizeText
     if size = 0UL then
       invalidArg (nameof entry) "Buffer size must be positive."
     else
-      register, parts[0].Trim(), size, permission entry parts[2]
+      register, name, size, permission entry permissionText
 
   let parseBuffers text =
     let buffers = ContextParsing.entries text |> Array.map parseBuffer
@@ -220,7 +224,7 @@ module ExecutionSetup =
     layoutAt hdl stackPointer bufferText
 
   let requestedBufferSpec options hasArguments =
-    Map.tryFind "buffers" options
+    Map.tryFind "ptr-regs" options
     |> Option.orElseWith (fun () ->
       if hasArguments then Some "[]" else None)
 

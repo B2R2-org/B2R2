@@ -1275,7 +1275,7 @@ type ConcExecAction() =
     member _.Signature with get() =
       "Binary | BinarySlice -> make-concrete-executor "
       + "[stack=<addr>] [regs=[...]] [mem=[...]] [regions=[...]] "
-      + "[args=[...]] [buffers=[...]] -> ConcExecutor"
+      + "[args=[...]] [ptr-regs=[...]] -> ConcExecutor"
     member _.Description with get() =
       "Create a stateful concrete executor backed by binary section memory."
     member _.Transform(args, collection) =
@@ -1294,11 +1294,11 @@ type RunAction() =
   let runBinaryNamed ct options (binary: Binary) =
     let entry = Map.find "entry" options
     let setup =
-      if Map.containsKey "buffers" options
+      if Map.containsKey "ptr-regs" options
          || Map.containsKey "stack" options then
         options
       else
-        Map.add "buffers" "[]" options
+        Map.add "ptr-regs" "[]" options
     let executor, _ = ConcExecutorSetup.create binary setup
     let accessor = ConcStateAccessor(Binary.Handle binary, executor.State)
     let returnSP =
@@ -1318,11 +1318,14 @@ type RunAction() =
   let runBinary ct args binary =
     match args with
     | [ entry; regs; buffers ] ->
-      [ "entry", entry; "regs", regs; "buffers", buffers ]
+      [ "entry", entry; "regs", regs; "ptr-regs", buffers ]
       |> Map.ofList
       |> fun options -> runBinaryNamed ct options binary
     | [ entry; regs; buffers; limit ] ->
-      [ "entry", entry; "regs", regs; "buffers", buffers; "limit", limit ]
+      [ "entry", entry
+        "regs", regs
+        "ptr-regs", buffers
+        "limit", limit ]
       |> Map.ofList
       |> fun options -> runBinaryNamed ct options binary
     | _ ->
@@ -1367,7 +1370,7 @@ type RunAction() =
     member _.Signature with get() =
       "Binary -> run-concrete entry=<addr> [stack=<addr>] "
       + "[regs=[...]] [mem=[...]] [regions=[...]] [args=[...]] "
-      + "[buffers=[...]] [limit=<n>] | ConcExecutor -> run-concrete "
+      + "[ptr-regs=[...]] [limit=<n>] | ConcExecutor -> run-concrete "
       + "[entry=<addr>] [limit=<n>] [break=<addr>] -> ConcExecutor"
     member _.Description with get() =
       "Run concrete execution and update the executor state."
