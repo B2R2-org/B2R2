@@ -96,6 +96,18 @@ module internal ReplPipeline =
       IsCollection = false
       Collection = { Values = [| box printed |] } }
 
+  let private unquoteActionArgument (argument: string) =
+    let separator = argument.IndexOf '='
+    if separator > 0 then
+      let value = argument[separator + 1..].TrimStart()
+      if value.StartsWith("[", StringComparison.Ordinal)
+         && value.EndsWith("]", StringComparison.Ordinal) then
+        argument
+      else
+        ReplLanguage.unquote argument
+    else
+      ReplLanguage.unquote argument
+
   let private tryGetPrintedValue (value: ReplValue) =
     match value.Kind, value.Collection.Values with
     | ReplValueKind.Unit, [| :? PrintedValue as printed |] ->
@@ -146,8 +158,8 @@ module internal ReplPipeline =
       let args =
         segment.Arguments
         |> resolveArgumentBindings state
-        |> List.map ReplLanguage.unquote
         |> compactBracketArguments
+        |> List.map unquoteActionArgument
       let transformWith =
         transformWith registered input segment ct
       let isDirectSymbolic =

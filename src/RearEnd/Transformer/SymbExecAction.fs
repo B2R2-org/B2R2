@@ -109,14 +109,14 @@ module SymbSolverRegistry =
 
 type SymbolicInput =
   { Name: string
+    SolverName: string
     Location: string
     Size: int
     Query: IQueryExpr }
 
 type SymbSymbolicRegisterAssignment =
   { Register: string
-    Name: string
-    Size: int }
+    Name: string option }
 
 type SymbRegionPermission =
   { Read: bool
@@ -440,9 +440,11 @@ type SymbExecutorValue(binary: Binary,
   member _.WithSymbolicMemory(addr, name, size) =
     let state = state.Clone()
     let accessor = SymbStateAccessor(Binary.Handle binary, state)
-    let buffer = accessor.WriteSymbolicBuffer(name, addr, size)
+    let solverName = $"__b2r2_mem_{List.length inputs}"
+    let buffer = accessor.WriteSymbolicBuffer(solverName, addr, size)
     let input =
       { Name = name
+        SolverName = solverName
         Location = $"mem@0x{buffer.Address:x}"
         Size = size
         Query = buffer :> IQueryExpr }
@@ -458,10 +460,12 @@ type SymbExecutorValue(binary: Binary,
   member _.WithSymbolicArgument(index, name, size) =
     let state = state.Clone()
     let accessor = SymbStateAccessor(Binary.Handle binary, state)
-    let buffer = accessor.AllocateSymbolicBuffer(name, size)
+    let solverName = $"__b2r2_arg_{List.length inputs}"
+    let buffer = accessor.AllocateSymbolicBuffer(solverName, size)
     accessor.SetArgumentBuffer(index, buffer)
     let input =
       { Name = name
+        SolverName = solverName
         Location = $"arg{index}@0x{buffer.Address:x}"
         Size = size
         Query = buffer :> IQueryExpr }
@@ -474,19 +478,24 @@ type SymbExecutorValue(binary: Binary,
                       hookText,
                       solver)
 
-  member _.WithSymbolicRegister(register: string, name: string, size: int) =
+  member _.WithSymbolicRegister(register: string, name: string option) =
     let state = state.Clone()
     let hdl = Binary.Handle binary
     let accessor = SymbStateAccessor(hdl, state)
     let rid = hdl.RegisterFactory.GetRegisterID(name = register)
     let registerType = hdl.RegisterFactory.GetRegType rid
-    let bytes = accessor.CreateSymbolicBytes(name, size)
+    let size = RegType.toByteWidth registerType
+    let solverName = hdl.RegisterFactory.GetRegisterName rid
+    let name =
+      name |> Option.defaultValue solverName
+    let bytes = accessor.CreateSymbolicBytes(solverName, size)
     let value = symbolicRegisterValue hdl.ISA.Endian registerType bytes size
     let query = symbolicRegisterQuery bytes
     accessor.SetRegister(rid, value)
     setX64ParentRegister hdl accessor register value
     let input =
       { Name = name
+        SolverName = solverName
         Location = $"reg:{register}"
         Size = size
         Query = query }
@@ -591,8 +600,7 @@ type SymbExecutorValue(binary: Binary,
     let applySymbolicRegister (executor: SymbExecutorValue)
                               (assignment: SymbSymbolicRegisterAssignment) =
       executor.WithSymbolicRegister(assignment.Register,
-                                    assignment.Name,
-                                    assignment.Size)
+                                    assignment.Name)
     let applyRegion (executor: SymbExecutorValue)
                     (region: SymbMemoryRegion) =
       executor.WithRegion region
@@ -642,8 +650,7 @@ type SymbExecutorValue(binary: Binary,
     |> List.fold (fun (current: SymbExecutorValue)
                       (assignment: SymbSymbolicRegisterAssignment) ->
       current.WithSymbolicRegister(assignment.Register,
-                                   assignment.Name,
-                                   assignment.Size)) withRegions
+                                   assignment.Name)) withRegions
 
   member _.RunSatisfy(target, maxDepth, maxStates, loopBound, prune, ct) =
     let query =
@@ -788,16 +795,38 @@ and SymbRunValue(source: SymbExecutorValue,
     |> Option.defaultWith (fun () ->
       result.SatisfiabilityAnswers |> List.map (fun _ -> None))
 
+  let displayNames =
+    source.Inputs
+    |> List.map (fun input -> input.SolverName, input.Name)
+    |> Map.ofList
+
+  let indexedName name =
+    let indexed = Regex.Match(name, "^(.+)_([0-9]+)$")
+    if indexed.Success then
+      Some(indexed.Groups[1].Value, indexed.Groups[2].Value)
+    else
+      None
+
+  let displayValue (value: SolverValue) =
+    match indexedName value.Name with
+    | Some(solverName, index) ->
+      match Map.tryFind solverName displayNames with
+      | Some name ->
+        { value with Name = $"{name}_{index}" }
+      | None ->
+        value
+    | None ->
+      value
+
   let valueText (value: SolverValue) =
     $"  {value.Name}: {value.Value}"
 
   let tryIndexedByte (value: SolverValue) =
-    let m = Regex.Match(value.Name, "^(.+)_([0-9]+)$")
-    if m.Success && value.Value.Length = 8<rt> then
-      let prefix = m.Groups[1].Value
-      let index = Int32.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture)
+    match indexedName value.Name with
+    | Some(prefix, index) when value.Value.Length = 8<rt> ->
+      let index = Int32.Parse(index, CultureInfo.InvariantCulture)
       Some(prefix, index, byte (value.Value.ToUInt64()))
-    else
+    | _ ->
       None
 
   let printableAscii bytes =
@@ -878,7 +907,7 @@ and SymbRunValue(source: SymbExecutorValue,
     sb.AppendLine(
       $"  path-conditions: {List.length answer.State.PathCondition}")
     |> ignore
-    appendInputModels sb answer.Values
+    answer.Values |> List.map displayValue |> appendInputModels sb
 
   let appendReachAnswer
         (sb: StringBuilder)
@@ -905,12 +934,14 @@ and SymbRunValue(source: SymbExecutorValue,
 
   member _.ConcreteInputs =
     result.SatisfiabilityAnswers
-    |> List.collect (fun answer -> indexedByteGroups answer.Values)
+    |> List.collect (fun answer ->
+      answer.Values |> List.map displayValue |> indexedByteGroups)
 
   member _.InputModels =
     result.SatisfiabilityAnswers
     |> List.map (fun answer ->
-      answer.Target, answer.Values, indexedByteGroups answer.Values)
+      let values = answer.Values |> List.map displayValue
+      answer.Target, values, indexedByteGroups values)
 
   member _.Violations = violations
 
@@ -999,15 +1030,12 @@ module private SymbArgs =
         Size = parseInt (entry[sizeIndex + 1..].Trim()) }
 
   let parseSymbolicRegisterAssignment (entry: string) =
-    let register, spec = splitAssignment entry
-    let sizeIndex = spec.LastIndexOf ':'
-    if sizeIndex <= 0 then
-      invalidArg (nameof entry)
-        $"Expected symbolic register entry REG=name:size: {entry}"
-    else
+    if entry.Contains '=' then
+      let register, name = splitAssignment entry
       { Register = register
-        Name = spec[..sizeIndex - 1].Trim()
-        Size = parseInt (spec[sizeIndex + 1..].Trim()) }
+        Name = Some(ContextParsing.parseQuotedName entry name) }
+    else
+      { Register = entry.Trim(); Name = None }
 
   let parseRegionAssignment (entry: string) =
     let region = ContextParsing.parseRegion entry
@@ -1803,7 +1831,7 @@ type SymbExecAction() =
       "sym-regs"
       ActionArgumentKind.Text
       true
-      "Symbolic register assignments: [ESI=idx:4]."
+      "Symbolic registers: [ESI; RDX=\"value\"]."
   let regions =
     SymbMetadata.arg
       "regions"
@@ -1818,10 +1846,10 @@ type SymbExecAction() =
       "Symbolic ABI buffers: [0=input:32]."
   let buffers =
     SymbMetadata.arg
-      "buffers"
+      "ptr-regs"
       ActionArgumentKind.Text
       true
-      "Allocated buffers: [RDI=track:0x400:rw]."
+      "Pointer registers: [RDI=0x400:rw]."
   let avoid =
     SymbMetadata.arg
       "avoid"
@@ -1840,7 +1868,7 @@ type SymbExecAction() =
       + "[solver=<action>] [pc=<addr>] [stack=<addr>] "
       + "[regs=[...]] [mem=[...]] [sym-mem=[...]] "
       + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
-      + "[buffers=[...]] [avoid=[...]] [hooks=[...]] "
+      + "[ptr-regs=[...]] [avoid=[...]] [hooks=[...]] "
       + "-> SymbExecutor"
     { SymbMetadata.metadata
         "make-symbolic-executor"
@@ -1850,7 +1878,7 @@ type SymbExecAction() =
         signature
         "Create a symbolic executor over a binary or binary slice."
         [ "binary |> @make-symbolic-executor pc=<addr> "
-          + "sym-regs=[ESI=idx:4]" ] with
+          + "sym-regs=[ESI]" ] with
         AlternativeInputs = [ ReplValueKind.BinarySlice ]
         Syntaxes =
           [ SymbMetadata.syntax None
@@ -1946,7 +1974,7 @@ type SymbSearchAction() =
         "sym-regs"
         ActionArgumentKind.Text
         false
-        "Symbolic arguments: [ESI=idx:4; RDX=ind:8]." with
+        "Symbolic registers: [ESI; RDX=\"value\"]." with
         IsOptional = true
         DefaultValue = Some ActionArgumentDefault.EmptyList
         Choices = [ "[]" ] }
@@ -1964,10 +1992,10 @@ type SymbSearchAction() =
       "Symbolic ABI buffers: [0=input:32]."
   let buffers =
     { SymbMetadata.arg
-        "buffers"
+        "ptr-regs"
         ActionArgumentKind.Text
         false
-        "Allocated buffers: [RDI=track:0x400:rw]." with
+        "Pointer registers: [RDI=0x400:rw]." with
         IsOptional = true
         DefaultValue = Some ActionArgumentDefault.EmptyList
         Choices = [ "[]" ] }
@@ -2056,7 +2084,7 @@ type SymbSearchAction() =
     "Binary -> @run-symbolic entry=<addr> [solver=<action>] "
     + "[stack=<addr>] [regs=[...]] [mem=[...]] [sym-mem=[...]] "
     + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
-    + "[buffers=[...]] [avoid=[...]] [hooks=[...]] "
+    + "[ptr-regs=[...]] [avoid=[...]] [hooks=[...]] "
     + "[check=access-violation | cond=<fun>] | "
     + "SymbExecutor -> @run-symbolic "
     + "[check=access-violation | cond:ParameterFunction=<fun>] "
@@ -2074,7 +2102,7 @@ type SymbSearchAction() =
         ("Search for symbolic inputs satisfying a state condition. "
          + "By default, search for a memory access violation.")
         [ "binary |> @run-symbolic entry=<addr> "
-          + "sym-regs=[ESI=idx:4] buffers=[RDI=buf:0x400:rw]"
+          + "sym-regs=[ESI] ptr-regs=[RDI=0x400:rw]"
           "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
           "sx |> @run-symbolic precond=ESI>99:u32 "
           + "cond=(fun _ -> mem.accessViolation())"
@@ -2158,11 +2186,11 @@ type SymbSearchAction() =
     let entry = Map.find "entry" options
     let setup = options |> Map.add "pc" entry
     let setup =
-      if Map.containsKey "buffers" setup
+      if Map.containsKey "ptr-regs" setup
          || Map.containsKey "stack" setup then
         setup
       else
-        Map.add "buffers" "[]" setup
+        Map.add "ptr-regs" "[]" setup
     let executor, _ = SymbExecutorSetup.create binary setup
     let hdl = Binary.Handle binary
     let executor = withPrecondition hdl options executor
@@ -2190,13 +2218,13 @@ type SymbSearchAction() =
       Map.ofList
         [ "entry", entry
           "sym-regs", registers
-          "buffers", buffers ]
+          "ptr-regs", buffers ]
       |> fun options -> runBinaryNamed ct options binary
     | [ entry; registers; buffers; check ] ->
       Map.ofList
         [ "entry", entry
           "sym-regs", registers
-          "buffers", buffers
+          "ptr-regs", buffers
           "check", check ]
       |> fun options -> runBinaryNamed ct options binary
     | _ ->
