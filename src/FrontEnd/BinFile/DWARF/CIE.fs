@@ -228,8 +228,9 @@ module internal CIE =
         let reg, cnt = LEB128.decodeUInt64 (span.Slice i)
         let reg = byte reg
         let i = i + cnt
-        let offset, cnt = LEB128.decodeUInt64 (span.Slice i)
-        let target, action = getOffset isa rr reg (int64 offset)
+        let v, cnt = LEB128.decodeUInt64 (span.Slice i)
+        let offset = int64 v * df
+        let target, action = getOffset isa rr reg offset
         let rule = Map.add target action rule
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_offset_extended_sf ->
@@ -246,8 +247,7 @@ module internal CIE =
         let reg = byte reg
         let target = getTarget isa rr reg
         let rule = Map.remove target rule
-        getUnwind
-          acc cfa irule rst rule isa regs reg cf df rr span (i + cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_register ->
         let reg1, cnt = LEB128.decodeUInt64 (span.Slice i)
         let reg1 = byte reg1
@@ -275,7 +275,7 @@ module internal CIE =
         let target = getTarget isa rr reg
         let action = DWExpression.parse isa regs [] span i nextIdx |> ActionExpr
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs reg cf df rr span nextIdx loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span nextIdx loc
       | CFAInstruction.DW_CFA_val_expression ->
         let reg, cnt = LEB128.decodeUInt64 (span.Slice i)
         let reg = byte reg
@@ -287,7 +287,7 @@ module internal CIE =
         let action =
           DWExpression.parse isa regs [] span i nextIdx |> ActionValExpr
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs reg cf df rr span nextIdx loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span nextIdx loc
       | CFAInstruction.DW_CFA_advance_loc ->
         let loc' = loc + uint64 oparg * cf
         let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }

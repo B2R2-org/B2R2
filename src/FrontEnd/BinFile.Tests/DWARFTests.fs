@@ -37,8 +37,8 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 /// given bytes are not a valid instruction sequence.
 type private InvalidDWExpr = DWExpression.InvalidDWInstructionExpException
 
-/// Tests for reading DW_FORM_exprloc values, which are parsed in place from
-/// the debug section bytes.
+/// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
+/// values, and the call frame instructions of an FDE.
 [<TestClass>]
 type DWARFTests() =
   static let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
@@ -67,6 +67,46 @@ type DWARFTests() =
       Assert.AreEqual<uint64>(n, bv.ToUInt64())
     | _ ->
       Assert.Fail $"Unexpected expression: {PrettyPrinter.ToString expr}"
+
+  static let rsp = DWRegister.toRegID isa 7uy
+
+  /// Represents the CIE an x64 FDE starts from: the CFA is rsp+8 with the
+  /// return address (DWARF register 16) at CFA-8, and offsets are factored by
+  /// -8.
+  static let x64CIE =
+    { Version = 1uy
+      AugmentationString = "zR"
+      CodeAlignmentFactor = 1UL
+      DataAlignmentFactor = -8L
+      ReturnAddressRegister = 16uy
+      InitialUnwinding =
+        lazy
+          { Rule = Map.ofList [ ReturnAddress, Offset -8L ]
+            CFARegister = 7uy
+            CFA = RegPlusOffset(rsp, 8) }
+      Augmentations = [] }
+
+  /// Interprets the given call frame instructions as those of an x64 FDE, and
+  /// returns the last row they produce.
+  static let unwind (bytes: byte[]) =
+    let instrs = ReadOnlyMemory bytes
+    (FDE.parseCallFrameInstrs x64CIE isa regFactory instrs 0UL).Value
+    |> List.last
+
+  /// Asserts that the CFA of the given row is rsp plus n.
+  static let assertCFA n (row: UnwindingEntry) =
+    let expected = RegPlusOffset(rsp, n)
+    Assert.AreEqual<CanonicalFrameAddress>(expected, row.CanonicalFrameAddress)
+
+  let [<Literal>] DWCFAOffsetExtended = 0x05uy
+
+  let [<Literal>] DWCFAUndefined = 0x07uy
+
+  let [<Literal>] DWCFADefCFAOffset = 0x0euy
+
+  let [<Literal>] DWCFAExpression = 0x10uy
+
+  let [<Literal>] DWCFAValExpression = 0x16uy
 
   [<TestMethod>]
   member _.``[DWARF] string value ends past its terminator``() =
@@ -131,3 +171,35 @@ type DWARFTests() =
     let bytes = [| DWOpBreg6; 0x10uy |]
     Assert.ThrowsExactly<ArgumentOutOfRangeException>(fun () ->
       readExpr bytes 3 0 |> ignore) |> ignore
+
+  [<TestMethod>]
+  member _.``[DWARF] undefined register leaves the CFA register``() =
+    (* rip, the return address, becomes undefined; the CFA then moves to 16
+       bytes past its register, which must still be rsp. *)
+    [| DWCFAUndefined; 0x10uy; DWCFADefCFAOffset; 0x10uy |]
+    |> unwind
+    |> assertCFA 16
+
+  [<TestMethod>]
+  member _.``[DWARF] register expression leaves the CFA register``() =
+    (* rbx is saved at the address rsp+8 evaluates to. *)
+    let saveRbx = [| DWCFAExpression; 0x03uy; 0x02uy; DWOpBreg7; 0x08uy |]
+    Array.append saveRbx [| DWCFADefCFAOffset; 0x10uy |]
+    |> unwind
+    |> assertCFA 16
+
+  [<TestMethod>]
+  member _.``[DWARF] value expression leaves the CFA register``() =
+    (* rbx is the value rsp+8 evaluates to. *)
+    let setRbx = [| DWCFAValExpression; 0x03uy; 0x02uy; DWOpBreg7; 0x08uy |]
+    Array.append setRbx [| DWCFADefCFAOffset; 0x10uy |]
+    |> unwind
+    |> assertCFA 16
+
+  [<TestMethod>]
+  member _.``[DWARF] extended offset is factored by the data alignment``() =
+    (* rbx is saved two slots below the CFA, a slot being -8 bytes. *)
+    let row = unwind [| DWCFAOffsetExtended; 0x03uy; 0x02uy |]
+    let rbx = NormalReg(DWRegister.toRegID isa 3uy)
+    let saved = Map.tryFind rbx row.Rule
+    Assert.AreEqual<UnwindingAction option>(Some(Offset -16L), saved)
