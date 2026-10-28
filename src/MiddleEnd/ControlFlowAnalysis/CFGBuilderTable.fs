@@ -68,36 +68,70 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
       updateNextFunctionAddrs builder addr
       builder
 
+  let isOwnFunctionSlot slot =
+    BinFileOps.tryGetInternalFunctionAddr hdl.File slot |> Result.isOk
+
+  let addExternalBuilder (reference: ExternalFunctionReference) symbol name =
+    let isNoRet = ELF.getNoReturnStatusFromKnownFunc symbol
+    let builder = ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
+    builders[reference.ReferenceAddress] <- builder
+    builder
+
+  /// Tags the symbol with the kind of the reference, for a reference to a
+  /// function that this binary defines itself, so that the reference does not
+  /// take the name of the function it refers to.
+  let tagOwnSymbol reference symbol =
+    match reference with
+    | PLTTrampoline _ -> symbol + "@plt"
+    | RelocationSlot _ -> symbol + "@got"
+
   let getOrCreateExternalBuilder (reference: ExternalFunctionReference) name =
-    let addr = reference.ReferenceAddress
-    match builders.TryGetValue addr with
+    match builders.TryGetValue reference.ReferenceAddress with
     | true, builder ->
       builder
     | false, _ ->
-      let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-      let builder =
-        ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
-      builders[addr] <- builder
-      builder
+      match reference with
+      | RelocationSlot slot when isOwnFunctionSlot slot ->
+        addExternalBuilder reference name (tagOwnSymbol reference name)
+      | _ ->
+        addExternalBuilder reference name name
+
+  /// Finds the symbol that an import stub refers to when its slot resolves to
+  /// a function of this binary. An ifunc slot names no symbol, but the ifunc
+  /// symbol sits at the address of its resolver, which is where we find it.
+  let tryFindOwnSymbol file (entry: BinImport) fnAddr =
+    if entry.Name <> "" then
+      Some entry.Name
+    else
+      match BinFileOps.tryResolveName file fnAddr with
+      | Ok name when name <> "" -> Some name
+      | _ -> None
+
+  /// Adds the builder for an import stub whose slot resolves to a function of
+  /// this binary. The stub only refers to that function, which the loader may
+  /// still interpose on or an ifunc resolver may pick, so it is an import all
+  /// the same, tagged so as not to take the name of the function itself.
+  let addOwnImportBuilder file entry fnAddr stubAddr =
+    let reference = PLTTrampoline stubAddr
+    match tryFindOwnSymbol file entry fnAddr with
+    | Some symbol ->
+      let name = tagOwnSymbol reference symbol
+      addExternalBuilder reference symbol name |> ignore
+    | None ->
+      addExternalBuilder reference "" (Addr.toFuncName stubAddr) |> ignore
 
   let loadFromImportTable (file: IBinFile) (tbl: IImportTable) =
     for entry in tbl.Imports do
-      match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
-      | Ok _ ->
-        (* The slot resolves to a function of this binary, which gets its
-           builder once it is to be built, with the manager to report to. *)
+      match entry.TrampolineAddress with
+      | Some stubAddr ->
+        match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
+        | Ok fnAddr ->
+          addOwnImportBuilder file entry fnAddr stubAddr
+        | Error _ ->
+          let reference = PLTTrampoline stubAddr
+          addExternalBuilder reference entry.Name entry.Name |> ignore
+      | None ->
         ()
-      | Error _ ->
-        match entry.TrampolineAddress with
-        | Some addr ->
-          let name = entry.Name
-          let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-          let reference = PLTTrampoline addr
-          let builder =
-            ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
-          builders[addr] <- builder
-        | None ->
-          ()
 
   let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =
     if idx < 0 then

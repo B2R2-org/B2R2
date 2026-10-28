@@ -176,6 +176,28 @@ int g(void) __attribute__((ifunc("resolve_g")));
 void _start(void) { f(); g(); }
 ```
 
+## The -fno-plt fixture
+
+Built with `-fno-plt`, a call to a function that the loader may interpose on
+skips the PLT and goes straight through the GOT slot of the function, which a
+GLOB_DAT relocation fills. A shared library calling an exported function of
+its own does so too, and the slot then names a function defined in the very
+file that calls through it. `-z now` puts that slot under RELRO, so what the
+loader writes there stays.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_noplt` | `entry` calls `helper` through `call *helper@GOTPCREL(%rip)`, whose slot carries an `R_X86_64_GLOB_DAT` bound to `helper` of the same library |
+
+```
+gcc -O2 -fPIC -fno-plt -shared -nostdlib -Wl,-z,now noplt.c -o elf_x64_noplt
+```
+
+```c
+int helper(int x) { return x + 1; }
+int entry(int x) { return helper(x) * 2; }
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |
