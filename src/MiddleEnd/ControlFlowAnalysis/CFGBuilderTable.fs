@@ -83,12 +83,10 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
   let loadFromImportTable (file: IBinFile) (tbl: IImportTable) =
     for entry in tbl.Imports do
       match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
-      | Ok fnAddr ->
-        (* We create a mapping from a PLT address to an internal function
-           address because some static binaries have a PLT entry for an internal
-           function. *)
-        let builder = getOrCreateInternalBuilder null fnAddr
-        builders[fnAddr] <- builder
+      | Ok _ ->
+        (* The slot resolves to a function of this binary, which gets its
+           builder once it is to be built, with the manager to report to. *)
+        ()
       | Error _ ->
         match entry.TrampolineAddress with
         | Some addr ->

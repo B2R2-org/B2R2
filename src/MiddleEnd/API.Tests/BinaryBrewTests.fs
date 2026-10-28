@@ -50,3 +50,12 @@ type BinaryBrewTests() =
     GC.WaitForPendingFinalizers()
     GC.Collect()
     Assert.AreEqual<bool>(false, binary.IsAlive)
+
+  [<TestMethod>]
+  member _.``BinaryBrew recovers functions its import table resolves to``() =
+    (* The two IRELATIVE slots of this static binary resolve to its own ifunc
+       resolvers, resolve_f and resolve_g. *)
+    let bytes = readZippedBinary "elf_x64_iplt"
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "x64")
+    let addrs = BinaryBrew(hdl).Functions.Addresses
+    CollectionAssert.IsSubsetOf([| 0x2012f0UL; 0x201300UL |], addrs)

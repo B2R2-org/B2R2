@@ -25,6 +25,8 @@
 namespace B2R2.MiddleEnd.Tests
 
 open System.Collections.Generic
+open System.IO
+open System.IO.Compression
 open B2R2
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -82,3 +84,16 @@ module Helper =
     |> Array.map (fun v ->
       v.VData.Internals.Range.Min, v.VData.Internals.Range.Max)
     |> Array.sortBy fst
+
+  let private elfDir =
+    System.AppDomain.CurrentDomain.BaseDirectory
+    + "../../../../../FrontEnd/BinFile.Tests/ELF/"
+
+  /// Reads the named binary out of its zip among the ELF fixtures, which live
+  /// next to the BinFile tests and are reused here.
+  let readZippedBinary name =
+    use archive = ZipFile.Open(elfDir + name + ".zip", ZipArchiveMode.Read)
+    use stream = archive.GetEntry(name).Open()
+    use ms = new MemoryStream()
+    stream.CopyTo ms
+    ms.ToArray()
