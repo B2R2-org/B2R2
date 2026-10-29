@@ -40,7 +40,7 @@ module private CalleeClobberHelper =
     | UnknownExit
     | IgnoredExit
 
-  let classify ctx (v: IVertex<LowUIRBasicBlock>) =
+  let classify (ctx: CFGBuildingContext<_, _>) (v: IVertex<LowUIRBasicBlock>) =
     let vData = v.VData :> ILowUIRBasicBlock
     if ctx.GapAnalysisVertices.Contains vData.PPoint then
       IgnoredExit

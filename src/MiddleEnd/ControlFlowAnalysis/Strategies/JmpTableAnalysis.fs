@@ -388,7 +388,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ -> e
 
   let analyzeSymbolicallyWithIRCFG ctx state insAddr bblAddr =
-    match findIndBranchExprFromIRCFG ctx.CFG state bblAddr with
+    let cfg = (ctx: CFGBuildingContext<_, _>).CFG
+    match findIndBranchExprFromIRCFG cfg state bblAddr with
     | Ok exp ->
       let findConst = findConstFromIRCFG state
       let findDef = findDefFromIRCFG state
@@ -422,7 +423,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Ok exp ->
       let findConst = findConstFromSSACFG state
       let findDef = findDefFromSSACFG state
-      let fnAddr = ctx.FunctionAddress
+      let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
     | Error e ->
       Error e

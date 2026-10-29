@@ -108,7 +108,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     if builder.BuilderState <> InProgress then restartBuilder builder
     else builder.DelayedBuilderRequests.Enqueue ResetBuilder
 
-  let rechargeActionQueue ctx callee calleeInfo =
+  let rechargeActionQueue (ctx: CFGBuildingContext<_, _>) callee calleeInfo =
     let callerPendingActions = ctx.PendingCallActions
     let callerActionQueue = ctx.ActionQueue
     if not <| callerPendingActions.ContainsKey callee then

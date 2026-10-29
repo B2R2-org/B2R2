@@ -32,88 +32,172 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
 /// Represents the context for building a control flow graph of a function. This
-/// exists per function, and it can include a user-defined context, too.
-type CFGBuildingContext<'FnCtx, 'GlCtx> =
-  { /// The address of the function that is being built.
-    FunctionAddress: Addr
-    /// Function name.
-    FunctionName: string
-    /// The binary handle.
-    BinHandle: BinHandle
-    /// The exception information of the binary.
-    ExnInfo: ExceptionInfo
-    /// Mapping from a program point to a vertex in the LowUIRCFG.
-    Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
-    /// The control flow graph in LowUIR.
-    mutable CFG: LowUIRCFG
-    /// Constant propagation analyzer that is used to incrementally update
-    /// the dataflow state of the CFG as we recover it.
-    CP: ConstantPropagation
-    /// The basic block factory.
-    BBLFactory: BBLFactory
-    /// Is this function a no-return function?
-    mutable NonReturningStatus: NonReturningStatus
-    /// Which jump table entry is currently being recovered? (table addr, index)
-    JumpTableRecoveryStatus: Stack<Addr * int>
-    /// Gap to be processed.
-    mutable GapToAnalyze: Option<Addr>
-    /// Vertices created during gap analysis. These will be added as a
-    /// unreachable code segment by default. The only exception is when we find
-    /// a non-returning call instruction and a gap starts right after it, as
-    /// this indicates that the gap has been considered reachable by the
-    /// compiler when generating the binary although our non-returning analysis
-    /// is more conservative (and precise), so we regard this gap as
-    /// non-reachable.
-    GapAnalysisVertices: HashSet<ProgramPoint>
-    /// Gap addresses, which have been identified as data. By adding these
-    /// addresses to this blacklist, we prevent performing gap analysis on
-    /// these addresses again.
-    GapBlacklist: HashSet<Addr>
-    /// Jump tables associated with this function, keyed by table address.
-    /// Recovery records a table once per entry it expands, so keying on the
-    /// address keeps one slot per table.
-    JumpTables: Dictionary<Addr, JmpTableInfo>
-    /// Table for maintaining intra-function call information of this function.
-    IntraCallTable: IntraCallTable
-    /// Set of callers of this function.
-    Callers: HashSet<Addr>
-    /// The set of visited BBL program points. This is to prevent visiting the
-    /// same basic block multiple times when constructing the CFG.
-    VisitedPPoints: HashSet<ProgramPoint>
-    /// The action queue for the CFG building process.
-    ActionQueue: CFGActionQueue
-    /// Pending call-edge connection actions (e.g., MakeCall, MakeTlCall, etc)
-    /// for each callee address. This is to remember the actions that are
-    /// waiting for the callee to be built.
-    PendingCallActions: Dictionary<Addr, List<CFGAction>>
-    /// From a call site of a caller vertex to the caller vertex itself.
-    CallerVertices: Dictionary<CallSite, IVertex<LowUIRBasicBlock>>
-    /// The number of unwinding bytes of the stack when this function returns.
-    mutable UnwindingBytes: int
-    /// The caller-saved registers that this function may modify. It starts
-    /// with every register that the calling convention lets a callee modify,
-    /// which is the safe assumption, and the analysis at the end of the
-    /// recovery narrows it down.
-    ClobberedRegs: HashSet<RegisterID>
-    /// The user-defined per-function context.
-    mutable UserContext: 'FnCtx
-    /// Is this an external function or not.
-    IsExternal: bool
-    /// The channel for accessing the state of the TaskManager.
-    mutable ManagerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null
-    /// Thread ID that is currently building this function.
-    mutable ThreadID: int }
-with
+/// exists per function, and it can include a user-defined context, too. A
+/// strategy sees only what it may use to analyze the function; the rest is the
+/// bookkeeping of the CFG recovery itself, which stays internal.
+type CFGBuildingContext<'FnCtx, 'GlCtx>
+  internal(hdl: BinHandle, exnInfo, entryPoint, name, bblFactory, userCtx) =
+
+  let vertices = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>()
+
+  let mutable cfg = LowUIRCFG.create Mutable
+
+  let cp = ConstantPropagation(hdl, cfg.Vertices)
+
+  let mutable noretStatus = UnknownNoRet
+
+  let jmptblRecoveryStatus = Stack<Addr * int>()
+
+  let mutable gapToAnalyze: Addr option = None
+
+  let gapAnalysisVertices = HashSet<ProgramPoint>()
+
+  let gapBlacklist = HashSet<Addr>()
+
+  let jumpTables = Dictionary<Addr, JmpTableInfo>()
+
+  let intraCallTable = IntraCallTable()
+
+  let callers = HashSet<Addr>()
+
+  let visitedPPoints = HashSet<ProgramPoint>()
+
+  let actionQueue = CFGActionQueue()
+
+  let pendingCallActions = Dictionary<Addr, List<CFGAction>>()
+
+  let callerVertices = Dictionary<CallSite, IVertex<LowUIRBasicBlock>>()
+
+  let mutable unwindingBytes = 0
+
+  let clobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
+
+  let mutable managerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null = null
+
+  let mutable threadID = -1
+
+  /// The address of the function that is being built.
+  member _.FunctionAddress with get(): Addr = entryPoint
+
+  /// Function name.
+  member _.FunctionName with get(): string = name
+
+  /// The binary handle.
+  member _.BinHandle with get() = hdl
+
+  /// The exception information of the binary.
+  member _.ExnInfo with get(): ExceptionInfo = exnInfo
+
+  /// Mapping from a program point to a vertex in the LowUIRCFG.
+  member _.Vertices with get() = vertices
+
+  /// The control flow graph in LowUIR.
+  member _.CFG with get() = cfg and internal set v = cfg <- v
+
+  /// Constant propagation analyzer that is used to incrementally update
+  /// the dataflow state of the CFG as we recover it.
+  member _.CP with get() = cp
+
+  /// The basic block factory.
+  member _.BBLFactory with get(): BBLFactory = bblFactory
+
+  /// Is this function a no-return function? Analyses of the function set this.
+  member _.NonReturningStatus
+    with get() = noretStatus
+     and set v = noretStatus <- v
+
+  /// Which jump table entry is currently being recovered? (table addr, index)
+  member internal _.JumpTableRecoveryStatus with get() = jmptblRecoveryStatus
+
+  /// Gap to be processed.
+  member internal _.GapToAnalyze
+    with get() = gapToAnalyze
+     and set v = gapToAnalyze <- v
+
+  /// Vertices created during gap analysis. These will be added as a
+  /// unreachable code segment by default. The only exception is when we find
+  /// a non-returning call instruction and a gap starts right after it, as
+  /// this indicates that the gap has been considered reachable by the
+  /// compiler when generating the binary although our non-returning analysis
+  /// is more conservative (and precise), so we regard this gap as
+  /// non-reachable.
+  member _.GapAnalysisVertices with get() = gapAnalysisVertices
+
+  /// Gap addresses, which have been identified as data. By adding these
+  /// addresses to this blacklist, we prevent performing gap analysis on
+  /// these addresses again.
+  member internal _.GapBlacklist with get() = gapBlacklist
+
+  /// Jump tables associated with this function, keyed by table address.
+  /// Recovery records a table once per entry it expands, so keying on the
+  /// address keeps one slot per table.
+  member _.JumpTables with get() = jumpTables
+
+  /// Table for maintaining intra-function call information of this function.
+  member _.IntraCallTable with get() = intraCallTable
+
+  /// Set of callers of this function.
+  member _.Callers with get() = callers
+
+  /// The set of visited BBL program points. This is to prevent visiting the
+  /// same basic block multiple times when constructing the CFG.
+  member internal _.VisitedPPoints with get() = visitedPPoints
+
+  /// The action queue for the CFG building process.
+  member internal _.ActionQueue with get() = actionQueue
+
+  /// Pending call-edge connection actions (e.g., MakeCall, MakeTlCall, etc)
+  /// for each callee address. This is to remember the actions that are
+  /// waiting for the callee to be built.
+  member internal _.PendingCallActions with get() = pendingCallActions
+
+  /// From a call site of a caller vertex to the caller vertex itself.
+  member internal _.CallerVertices with get() = callerVertices
+
+  /// The number of unwinding bytes of the stack when this function returns.
+  member _.UnwindingBytes
+    with get() = unwindingBytes
+     and internal set v = unwindingBytes <- v
+
+  /// The caller-saved registers that this function may modify. It starts
+  /// with every register that the calling convention lets a callee modify,
+  /// which is the safe assumption, and the analysis at the end of the
+  /// recovery narrows it down.
+  member _.ClobberedRegs with get() = clobberedRegs
+
+  /// The user-defined per-function context.
+  member _.UserContext with get(): 'FnCtx = userCtx
+
+  /// The channel for accessing the state of the TaskManager.
+  member internal _.ManagerChannel
+    with get() = managerChannel
+     and set v = managerChannel <- v
+
+  /// Thread ID that is currently building this function.
+  member internal _.ThreadID
+    with get() = threadID
+     and set v = threadID <- v
+
+  /// Reads the global context, which is shared by all the functions, through
+  /// the given accessor. The task manager runs the accessor, so it is safe.
+  member _.GetGlobalContext(accessor: 'GlCtx -> 'Res): 'Res =
+    managerChannel.GetGlobalContext accessor
+
+  /// Updates the global context, which is shared by all the functions, with
+  /// the given updater. The task manager runs the updater later, in order.
+  member _.UpdateGlobalContext(updater: 'GlCtx -> 'GlCtx) =
+    managerChannel.UpdateGlobalContext updater
+
   /// Takes a snapshot of what the callers of this function need to know about
   /// it, which stays valid even after this context changes.
-  member this.ToCalleeInfo() =
+  member internal this.ToCalleeInfo() =
     { Status = this.NonReturningStatus
       Unwinding = this.UnwindingBytes
       Clobbered = Set.ofSeq this.ClobberedRegs
-      IsExternal = this.IsExternal }
+      IsExternal = false }
 
   /// Resets the context to its initial state.
-  member this.Reset() =
+  member internal this.Reset() =
     this.Vertices.Clear()
     this.CFG <- LowUIRCFG.create this.CFG.ImplementationType
     this.CP.State.Reset()
@@ -138,7 +222,7 @@ with
   /// new basic blocks, existing blocks can be divided into multiple blocks, in
   /// which case this will return a sequence of divided edges created by
   /// discovering new basic blocks.
-  member this.ScanBBLs entryPoints =
+  member internal this.ScanBBLs entryPoints =
     this.BBLFactory.ScanBBLs entryPoints
 
   member private _.UpdateDictionary(dict: Dictionary<_, _>, k, v, delta) =
@@ -188,7 +272,7 @@ with
   ///
   /// This function will return only the first overlapping vertex even though
   /// there may be multiple overlapping vertices.
-  member this.FindOverlap(nextFnAddrOpt) =
+  member internal this.FindOverlap(nextFnAddrOpt) =
     let vertices = this.CFG.Vertices
     let dict = Dictionary(vertices.Length * 2)
     for v in vertices do
@@ -247,7 +331,7 @@ with
   /// Finds a gap between the current function and the next function. This
   /// function finds every gap between the current function and the next
   /// function. If there are multiple gaps, this returns all of them.
-  member this.AnalyzeGap(nextFnAddrOpt) =
+  member internal this.AnalyzeGap(nextFnAddrOpt) =
     match nextFnAddrOpt with
     | Some nextFnAddr ->
       let endAddr = nextFnAddr - 1UL

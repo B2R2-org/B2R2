@@ -112,7 +112,7 @@ module private SRetAnalysisHelper =
       | Some isStackAddress ->
         isStackAddress
       | None ->
-        let preds = ctx.CFG.GetPreds vertex
+        let preds = (ctx: CFGBuildingContext<_, _>).CFG.GetPreds vertex
         (* Follow only a short, unambiguous provenance chain. If any incoming
            path disagrees or lacks evidence, do not classify the value as a
            stack-derived return buffer. *)
@@ -125,7 +125,7 @@ module private SRetAnalysisHelper =
     | Some isStackAddress ->
       isStackAddress
     | None ->
-      let preds = ctx.CFG.GetPreds caller
+      let preds = (ctx: CFGBuildingContext<_, _>).CFG.GetPreds caller
       not (Array.isEmpty preds)
       && Array.forall (isStackAddressFromPredecessors ctx 2 Set.empty reg) preds
 

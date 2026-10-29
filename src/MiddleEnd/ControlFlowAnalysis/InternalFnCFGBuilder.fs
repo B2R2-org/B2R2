@@ -121,35 +121,9 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
       match BinFileOps.tryResolveName (hdl: BinHandle).File entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
-    let cfg = LowUIRCFG.create Mutable
     let bblFactory = BBLFactory(hdl, instrs, irBlkOptimizer)
     let ctx =
-      { FunctionAddress = entryPoint
-        FunctionName = name
-        BinHandle = hdl
-        ExnInfo = exnInfo
-        Vertices = Dictionary()
-        GapAnalysisVertices = HashSet()
-        CFG = cfg
-        CP = ConstantPropagation(hdl, cfg.Vertices)
-        BBLFactory = bblFactory
-        NonReturningStatus = UnknownNoRet
-        JumpTableRecoveryStatus = Stack()
-        JumpTables = Dictionary()
-        GapToAnalyze = None
-        GapBlacklist = HashSet()
-        Callers = HashSet()
-        IntraCallTable = IntraCallTable()
-        VisitedPPoints = HashSet()
-        ActionQueue = CFGActionQueue()
-        PendingCallActions = Dictionary()
-        CallerVertices = Dictionary()
-        UnwindingBytes = 0
-        ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
-        UserContext = fnCtx
-        IsExternal = false
-        ManagerChannel = null
-        ThreadID = -1 }
+      CFGBuildingContext(hdl, exnInfo, entryPoint, name, bblFactory, fnCtx)
     InternalFnCFGBuilder(ctx, None, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with

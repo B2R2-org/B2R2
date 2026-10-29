@@ -63,7 +63,7 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
     member _.Summarize(ctx, callee, calleeInfo, _ins) =
       let ret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
       let returnTargetStackOff =
-        ctx.ManagerChannel.GetGlobalContext(fun glCtx ->
+        ctx.GetGlobalContext(fun glCtx ->
           glCtx.GetReturnTargetStackOff callee)
       let hdl = ctx.BinHandle
       let rundown = makeRundown hdl ret unwinding returnTargetStackOff

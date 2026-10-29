@@ -104,7 +104,7 @@ module private EVMCFGRecovery =
         && (hasFuncSigExpr e || isMsgDataDivision e) -> true
     | _ -> false
 
-  let scanAndGetVertex ctx cfgRec addr =
+  let scanAndGetVertex (ctx: CFGBuildingContext<_, _>) cfgRec addr =
     let pp = ProgramPoint(addr, 0)
     if ctx.BBLFactory.Contains pp then () else scanBBLs ctx [ addr ] |> ignore
     getVertex ctx cfgRec pp
@@ -184,7 +184,7 @@ module private EVMCFGRecovery =
     let p1Set = HashSet p1
     List.filter (fun v -> p1Set.Contains v) p2
 
-  let removeReachableVertices ctx cfgRec root =
+  let removeReachableVertices (ctx: CFGBuildingContext<_, _>) cfgRec root =
     let removals = HashSet()
     let possiblyIncomings = HashSet()
     let rec removeReachables (vs: IVertex<LowUIRBasicBlock> list) =
@@ -209,7 +209,7 @@ module private EVMCFGRecovery =
     ctx.VisitedPPoints.Remove srcPP |> ignore
     pushAction ctx <| ExpandCFG [ srcPP ]
 
-  let removeAndReanalyze ctx cfgRec srcV newEP =
+  let removeAndReanalyze (ctx: CFGBuildingContext<_, _>) cfgRec srcV newEP =
     let ppoint = ProgramPoint(newEP, 0)
     match ctx.Vertices.TryGetValue ppoint with
     | false, _ ->
@@ -221,7 +221,7 @@ module private EVMCFGRecovery =
   /// Records what the recovery of this function finds out about another
   /// function. The manager applies it, as other functions read it, too.
   let updateGlobalContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>) f =
-    ctx.ManagerChannel.UpdateGlobalContext(fun (glCtx: EVMGlobalContext) ->
+    ctx.UpdateGlobalContext(fun (glCtx: EVMGlobalContext) ->
       f glCtx
       glCtx)
 
@@ -235,7 +235,7 @@ module private EVMCFGRecovery =
 
   let findAndIntroduceSharedRegion ctx cfgRec state v rdVars =
     assert (not <| Seq.isEmpty rdVars)
-    let g = ctx.CFG
+    let g = (ctx: CFGBuildingContext<_, _>).CFG
     let defVertices = Seq.map (getDefSiteVertex g state) rdVars
     let pathes = Seq.map (fun d -> findFeasiblePath g d v) defVertices
     let firstPath, restPathes = Seq.head pathes, Seq.tail pathes
@@ -337,13 +337,16 @@ module private EVMCFGRecovery =
     let preds = g.GetPreds v
     Array.exists isFallthroughNode preds
 
+  let getUserContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>) =
+    ctx.UserContext
+
   /// Finds the latest stack pointer **after** the execution of the given
   /// vertex.
   let findLatestStackOffset ctx (state: State<_, _>) v =
     let tags = state.PerVertexPossibleExeCtxs[v]
     let tag = Seq.head tags
     let stackOffset = tag.StackOffset
-    let userCtx = ctx.UserContext :> EVMFuncUserContext
+    let userCtx = getUserContext ctx
     let delta = userCtx.GetStackPointerDelta(state, v)
     stackOffset + delta
 
@@ -353,7 +356,7 @@ module private EVMCFGRecovery =
   /// by extracting the stack pointer difference and the target variable's stack
   /// pointer offset to abstract the return information, which will be used to
   /// build an inter-procedural (call) edge to this function later.
-  let analyzeReturnInfo ctx state v incomingVars =
+  let analyzeReturnInfo (ctx: CFGBuildingContext<_, _>) state v incomingVars =
     assert (List.forall isFakeVar incomingVars)
     let var = List.head incomingVars
     let returnTargetStackOff =
@@ -368,7 +371,7 @@ module private EVMCFGRecovery =
       glCtx.SetReturnTargetStackOff(fnAddr, returnTargetStackOff))
     None
 
-  let computeCPState ctx =
+  let computeCPState (ctx: CFGBuildingContext<_, _>) =
     let userCtx = ctx.UserContext :> EVMFuncUserContext
     let dfa = userCtx.CP :> IDataFlowComputable<_, _, _>
     dfa.Compute ctx.CFG |> ignore
@@ -433,7 +436,7 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  let hasNoFixpoint ctx srcV exeCtx dstV =
+  let hasNoFixpoint (ctx: CFGBuildingContext<_, _>) srcV exeCtx dstV =
     let usrCtx = ctx.UserContext :> EVMFuncUserContext
     let backEdges = usrCtx.BackEdges
     let currSrcDstPair = srcV, dstV
@@ -529,7 +532,7 @@ module private EVMCFGRecovery =
   /// incomplete CFG traversal, until the next time when the vertex is visited
   /// in the data-flow analysis.
   let postponeVertexAnalysis ctx (v: IVertex<LowUIRBasicBlock>) =
-    let userCtx = ctx.UserContext :> EVMFuncUserContext
+    let userCtx = getUserContext ctx
     if userCtx.PostponedVertices.Contains v then
       ()
     else
@@ -610,7 +613,8 @@ module private EVMCFGRecovery =
   /// Handles a jump with a bitvector, which is the target address of the jump.
   let handleJmpWithBV ctx cfgRec srcV (dstBv: BitVector) edgeKind =
     let dstAddr = dstBv.ToUInt64()
-    match ctx.ManagerChannel.GetCalleeStatus dstAddr with
+    let ch = (ctx: CFGBuildingContext<_, _>).ManagerChannel
+    match ch.GetCalleeStatus dstAddr with
     | Failed -> (* Ignore when the target is not a function. *)
       if UseCallFallthroughHeuristic
          && edgeKind = InterJmpEdge
@@ -658,11 +662,12 @@ module private EVMCFGRecovery =
 
   let findAndIntroduceFunction ctx cfgRec srcV rds rdVars =
     let sampledDefSite = Seq.head rds
-    let sampledPath = findFeasiblePath ctx.CFG sampledDefSite srcV
+    let cfg = (ctx: CFGBuildingContext<_, _>).CFG
+    let sampledPath = findFeasiblePath cfg sampledDefSite srcV
     let newEntryPoint = findFunctionEntry sampledPath
     let newEntryPointAddr = newEntryPoint.VData.Internals.PPoint.Address
     let hasAbstractPred =
-      ctx.CFG.GetPreds srcV
+      cfg.GetPreds srcV
       |> Array.exists (fun pred -> pred.VData.Internals.IsAbstract)
     if isInfeasibleEntryPoint ctx newEntryPoint || hasAbstractPred then
       introduceNewSharedRegion ctx cfgRec srcV newEntryPointAddr
@@ -702,7 +707,7 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  let handleInterCJmp ctx cfgRec v =
+  let handleInterCJmp (ctx: CFGBuildingContext<_, _>) cfgRec v =
     let state = computeCPState ctx
     match tryOverApproximateTerminator state v with
     | Some(SSA.Jmp(SSA.InterCJmp(cond, dstExpr, SSA.Num fBv))) ->
@@ -756,12 +761,12 @@ module private EVMCFGRecovery =
     connectEdge ctx cfgRec caller callee edgeKind
     callee
 
-  let hasFinalContext ctx addr =
+  let hasFinalContext (ctx: CFGBuildingContext<_, _>) addr =
     match ctx.ManagerChannel.GetCalleeStatus addr with
     | Built _ -> true
     | _ -> false
 
-  let connectCall ctx cfgRec caller callee cs info =
+  let connectCall (ctx: CFGBuildingContext<_, _>) cfgRec caller callee cs info =
     assert (if ctx.FunctionAddress = callee then true
             else hasFinalContext ctx callee)
     ensureFunction ctx callee
@@ -769,7 +774,7 @@ module private EVMCFGRecovery =
       connectAbsVertex ctx cfgRec caller callee cs false info)
     |> toCFGResult
 
-  let handleCall ctx cfgRec cs callee calleeInfo =
+  let handleCall (ctx: CFGBuildingContext<_, _>) cfgRec cs callee calleeInfo =
     let caller = ctx.CallerVertices[cs]
     let callsite = fromBBLToCallSite caller.VData.Internals
     let absPp = ProgramPoint(callsite, callee, 0)
@@ -793,7 +798,7 @@ module private EVMCFGRecovery =
 
   /// Updates the back-edges of the current function.
   /// TODO: We can use the dynamic DFS algorithm by Yang et al. (VLDB '19).
-  let updateBackEdges ctx _srcV _dstV =
+  let updateBackEdges (ctx: CFGBuildingContext<_, _>) _srcV _dstV =
     let usrCtx = ctx.UserContext :> EVMFuncUserContext
     let backEdges = usrCtx.BackEdges
     backEdges.Clear()
@@ -829,7 +834,7 @@ module private EVMCFGRecovery =
     let removalFn v = state.TryMarkVertexAsRemoval v
     traverseForRemovalMark visited g pendingFn removalFn [ v ]
 
-  let resumeAnalysis ctx pp callbackAction =
+  let resumeAnalysis (ctx: CFGBuildingContext<_, _>) pp callbackAction =
     let userCtx: EVMFuncUserContext = ctx.UserContext
     match ctx.Vertices.TryGetValue pp with
     | false, _ ->
@@ -857,7 +862,7 @@ module private EVMCFGRecovery =
         pushAction ctx (ResumeAnalysis(pp, callbackAction))
         MoveOn
 
-  let isInvalidProgramPoint ctx (pp: ProgramPoint) =
+  let isInvalidProgramPoint (ctx: CFGBuildingContext<_, _>) (pp: ProgramPoint) =
     (* If the program point has a call site and has been removed from the CFG,
        then we ignore it. *)
     if Option.isSome pp.CallSite && not <| ctx.Vertices.ContainsKey pp then true

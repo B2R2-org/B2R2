@@ -176,7 +176,7 @@ type BinaryBrewTests() =
   [<TestMethod>]
   member _.``BinaryBrew aborts when its global context fails to update``() =
     let hook (ctx: CFGBuildingContext<DummyContext, DummyContext>) =
-      ctx.ManagerChannel.UpdateGlobalContext(fun _ ->
+      ctx.UpdateGlobalContext(fun _ ->
         raise (InvalidOperationException "boom"))
     Assert.Throws<AggregateException>(fun () -> brewRet hook |> ignore)
     |> ignore
@@ -224,3 +224,29 @@ type BinaryBrewTests() =
     let find name = fns.Sequence |> Seq.find (fun fn -> fn.Name = name)
     let callers = (find "helper@got").Callers |> Seq.toList
     Assert.AreEqual<Addr list>([ (find "entry").EntryPoint ], callers)
+
+  [<TestMethod>]
+  member _.``CFGBuildingContext shows strategies only what they may use``() =
+    let names =
+      typeof<CFGBuildingContext<DummyContext, DummyContext>>.GetProperties()
+      |> Array.map (fun p -> p.Name)
+      |> Array.sort
+      |> Array.toList
+    let expected =
+      [ "BBLFactory"
+        "BinHandle"
+        "CFG"
+        "CP"
+        "Callers"
+        "ClobberedRegs"
+        "ExnInfo"
+        "FunctionAddress"
+        "FunctionName"
+        "GapAnalysisVertices"
+        "IntraCallTable"
+        "JumpTables"
+        "NonReturningStatus"
+        "UnwindingBytes"
+        "UserContext"
+        "Vertices" ]
+    Assert.AreEqual<string list>(expected, names)

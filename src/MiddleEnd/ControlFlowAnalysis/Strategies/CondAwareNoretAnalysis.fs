@@ -72,7 +72,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =
     let argOff = uint64 <| frameDist - 4 * nth
     let varKind = Memory <| Some(Constants.InitialStackPointer + argOff)
-    let absV = ctx.Vertices[pp]
+    let absV = (ctx: CFGBuildingContext<_, _>).Vertices[pp]
     match tryGetValue state absV varKind with
     | Some(UntouchedValueDomain.Untouched(RegisterTag(StackLocal off))) ->
       Some(-off / 4)
@@ -87,7 +87,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let untouchedArgIndexX64FromIRCFG (hdl: BinHandle) ctx pp state nth =
     let argRegId = hdl.Conventions.Calling.IntArgRegister(nth - 1)
     let varKind = Regular argRegId
-    let absV = ctx.Vertices[pp]
+    let absV = (ctx: CFGBuildingContext<_, _>).Vertices[pp]
     match tryGetValue state absV varKind with
     | Some(UntouchedValueDomain.Untouched(RegisterTag(Regular rid))) ->
       regIdToArgNumX64 hdl rid
@@ -96,13 +96,13 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
          untouched, thus conditional no return. *)
       Some nth
 
-  let hasCallFallthroughNode ctx pp =
+  let hasCallFallthroughNode (ctx: CFGBuildingContext<_, _>) pp =
     assert (ctx.Vertices.ContainsKey pp)
     let absV = ctx.Vertices[pp]
     let succs = ctx.CFG.GetSuccs absV
     not <| Seq.isEmpty succs
 
-  let collectReturningAbsPPs ctx =
+  let collectReturningAbsPPs (ctx: CFGBuildingContext<_, _>) =
     ctx.IntraCallTable.Callees
     |> Seq.fold (fun acc (KeyValue(cs, calleeKind)) ->
       match calleeKind with
@@ -129,7 +129,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let collectConditionalNoRetCallsFromIRCFG ctx (cfg: LowUIRCFG) state =
     collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
-      let absV = ctx.Vertices[pp]
+      let absV = (ctx: CFGBuildingContext<_, _>).Vertices[pp]
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
         tryGetConnectedArgumentFromIRCFG ctx (state: Lazy<_>).Value pp nth
@@ -199,7 +199,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
           uva.State)
 
   let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG dom =
-    let hdl = ctx.BinHandle
+    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     let state = SSAUntouchedValueAnalysis hdl |> getLazySSAState ssaCFG
     collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
@@ -230,7 +230,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | None -> NotNoRet
     | Some dom -> ConditionalNoRet argNumMap[dom]
 
-  let isStackPointer ctx dst =
+  let isStackPointer (ctx: CFGBuildingContext<_, _>) dst =
     let regFactory = ctx.BinHandle.RegisterFactory
     let rid = regFactory.StackPointer.Value
     let rt = regFactory.GetRegType(rid)
@@ -244,7 +244,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   /// Checks if the given exit vertex has a corrupted stack pointer value before
   /// executing the return instruction. This means we cannot statically decide
   /// whether the return instruction will jump to the caller or not.
-  let hasUndecidableReturnTarget ctx v =
+  let hasUndecidableReturnTarget (ctx: CFGBuildingContext<_, _>) v =
     let hdl = ctx.BinHandle
     let st = CFGEvaluator.evalBlockFromScratch hdl v
     let rid = hdl.RegisterFactory.StackPointer.Value
@@ -260,7 +260,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
       true
 
-  let analyze ctx condNoRetCalls =
+  let analyze (ctx: CFGBuildingContext<_, _>) condNoRetCalls =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
