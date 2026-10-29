@@ -104,6 +104,14 @@ type CFGBuildingContext<'FnCtx, 'GlCtx> =
     /// Thread ID that is currently building this function.
     mutable ThreadID: int }
 with
+  /// Takes a snapshot of what the callers of this function need to know about
+  /// it, which stays valid even after this context changes.
+  member this.ToCalleeInfo() =
+    { Status = this.NonReturningStatus
+      Unwinding = this.UnwindingBytes
+      Clobbered = Set.ofSeq this.ClobberedRegs
+      IsExternal = this.IsExternal }
+
   /// Resets the context to its initial state.
   member this.Reset() =
     this.Vertices.Clear()
@@ -286,27 +294,23 @@ and IManagerAccessible<'FnCtx, 'GlCtx> =
     -> unit
 
   /// Updates the dependency between two functions and returns the current
-  /// building context of the callee.
+  /// status of the callee.
   abstract AddDependency:
        caller: Addr
      * callee: Addr
-    -> BuildingCtxMsg<'FnCtx, 'GlCtx>
+    -> CalleeStatus
 
-  /// Gets the non-returning status of a function located at `addr`.
-  abstract GetNonReturningStatus: addr: Addr -> NonReturningStatus
-
-  /// Gets the builder of a function located at `addr` if it is available (i.e.,
-  /// not in progress and valid). If the function builder is not available,
-  /// this returns None.
-  abstract GetBuildingContext:
+  /// Gets the status of the function located at `addr`, which tells whether it
+  /// has been built, and if so, what its callers need to know about it.
+  abstract GetCalleeStatus:
        addr: Addr
-    -> BuildingCtxMsg<'FnCtx, 'GlCtx>
+    -> CalleeStatus
 
-  /// Gets or creates the builder of an external function.
-  abstract GetExternalBuildingContext:
+  /// Gets the status of an external function, creating its builder if needed.
+  abstract GetExternalCalleeStatus:
        reference: ExternalFunctionReference
      * name: string
-    -> BuildingCtxMsg<'FnCtx, 'GlCtx>
+    -> CalleeStatus
 
   /// Gets the next function address of the given function address. If there's
   /// no next function, this returns None.
@@ -362,11 +366,13 @@ and JumpTableRecoveryDecision =
   /// handle.
   | StopRecoveryAndContinue
 
-/// Represents a message containing the building context of a function.
-and BuildingCtxMsg<'FnCtx, 'GlCtx> =
-  /// The building process is finished, and this is the final context.
-  | FinalCtx of CFGBuildingContext<'FnCtx, 'GlCtx>
-  /// The building process is still ongoing.
-  | StillBuilding of CFGBuildingContext<'FnCtx, 'GlCtx>
-  /// The building process failed.
-  | FailedBuilding
+/// Represents what the manager knows about a function that another function
+/// refers to. It never hands out the context of the function, which only the
+/// thread building that function may touch.
+and CalleeStatus =
+  /// The function has been built, and this is what its callers need to know.
+  | Built of CalleeInfo
+  /// The function is still being built.
+  | Building
+  /// The function failed to be built, or it is not a function at all.
+  | Failed

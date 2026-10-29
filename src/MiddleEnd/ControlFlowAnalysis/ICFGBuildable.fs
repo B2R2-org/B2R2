@@ -44,6 +44,11 @@ type ICFGBuildable<'FnCtx, 'GlCtx> =
   /// Returns the current building context.
   abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
 
+  /// Returns what the callers of this function need to know about it, as of
+  /// when the builder last finished. Other functions read this snapshot rather
+  /// than the building context, which only the building thread may touch.
+  abstract CalleeInfo: CalleeInfo
+
   /// Returns the currently pending DelayedBuilderRequest(s). This queue can
   /// only be populated when another builder wants to update the status of this
   /// builder while it is running. Note that this queue is not thread-safe, and
@@ -71,8 +76,9 @@ type ICFGBuildable<'FnCtx, 'GlCtx> =
 
   /// Forcefully finishes the function building process because of a cyclic
   /// dependency. This will change the state of the function builder to
-  /// `ForceFinished`.
-  abstract ForceFinish: unit -> unit
+  /// `ForceFinished`, and the given information becomes what its callers know
+  /// about it.
+  abstract ForceFinish: CalleeInfo -> unit
 
   /// Marks the state to be `Verifying`. This means that the function builder is
   /// currently verifying the built function.
@@ -137,8 +143,10 @@ and CFGBuilderActivation =
 
 /// Represents a strategy that defines how CFGActions are handled to build a
 /// function. This interface will be accessed in parallel by multiple threads,
-/// so every operation should be thread-safe. Note that CFGBuildingContext as
-/// well as 'FnCtx are only accessed by a single thread, though.
+/// so every operation should be thread-safe. Note that a CFGBuildingContext,
+/// including its 'FnCtx, is only accessed by one thread at a time: the worker
+/// building the function, or the manager while nobody builds it. Other
+/// functions learn about it only through CalleeStatus.
 and ICFGBuildingStrategy<'FnCtx, 'GlCtx> =
   inherit IContextProvidable<'FnCtx, 'GlCtx>
 

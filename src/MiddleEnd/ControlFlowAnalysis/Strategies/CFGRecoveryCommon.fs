@@ -289,11 +289,6 @@ module internal CFGRecoveryCommon =
   let isExecutableAddr (ctx: CFGBuildingContext<_, _>) targetAddr =
     ctx.BinHandle.File.IsExecutableAddr targetAddr
 
-  let makeCalleeInfoFromCtx ctx =
-    { Status = ctx.NonReturningStatus
-      Unwinding = ctx.UnwindingBytes
-      Clobbered = Set.ofSeq ctx.ClobberedRegs }
-
   let handleResolvedCall ctx cfgRec callerPPoint callsite calleeAddr action =
     let fnAddr = ctx.FunctionAddress
     let actionQueue = ctx.ActionQueue
@@ -304,12 +299,11 @@ module internal CFGRecoveryCommon =
     else
       match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
       (* Wait for the callee to finish. *)
-      | StillBuilding _
-      | FailedBuilding ->
+      | Building
+      | Failed ->
         postponeActionOnCallee ctx calleeAddr action
       (* Directly push the given action into its action queue. *)
-      | FinalCtx calleeCtx ->
-        let calleeInfo = makeCalleeInfoFromCtx calleeCtx
+      | Built calleeInfo ->
         match action with
         | MakeCall _ -> MakeCall(callsite, calleeAddr, calleeInfo)
         | MakeTlCall _ -> MakeTlCall(callsite, calleeAddr, calleeInfo)
@@ -356,9 +350,8 @@ module internal CFGRecoveryCommon =
       | Ok(BinFile.BinRelocationValue.Bound name) ->
         let ch = ctx.ManagerChannel
         let reference = RelocationSlot relocationSlotAddr
-        match ch.GetExternalBuildingContext(reference, name) with
-        | FinalCtx calleeCtx ->
-          let calleeInfo = makeCalleeInfoFromCtx calleeCtx
+        match ch.GetExternalCalleeStatus(reference, name) with
+        | Built calleeInfo ->
           let action =
             if isTailCall then
               MakeTlCall(callsite, relocationSlotAddr, calleeInfo)
@@ -435,9 +428,9 @@ module internal CFGRecoveryCommon =
       ()
 
   let isFuncEntryPoint ctx addr =
-    match ctx.ManagerChannel.GetBuildingContext addr with
-    | StillBuilding _ | FinalCtx _ -> true
-    | FailedBuilding -> false
+    match ctx.ManagerChannel.GetCalleeStatus addr with
+    | Building | Built _ -> true
+    | Failed -> false
 
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
@@ -604,11 +597,11 @@ module internal CFGRecoveryCommon =
                          callIns
                          calleeAddr
                          calleeInfo =
-    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
-    | FinalCtx calleeCtx
-    | StillBuilding calleeCtx ->
-      Ok <| summarizer.Summarize(calleeCtx, calleeInfo, callIns)
-    | FailedBuilding ->
+    match ctx.ManagerChannel.GetCalleeStatus calleeAddr with
+    | Built _
+    | Building ->
+      Ok <| summarizer.Summarize(ctx, calleeAddr, calleeInfo, callIns)
+    | Failed ->
       Error ErrorCase.FailedToRecoverCFG
 
   /// Computes how far the stack pointer moves between a call site and the
@@ -724,8 +717,9 @@ module internal CFGRecoveryCommon =
       let selfInfo =
         { Status = NotNoRet
           Unwinding = 0
-          Clobbered = ClobberedRegisters.ofCallingConvention ctx.BinHandle }
-      cfgRec.Summarizer.Summarize(ctx, selfInfo, lastIns)
+          Clobbered = ClobberedRegisters.ofCallingConvention ctx.BinHandle
+          IsExternal = false }
+      cfgRec.Summarizer.Summarize(ctx, callee, selfInfo, lastIns)
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
       |> toCFGResult
@@ -817,8 +811,8 @@ module internal CFGRecoveryCommon =
       MoveOn (* We ignore this indirect branch. *)
 
   let isFailedBuilding (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) calleeAddr =
-    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
-    | FailedBuilding -> true
+    match ctx.ManagerChannel.GetCalleeStatus calleeAddr with
+    | Failed -> true
     | _ -> false
 
   let popOffJmpTblRecoveryAction ctx =

@@ -44,12 +44,11 @@ module private EVMCFGRecovery =
 
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
-  let getFunctionContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>)
-                          calleeAddr =
-    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
-    | FinalCtx calleeCtx
-    | StillBuilding calleeCtx -> Ok calleeCtx
-    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
+  /// Checks that the given address is a function, built or being built.
+  let ensureFunction (ctx: CFGBuildingContext<EVMFuncUserContext, _>) addr =
+    match ctx.ManagerChannel.GetCalleeStatus addr with
+    | Built _ | Building -> Ok()
+    | Failed -> Error ErrorCase.FailedToRecoverCFG
 
   /// Checks if this vertex was executed in the data-flow analysis. Note that
   /// incomplete CFG traversal can lead to that situation, as we conduct path-
@@ -278,15 +277,10 @@ module private EVMCFGRecovery =
       |> fun res -> r <- tryJoinMaybeCFGResults r res
     r
 
-  let makeCalleeInfoFromBuildingContext = function
-    | FinalCtx ctx ->
-      { Status = ctx.NonReturningStatus
-        Unwinding = ctx.UnwindingBytes
-        Clobbered = Set.empty }
-    | StillBuilding _ ->
-      { Status = NoRet; Unwinding = 0; Clobbered = Set.empty }
-    | _ ->
-      Terminator.impossible ()
+  let makeCalleeInfo = function
+    | Built info -> { info with Clobbered = Set.empty }
+    | Building -> { CalleeInfo.Unknown with Status = NoRet }
+    | Failed -> Terminator.impossible ()
 
   let fromBBLToCallSite (blk: ILowUIRBasicBlock) =
     match blk.PPoint.CallSite with
@@ -380,9 +374,9 @@ module private EVMCFGRecovery =
     dfa.Compute ctx.CFG |> ignore
     userCtx.CP.State
 
-  /// Summarizes the callee's context.
-  let summarize ctx calleeInfo =
-    summarizer.Summarize(ctx, calleeInfo, null)
+  /// Summarizes the given callee of the function of the given context.
+  let summarize ctx callee calleeInfo =
+    summarizer.Summarize(ctx, callee, calleeInfo, null)
 
   let isCallRelatedFunction = function
     | "call"
@@ -616,8 +610,8 @@ module private EVMCFGRecovery =
   /// Handles a jump with a bitvector, which is the target address of the jump.
   let handleJmpWithBV ctx cfgRec srcV (dstBv: BitVector) edgeKind =
     let dstAddr = dstBv.ToUInt64()
-    match ctx.ManagerChannel.GetBuildingContext dstAddr with
-    | FailedBuilding -> (* Ignore when the target is not a function. *)
+    match ctx.ManagerChannel.GetCalleeStatus dstAddr with
+    | Failed -> (* Ignore when the target is not a function. *)
       if UseCallFallthroughHeuristic
          && edgeKind = InterJmpEdge
          && not (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
@@ -649,10 +643,10 @@ module private EVMCFGRecovery =
             else None
         | Error errorCase ->
           Some <| FailStop errorCase
-    | bldCtx -> (* Okay, this is a function, so we connect to the function. *)
+    | status -> (* Okay, this is a function, so we connect to the function. *)
       let srcBlk = srcV.VData.Internals
       let callSite = fromBBLToCallSite srcBlk
-      let calleeInfo = makeCalleeInfoFromBuildingContext bldCtx
+      let calleeInfo = makeCalleeInfo status
       let act = MakeCall(callSite, dstAddr, calleeInfo)
       Some <| handleCall ctx cfgRec srcV callSite dstAddr act
 
@@ -753,18 +747,9 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  /// Connects the caller to an abstract vertex summarizing the callee. We need
-  /// to use UserContext of the callee function, so we need to directly access
-  /// the callee context instead of using the abstraction.
-  let connectAbsVertex ctx
-                       cfgRec
-                       caller
-                       callee
-                       callsite
-                       isTail
-                       calleeInfo
-                       calleeCtx =
-    let abs = summarize calleeCtx calleeInfo
+  /// Connects the caller to an abstract vertex summarizing the callee.
+  let connectAbsVertex ctx cfgRec caller callee callsite isTail calleeInfo =
+    let abs = summarize ctx callee calleeInfo
     let calleeOpt = Some callee
     let callee = getAbsVertex ctx cfgRec callsite calleeOpt abs
     let edgeKind = if isTail then TailCallEdge else CallEdge
@@ -772,15 +757,16 @@ module private EVMCFGRecovery =
     callee
 
   let hasFinalContext ctx addr =
-    match ctx.ManagerChannel.GetBuildingContext addr with
-    | FinalCtx _ -> true
+    match ctx.ManagerChannel.GetCalleeStatus addr with
+    | Built _ -> true
     | _ -> false
 
   let connectCall ctx cfgRec caller callee cs info =
     assert (if ctx.FunctionAddress = callee then true
             else hasFinalContext ctx callee)
-    getFunctionContext ctx callee
-    |> Result.map (connectAbsVertex ctx cfgRec caller callee cs false info)
+    ensureFunction ctx callee
+    |> Result.map (fun () ->
+      connectAbsVertex ctx cfgRec caller callee cs false info)
     |> toCFGResult
 
   let handleCall ctx cfgRec cs callee calleeInfo =

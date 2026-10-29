@@ -80,12 +80,17 @@ and CalleeInfo =
     /// The number of bytes that the callee unwinds from the stack.
     Unwinding: int
     /// The caller-saved registers that the callee may modify.
-    Clobbered: Set<RegisterID> }
+    Clobbered: Set<RegisterID>
+    /// Whether the callee is an external function.
+    IsExternal: bool }
 with
   /// Returns the callee information to be replaced with the real one once the
   /// callee is built. Nothing is assumed about the callee until then.
   static member Unknown =
-    { Status = UnknownNoRet; Unwinding = 0; Clobbered = Set.empty }
+    { Status = UnknownNoRet
+      Unwinding = 0
+      Clobbered = Set.empty
+      IsExternal = false }
 
 /// Represents an interface for setting the priority of an action.
 and IPrioritizable =

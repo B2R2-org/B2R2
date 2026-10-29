@@ -196,3 +196,23 @@ type BinaryBrewTests() =
     |> ignore
     let calls = log |> Seq.distinct |> Seq.sort |> Seq.toList
     Assert.AreEqual<string list>([ "create"; "global"; "reset" ], calls)
+
+  [<TestMethod>]
+  member _.``BinaryBrew keeps what callers know of each finished function``() =
+    let bytes = readZippedBinary "elf_x64_iplt"
+    let brew = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64"))
+    let builders =
+      brew.Builders.Values
+      |> Array.filter (fun builder -> builder.BuilderState = Finished)
+    let expected =
+      builders
+      |> Array.map (fun builder ->
+        let ctx = builder.Context
+        { Status = ctx.NonReturningStatus
+          Unwinding = ctx.UnwindingBytes
+          Clobbered = Set.ofSeq ctx.ClobberedRegs
+          IsExternal = builder.IsExternal })
+      |> Array.toList
+    let actual = builders |> Array.map (fun b -> b.CalleeInfo) |> Array.toList
+    Assert.AreNotEqual<int>(0, builders.Length)
+    Assert.AreEqual<CalleeInfo list>(expected, actual)

@@ -50,6 +50,8 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
   let mutable activation = Activated
 
+  let mutable calleeInfo = CalleeInfo.Unknown
+
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
         member _.StartBuilding(addr) = manager.Post <| StartBuilding addr
@@ -58,15 +60,12 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
           manager.PostAndReply(fun _ ch ->
             AddDependency(caller, callee, ch))
 
-        member _.GetNonReturningStatus(addr) =
-          manager.PostAndReply(fun _ ch -> GetNonReturningStatus(addr, ch))
+        member _.GetCalleeStatus(addr) =
+          manager.PostAndReply(fun _ ch -> GetCalleeStatus(addr, ch))
 
-        member _.GetBuildingContext(addr) =
-          manager.PostAndReply(fun _ ch -> GetBuildingContext(addr, ch))
-
-        member _.GetExternalBuildingContext(reference, name) =
+        member _.GetExternalCalleeStatus(reference, name) =
           manager.PostAndReply(fun _ ch ->
-            GetExternalBuildingContext(reference, name, ch))
+            GetExternalCalleeStatus(reference, name, ch))
 
         member _.GetNextFunctionAddress(addr) =
           manager.PostAndReply(fun _ ch -> GetNextFunctionAddress(addr, ch))
@@ -164,6 +163,8 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
     member _.Context with get() = ctx
 
+    member _.CalleeInfo with get() = calleeInfo
+
     member _.DelayedBuilderRequests with get() = delayedBuilderRequests
 
     member _.HasJumpTable with get() = hasJumpTable
@@ -180,7 +181,9 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
       assert (state = InProgress)
       state <- Stopped
 
-    member _.ForceFinish() = state <- ForceFinished
+    member _.ForceFinish info =
+      state <- ForceFinished
+      calleeInfo <- info
 
     member _.StartVerifying() =
       assert (state = InProgress)
@@ -189,6 +192,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
     member _.Finalize() =
       assert (state = Verifying)
       state <- Finished
+      calleeInfo <- ctx.ToCalleeInfo()
 
     member _.ReInitialize() =
       assert (state = Finished || state = ForceFinished)

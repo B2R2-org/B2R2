@@ -64,6 +64,9 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
       ManagerChannel = null
       ThreadID = -1 }
 
+  /// What callers know about this function never changes, as nothing builds it.
+  let calleeInfo = ctx.ToCalleeInfo()
+
   /// Returns the location in this binary that refers to the external function.
   /// An import trampoline is executable code, whereas a relocation slot is
   /// non-executable data containing the loader's resolved function address.
@@ -77,6 +80,8 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
     member _.NextFunctionAddress with get() = None and set(_) = ()
 
     member _.Context with get() = ctx
+
+    member _.CalleeInfo with get() = calleeInfo
 
     member _.DelayedBuilderRequests with get() = Terminator.impossible ()
 
@@ -92,7 +97,7 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
     member _.Stop() = ()
 
-    member _.ForceFinish() = ()
+    member _.ForceFinish _ = ()
 
     member _.StartVerifying() = ()
 

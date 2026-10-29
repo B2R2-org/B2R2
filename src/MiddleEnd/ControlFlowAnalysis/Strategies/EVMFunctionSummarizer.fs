@@ -60,16 +60,14 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
     | _ -> Terminator.impossible ()
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
-    member _.Summarize(ctx, calleeInfo, _ins) =
+    member _.Summarize(ctx, callee, calleeInfo, _ins) =
       let ret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
-      let entryPoint = ctx.FunctionAddress
       let returnTargetStackOff =
         ctx.ManagerChannel.GetGlobalContext(fun glCtx ->
-          glCtx.GetReturnTargetStackOff entryPoint)
+          glCtx.GetReturnTargetStackOff callee)
       let hdl = ctx.BinHandle
       let rundown = makeRundown hdl ret unwinding returnTargetStackOff
-      let abs = FunctionSummary(entryPoint, unwinding, rundown, false, ret)
-      abs
+      FunctionSummary(callee, unwinding, rundown, false, ret)
 
     member _.MakeUnknownFunctionSummary(_, _, _) = Terminator.impossible ()
 

@@ -35,21 +35,17 @@ type TaskManagerCommand<'FnCtx, 'GlCtx> =
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr
                    * callee: Addr
-                   * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
+                   * AgentReplyChannel<CalleeStatus>
   /// Report the result of a task.
   | ReportCFGResult of Addr * CFGResult
   /// Report an unexpected exception raised while building a CFG.
   | ReportCFGException of Addr * exn
-  /// Retrieve the non-returning status of a function.
-  | GetNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
-  /// Retrieve the building context of a function.
-  | GetBuildingContext of
-    Addr * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
-  /// Retrieve or create the building context of an external function.
-  | GetExternalBuildingContext of
-    ExternalFunctionReference
-    * string
-    * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
+  /// Retrieve the status of a function.
+  | GetCalleeStatus of Addr * AgentReplyChannel<CalleeStatus>
+  /// Retrieve the status of an external function, creating its builder if
+  /// needed.
+  | GetExternalCalleeStatus of
+    ExternalFunctionReference * string * AgentReplyChannel<CalleeStatus>
   /// Get the next function of the given function address.
   | GetNextFunctionAddress of Addr * AgentReplyChannel<Addr option>
   /// Notify the manager that a new jump table entry is about to be recovered.

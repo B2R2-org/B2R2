@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
+open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
@@ -32,10 +33,13 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Represents an interface for summarizing a function based on the given
 /// context to abstract data.
 type IFunctionSummarizable<'FnCtx, 'GlCtx> =
-  /// Summarizes a function based on the given context. The `ins` is the call
-  /// instruction that calls the function.
+  /// Summarizes the function at `callee`, which the function of the given
+  /// context calls with the call instruction `ins`. The context belongs to the
+  /// caller, as the callee may be building on another thread; `calleeInfo` is
+  /// what the caller knows about the callee.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * callee: Addr
      * calleeInfo: CalleeInfo
      * ins: IInstruction
     -> FunctionSummary<LowUIR.Stmt>

@@ -62,14 +62,14 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     | Ok builder -> isBuilderFinished builder
     | Error _ -> false
 
-  let toBuilderMessage = function
+  let toCalleeStatus = function
     | Ok(builder: ICFGBuildable<_, _>) ->
       match builder.BuilderState with
-      | Invalid -> FailedBuilding
-      | ForceFinished | Finished -> FinalCtx builder.Context
-      | _ -> StillBuilding builder.Context
+      | Invalid -> Failed
+      | ForceFinished | Finished -> Built builder.CalleeInfo
+      | _ -> Building
     | Error _ ->
-      FailedBuilding
+      Failed
 
   let terminateWorkers () = taskStream.Close()
 
@@ -209,14 +209,11 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     let nextStatus = targetBuilder.Context.NonReturningStatus
     let nextStatus = (* preserve old status so the algo terminates. *)
       if nextStatus = UnknownNoRet then NoRet else nextStatus
-    let ctx = targetBuilder.Context
     let calleeInfo =
-      { Status = nextStatus
-        Unwinding = ctx.UnwindingBytes
-        Clobbered = Set.ofSeq ctx.ClobberedRegs }
+      { targetBuilder.Context.ToCalleeInfo() with Status = nextStatus }
     let calleeAddr = targetBuilder.EntryPoint
     resetBuilder targetBuilder
-    targetBuilder.ForceFinish()
+    targetBuilder.ForceFinish calleeInfo
     targetBuilder.Context.NonReturningStatus <- nextStatus
 #if CFGDEBUG
     dbglog ManagerTid "CyclicDependencies"
@@ -328,12 +325,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   /// this function should be only used for builders that are not currently
   /// handled by the manager.
   let updateCallers (callee: ICFGBuildable<_, _>) caller =
-    let calleeCtx = callee.Context
     let calleeAddr = callee.EntryPoint
-    let calleeInfo =
-      { Status = calleeCtx.NonReturningStatus
-        Unwinding = calleeCtx.UnwindingBytes
-        Clobbered = Set.ofSeq calleeCtx.ClobberedRegs }
+    let calleeInfo = callee.Context.ToCalleeInfo()
     if (caller: ICFGBuildable<_, _>).BuilderState <> InProgress then
 #if CFGDEBUG
       dbglog ManagerTid "ReloadDueCalleeChange"
@@ -407,13 +400,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       ()
 #endif
     builder.Finalize()
-    let ctx = builder.Context
-    let calleeInfo =
-      { Status = ctx.NonReturningStatus
-        Unwinding = ctx.UnwindingBytes
-        Clobbered = Set.ofSeq ctx.ClobberedRegs }
     dependenceMap.Confirm entryPoint
-    |> Array.iter (notifySuccessToCaller entryPoint calleeInfo)
+    |> Array.iter (notifySuccessToCaller entryPoint builder.CalleeInfo)
 
   let reloadCallersAndFinalizeBuilder builder entryPoint =
     for callerAddr in dependenceMap.GetConfirmedCallers entryPoint do
@@ -644,23 +632,19 @@ type TaskScheduler<'FnCtx, 'GlCtx>
         | _ ->
           scheduleCFGBuilding callee
           dependenceMap.AddDependency(caller, callee, not <| isFinished callee)
-        toBuilderMessage builder |> ch.Reply
+        toCalleeStatus builder |> ch.Reply
       | ReportCFGResult(entryPoint, result) ->
         reportResult entryPoint result
       | ReportCFGException(entryPoint, e) ->
         reportException entryPoint e
-      | GetNonReturningStatus(addr, ch) ->
-        match builders.TryGetBuilder addr with
-        | Ok builder -> ch.Reply builder.Context.NonReturningStatus
-        | Error _ -> ch.Reply UnknownNoRet
-      | GetBuildingContext(addr, ch) ->
+      | GetCalleeStatus(addr, ch) ->
         builders.TryGetBuilder addr
-        |> toBuilderMessage
+        |> toCalleeStatus
         |> ch.Reply
-      | GetExternalBuildingContext(reference, name, ch) ->
+      | GetExternalCalleeStatus(reference, name, ch) ->
         builders.GetOrCreateExternalBuilder(reference, name)
         |> Ok
-        |> toBuilderMessage
+        |> toCalleeStatus
         |> ch.Reply
       | GetNextFunctionAddress(addr, ch) ->
         builders[addr].NextFunctionAddress
