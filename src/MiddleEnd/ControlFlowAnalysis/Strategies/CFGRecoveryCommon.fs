@@ -344,10 +344,12 @@ module internal CFGRecoveryCommon =
   let tryHandleRelocationBackedCall ctx cfgRec srcVertex isTailCall e =
     let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     let ppoint = srcBBL.PPoint
-    let callsiteAddr = srcBBL.LastInstruction.Address
-    let callsite = LeafCallSite callsiteAddr
     match e with
     | Load(Addr = BinOp(Op = BinOpType.ADD; Left = PCVar _; Right = Num bv)) ->
+      (* Only a real block loads through the PC; an abstract vertex, which
+         summarizes a callee, has no instruction to take the address of. *)
+      let callsiteAddr = srcBBL.LastInstruction.Address
+      let callsite = LeafCallSite callsiteAddr
       let relocationSlotAddr = callsiteAddr + bv.ToUInt64()
       match BinFileOps.tryResolveRelocationValue
               ctx.BinHandle.File relocationSlotAddr with
