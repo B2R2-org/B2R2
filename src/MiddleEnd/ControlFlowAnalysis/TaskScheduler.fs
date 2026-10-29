@@ -38,8 +38,6 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   /// Command.
   let mutable globalCtx = strategy.CreateGlobalContext()
 
-  let jmptblNotes = JmpTableRecoveryNotebook()
-
   let workingSet = HashSet<Addr>()
 
   /// Functions whose recovery raised an unexpected exception.
@@ -115,6 +113,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     if builder.BuilderState <> InProgress then restartBuilder builder
     else builder.DelayedBuilderRequests.Enqueue ResetBuilder
 
+  let jumpTables = JumpTableCoordinator(builders, restartBuilderIfNotInProgress)
+
   let rechargeActionQueue (ctx: CFGBuildingContext<_, _>) callee calleeInfo =
     let callerPendingActions = ctx.PendingCallActions
     let callerActionQueue = ctx.ActionQueue
@@ -151,7 +151,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
         ()
 
   let rec rollback (builder: ICFGBuildable<_, _>) =
-    if rollbackOnGapAnalysis builder || rollbackOnJumpTable builder then
+    if rollbackOnGapAnalysis builder || jumpTables.Rollback builder then
       restartBuilder builder
     else
       let fnAddr = builder.EntryPoint
@@ -173,21 +173,6 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       <| $"{addr:x} @ {builder.EntryPoint:x}"
 #endif
       builder.Context.GapBlacklist.Add(addr) |> ignore
-      true
-
-  /// Rolls back a builder that was performing jump table recovery, adjusting
-  /// the jump table note accordingly.
-  and rollbackOnJumpTable (builder: ICFGBuildable<_, _>) =
-    match builder.Context.JumpTableRecoveryStatus.TryPeek() with
-    | false, _ ->
-      false
-    | true, (tblAddr, idx) ->
-#if CFGDEBUG
-      dbglog ManagerTid "Rollback for jump table"
-      <| $"{tblAddr:x}[{idx}] @ {builder.EntryPoint:x}"
-#endif
-      assert (idx > 0)
-      jmptblNotes.SetPotentialEndPointByIndex(tblAddr, idx - 1)
       true
 
   and invalidateBuilder builder =
@@ -316,7 +301,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
          where we have some bogus dataflows due to the under-approximation,
          making our switch table identification wrong (e.g., the switch table
          size is over-approximated or it has a wrong base address). *)
-      if builder.HasJumpTable then restartBuilder builder
+      if jumpTables.HasJumpTable builder.EntryPoint then restartBuilder builder
       else scheduleCFGBuilding builder.EntryPoint
 
   /// Returns true if there was a consumed request.
@@ -342,7 +327,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       (* We restart the caller builder if it has a jump table as the
          under-approximated CFG can introduce a bogus edge in some rare cases
          as described in the `consumeUntilPendingReset` function. *)
-      if caller.HasJumpTable then
+      if jumpTables.HasJumpTable caller.EntryPoint then
         restartBuilder caller
       else
         if isBuilderFinished caller then caller.ReInitialize() else ()
@@ -456,141 +441,6 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       (* invalid builder will be auto-reloaded later *)
       if builder.BuilderState = Invalid then () else rollback builder
 
-  let handleJumpTableRecoveryRequest fnAddr jmptbl =
-    match jmptblNotes.Register(fnAddr, jmptbl) with
-    | RegistrationSucceeded ->
-#if CFGDEBUG
-      dbglog ManagerTid "JumpTable registered"
-      <| jmptblNotes.GetNoteString jmptbl.TableAddress
-#endif
-      GoRecovery
-    | SharedByFunctions oldFnAddr ->
-#if CFGDEBUG
-      dbglog ManagerTid "JumpTable failed"
-      <| $"{jmptbl.InsAddr:x}:{jmptbl.TableAddress:x} shared by two funcs."
-#endif
-      let smallerFnAddr = min oldFnAddr fnAddr
-      let largerFnAddr = max oldFnAddr fnAddr
-      let ownerFnAddr =
-        if jmptbl.InsAddr < largerFnAddr then smallerFnAddr else largerFnAddr
-      if oldFnAddr = ownerFnAddr then
-#if CFGDEBUG
-        dbglog ManagerTid "JumpTable shared"
-        <| $"keep owner {oldFnAddr:x}; continue waiter {fnAddr:x}"
-#endif
-        jmptblNotes.AddWaitingFunction(jmptbl.TableAddress, fnAddr)
-        GoRecovery
-      else
-        assert (fnAddr = ownerFnAddr)
-#if CFGDEBUG
-        dbglog ManagerTid "JumpTable shared"
-        <| $"change owner from {oldFnAddr:x} to {fnAddr:x}"
-#endif
-        let waitingFunctions =
-          jmptblNotes.Unregister(jmptbl.TableAddress, oldFnAddr)
-        restartBuilderIfNotInProgress builders[oldFnAddr]
-        let result = jmptblNotes.Register(fnAddr, jmptbl)
-        assert (result = RegistrationSucceeded)
-        jmptblNotes.AddWaitingFunction(jmptbl.TableAddress, oldFnAddr)
-        for waitingFnAddr in waitingFunctions do
-          jmptblNotes.AddWaitingFunction(jmptbl.TableAddress, waitingFnAddr)
-        GoRecovery
-    | SharedByInstructions ->
-#if CFGDEBUG
-      let insAddr = jmptbl.InsAddr
-      dbglog ManagerTid "JumpTable failed"
-      <| $"{insAddr:x}:{jmptbl.TableAddress:x}) shared by two instrs."
-#endif
-      (* We found two different jmp instructions for the same jump table, in
-         which case we cannot decide which one is wrong. Thus, we just ignore
-         this error, meaning that we ignore the later found one. *)
-      (* Instead, we add the instruction to the waiting list of the owning
-         function's own jump table so that the edges can be added after the
-         table is recovered by the first instruction. We deliberately keep this
-         list in the function context (not in the global note) so that it is
-         discarded together with the CFG whenever the builder is rolled back. *)
-      let ctx = builders[fnAddr].Context
-      match ctx.JumpTables.TryGetValue jmptbl.TableAddress with
-      | true, ownerTbl ->
-        if List.contains jmptbl.InsAddr ownerTbl.WaitingInstructions then
-          ()
-        else
-          ownerTbl.WaitingInstructions <-
-            jmptbl.InsAddr :: ownerTbl.WaitingInstructions
-      | false, _ ->
-        ()
-      StopRecoveryAndContinue
-    | OverlappingNote oldNote ->
-      let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
-      let entrySize = uint64 jmptbl.EntrySize
-      let newEndPoint = newTblAddr - entrySize
-      let entryBeingAnalyzed = oldNote.ConfirmedEndPoint + entrySize
-#if CFGDEBUG
-      let str = jmptblNotes.GetNoteString oldNote.StartingPoint
-      dbglog ManagerTid "JumpTable overlap"
-      <| $"{jmptbl.InsAddr:x}:{newTblAddr:x} overlapped with ({str})"
-#endif
-      jmptblNotes.SetPotentialEndPointByAddr(oldTblAddr, newEndPoint)
-      if entryBeingAnalyzed <= newEndPoint then
-#if CFGDEBUG
-        dbglog ManagerTid "JumpTable" $"overlap resolved and continue"
-#endif
-        let result = jmptblNotes.Register(fnAddr, jmptbl)
-        assert (result = RegistrationSucceeded)
-        GoRecovery
-      else
-#if CFGDEBUG
-        dbglog ManagerTid "JumpTable rollback"
-        <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
-#endif
-        if oldNote.HostFunctionAddr <> fnAddr then
-          let hostAddr = oldNote.HostFunctionAddr
-          let builder = builders[hostAddr]
-          restartBuilderIfNotInProgress builder
-        else
-          ()
-        StopRecoveryButReload
-
-  let handleBogusJumpTableEntry fnAddr tblAddr idx =
-    let currentIdx = jmptblNotes.GetPotentialEndPointIndex tblAddr
-    if idx > 0 && (idx - 1) <= currentIdx then
-#if CFGDEBUG
-      dbglog ManagerTid "BogusJumpTableEntry"
-      <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus so set the idx to {idx-1}"
-#endif
-      jmptblNotes.SetPotentialEndPointByIndex(tblAddr, idx - 1)
-      true
-    elif idx = 0 && idx < currentIdx then
-#if CFGDEBUG
-      dbglog ManagerTid "BogusJumpTableEntry"
-      <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus so set the idx to 0"
-#endif
-      jmptblNotes.SetPotentialEndPointByIndex(tblAddr, 0)
-      true
-    else
-#if CFGDEBUG
-      dbglog ManagerTid "BogusJumpTableEntry"
-      <| $"{tblAddr:x}:[{idx}] @ {fnAddr:x} is bogus but didn't rollback"
-#endif
-      false
-
-  let handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget isFPTab =
-#if CFGDEBUG
-    dbglog ManagerTid "JumpTable success"
-    <| $"{tblAddr:x}[{idx}] @ {fnAddr:x} -> {nextJumpTarget:x}"
-#endif
-    jmptblNotes.SetConfirmedEndPoint(tblAddr, idx)
-    if jmptblNotes.IsExpandable(tblAddr, idx + 1) then
-      match builders[fnAddr].NextFunctionAddress with
-      | Some nextFnAddr ->
-        let nextBuilder = builders[nextFnAddr]
-        isFPTab (* Since we are handling a function pointer table, we just go *)
-        || (fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint)
-      | None ->
-        false
-    else
-      false
-
   /// Handles the result of a builder, unless the recovery has been aborted.
   let reportResult entryPoint result =
     if fatalErrors.Count > 0 then
@@ -653,18 +503,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       | GetNextFunctionAddress(addr, ch) ->
         builders[addr].NextFunctionAddress
         |> ch.Reply
-      | NotifyJumpTableRecovery(fnAddr, jmptbl, ch) ->
-        ch.Reply <| handleJumpTableRecoveryRequest fnAddr jmptbl
-      | NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx, ch) ->
-        ch.Reply <| handleBogusJumpTableEntry fnAddr tblAddr idx
-      | CancelJumpTableRecovery(fnAddr, insAddr, tblAddr) ->
-#if CFGDEBUG
-        dbglog ManagerTid "JumpTable canceled" $"{insAddr:x} @ {fnAddr:x}"
-#endif
-        jmptblNotes.Unregister(tblAddr, fnAddr) |> ignore
-      | ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextTarget, isFPTab, ch) ->
-        ch.Reply
-        <| handleJumpTableRecoverySuccess fnAddr tblAddr idx nextTarget isFPTab
+      | JumpTable req ->
+        jumpTables.Handle req
       | AccessGlobalContext(accessor, ch) ->
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->

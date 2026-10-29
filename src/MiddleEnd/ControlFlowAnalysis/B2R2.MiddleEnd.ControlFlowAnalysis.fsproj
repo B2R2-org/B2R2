@@ -19,6 +19,7 @@
     <Compile Include="IntraCallTable.fs" />
     <Compile Include="CFGEvaluator.fs" />
     <Compile Include="ClobberedRegisters.fs" />
+    <Compile Include="IJumpTableChannel.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
     <Compile Include="TaskManagerCommand.fs" />
@@ -35,6 +36,7 @@
     <Compile Include="FunctionCollection.fs" />
     <Compile Include="TaskWorkerCommand.fs" />
     <Compile Include="TaskWorkerCommandStream.fs" />
+    <Compile Include="JumpTableCoordinator.fs" />
     <Compile Include="TaskScheduler.fs" />
     <Compile Include="TaskManager.fs" />
     <Compile Include="Strategies\DummyContext.fs" />

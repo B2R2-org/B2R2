@@ -48,27 +48,33 @@ type TaskManagerCommand<'FnCtx, 'GlCtx> =
     ExternalFunctionReference * string * AgentReplyChannel<CalleeStatus>
   /// Get the next function of the given function address.
   | GetNextFunctionAddress of Addr * AgentReplyChannel<Addr option>
-  /// Notify the manager that a new jump table entry is about to be recovered.
-  /// The manager returns the decision about the next action.
-  | NotifyJumpTableRecovery of fn: Addr
-                             * tbl: JmpTableInfo
-                             * AgentReplyChannel<JumpTableRecoveryDecision>
-  /// Notify the manager that we found a bogus jump table entry. The manager
-  /// returns whether the recovery should continue or not.
-  | NotifyBogusJumpTableEntry of
-    fn: Addr * tbl: Addr * idx: int * AgentReplyChannel<bool>
-  /// Cancel the jump table recovery because we found that the indirect branch
-  /// is not using a jump table.
-  | CancelJumpTableRecovery of fn: Addr * ins: Addr * tbl: Addr
-  /// Report jump entry recovery result (success only) to the manager. The
-  /// manager will then decide whether to continue the analysis or not.
-  | ReportJumpTableSuccess of fn: Addr
-                            * tbl: Addr
-                            * idx: int
-                            * next: Addr
-                            * isFunctionPointerTable: bool
-                            * AgentReplyChannel<bool>
+  /// Coordinate jump table recovery with the manager.
+  | JumpTable of JumpTableRequest
   /// Access the global context with the accessor, which has a side effect.
   | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
   /// Update global context.
   | UpdateGlobalContext of updater: ('GlCtx -> 'GlCtx)
+
+/// Represents jump table recovery requests, which the JumpTableCoordinator of
+/// the task manager handles.
+and JumpTableRequest =
+  /// Notify the manager that a new jump table entry is about to be recovered.
+  /// The manager returns the decision about the next action.
+  | NotifyRecovery of fn: Addr
+                    * tbl: JmpTableInfo
+                    * AgentReplyChannel<JumpTableRecoveryDecision>
+  /// Notify the manager that we found a bogus jump table entry. The manager
+  /// returns whether the recovery should continue or not.
+  | NotifyBogusEntry of
+    fn: Addr * tbl: Addr * idx: int * AgentReplyChannel<bool>
+  /// Cancel the jump table recovery because we found that the indirect branch
+  /// is not using a jump table.
+  | CancelRecovery of fn: Addr * ins: Addr * tbl: Addr
+  /// Report jump entry recovery result (success only) to the manager. The
+  /// manager will then decide whether to continue the analysis or not.
+  | ReportSuccess of fn: Addr
+                   * tbl: Addr
+                   * idx: int
+                   * next: Addr
+                   * isFunctionPointerTable: bool
+                   * AgentReplyChannel<bool>

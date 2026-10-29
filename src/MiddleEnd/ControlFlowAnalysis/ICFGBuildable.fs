@@ -42,9 +42,6 @@ type ICFGBuildable<'FnCtx, 'GlCtx> =
   /// thus, it should be accessed only by the task manager.
   abstract DelayedBuilderRequests: Queue<DelayedBuilderRequest>
 
-  /// Returns whether the function has a jump table or not.
-  abstract HasJumpTable: bool
-
   /// Gets or sets the current activation status of the function builder. The
   /// default value is Activated, and it can be initially set to Deactivated
   /// when the builder is created but not scheduled yet.

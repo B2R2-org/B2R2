@@ -46,8 +46,6 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
   let delayedBuilderRequests = Queue<DelayedBuilderRequest>()
 
-  let mutable hasJumpTable = false
-
   let mutable activation = Activated
 
   let mutable calleeInfo = CalleeInfo.Unknown
@@ -70,26 +68,6 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
         member _.GetNextFunctionAddress(addr) =
           manager.PostAndReply(fun _ ch -> GetNextFunctionAddress(addr, ch))
 
-        member _.NotifyJumpTableRecovery(fnAddr, tblInfo) =
-          manager.PostAndReply(fun _ ch ->
-            NotifyJumpTableRecovery(fnAddr, tblInfo, ch))
-
-        member _.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx) =
-          manager.PostAndReply(fun _ ch ->
-            NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx, ch))
-
-        member _.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr) =
-          manager.Post <| CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
-
-        member _.ReportJumpTableSuccess(fnAddr,
-                                        tblAddr,
-                                        idx,
-                                        nextAddr,
-                                        isFPTab) =
-          hasJumpTable <- true
-          manager.PostAndReply(fun _ ch ->
-            ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab, ch))
-
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>
           manager.PostAndReply(fun _ ch ->
@@ -99,6 +77,23 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
         member _.UpdateGlobalContext(updater) =
           manager.Post <| UpdateGlobalContext updater }
+
+  let jumpTableChannel =
+    let post req = manager.Post <| JumpTable req
+    let ask req = manager.PostAndReply(fun _ ch -> JumpTable(req ch))
+    { new IJumpTableChannel with
+        member _.NotifyRecovery(fnAddr, jmptbl) =
+          ask (fun ch -> NotifyRecovery(fnAddr, jmptbl, ch))
+
+        member _.NotifyBogusEntry(fnAddr, tblAddr, idx) =
+          ask (fun ch -> NotifyBogusEntry(fnAddr, tblAddr, idx, ch))
+
+        member _.CancelRecovery(fnAddr, insAddr, tblAddr) =
+          post <| CancelRecovery(fnAddr, insAddr, tblAddr)
+
+        member _.ReportSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab) =
+          ask (fun ch ->
+            ReportSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab, ch)) }
 
   let rec build (strategy: ICFGBuildingStrategy<_, _>) queue =
     if (queue: CFGActionQueue).IsEmpty() then
@@ -115,6 +110,8 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
       | FailStop e -> FailStop e
 
   do ctx.ManagerChannel <- managerChannel
+
+  do ctx.JumpTableChannel <- jumpTableChannel
 
   new(hdl, exnInfo, instrs, entryPoint, manager, irBlkOptimizer, fnCtx) =
     let name =
@@ -142,8 +139,6 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
     member _.Callers with get() = ctx.Callers
 
     member _.DelayedBuilderRequests with get() = delayedBuilderRequests
-
-    member _.HasJumpTable with get() = hasJumpTable
 
     member _.Activation with get() = activation and set(v) = activation <- v
 

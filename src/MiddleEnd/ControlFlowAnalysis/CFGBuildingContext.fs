@@ -74,6 +74,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable managerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null = null
 
+  let mutable jumpTableChannel: IJumpTableChannel | null = null
+
   let mutable threadID = -1
 
   /// The address of the function that is being built.
@@ -172,6 +174,11 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   member internal _.ManagerChannel
     with get() = managerChannel
      and set v = managerChannel <- v
+
+  /// The channel for coordinating jump table recovery with the TaskManager.
+  member internal _.JumpTableChannel
+    with get() = jumpTableChannel
+     and set v = jumpTableChannel <- v
 
   /// Thread ID that is currently building this function.
   member internal _.ThreadID
@@ -400,55 +407,11 @@ and IManagerAccessible<'FnCtx, 'GlCtx> =
   /// no next function, this returns None.
   abstract GetNextFunctionAddress: addr: Addr -> Addr option
 
-  /// Notifies the manager that a new jump table entry is about to be recovered,
-  /// and gets the decision about what to do next.
-  abstract NotifyJumpTableRecovery:
-       fnAddr: Addr
-     * jmptbl: JmpTableInfo
-    -> JumpTableRecoveryDecision
-
-  /// Notifies the manager that a bogus jump table entry is found, and gets the
-  /// decision whether to continue the analysis or not.
-  abstract NotifyBogusJumpTableEntry:
-       fnAddr: Addr
-     * tblAddr: Addr
-     * idx: int
-    -> bool
-
-  /// Lets the manager know that the jump table recovery is canceled.
-  abstract CancelJumpTableRecovery:
-       fnAddr: Addr
-     * insAddr: Addr
-     * tblAddr: Addr
-    -> unit
-
-  /// Reports the success of jump table entry recovery to the manager, and gets
-  /// the decision whether to continue the analysis or not.
-  abstract ReportJumpTableSuccess:
-       fnAddr: Addr
-     * tblAddr: Addr
-     * idx: int
-     * potentialNextTarget: Addr
-     * isFunctionPointerTable: bool
-    -> bool
-
   /// Gets the current user-defined global state of the TaskManager.
   abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
 
   /// Updates the user-defined global state of the TaskManager.
   abstract UpdateGlobalContext: updater: ('GlCtx -> 'GlCtx) -> unit
-
-/// Represents a decision about what to do next in the jump table registration
-/// process.
-and JumpTableRecoveryDecision =
-  /// Continue the recovery process.
-  | GoRecovery
-  /// Error occurred during the recovery process, but we can recover it, so
-  /// reload the builder.
-  | StopRecoveryButReload
-  /// Stop the recovery process since this is a fatal error that we cannot
-  /// handle.
-  | StopRecoveryAndContinue
 
 /// Represents what the manager knows about a function that another function
 /// refers to. It never hands out the context of the function, which only the

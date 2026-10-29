@@ -802,7 +802,7 @@ module internal CFGRecoveryCommon =
       dbglog ctx.ThreadID "JumpTable"
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
-      ctx.ManagerChannel.NotifyJumpTableRecovery(funcAddr, jmptbl)
+      ctx.JumpTableChannel.NotifyRecovery(funcAddr, jmptbl)
       |> function
         | GoRecovery -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
         | StopRecoveryButReload -> StopAndReload
@@ -837,7 +837,7 @@ module internal CFGRecoveryCommon =
            not using a jump table, and thus, we simply ignore the indirect
            branch. *)
         let insAddr = (jmptbl: JmpTableInfo).InsAddr
-        ctx.ManagerChannel.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
+        ctx.JumpTableChannel.CancelRecovery(fnAddr, insAddr, tblAddr)
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop() |> ignore
         MoveOn
@@ -847,7 +847,7 @@ module internal CFGRecoveryCommon =
       if not isDstFuncEntry then (* End of the table. *)
         let tblAddr = jmptbl.TableAddress
         let success =
-          ctx.ManagerChannel.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx)
+          ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx)
         assert success
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop() |> ignore
@@ -866,8 +866,8 @@ module internal CFGRecoveryCommon =
     let tblAddr = jmptbl.TableAddress
     let nextTarget = readJumpTable ctx jmptbl (idx + 1)
     let isFnPointerTbl = jmptbl.IsFunctionPointerTable
-    let ch = ctx.ManagerChannel
-    ch.ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextTarget, isFnPointerTbl)
+    let ch = ctx.JumpTableChannel
+    ch.ReportSuccess(fnAddr, tblAddr, idx, nextTarget, isFnPointerTbl)
     |> function
       | true ->
         let callsiteAddr = jmptbl.InsAddr
@@ -974,7 +974,7 @@ module internal CFGRecoveryCommon =
       match v.VData.DominatingJumpTableEntry with
       | Some(tblAddr, idx) ->
         let fnAddr = ctx.FunctionAddress
-        ctx.ManagerChannel.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx)
+        ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx)
         |> function
           | true -> StopAndReload
           | false -> finalizeRecovery ctx cfgRec postAnalysis
