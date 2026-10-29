@@ -691,6 +691,10 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   /// scheduler has stopped.
   member _.FatalErrors with get() = fatalErrors.ToArray()
 
+  /// The global context that the recovery has built up. This is only valid
+  /// after the scheduler has stopped.
+  member _.GlobalContext with get() = globalCtx
+
   /// Starts the scheduler and returns the command message box.
   member _.Start(token) =
     msgbox <- Agent<_>.Start(schedule, token)

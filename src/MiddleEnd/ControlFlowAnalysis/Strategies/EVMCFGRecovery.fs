@@ -51,10 +51,6 @@ module private EVMCFGRecovery =
     | StillBuilding calleeCtx -> Ok calleeCtx
     | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
-  let getFunctionUserContext ctx calleeAddr =
-    getFunctionContext ctx calleeAddr
-    |> Result.bind (fun calleeCtx -> Ok calleeCtx.UserContext)
-
   /// Checks if this vertex was executed in the data-flow analysis. Note that
   /// incomplete CFG traversal can lead to that situation, as we conduct path-
   /// sensitive data-flow analysis.
@@ -223,11 +219,18 @@ module private EVMCFGRecovery =
       removeReachableVertices ctx cfgRec [ ep ]
       |> Seq.iter (reanalyzeVertex ctx)
 
+  /// Records what the recovery of this function finds out about another
+  /// function. The manager applies it, as other functions read it, too.
+  let updateGlobalContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>) f =
+    ctx.ManagerChannel.UpdateGlobalContext(fun (glCtx: EVMGlobalContext) ->
+      f glCtx
+      glCtx)
+
   let introduceNewSharedRegion (ctx: CFGBuildingContext<_, _>) cfgRec srcV ep =
     assert (ep <> ctx.FunctionAddress)
     ctx.ManagerChannel.StartBuilding ep
-    getFunctionUserContext ctx ep
-    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion())
+    if isFailedBuilding ctx ep then ()
+    else updateGlobalContext ctx (fun glCtx -> glCtx.SetSharedRegion ep)
     if not UsesOptimizedReload then Some StopAndReload
     else removeAndReanalyze ctx cfgRec srcV ep; None
 
@@ -365,8 +368,10 @@ module private EVMCFGRecovery =
       | _ -> Terminator.impossible ()
     let stackPointerDiff = findLatestStackOffset ctx state v
     let fnUserCtx: EVMFuncUserContext = ctx.UserContext
-    fnUserCtx.SetReturnTargetStackOff returnTargetStackOff
     fnUserCtx.SetStackPointerDiff(uint64 stackPointerDiff)
+    let fnAddr = ctx.FunctionAddress
+    updateGlobalContext ctx (fun glCtx ->
+      glCtx.SetReturnTargetStackOff(fnAddr, returnTargetStackOff))
     None
 
   let computeCPState ctx =
@@ -722,12 +727,12 @@ module private EVMCFGRecovery =
             let info = { CalleeInfo.Unknown with Status = NoRet }
             let act = MakeCall(cs, callee, info) (* treat as NoRet *)
             let ret = handleCall ctx cfgRec v cs callee act
-            match getFunctionUserContext ctx callee with
-            | Ok userCtx ->
-              userCtx.SetPublicFunction()
+            if isFailedBuilding ctx callee then
+              Some <| FailStop ErrorCase.FailedToRecoverCFG
+            else
+              updateGlobalContext ctx (fun glCtx ->
+                glCtx.SetPublicFunction callee)
               Some ret
-            | Error errorCase ->
-              Some <| FailStop errorCase
           | Error errorCase ->
             Some <| FailStop errorCase
         else
@@ -949,7 +954,7 @@ module private EVMCFGRecovery =
 type EVMCFGRecovery(fnCallback) as this =
   let syscallAnalysis = SyscallAnalysis()
 
-  interface ICFGRecovery<EVMFuncUserContext, DummyContext> with
+  interface ICFGRecovery<EVMFuncUserContext, EVMGlobalContext> with
     member _.Summarizer with get() = summarizer
 
     member _.ActionPrioritizer with get() = prioritizer
@@ -960,7 +965,7 @@ type EVMCFGRecovery(fnCallback) as this =
 
     member _.ResetFunctionContext fnCtx = (fnCtx :> IResettable).Reset()
 
-    member _.CreateGlobalContext() = DummyContext()
+    member _.CreateGlobalContext() = EVMGlobalContext()
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis false action

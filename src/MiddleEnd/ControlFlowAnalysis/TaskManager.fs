@@ -107,6 +107,9 @@ type TaskManager<'FnCtx, 'GlCtx>
   /// Functions whose recovery raised an unexpected exception.
   member _.Failures with get(): CFGRecoveryFailure[] = scheduler.Failures
 
+  /// The global context that the recovery has built up.
+  member _.GlobalContext with get(): 'GlCtx = scheduler.GlobalContext
+
   member _.StartAndWait candidates =
     let targetAddrs = getInitialRecoveryAddrs candidates
     createBuilders candidates targetAddrs

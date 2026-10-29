@@ -65,9 +65,9 @@ type BinaryBrew<'FnCtx, 'GlCtx>
     let candidates = funcID.Identify()
     let manager = TaskManager<'FnCtx, 'GlCtx>(builders, cfgBuilder, numThreads)
     manager.StartAndWait candidates
-    buildersToFunctions builders, manager.Failures
+    buildersToFunctions builders, manager.Failures, manager.GlobalContext
 
-  let funcs, failures = recoverFunctions ()
+  let funcs, failures, glCtx = recoverFunctions ()
 
   new(hdl: BinHandle, funcId, cfgRecovery) =
     let exnInfo = ExceptionInfo hdl
@@ -89,6 +89,10 @@ type BinaryBrew<'FnCtx, 'GlCtx>
   /// Functions whose recovery raised an unexpected exception. They are left
   /// out of the recovered functions.
   member _.RecoveryFailures with get(): CFGRecoveryFailure[] = failures
+
+  /// The global context that the CFG recovery has built up, which holds what
+  /// the recovery of each function found out about the others.
+  member _.GlobalContext with get(): 'GlCtx = glCtx
 
   /// Exception information.
   member _.ExceptionInfo with get() = exnInfo
@@ -125,7 +129,7 @@ type BinaryBrew =
 
 /// Default BinaryBrew type that uses EVM-specific user context.
 type EVMBinaryBrew =
-  inherit BinaryBrew<EVMFuncUserContext, DummyContext>
+  inherit BinaryBrew<EVMFuncUserContext, EVMGlobalContext>
 
   new(hdl: BinHandle, cfgBuilder) =
     let optimizer =
@@ -137,7 +141,7 @@ type EVMBinaryBrew =
     let funcId =
       { new IFunctionIdentifiable with
           member _.Identify() = [| 0x0UL |] }
-    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl,
-                                                           funcId,
-                                                           cfgBuilder,
-                                                           optimizer) }
+    { inherit BinaryBrew<EVMFuncUserContext, EVMGlobalContext>(hdl,
+                                                               funcId,
+                                                               cfgBuilder,
+                                                               optimizer) }

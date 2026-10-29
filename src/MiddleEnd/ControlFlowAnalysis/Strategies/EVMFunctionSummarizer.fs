@@ -39,7 +39,7 @@ open B2R2.MiddleEnd.BinGraph
 /// expressiveness of B2R2's IR, we can easily express a function's summary,
 /// including its unwinding behavior and return behavior.
 type EVMFunctionSummarizer<'FnCtx, 'GlCtx
-  when 'FnCtx :> EVMFuncUserContext>() =
+  when 'GlCtx :> EVMGlobalContext>() =
   let makeRundownForReturn hdl unwindingAmount retStackOff =
     let spRegId = (hdl: BinHandle).RegisterFactory.StackPointer |> Option.get
     let spVar = hdl.RegisterFactory.GetRegVar spRegId
@@ -63,7 +63,9 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
     member _.Summarize(ctx, calleeInfo, _ins) =
       let ret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
       let entryPoint = ctx.FunctionAddress
-      let returnTargetStackOff = ctx.UserContext.ReturnTargetStackOff
+      let returnTargetStackOff =
+        ctx.ManagerChannel.GetGlobalContext(fun glCtx ->
+          glCtx.GetReturnTargetStackOff entryPoint)
       let hdl = ctx.BinHandle
       let rundown = makeRundown hdl ret unwinding returnTargetStackOff
       let abs = FunctionSummary(entryPoint, unwinding, rundown, false, ret)
@@ -73,22 +75,15 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
 
     member _.ComputeUnwindingAmount _ = Terminator.impossible ()
 
-/// Represents a user-defined context for EVM functions. EVMFunctionSummarizer
-/// uses this information to summarize the function, especially the return
-/// target.
+/// Represents a user-defined context for EVM functions, which keeps the state
+/// of the data-flow analysis on a single function. What other functions need
+/// to know, such as the return target, lives in EVMGlobalContext instead.
 and EVMFuncUserContext() =
   let mutable cp: LowUIRSensitiveConstantPropagation<EVMExeCtx> | null = null
 
   /// Stack pointer difference from the entry point of the function to the
   /// return block.
   let mutable stackPointerDiff: Option<uint64> = None
-
-  /// Stack offset of the return target that the function will return to.
-  let mutable returnTargetStackOff: uint64 = 0UL
-
-  let mutable isPublicFunction = false
-
-  let mutable isSharedRegion = false
 
   let backEdges =
     HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>()
@@ -158,12 +153,6 @@ and EVMFuncUserContext() =
 
   member _.StackPointerDiff with get() = stackPointerDiff
 
-  member _.ReturnTargetStackOff with get() = returnTargetStackOff
-
-  member _.IsPublicFunction with get() = isPublicFunction
-
-  member _.IsSharedRegion with get() = isSharedRegion
-
   member _.PostponedVertices with get() = verticesPostponed
 
   member _.ResumableVertices with get() = verticesResumable
@@ -176,12 +165,6 @@ and EVMFuncUserContext() =
 
   member _.SetStackPointerDiff diff = stackPointerDiff <- Some diff
 
-  member _.SetReturnTargetStackOff off = returnTargetStackOff <- off
-
-  member _.SetPublicFunction() = isPublicFunction <- true
-
-  member _.SetSharedRegion() = isSharedRegion <- true
-
   member _.GetStackPointerDelta(state, v) = getStackPointerDelta state v
 
   interface IResettable with
@@ -192,7 +175,6 @@ and EVMFuncUserContext() =
       verticesResumable.Clear()
       backEdges.Clear()
       stackPointerDiff <- None
-      returnTargetStackOff <- 0UL
 
 and EVMExeCtx =
   { /// The stack offset of the current vertex.

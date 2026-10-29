@@ -72,3 +72,14 @@ type EVMBinaryBrewTests() =
       |> Array.sort
       |> Array.toList
     Assert.AreEqual<Addr list>([ 0x13UL; 0x1bUL ], blocks)
+
+  [<TestMethod>]
+  member _.``EVMBinaryBrew marks only the dispatched function public``() =
+    let glCtx = brew.Value.GlobalContext
+    let flags = [ glCtx.IsPublicFunction 0x13UL; glCtx.IsPublicFunction 0x1dUL ]
+    Assert.AreEqual<bool list>([ true; false ], flags)
+
+  [<TestMethod>]
+  member _.``EVMBinaryBrew finds where a callee's return target lies``() =
+    let off = brew.Value.GlobalContext.GetReturnTargetStackOff 0x1dUL
+    Assert.AreEqual<uint64>(32UL, off)
