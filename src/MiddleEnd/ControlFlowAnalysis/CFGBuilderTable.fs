@@ -75,9 +75,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
 
   let addExternalBuilder (reference: ExternalFunctionReference) symbol name =
     let isNoRet = ELF.getNoReturnStatusFromKnownFunc symbol
-    let fnCtx = createFunctionContext ()
-    let builder =
-      ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet, fnCtx)
+    let builder = ExternalFnCFGBuilder(hdl, reference, name, isNoRet)
     builders[reference.ReferenceAddress] <- builder
     builder
 

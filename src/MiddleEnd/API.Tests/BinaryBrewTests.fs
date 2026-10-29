@@ -203,7 +203,8 @@ type BinaryBrewTests() =
     let brew = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64"))
     let builders =
       brew.Builders.Values
-      |> Array.filter (fun builder -> builder.BuilderState = Finished)
+      |> Array.filter (fun builder ->
+        builder.BuilderState = Finished && not builder.IsExternal)
     let expected =
       builders
       |> Array.map (fun builder ->
@@ -211,8 +212,15 @@ type BinaryBrewTests() =
         { Status = ctx.NonReturningStatus
           Unwinding = ctx.UnwindingBytes
           Clobbered = Set.ofSeq ctx.ClobberedRegs
-          IsExternal = builder.IsExternal })
+          IsExternal = false })
       |> Array.toList
     let actual = builders |> Array.map (fun b -> b.CalleeInfo) |> Array.toList
     Assert.AreNotEqual<int>(0, builders.Length)
     Assert.AreEqual<CalleeInfo list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew records the callers of an external function``() =
+    let fns = recoverFunctions "elf_x64_noplt"
+    let find name = fns.Sequence |> Seq.find (fun fn -> fn.Name = name)
+    let callers = (find "helper@got").Callers |> Seq.toList
+    Assert.AreEqual<Addr list>([ (find "entry").EntryPoint ], callers)

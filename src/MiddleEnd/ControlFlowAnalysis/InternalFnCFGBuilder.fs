@@ -165,6 +165,8 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
     member _.CalleeInfo with get() = calleeInfo
 
+    member _.Callers with get() = ctx.Callers
+
     member _.DelayedBuilderRequests with get() = delayedBuilderRequests
 
     member _.HasJumpTable with get() = hasJumpTable

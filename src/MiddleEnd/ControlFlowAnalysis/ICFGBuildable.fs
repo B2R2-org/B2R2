@@ -41,8 +41,13 @@ type ICFGBuildable<'FnCtx, 'GlCtx> =
   /// this is None.
   abstract NextFunctionAddress: Addr option with get, set
 
-  /// Returns the current building context.
+  /// Returns the current building context. Only a builder that builds its
+  /// function has one, so this is impossible to call on an external function.
   abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
+
+  /// Returns the functions that call this function, which the manager fills in
+  /// once the recovery is over.
+  abstract Callers: HashSet<Addr>
 
   /// Returns what the callers of this function need to know about it, as of
   /// when the builder last finished. Other functions read this snapshot rather

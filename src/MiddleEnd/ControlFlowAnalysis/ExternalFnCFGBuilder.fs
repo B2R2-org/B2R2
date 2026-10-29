@@ -32,40 +32,18 @@ open B2R2.FrontEnd
 /// storing auxiliary information about the function, such as caller
 /// information.
 type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
-  public(hdl: BinHandle, exnInfo, reference, name, noretStatus, fnCtx) =
+  public(hdl: BinHandle, reference, name, noretStatus) =
 
   let entryPoint = (reference: ExternalFunctionReference).ReferenceAddress
 
-  let ctx =
-    { FunctionAddress = entryPoint
-      FunctionName = name
-      BinHandle = hdl
-      ExnInfo = exnInfo
-      Vertices = null
-      GapAnalysisVertices = null
-      CFG = null
-      CP = null
-      BBLFactory = null
-      NonReturningStatus = noretStatus
-      JumpTableRecoveryStatus = null
-      JumpTables = null
-      GapToAnalyze = None
-      GapBlacklist = null
-      Callers = HashSet()
-      IntraCallTable = null
-      VisitedPPoints = null
-      ActionQueue = null
-      PendingCallActions = null
-      CallerVertices = Dictionary()
-      UnwindingBytes = 0
-      ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
-      UserContext = fnCtx
-      IsExternal = true
-      ManagerChannel = null
-      ThreadID = -1 }
+  let callers = HashSet<Addr>()
 
   /// What callers know about this function never changes, as nothing builds it.
-  let calleeInfo = ctx.ToCalleeInfo()
+  let calleeInfo =
+    { Status = noretStatus
+      Unwinding = 0
+      Clobbered = Set.ofSeq (ClobberedRegisters.ofCallingConvention hdl)
+      IsExternal = true }
 
   /// Returns the location in this binary that refers to the external function.
   /// An import trampoline is executable code, whereas a relocation slot is
@@ -79,9 +57,11 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
     member _.NextFunctionAddress with get() = None and set(_) = ()
 
-    member _.Context with get() = ctx
+    member _.Context with get() = Terminator.impossible ()
 
     member _.CalleeInfo with get() = calleeInfo
+
+    member _.Callers with get() = callers
 
     member _.DelayedBuilderRequests with get() = Terminator.impossible ()
 
@@ -114,9 +94,4 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
     member _.MakeNew _ = Terminator.impossible ()
 
     member _.ToFunction() =
-      Function(entryPoint,
-               name,
-               ctx.NonReturningStatus,
-               ctx.Callers,
-               [||],
-               true)
+      Function(entryPoint, name, noretStatus, callers, [||], true)

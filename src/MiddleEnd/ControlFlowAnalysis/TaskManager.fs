@@ -71,7 +71,7 @@ type TaskManager<'FnCtx, 'GlCtx>
   let updateCallers () =
     for builder in builders.Values do
       depMap.GetConfirmedCallers builder.EntryPoint
-      |> builder.Context.Callers.UnionWith
+      |> builder.Callers.UnionWith
 
   /// Creates builders for the given addresses.
   let createBuilders candidates targetAddrs =
