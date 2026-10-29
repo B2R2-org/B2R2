@@ -54,7 +54,7 @@ type BinaryBrew<'FnCtx, 'GlCtx
          cfgBuilder: ICFGBuildingStrategy<_, _>,
          irBlkOptimizer: IIRBlockOptimizable) =
 
-  let numThreads = Environment.ProcessorCount / 2
+  let numThreads = max 1 (Environment.ProcessorCount / 2)
 
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
