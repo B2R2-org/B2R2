@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System
 open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -45,6 +44,12 @@ type TaskScheduler<'FnCtx, 'GlCtx
   let jmptblNotes = JmpTableRecoveryNotebook()
 
   let workingSet = HashSet<Addr>()
+
+  /// Functions whose recovery raised an unexpected exception.
+  let failures = List<CFGRecoveryFailure>()
+
+  /// Errors that broke the scheduler itself, which abort the whole recovery.
+  let fatalErrors = List<exn>()
 
   let mutable msgbox: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>> | null = null
 
@@ -70,6 +75,12 @@ type TaskScheduler<'FnCtx, 'GlCtx
       FailedBuilding
 
   let terminateWorkers () = taskStream.Close()
+
+  /// Aborts the whole recovery, as the scheduler state can no longer be
+  /// trusted.
+  let abort e =
+    fatalErrors.Add e
+    terminateWorkers ()
 
   let scheduleCFGBuilding entryPoint = StartBuilding entryPoint |> msgbox.Post
 
@@ -588,6 +599,27 @@ type TaskScheduler<'FnCtx, 'GlCtx
     else
       false
 
+  /// Handles the result of a builder, unless the recovery has been aborted.
+  let reportResult entryPoint result =
+    if fatalErrors.Count > 0 then
+      ()
+    else
+      try
+        handleResult entryPoint result
+        if workingSet.Count = 0 then terminateIfAllDone () else ()
+      with e ->
+        abort e
+
+  /// Records an exception that a builder raised. A critical one, such as
+  /// running out of memory, says nothing about the function, so it aborts the
+  /// whole recovery instead.
+  let reportException entryPoint e =
+    if Terminator.isCritical e then
+      abort e
+    else
+      failures.Add { EntryPoint = entryPoint; Exception = e }
+      reportResult entryPoint (FailStop ErrorCase.UnexpectedError)
+
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive() with
@@ -617,9 +649,9 @@ type TaskScheduler<'FnCtx, 'GlCtx
           dependenceMap.AddDependency(caller, callee, not <| isFinished callee)
         toBuilderMessage builder |> ch.Reply
       | ReportCFGResult(entryPoint, result) ->
-        try handleResult entryPoint result
-        with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
-        if workingSet.Count = 0 then terminateIfAllDone () else ()
+        reportResult entryPoint result
+      | ReportCFGException(entryPoint, e) ->
+        reportException entryPoint e
       | GetNonReturningStatus(addr, ch) ->
         match builders.TryGetBuilder addr with
         | Ok builder -> ch.Reply builder.Context.NonReturningStatus
@@ -652,7 +684,15 @@ type TaskScheduler<'FnCtx, 'GlCtx
         ch.Reply <| accessor globalCtx
       | UpdateGlobalContext updater ->
         try globalCtx <- updater globalCtx
-        with e -> Console.Error.WriteLine $"Failed to update global ctx:\n{e}"
+        with e -> abort e
+
+  /// Functions whose recovery raised an unexpected exception. This is only
+  /// valid after the scheduler has stopped.
+  member _.Failures with get() = failures.ToArray()
+
+  /// Errors that aborted the whole recovery. This is only valid after the
+  /// scheduler has stopped.
+  member _.FatalErrors with get() = fatalErrors.ToArray()
 
   /// Starts the scheduler and returns the command message box.
   member _.Start(token) =

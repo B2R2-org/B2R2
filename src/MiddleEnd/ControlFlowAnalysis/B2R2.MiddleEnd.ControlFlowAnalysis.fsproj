@@ -10,6 +10,7 @@
     <Compile Include="CFGAction.fs" />
     <Compile Include="CFGActionQueue.fs" />
     <Compile Include="CFGResult.fs" />
+    <Compile Include="CFGRecoveryFailure.fs" />
     <Compile Include="BBLFactory.fs" />
     <Compile Include="IResettable.fs" />
     <Compile Include="ILinkage.fs" />

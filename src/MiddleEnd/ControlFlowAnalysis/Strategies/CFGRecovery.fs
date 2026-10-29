@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open System
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -40,122 +39,118 @@ module private CFGRecovery =
                sretAnalysis
                useTCHeuristic
                (action: CFGAction) =
-    try
-      match action with
-      | InitiateCFG ->
-        let fnAddr = ctx.FunctionAddress
+    match action with
+    | InitiateCFG ->
+      let fnAddr = ctx.FunctionAddress
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
+      dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
 #endif
-        let pp = ProgramPoint(fnAddr, 0)
-        match scanBBLs ctx [ fnAddr ] with
-        | Ok _ ->
-          buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
-        | Error e ->
-          FailStop e
-      | ExpandCFG pps ->
+      let pp = ProgramPoint(fnAddr, 0)
+      match scanBBLs ctx [ fnAddr ] with
+      | Ok _ ->
+        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
+      | Error e ->
+        FailStop e
+    | ExpandCFG pps ->
 #if CFGDEBUG
-        let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
-        dbglog ctx.ThreadID (nameof ExpandCFG)
-        <| $"{targets} @ {ctx.FunctionAddress:x}"
+      let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
+      dbglog ctx.ThreadID (nameof ExpandCFG)
+      <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif
-        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue pps
-      | MakeCall(callSite, calleeAddr, calleeInfo) ->
+      buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue pps
+    | MakeCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeCall)
-        <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof MakeCall)
+      <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-        connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo false
-      | MakeTlCall(callSite, calleeAddr, calleeInfo) ->
+      connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo false
+    | MakeTlCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeTlCall)
-        <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof MakeTlCall)
+      <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-        connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo true
-      | MakeIndCall(callsiteAddr) ->
+      connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo true
+    | MakeIndCall(callsiteAddr) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeIndCall)
-        <| $"{callsiteAddr:x} @ {ctx.FunctionAddress:x}"
+      dbglog ctx.ThreadID (nameof MakeIndCall)
+      <| $"{callsiteAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-        connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr
-      | MakeSyscall(callsiteAddr, isExit) ->
+      connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr
+    | MakeSyscall(callsiteAddr, isExit) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
+      dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
 #endif
-        connectSyscallEdge ctx syscallAnalysis cfgRec callsiteAddr isExit
-      | MakeIndEdges(bblAddr, insAddr) ->
+      connectSyscallEdge ctx syscallAnalysis cfgRec callsiteAddr isExit
+    | MakeIndEdges(bblAddr, insAddr) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeIndEdges)
-        <| $"{bblAddr:x} @ {ctx.FunctionAddress:x}"
+      dbglog ctx.ThreadID (nameof MakeIndEdges)
+      <| $"{bblAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-        recoverIndirectBranches ctx jmptblAnalysis queue insAddr bblAddr
-      | WaitForCallee calleeAddr ->
+      recoverIndirectBranches ctx jmptblAnalysis queue insAddr bblAddr
+    | WaitForCallee calleeAddr ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof WaitForCallee)
-        <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof WaitForCallee)
+      <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
 #endif
-        if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
+      if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
 #endif
-          MoveOn
-        elif isFailedBuilding ctx calleeAddr then
-#if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
-#endif
-          FailStop ErrorCase.FailedToRecoverCFG
-        else
-#if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
-#endif
-          Wait (* yet resolved *)
-      | StartTblRec(jmptbl, idx, srcAddr, dstAddr) ->
-#if CFGDEBUG
-        let fnAddr = ctx.FunctionAddress
-        dbglog ctx.ThreadID (nameof StartTblRec)
-        <| $"{jmptbl.InsAddr:x}[{idx}] -> {dstAddr:x} @ {fnAddr:x}"
-#endif
-        assert (if not jmptbl.IsSingleEntry then true else idx = 0)
-        ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
-        recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr
-      | EndTblRec(jmptbl, idx) ->
-#if CFGDEBUG
-        dbglog ctx.ThreadID (nameof EndTblRec)
-        <| $"{jmptbl.InsAddr:x}[{idx}] @ {ctx.FunctionAddress:x}"
-#endif
-        jmptbl.NumEntries <- idx + 1
-        ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
-        ctx.JumpTableRecoveryStatus.Pop() |> ignore
-        sendJmpTblRecoverySuccess ctx queue jmptbl idx
-      | UpdateCallEdges(calleeAddr, calleeInfo) ->
-#if CFGDEBUG
-        let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
-        let fnAddr = ctx.FunctionAddress
-        dbglog ctx.ThreadID (nameof UpdateCallEdges)
-        <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
-#endif
-        updateCallEdges ctx cfgRec calleeAddr calleeInfo
-      | ResumeAnalysis(_) ->
-        Terminator.impossible ()
-      | StartGapAnalysis(addr) ->
-        assert (ctx.GapToAnalyze.IsNone)
-        ctx.GapToAnalyze <- Some(addr)
-        match scanBBLs ctx [ addr ] with
-        | Ok(_) ->
-          let pp = ProgramPoint(addr, 0)
-          let v = getVertex ctx cfgRec pp
-          ctx.CFG.AddRoot(v)
-          recoverNoReturnFallThroughEdge ctx v
-          buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [ pp ]
-        | Error e ->
-          FailStop e
-      | EndGapAnalysis ->
-        assert (ctx.GapToAnalyze.IsSome)
-        ctx.GapToAnalyze <- None
         MoveOn
-    with e ->
-      Console.Error.WriteLine $"OnAction failed:\n{e}"
-      FailStop ErrorCase.FailedToRecoverCFG
+      elif isFailedBuilding ctx calleeAddr then
+#if CFGDEBUG
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
+#endif
+        FailStop ErrorCase.FailedToRecoverCFG
+      else
+#if CFGDEBUG
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
+#endif
+        Wait (* yet resolved *)
+    | StartTblRec(jmptbl, idx, srcAddr, dstAddr) ->
+#if CFGDEBUG
+      let fnAddr = ctx.FunctionAddress
+      dbglog ctx.ThreadID (nameof StartTblRec)
+      <| $"{jmptbl.InsAddr:x}[{idx}] -> {dstAddr:x} @ {fnAddr:x}"
+#endif
+      assert (if not jmptbl.IsSingleEntry then true else idx = 0)
+      ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
+      recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr
+    | EndTblRec(jmptbl, idx) ->
+#if CFGDEBUG
+      dbglog ctx.ThreadID (nameof EndTblRec)
+      <| $"{jmptbl.InsAddr:x}[{idx}] @ {ctx.FunctionAddress:x}"
+#endif
+      jmptbl.NumEntries <- idx + 1
+      ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
+      ctx.JumpTableRecoveryStatus.Pop() |> ignore
+      sendJmpTblRecoverySuccess ctx queue jmptbl idx
+    | UpdateCallEdges(calleeAddr, calleeInfo) ->
+#if CFGDEBUG
+      let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
+      let fnAddr = ctx.FunctionAddress
+      dbglog ctx.ThreadID (nameof UpdateCallEdges)
+      <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
+#endif
+      updateCallEdges ctx cfgRec calleeAddr calleeInfo
+    | ResumeAnalysis(_) ->
+      Terminator.impossible ()
+    | StartGapAnalysis(addr) ->
+      assert (ctx.GapToAnalyze.IsNone)
+      ctx.GapToAnalyze <- Some(addr)
+      match scanBBLs ctx [ addr ] with
+      | Ok(_) ->
+        let pp = ProgramPoint(addr, 0)
+        let v = getVertex ctx cfgRec pp
+        ctx.CFG.AddRoot(v)
+        recoverNoReturnFallThroughEdge ctx v
+        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [ pp ]
+      | Error e ->
+        FailStop e
+    | EndGapAnalysis ->
+      assert (ctx.GapToAnalyze.IsSome)
+      ctx.GapToAnalyze <- None
+      MoveOn
 
 /// Represents a base strategy for building a CFG.
 type CFGRecovery<'FnCtx, 'GlCtx

@@ -41,6 +41,8 @@ type TaskManagerCommand<'FnCtx, 'GlCtx
                    * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
   /// Report the result of a task.
   | ReportCFGResult of Addr * CFGResult
+  /// Report an unexpected exception raised while building a CFG.
+  | ReportCFGException of Addr * exn
   /// Retrieve the non-returning status of a function.
   | GetNonReturningStatus of Addr * AgentReplyChannel<NonReturningStatus>
   /// Retrieve the building context of a function.

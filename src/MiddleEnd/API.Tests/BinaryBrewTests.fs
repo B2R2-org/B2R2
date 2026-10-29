@@ -25,17 +25,48 @@
 namespace B2R2.MiddleEnd.Tests
 
 open System
+open System.IO
 open System.Runtime.CompilerServices
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 [<TestClass>]
 type BinaryBrewTests() =
   let recoverFunctions name =
     let bytes = readZippedBinary name
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64")).Functions
+
+  /// Wraps the default strategy so that every action first runs the given
+  /// hook, which lets a test make the recovery fail on purpose.
+  let hookStrategy hook =
+    let inner = CFGRecovery() :> ICFGBuildingStrategy<_, _>
+    { new ICFGBuildingStrategy<DummyContext, DummyContext> with
+        member _.ActionPrioritizer = inner.ActionPrioritizer
+        member _.RecoveryTargets = inner.RecoveryTargets
+        member _.OnAction(ctx, queue, action) =
+          hook ctx
+          inner.OnAction(ctx, queue, action)
+        member _.OnCreate ctx = inner.OnCreate ctx
+        member _.OnFinish ctx = inner.OnFinish ctx
+        member _.OnCyclicDependency deps = inner.OnCyclicDependency deps
+        member _.FindCandidatesForPostProcessing builders =
+          inner.FindCandidatesForPostProcessing builders }
+
+  let throwingHook (_: CFGBuildingContext<DummyContext, DummyContext>) =
+    raise (InvalidOperationException "boom")
+
+  /// Brews a one-instruction binary whose only function is at address zero.
+  let brewRet hook =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let hdl = BinHandle.LoadRawImage([| 0xc3uy |], isa)
+    let funcId =
+      { new IFunctionIdentifiable with
+          member _.Identify() = [| 0UL |] }
+    BinaryBrew(hdl, funcId, hookStrategy hook)
 
   /// Brews a one-instruction binary and drops the brew, handing back only a
   /// weak reference to the binary. Inlining it would let a local of the caller
@@ -84,3 +115,41 @@ type BinaryBrewTests() =
       |> Seq.toList
     let expected = [ "helper", false; "entry", false; "helper@got", true ]
     Assert.AreEqual<(string * bool) list>(expected, named)
+
+  [<TestMethod>]
+  member _.``BinaryBrew writes nothing to the console``() =
+    use captured = new StringWriter()
+    let stdout, stderr = Console.Out, Console.Error
+    Console.SetOut captured
+    Console.SetError captured
+    try
+      brewRet throwingHook |> ignore
+    finally
+      Console.SetOut stdout
+      Console.SetError stderr
+    Assert.AreEqual<string>("", captured.ToString())
+
+  [<TestMethod>]
+  member _.``BinaryBrew reports a function whose recovery throws``() =
+    let brew = brewRet throwingHook
+    let failures =
+      brew.RecoveryFailures
+      |> Array.map (fun f -> f.EntryPoint, f.Exception.Message)
+      |> Array.toList
+    Assert.AreEqual<(Addr * string) list>([ 0UL, "boom" ], failures)
+    Assert.AreEqual<int>(0, brew.Functions.Count)
+
+  [<TestMethod>]
+  member _.``BinaryBrew aborts when its global context fails to update``() =
+    let hook (ctx: CFGBuildingContext<DummyContext, DummyContext>) =
+      ctx.ManagerChannel.UpdateGlobalContext(fun _ ->
+        raise (InvalidOperationException "boom"))
+    Assert.Throws<AggregateException>(fun () -> brewRet hook |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``BinaryBrew aborts when its recovery runs out of memory``() =
+    let hook (_: CFGBuildingContext<DummyContext, DummyContext>) =
+      raise (OutOfMemoryException())
+    Assert.Throws<AggregateException>(fun () -> brewRet hook |> ignore)
+    |> ignore

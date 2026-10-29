@@ -64,6 +64,12 @@ type TaskManager<'FnCtx, 'GlCtx
     managerMsgbox.Task.Wait()
     cts.Dispose()
 
+  /// Raises the errors that made the scheduler abort the recovery, if any.
+  let raiseIfAborted () =
+    match scheduler.FatalErrors with
+    | [||] -> ()
+    | errors -> raise (AggregateException("CFG recovery aborted.", errors))
+
   /// Updates callers of each builder.
   let updateCallers () =
     for builder in builders.Values do
@@ -101,12 +107,16 @@ type TaskManager<'FnCtx, 'GlCtx
   do initLogger numThreads
 #endif
 
+  /// Functions whose recovery raised an unexpected exception.
+  member _.Failures with get(): CFGRecoveryFailure[] = scheduler.Failures
+
   member _.StartAndWait candidates =
     let targetAddrs = getInitialRecoveryAddrs candidates
     createBuilders candidates targetAddrs
     startBuildingCFGs targetAddrs
     waitForWorkers ()
     stopScheduler ()
+    raiseIfAborted ()
     updateCallers ()
 #if CFGDEBUG
     for tid in 0 .. numThreads do flushLog tid
@@ -139,10 +149,7 @@ and private TaskWorker<'FnCtx, 'GlCtx
             let res = builder.Build strategy
             scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
           with e ->
-            Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
-            let failure = FailStop ErrorCase.UnexpectedError
-            scheduler.PostCommand
-            <| ReportCFGResult(builder.EntryPoint, failure)
+            scheduler.PostCommand <| ReportCFGException(builder.EntryPoint, e)
 #if CFGDEBUG
           flushLog tid
 #endif

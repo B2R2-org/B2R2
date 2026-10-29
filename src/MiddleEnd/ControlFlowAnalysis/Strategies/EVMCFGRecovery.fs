@@ -878,76 +878,72 @@ module private EVMCFGRecovery =
                syscallAnalysis
                useTCHeuristic
                (action: CFGAction) =
-    try
-      match action with
-      | InitiateCFG ->
-        let fnAddr = ctx.FunctionAddress
+    match action with
+    | InitiateCFG ->
+      let fnAddr = ctx.FunctionAddress
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
+      dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
 #endif
-        let pp = ProgramPoint(fnAddr, 0)
-        match scanBBLs ctx [ fnAddr ] with
-        | Ok _ ->
-          buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
-        | Error e ->
-          FailStop e
-      | ExpandCFG pps ->
+      let pp = ProgramPoint(fnAddr, 0)
+      match scanBBLs ctx [ fnAddr ] with
+      | Ok _ ->
+        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
+      | Error e ->
+        FailStop e
+    | ExpandCFG pps ->
 #if CFGDEBUG
-        let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
-        dbglog ctx.ThreadID (nameof ExpandCFG)
-        <| $"{targets} @ {ctx.FunctionAddress:x}"
+      let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
+      dbglog ctx.ThreadID (nameof ExpandCFG)
+      <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif
-        pps
-        |> List.filter (not << (isInvalidProgramPoint ctx))
-        |> buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue
-      | MakeCall(callSite, calleeAddr, calleeInfo) ->
+      pps
+      |> List.filter (not << (isInvalidProgramPoint ctx))
+      |> buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue
+    | MakeCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeCall)
-        <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof MakeCall)
+      <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-        handleCall ctx cfgRec callSite calleeAddr calleeInfo
-      | WaitForCallee calleeAddr ->
+      handleCall ctx cfgRec callSite calleeAddr calleeInfo
+    | WaitForCallee calleeAddr ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof WaitForCallee)
-        <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof WaitForCallee)
+      <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
 #endif
-        if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
+      if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
 #endif
-          MoveOn
-        elif isFailedBuilding ctx calleeAddr then
+        MoveOn
+      elif isFailedBuilding ctx calleeAddr then
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
 #endif
-          FailStop ErrorCase.FailedToRecoverCFG
-        else
+        FailStop ErrorCase.FailedToRecoverCFG
+      else
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
 #endif
-          Wait (* yet resolved *)
-      | UpdateCallEdges(calleeAddr, calleeInfo) ->
+        Wait (* yet resolved *)
+    | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
-        let fnAddr = ctx.FunctionAddress
-        dbglog ctx.ThreadID (nameof UpdateCallEdges)
-        <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
+      let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
+      let fnAddr = ctx.FunctionAddress
+      dbglog ctx.ThreadID (nameof UpdateCallEdges)
+      <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
 #endif
-        updateCallEdges ctx cfgRec calleeAddr calleeInfo
-      | ResumeAnalysis(pp, callbackAction) ->
-        resumeAnalysis ctx pp callbackAction
-      | MakeTlCall _
-      | MakeIndCall _
-      | MakeSyscall _
-      | MakeIndEdges _
-      | StartTblRec _
-      | EndTblRec _
-      | StartGapAnalysis _
-      | EndGapAnalysis ->
-        Terminator.impossible ()
-    with e ->
-      Console.Error.WriteLine $"OnAction failed:\n{e}"
-      FailStop ErrorCase.FailedToRecoverCFG
+      updateCallEdges ctx cfgRec calleeAddr calleeInfo
+    | ResumeAnalysis(pp, callbackAction) ->
+      resumeAnalysis ctx pp callbackAction
+    | MakeTlCall _
+    | MakeIndCall _
+    | MakeSyscall _
+    | MakeIndEdges _
+    | StartTblRec _
+    | EndTblRec _
+    | StartGapAnalysis _
+    | EndGapAnalysis ->
+      Terminator.impossible ()
 
 
 type EVMCFGRecovery(fnCallback) as this =

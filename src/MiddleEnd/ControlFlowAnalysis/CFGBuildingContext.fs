@@ -151,8 +151,10 @@ with
 #if DEBUG
       (* This is a fatal error when our function identification or noreturn
          analysis failed. *)
-      eprintfn $"{this.FunctionAddress:x} overlapped with {nextFnAddr:x}"
-      Terminator.impossible ()
+      let fnAddr = this.FunctionAddress
+      $"{fnAddr:x} overlapped with {nextFnAddr:x}"
+      |> System.InvalidOperationException
+      |> raise
 #else
       None (* Ignore this error in release mode. *)
 #endif

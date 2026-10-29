@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd
 
 open System
-open System.Diagnostics
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -65,18 +64,12 @@ type BinaryBrew<'FnCtx, 'GlCtx
     |> FunctionCollection
 
   let recoverFunctions () =
-    let sw = Stopwatch()
-    Console.WriteLine "[*] CFG recovery started."
-    sw.Start()
     let candidates = funcID.Identify()
     let manager = TaskManager<'FnCtx, 'GlCtx>(builders, cfgBuilder, numThreads)
     manager.StartAndWait candidates
-    sw.Stop()
-    let ts = sw.Elapsed
-    Console.WriteLine $"[*] Total {ts.TotalSeconds}s elapsed."
-    buildersToFunctions builders
+    buildersToFunctions builders, manager.Failures
 
-  let funcs = recoverFunctions ()
+  let funcs, failures = recoverFunctions ()
 
   new(hdl: BinHandle, funcId, cfgRecovery) =
     let exnInfo = ExceptionInfo hdl
@@ -94,6 +87,10 @@ type BinaryBrew<'FnCtx, 'GlCtx
 
   /// Recovered functions.
   member _.Functions with get() = funcs
+
+  /// Functions whose recovery raised an unexpected exception. They are left
+  /// out of the recovered functions.
+  member _.RecoveryFailures with get(): CFGRecoveryFailure[] = failures
 
   /// Exception information.
   member _.ExceptionInfo with get() = exnInfo
