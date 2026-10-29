@@ -146,10 +146,7 @@ module private SRetAnalysisHelper =
         false
 
 /// Decides whether an x86-32 indirect call passes a hidden sret argument.
-type Intel32SRetAnalysis<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
+type Intel32SRetAnalysis<'FnCtx, 'GlCtx>() =
 
   interface ISRetAnalyzable<'FnCtx, 'GlCtx> with
     /// Checks if the given indirect call passes a hidden sret pointer that the
@@ -198,10 +195,7 @@ type Intel32SRetAnalysis<'FnCtx, 'GlCtx
 /// argument bytes. Conventional compiler ABIs generally use caller cleanup for
 /// indirect calls, while x86-64 passes most arguments in registers and does not
 /// use callee-popped argument counts.
-type SRetAnalysis<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
+type SRetAnalysis<'FnCtx, 'GlCtx>() =
 
   interface ISRetAnalyzable<'FnCtx, 'GlCtx> with
     /// Assumes that an unknown indirect call is not an sret call.

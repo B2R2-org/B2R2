@@ -171,6 +171,12 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
     member _.RecoveryTargets with get() = options.RecoveryTargets
 
+    member _.CreateFunctionContext() = new 'FnCtx()
+
+    member _.ResetFunctionContext fnCtx = fnCtx.Reset()
+
+    member _.CreateGlobalContext() = new 'GlCtx()
+
     member _.AnalyzeIndirectJump(ctx, pp, srcVertex) =
       let insAddr = srcVertex.VData.Internals.LastInstruction.Address
       let callsite = LeafCallSite insAddr

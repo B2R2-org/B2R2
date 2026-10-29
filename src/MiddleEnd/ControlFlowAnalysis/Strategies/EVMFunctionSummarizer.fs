@@ -39,9 +39,7 @@ open B2R2.MiddleEnd.BinGraph
 /// expressiveness of B2R2's IR, we can easily express a function's summary,
 /// including its unwinding behavior and return behavior.
 type EVMFunctionSummarizer<'FnCtx, 'GlCtx
-  when 'FnCtx :> EVMFuncUserContext
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
+  when 'FnCtx :> EVMFuncUserContext>() =
   let makeRundownForReturn hdl unwindingAmount retStackOff =
     let spRegId = (hdl: BinHandle).RegisterFactory.StackPointer |> Option.get
     let spVar = hdl.RegisterFactory.GetRegVar spRegId

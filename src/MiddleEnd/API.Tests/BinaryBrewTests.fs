@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.Tests
 
 open System
+open System.Collections.Concurrent
 open System.IO
 open System.Runtime.CompilerServices
 open Microsoft.VisualStudio.TestTools.UnitTesting
@@ -40,33 +41,66 @@ type BinaryBrewTests() =
     let bytes = readZippedBinary name
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64")).Functions
 
-  /// Wraps the default strategy so that every action first runs the given
-  /// hook, which lets a test make the recovery fail on purpose.
-  let hookStrategy hook =
+  /// Wraps the default strategy, letting a test take over how it handles each
+  /// action and how it makes and resets its contexts.
+  let wrapStrategy onAction (contexts: IContextProvidable<_, _>) =
     let inner = CFGRecovery() :> ICFGBuildingStrategy<_, _>
     { new ICFGBuildingStrategy<DummyContext, DummyContext> with
+        member _.CreateFunctionContext() = contexts.CreateFunctionContext()
+        member _.ResetFunctionContext ctx = contexts.ResetFunctionContext ctx
+        member _.CreateGlobalContext() = contexts.CreateGlobalContext()
         member _.ActionPrioritizer = inner.ActionPrioritizer
         member _.RecoveryTargets = inner.RecoveryTargets
-        member _.OnAction(ctx, queue, action) =
-          hook ctx
-          inner.OnAction(ctx, queue, action)
+        member _.OnAction(ctx, queue, action) = onAction inner ctx queue action
         member _.OnCreate ctx = inner.OnCreate ctx
         member _.OnFinish ctx = inner.OnFinish ctx
         member _.OnCyclicDependency deps = inner.OnCyclicDependency deps
         member _.FindCandidatesForPostProcessing builders =
           inner.FindCandidatesForPostProcessing builders }
 
+  /// Wraps the default strategy so that every action first runs the given
+  /// hook, which lets a test make the recovery fail on purpose.
+  let hookStrategy hook =
+    let onAction (inner: ICFGBuildingStrategy<_, _>) ctx queue action =
+      hook ctx
+      inner.OnAction(ctx, queue, action)
+    wrapStrategy onAction (CFGRecovery())
+
   let throwingHook (_: CFGBuildingContext<DummyContext, DummyContext>) =
     raise (InvalidOperationException "boom")
 
   /// Brews a one-instruction binary whose only function is at address zero.
-  let brewRet hook =
+  let brewRetWith strategy =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
     let hdl = BinHandle.LoadRawImage([| 0xc3uy |], isa)
     let funcId =
       { new IFunctionIdentifiable with
           member _.Identify() = [| 0UL |] }
-    BinaryBrew(hdl, funcId, hookStrategy hook)
+    BinaryBrew(hdl, funcId, strategy)
+
+  let brewRet hook = brewRetWith (hookStrategy hook)
+
+  /// Makes and resets contexts like the default strategy, logging each call.
+  let loggingContexts (log: ConcurrentQueue<string>) =
+    { new IContextProvidable<DummyContext, DummyContext> with
+        member _.CreateFunctionContext() =
+          log.Enqueue "create"
+          DummyContext()
+        member _.ResetFunctionContext _ = log.Enqueue "reset"
+        member _.CreateGlobalContext() =
+          log.Enqueue "global"
+          DummyContext() }
+
+  /// Handles actions like the default strategy, except that the very first
+  /// one asks for the builder to be reloaded, which resets its context.
+  let reloadOnce () =
+    let reloaded = ref false
+    fun (inner: ICFGBuildingStrategy<_, _>) ctx queue action ->
+      if reloaded.Value then
+        inner.OnAction(ctx, queue, action)
+      else
+        reloaded.Value <- true
+        StopAndReload
 
   /// Brews a one-instruction binary and drops the brew, handing back only a
   /// weak reference to the binary. Inlining it would let a local of the caller
@@ -153,3 +187,12 @@ type BinaryBrewTests() =
       raise (OutOfMemoryException())
     Assert.Throws<AggregateException>(fun () -> brewRet hook |> ignore)
     |> ignore
+
+  [<TestMethod>]
+  member _.``BinaryBrew makes and resets contexts through its strategy``() =
+    let log = ConcurrentQueue<string>()
+    wrapStrategy (reloadOnce ()) (loggingContexts log)
+    |> brewRetWith
+    |> ignore
+    let calls = log |> Seq.distinct |> Seq.sort |> Seq.toList
+    Assert.AreEqual<string list>([ "create"; "global"; "reset" ], calls)

@@ -956,6 +956,12 @@ type EVMCFGRecovery(fnCallback) as this =
 
     member _.RecoveryTargets with get() = All
 
+    member _.CreateFunctionContext() = EVMFuncUserContext()
+
+    member _.ResetFunctionContext fnCtx = (fnCtx :> IResettable).Reset()
+
+    member _.CreateGlobalContext() = DummyContext()
+
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis false action
 

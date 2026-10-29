@@ -36,10 +36,7 @@ open B2R2.MiddleEnd.DataFlow
 type private L = ConstantDomain.Lattice
 
 /// Represents a base class for analyzing jump tables.
-type JmpTableAnalysis<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type JmpTableAnalysis<'FnCtx, 'GlCtx>
   public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
   let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst =

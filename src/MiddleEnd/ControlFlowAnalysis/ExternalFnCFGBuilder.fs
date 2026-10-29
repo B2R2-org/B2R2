@@ -31,11 +31,8 @@ open B2R2.FrontEnd
 /// Represents the builder for an external function, which is responsible for
 /// storing auxiliary information about the function, such as caller
 /// information.
-type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl: BinHandle, exnInfo, reference, name, noretStatus) =
+type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
+  public(hdl: BinHandle, exnInfo, reference, name, noretStatus, fnCtx) =
 
   let entryPoint = (reference: ExternalFunctionReference).ReferenceAddress
 
@@ -62,7 +59,7 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
       CallerVertices = Dictionary()
       UnwindingBytes = 0
       ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
-      UserContext = new 'FnCtx()
+      UserContext = fnCtx
       IsExternal = true
       ManagerChannel = null
       ThreadID = -1 }
@@ -107,7 +104,7 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
 
     member _.Build _ = Terminator.impossible ()
 
-    member _.Reset() = ()
+    member _.Reset _ = ()
 
     member _.MakeNew _ = Terminator.impossible ()
 

@@ -36,10 +36,7 @@ open B2R2.MiddleEnd.DataFlow
 /// for building the function CFG while maintaining its internal state. By
 /// "internal", we mean that the function is defined within the target binary as
 /// opposed to external (library) functions.
-type InternalFnCFGBuilder<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
   public(ctx, nextFnAddr, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
@@ -120,14 +117,13 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
 
   do ctx.ManagerChannel <- managerChannel
 
-  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager, irBlkOptimizer) =
+  new(hdl, exnInfo, instrs, entryPoint, manager, irBlkOptimizer, fnCtx) =
     let name =
-      match BinFileOps.tryResolveName hdl.File entryPoint with
+      match BinFileOps.tryResolveName (hdl: BinHandle).File entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = LowUIRCFG.create Mutable
     let bblFactory = BBLFactory(hdl, instrs, irBlkOptimizer)
-    let fnCtx = new 'FnCtx()
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name
@@ -204,10 +200,11 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
       ctx.ActionQueue.Push(strategy.ActionPrioritizer, InitiateCFG)
       build strategy ctx.ActionQueue
 
-    member _.Reset() =
+    member _.Reset contexts =
       state <- Initialized
       delayedBuilderRequests.Clear()
       ctx.Reset()
+      contexts.ResetFunctionContext ctx.UserContext
 
     member _.MakeNew(manager) = InternalFnCFGBuilder(ctx, nextFnAddr, manager)
 

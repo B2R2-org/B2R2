@@ -28,10 +28,7 @@ open System.Collections.Generic
 open B2R2
 
 /// Represents the interface for building a function.
-type ICFGBuildable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+type ICFGBuildable<'FnCtx, 'GlCtx> =
   inherit ILinkage
 
   /// Returns the current state of the function builder.
@@ -99,7 +96,8 @@ type ICFGBuildable<'FnCtx, 'GlCtx
   abstract Build: ICFGBuildingStrategy<'FnCtx, 'GlCtx> -> CFGResult
 
   /// Resets the current state in order to rebuild the function from scratch.
-  abstract Reset: unit -> unit
+  /// The given provider resets the user context.
+  abstract Reset: IContextProvidable<'FnCtx, 'GlCtx> -> unit
 
   /// Makes a new builder with a new agent by copying the current one.
   abstract MakeNew:
@@ -141,10 +139,9 @@ and CFGBuilderActivation =
 /// function. This interface will be accessed in parallel by multiple threads,
 /// so every operation should be thread-safe. Note that CFGBuildingContext as
 /// well as 'FnCtx are only accessed by a single thread, though.
-and ICFGBuildingStrategy<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and ICFGBuildingStrategy<'FnCtx, 'GlCtx> =
+  inherit IContextProvidable<'FnCtx, 'GlCtx>
+
   /// Returns the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
 

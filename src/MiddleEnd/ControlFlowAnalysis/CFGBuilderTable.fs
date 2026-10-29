@@ -29,11 +29,8 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
-type CFGBuilderTable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl, exnInfo, instrs, irBlkOptimizer) =
+type CFGBuilderTable<'FnCtx, 'GlCtx>
+  public(hdl, exnInfo, instrs, irBlkOptimizer, contexts) =
 
   let builders = SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
 
@@ -52,18 +49,23 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
     updateNextFunctionOfPrevBuilder idx addr
     updateNextFunctionOfNewBuilder newBuilder idx
 
+  let createFunctionContext () =
+    (contexts: IContextProvidable<'FnCtx, 'GlCtx>).CreateFunctionContext()
+
   let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
     | true, builder ->
       builder
     | false, _ ->
+      let fnCtx = createFunctionContext ()
       let builder =
         InternalFnCFGBuilder(hdl,
                              exnInfo,
                              instrs,
                              addr,
                              managerMsgbox,
-                             irBlkOptimizer) :> ICFGBuildable<'FnCtx, 'GlCtx>
+                             irBlkOptimizer,
+                             fnCtx) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
       builder
@@ -73,7 +75,9 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
 
   let addExternalBuilder (reference: ExternalFunctionReference) symbol name =
     let isNoRet = ELF.getNoReturnStatusFromKnownFunc symbol
-    let builder = ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
+    let fnCtx = createFunctionContext ()
+    let builder =
+      ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet, fnCtx)
     builders[reference.ReferenceAddress] <- builder
     builder
 
@@ -177,10 +181,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound
 
-and TerminationStatus<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and TerminationStatus<'FnCtx, 'GlCtx> =
   /// Everything is finished and there's no forcefully terminated builders.
   | AllDone
   /// Everything is finished, but there are some builders that are forcefully

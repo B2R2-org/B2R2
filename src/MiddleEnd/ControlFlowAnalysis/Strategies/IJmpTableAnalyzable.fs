@@ -29,10 +29,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents an interface for analyzing indirect branch instructions that use
 /// a jump table.
-type IJmpTableAnalyzable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+type IJmpTableAnalyzable<'FnCtx, 'GlCtx> =
   /// Checks the given indirect branch instruction and returns the jump table
   /// information if it uses a jump table.
   abstract Identify:

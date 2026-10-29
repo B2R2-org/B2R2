@@ -27,36 +27,30 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Threading.Tasks.Dataflow
 
 /// Represents a stream of commands consumed by task workers.
-type TaskWorkerCommandStream<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
-    let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
+type TaskWorkerCommandStream<'FnCtx, 'GlCtx>() =
+  let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
 
-    /// Posts a command to the stream.
-    member _.Post(command: TaskWorkerCommand<'FnCtx, 'GlCtx>) =
-      stream.Post command |> ignore
+  /// Posts a command to the stream.
+  member _.Post(command: TaskWorkerCommand<'FnCtx, 'GlCtx>) =
+    stream.Post command |> ignore
 
-    /// Receives a command from the stream.
-    member _.Receive(ct) =
-      task {
-        match! stream.OutputAvailableAsync(ct) with
-        | false ->
-          return NotAvailable
-        | true ->
-          match stream.TryReceive() with
-          | true, command -> return Received command
-          | false, _ -> return AvailableButNotReceived
-      }
+  /// Receives a command from the stream.
+  member _.Receive(ct) =
+    task {
+      match! stream.OutputAvailableAsync(ct) with
+      | false ->
+        return NotAvailable
+      | true ->
+        match stream.TryReceive() with
+        | true, command -> return Received command
+        | false, _ -> return AvailableButNotReceived
+    }
 
-    /// Stops receiving and producing commands.
-    member _.Close() = stream.Complete()
+  /// Stops receiving and producing commands.
+  member _.Close() = stream.Complete()
 
 /// Status of a task worker command.
-and TaskWorkerCommandStatus<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and TaskWorkerCommandStatus<'FnCtx, 'GlCtx> =
   | NotAvailable
   | AvailableButNotReceived
   | Received of TaskWorkerCommand<'FnCtx, 'GlCtx>

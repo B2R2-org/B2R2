@@ -28,10 +28,7 @@ open System.Collections.Generic
 open B2R2
 
 /// Represents a collection of recovered functions.
-type FunctionCollection<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type FunctionCollection<'FnCtx, 'GlCtx>
   public(builders: ICFGBuildable<'FnCtx, 'GlCtx>[]) =
 
   let addrToFunction = Dictionary<Addr, Function>()

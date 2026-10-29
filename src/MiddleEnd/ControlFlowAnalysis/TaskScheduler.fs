@@ -28,10 +28,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type TaskScheduler<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type TaskScheduler<'FnCtx, 'GlCtx>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          taskStream: TaskWorkerCommandStream<'FnCtx, 'GlCtx>,
@@ -39,7 +36,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
 
   /// Globally maintained context. This context can only be accessed through a
   /// Command.
-  let mutable globalCtx = new 'GlCtx()
+  let mutable globalCtx = strategy.CreateGlobalContext()
 
   let jmptblNotes = JmpTableRecoveryNotebook()
 
@@ -93,7 +90,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
 
   let resetBuilder (builder: ICFGBuildable<_, _>) =
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
-    builder.Reset()
+    builder.Reset strategy
 
   /// Restarts the builder, i.e., resets and reschedules it.
   let restartBuilder (builder: ICFGBuildable<_, _>) =

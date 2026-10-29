@@ -13,6 +13,7 @@
     <Compile Include="CFGRecoveryFailure.fs" />
     <Compile Include="BBLFactory.fs" />
     <Compile Include="IResettable.fs" />
+    <Compile Include="IContextProvidable.fs" />
     <Compile Include="ILinkage.fs" />
     <Compile Include="IFunctionIdentifiable.fs" />
     <Compile Include="IntraCallTable.fs" />

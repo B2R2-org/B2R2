@@ -30,10 +30,7 @@ open Avalonia.Controls.ApplicationLifetimes
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 
-type App<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type App<'FnCtx, 'GlCtx>
   public(arbiter: Arbiter<'FnCtx, 'GlCtx>, useDarkTheme) =
   inherit Application()
 

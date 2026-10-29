@@ -42,10 +42,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 /// the target binary, such as instructions, IRs, functions, CFGs, and exception
 /// information, etc.
 /// </summary>
-type BinaryBrew<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type BinaryBrew<'FnCtx, 'GlCtx>
   public(hdl: BinHandle,
          exnInfo: ExceptionInfo,
          funcID: IFunctionIdentifiable,
@@ -56,7 +53,8 @@ type BinaryBrew<'FnCtx, 'GlCtx
 
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
-  let builders = CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer)
+  let builders =
+    CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer, cfgBuilder)
 
   let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
     builders.Values

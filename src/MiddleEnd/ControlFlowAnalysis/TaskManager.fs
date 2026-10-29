@@ -30,10 +30,7 @@ open System.Threading.Tasks
 open B2R2
 
 /// Represents a task manager for control flow analysis.
-type TaskManager<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type TaskManager<'FnCtx, 'GlCtx>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          numThreads) =
@@ -123,10 +120,7 @@ type TaskManager<'FnCtx, 'GlCtx
 #endif
 
 /// Represents a task worker for control flow recovery.
-and private TaskWorker<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+and private TaskWorker<'FnCtx, 'GlCtx>
   public(tid: int,
          scheduler: TaskScheduler<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,

@@ -33,10 +33,7 @@ open B2R2.MiddleEnd.DataFlow
 
 /// Represents the context for building a control flow graph of a function. This
 /// exists per function, and it can include a user-defined context, too.
-type CFGBuildingContext<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+type CFGBuildingContext<'FnCtx, 'GlCtx> =
   { /// The address of the function that is being built.
     FunctionAddress: Addr
     /// Function name.
@@ -128,7 +125,6 @@ with
     this.PendingCallActions.Clear()
     this.CallerVertices.Clear()
     this.UnwindingBytes <- 0
-    this.UserContext.Reset()
 
   /// Scans basic blocks starting from the given entry points. By discovering
   /// new basic blocks, existing blocks can be divided into multiple blocks, in
@@ -282,10 +278,7 @@ with
     | RelocationSlot addr -> addr
 
 /// Represents the interface for accessing the state of the TaskManager.
-and IManagerAccessible<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and IManagerAccessible<'FnCtx, 'GlCtx> =
   /// Starts building a function at the given address if it is not (being)
   /// built.
   abstract StartBuilding:
@@ -370,10 +363,7 @@ and JumpTableRecoveryDecision =
   | StopRecoveryAndContinue
 
 /// Represents a message containing the building context of a function.
-and BuildingCtxMsg<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and BuildingCtxMsg<'FnCtx, 'GlCtx> =
   /// The building process is finished, and this is the final context.
   | FinalCtx of CFGBuildingContext<'FnCtx, 'GlCtx>
   /// The building process is still ongoing.
