@@ -87,11 +87,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   let scheduleCFGBuilding entryPoint = StartBuilding entryPoint |> msgbox.Post
 
   let startGapAnalysis (builder: ICFGBuildable<_, _>) addr =
-    let prio = strategy.ActionPrioritizer
-    let startGapAnalysis = StartGapAnalysis(addr)
-    let endGapAnalysis = EndGapAnalysis
-    builder.Context.ActionQueue.Push(prio, startGapAnalysis)
-    builder.Context.ActionQueue.Push(prio, endGapAnalysis)
+    builder.Context.ActionQueue.Push(StartGapAnalysis addr)
+    builder.Context.ActionQueue.Push EndGapAnalysis
 
   let resetBuilder (builder: ICFGBuildable<_, _>) =
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
@@ -130,7 +127,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
         | _ ->
           Terminator.impossible ())
       |> Seq.iter (fun action ->
-        callerActionQueue.Push(strategy.ActionPrioritizer, action))
+        callerActionQueue.Push action)
       callerPendingActions.Remove callee
 
   let notifySuccessToCaller calleeAddr calleeInfo callerAddr =
@@ -286,8 +283,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       dbglog ManagerTid (nameof NotifyCalleeChange)
       <| $"{calleeAddr:x} @ {builder.EntryPoint:x}"
 #endif
-      builder.Context.ActionQueue.Push(strategy.ActionPrioritizer,
-        UpdateCallEdges(calleeAddr, calleeInfo))
+      builder.Context.ActionQueue.Push(UpdateCallEdges(calleeAddr, calleeInfo))
       consumeUntilPendingReset builder
     | true, ResetBuilder ->
 #if CFGDEBUG
@@ -331,8 +327,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
         restartBuilder caller
       else
         if isBuilderFinished caller then caller.ReInitialize() else ()
-        caller.Context.ActionQueue.Push(strategy.ActionPrioritizer,
-          UpdateCallEdges(calleeAddr, calleeInfo))
+        caller.Context.ActionQueue.Push(UpdateCallEdges(calleeAddr, calleeInfo))
         scheduleCFGBuilding caller.EntryPoint
     else
 #if CFGDEBUG

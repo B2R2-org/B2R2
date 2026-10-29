@@ -26,8 +26,9 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 
-/// Represents a priority queue that stores CFGActions.
-type CFGActionQueue() =
+/// Represents a priority queue that stores CFGActions. The given prioritizer
+/// orders every action in the queue.
+type CFGActionQueue(judge: IPrioritizable) =
   let pq = PriorityQueue<CFGAction, Priority<int>>()
   let mutable count = 0
 
@@ -42,7 +43,7 @@ type CFGActionQueue() =
   member _.UnorderedItems with get() = pq.UnorderedItems
 
   /// Pushes an action to the queue.
-  member _.Push(judge: IPrioritizable, action) =
+  member _.Push(action: CFGAction) =
     pq.Enqueue(action, toPriority (action.Priority judge))
 
   /// Pops an action from the queue.

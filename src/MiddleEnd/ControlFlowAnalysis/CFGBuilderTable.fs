@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
 type CFGBuilderTable<'FnCtx, 'GlCtx>
-  public(hdl, exnInfo, instrs, irBlkOptimizer, contexts) =
+  public(hdl, exnInfo, instrs, irBlkOptimizer, strategy) =
 
   let builders = SortedList<Addr, IFunctionBuilder>()
 
@@ -61,15 +61,11 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     updateNextFunctionOfPrevBuilder idx addr
     updateNextFunctionOfNewBuilder newBuilder idx
 
-  let createFunctionContext () =
-    (contexts: IContextProvidable<'FnCtx, 'GlCtx>).CreateFunctionContext()
-
   let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
     | true, builder ->
       tryAsBuildable builder
     | false, _ ->
-      let fnCtx = createFunctionContext ()
       let builder =
         InternalFnCFGBuilder(hdl,
                              exnInfo,
@@ -77,7 +73,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
                              addr,
                              managerMsgbox,
                              irBlkOptimizer,
-                             fnCtx) :> ICFGBuildable<'FnCtx, 'GlCtx>
+                             strategy) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
       Some builder

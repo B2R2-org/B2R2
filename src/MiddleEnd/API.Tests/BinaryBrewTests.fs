@@ -41,15 +41,15 @@ type BinaryBrewTests() =
     let bytes = readZippedBinary name
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64")).Functions
 
-  /// Wraps the default strategy, letting a test take over how it handles each
-  /// action and how it makes and resets its contexts.
-  let wrapStrategy onAction (contexts: IContextProvidable<_, _>) =
+  /// Wraps the default strategy, letting a test take over how it orders and
+  /// handles each action and how it makes and resets its contexts.
+  let wrapStrategyWith judge onAction (contexts: IContextProvidable<_, _>) =
     let inner = CFGRecovery() :> ICFGBuildingStrategy<_, _>
     { new ICFGBuildingStrategy<DummyContext, DummyContext> with
         member _.CreateFunctionContext() = contexts.CreateFunctionContext()
         member _.ResetFunctionContext ctx = contexts.ResetFunctionContext ctx
         member _.CreateGlobalContext() = contexts.CreateGlobalContext()
-        member _.ActionPrioritizer = inner.ActionPrioritizer
+        member _.ActionPrioritizer = judge inner.ActionPrioritizer
         member _.RecoveryTargets = inner.RecoveryTargets
         member _.OnAction(ctx, queue, action) = onAction inner ctx queue action
         member _.OnCreate ctx = inner.OnCreate ctx
@@ -57,6 +57,8 @@ type BinaryBrewTests() =
         member _.OnCyclicDependency deps = inner.OnCyclicDependency deps
         member _.FindCandidatesForPostProcessing builders =
           inner.FindCandidatesForPostProcessing builders }
+
+  let wrapStrategy onAction contexts = wrapStrategyWith id onAction contexts
 
   /// Wraps the default strategy so that every action first runs the given
   /// hook, which lets a test make the recovery fail on purpose.
@@ -69,14 +71,17 @@ type BinaryBrewTests() =
   let throwingHook (_: CFGBuildingContext<DummyContext, DummyContext>) =
     raise (InvalidOperationException "boom")
 
-  /// Brews a one-instruction binary whose only function is at address zero.
-  let brewRetWith strategy =
+  /// Brews the given x64 code, whose first function is at address zero.
+  let brewCodeWith code strategy =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
-    let hdl = BinHandle.LoadRawImage([| 0xc3uy |], isa)
+    let hdl = BinHandle.LoadRawImage(code, isa)
     let funcId =
       { new IFunctionIdentifiable with
           member _.Identify() = [| 0UL |] }
     BinaryBrew(hdl, funcId, strategy)
+
+  /// Brews a one-instruction binary whose only function is at address zero.
+  let brewRetWith strategy = brewCodeWith [| 0xc3uy |] strategy
 
   let brewRet hook = brewRetWith (hookStrategy hook)
 
@@ -90,6 +95,13 @@ type BinaryBrewTests() =
         member _.CreateGlobalContext() =
           log.Enqueue "global"
           DummyContext() }
+
+  /// Orders actions like the given prioritizer, logging each action it judges.
+  let loggingPrioritizer (log: ConcurrentQueue<_>) (inner: IPrioritizable) =
+    { new IPrioritizable with
+        member _.GetPriority action =
+          log.Enqueue action
+          inner.GetPriority action }
 
   /// Handles actions like the default strategy, except that the very first
   /// one asks for the builder to be reloaded, which resets its context.
@@ -196,6 +208,25 @@ type BinaryBrewTests() =
     |> ignore
     let calls = log |> Seq.distinct |> Seq.sort |> Seq.toList
     Assert.AreEqual<string list>([ "create"; "global"; "reset" ], calls)
+
+  [<TestMethod>]
+  member _.``BinaryBrew orders every action by its strategy prioritizer``() =
+    let judged = ConcurrentQueue<CFGAction>()
+    let handled = ConcurrentQueue<CFGAction>()
+    let onAction (inner: ICFGBuildingStrategy<_, _>) ctx queue action =
+      handled.Enqueue action
+      inner.OnAction(ctx, queue, action)
+    let judge = loggingPrioritizer judged
+    let strategy = wrapStrategyWith judge onAction (CFGRecovery())
+    (* call 5; ret *)
+    brewCodeWith [| 0xe8uy; 0uy; 0uy; 0uy; 0uy; 0xc3uy |] strategy |> ignore
+    (* Every push is judged, so no action is handled more than judged. *)
+    let count action actions = Seq.filter ((=) action) actions |> Seq.length
+    let unjudged =
+      Seq.distinct handled
+      |> Seq.filter (fun action -> count action handled > count action judged)
+      |> Seq.toList
+    Assert.AreEqual<CFGAction list>([], unjudged)
 
   [<TestMethod>]
   member _.``BinaryBrew keeps what callers know of each finished function``() =

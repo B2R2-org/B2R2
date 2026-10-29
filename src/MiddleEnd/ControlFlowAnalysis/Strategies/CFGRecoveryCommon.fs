@@ -70,7 +70,7 @@ module internal CFGRecoveryCommon =
     ctx.ScanBBLs entryPoints
 
   let pushAction (ctx: CFGBuildingContext<_, _>) action =
-    ctx.ActionQueue.Push(prioritizer, action)
+    ctx.ActionQueue.Push(action)
 
   let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
@@ -147,7 +147,7 @@ module internal CFGRecoveryCommon =
       | false, _ ->
         let lst = List()
         pendingCallActions[calleeAddr] <- lst
-        queue.Push(prioritizer, WaitForCallee calleeAddr)
+        queue.Push(WaitForCallee calleeAddr)
         lst
       | true, lst ->
         lst
@@ -297,7 +297,7 @@ module internal CFGRecoveryCommon =
     addCallerVertex ctx callsite (getVertex ctx cfgRec callerPPoint)
     ctx.IntraCallTable.AddRegularCall(callsite, calleeAddr)
     if fnAddr = calleeAddr then (* self-recursion *)
-      actionQueue.Push(prioritizer, action)
+      actionQueue.Push(action)
     else
       match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
       (* Wait for the callee to finish. *)
@@ -565,7 +565,7 @@ module internal CFGRecoveryCommon =
             result <- r
           | None ->
             addCallerVertex ctx callsite srcVertex
-            actionQueue.Push(prioritizer, MakeIndCall(callsite))
+            actionQueue.Push(MakeIndCall(callsite))
         | InterCJmp _ -> (* Indirect cond jumps *)
           cfgRec.AnalyzeIndirectCondJump(ctx, ppoint, srcVertex)
           |> Option.iter (fun r -> result <- r)
@@ -575,7 +575,7 @@ module internal CFGRecoveryCommon =
           let isExit = syscallAnalysis.IsExit(ctx, srcVertex)
           ctx.IntraCallTable.AddSystemCall(callsite, isExit)
           addCallerVertex ctx callsite srcVertex
-          actionQueue.Push(prioritizer, MakeSyscall(callsite, isExit))
+          actionQueue.Push(MakeSyscall(callsite, isExit))
         | Jmp _
         | CJmp _
         | InterJmp _
@@ -785,9 +785,8 @@ module internal CFGRecoveryCommon =
     let targetAddr = readJumpTable ctx jmptbl idx
     if idx = 0 then ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
     else ()
-    (queue: CFGActionQueue).Push(prioritizer,
-      StartTblRec(jmptbl, idx, bblAddr, targetAddr))
-    queue.Push(prioritizer, EndTblRec(jmptbl, idx))
+    (queue: CFGActionQueue).Push(StartTblRec(jmptbl, idx, bblAddr, targetAddr))
+    queue.Push(EndTblRec(jmptbl, idx))
     MoveOn
 
   let recoverIndirectBranches ctx
@@ -904,7 +903,7 @@ module internal CFGRecoveryCommon =
         <| $"{callsite:x} -> {calleeAddr:x} @ {fnAddr:x}"
 #endif
         tryRemoveVertexAt ctx cfgRec absPp |> ignore
-        ctx.ActionQueue.Push(prioritizer, action)
+        ctx.ActionQueue.Push(action)
       | _ ->
         ()
     MoveOn

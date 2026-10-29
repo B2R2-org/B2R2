@@ -105,7 +105,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
       match strategy.OnAction(ctx, queue, action) with
       | MoveOn -> build strategy queue
       | MoveOnButReloadCallers _ -> Terminator.impossible ()
-      | Wait -> queue.Push(strategy.ActionPrioritizer, action); Wait
+      | Wait -> queue.Push action; Wait
       | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e
 
@@ -113,14 +113,17 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
 
   do ctx.JumpTableChannel <- jumpTableChannel
 
-  new(hdl, exnInfo, instrs, entryPoint, manager, irBlkOptimizer, fnCtx) =
+  new(hdl, exnInfo, instrs, entryPoint, manager, irBlkOptimizer, strategy) =
     let name =
       match BinFileOps.tryResolveName (hdl: BinHandle).File entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
-    let bblFactory = BBLFactory(hdl, instrs, irBlkOptimizer)
+    let factory = BBLFactory(hdl, instrs, irBlkOptimizer)
+    let strategy = strategy :> ICFGBuildingStrategy<'FnCtx, 'GlCtx>
+    let fnCtx = strategy.CreateFunctionContext()
+    let prio = strategy.ActionPrioritizer
     let ctx =
-      CFGBuildingContext(hdl, exnInfo, entryPoint, name, bblFactory, fnCtx)
+      CFGBuildingContext(hdl, exnInfo, entryPoint, name, factory, fnCtx, prio)
     InternalFnCFGBuilder(ctx, None, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
@@ -172,7 +175,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
     member _.Invalidate() = state <- Invalid
 
     member _.Build strategy =
-      ctx.ActionQueue.Push(strategy.ActionPrioritizer, InitiateCFG)
+      ctx.ActionQueue.Push InitiateCFG
       build strategy ctx.ActionQueue
 
     member _.Reset contexts =

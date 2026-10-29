@@ -106,7 +106,8 @@ and CFGBuilderActivation =
 and ICFGBuildingStrategy<'FnCtx, 'GlCtx> =
   inherit IContextProvidable<'FnCtx, 'GlCtx>
 
-  /// Returns the prioritizer to use for the CFG actions.
+  /// Returns the prioritizer that orders the CFG actions. Every action queue
+  /// is fixed to it when created, so all actions of a function share one order.
   abstract ActionPrioritizer: IPrioritizable
 
   /// Returns the recovery targets to build.

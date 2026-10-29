@@ -36,13 +36,13 @@ open B2R2.MiddleEnd.DataFlow
 /// strategy sees only what it may use to analyze the function; the rest is the
 /// bookkeeping of the CFG recovery itself, which stays internal.
 type CFGBuildingContext<'FnCtx, 'GlCtx>
-  internal(hdl: BinHandle, exnInfo, entryPoint, name, bblFactory, userCtx) =
+  internal(hdl, exnInfo, entryPoint, name, bblFactory, userCtx, prioritizer) =
 
   let vertices = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>()
 
   let mutable cfg = LowUIRCFG.create Mutable
 
-  let cp = ConstantPropagation(hdl, cfg.Vertices)
+  let cp = ConstantPropagation((hdl: BinHandle), cfg.Vertices)
 
   let mutable noretStatus = UnknownNoRet
 
@@ -62,7 +62,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let visitedPPoints = HashSet<ProgramPoint>()
 
-  let actionQueue = CFGActionQueue()
+  let actionQueue = CFGActionQueue prioritizer
 
   let pendingCallActions = Dictionary<Addr, List<CFGAction>>()
 
