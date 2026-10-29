@@ -956,8 +956,6 @@ type EVMCFGRecovery(fnCallback) as this =
 
     member _.ActionPrioritizer with get() = prioritizer
 
-    member _.AllowBBLOverlap with get() = false
-
     member _.RecoveryTargets with get() = All
 
     member _.OnAction(ctx, queue, action) =

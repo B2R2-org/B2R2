@@ -51,6 +51,7 @@
     <Compile Include="Strategies\PythonFunctionIdentification.fs" />
     <Compile Include="Strategies\ICFGRecovery.fs" />
     <Compile Include="Strategies\CFGRecoveryCommon.fs" />
+    <Compile Include="Strategies\CFGRecoveryOptions.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <Compile Include="Strategies\EVMCFGHelper.fs" />
     <Compile Include="Strategies\EVMCFGRecovery.fs" />

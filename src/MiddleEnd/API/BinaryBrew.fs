@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd
 
-open System.Runtime.InteropServices
 open System
 open System.Diagnostics
 open B2R2.FrontEnd
@@ -116,25 +115,18 @@ type BinaryBrew =
   new(hdl: BinHandle, funcId, cfgBuilder) =
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl, funcId, cfgBuilder) }
 
-  new(hdl: BinHandle,
-      [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
+  new(hdl: BinHandle, options: CFGRecoveryOptions) =
     let exnInfo = ExceptionInfo hdl
     let funcId = FunctionIdentification(hdl, exnInfo)
     let cfgBuilder =
-      CFGRecovery(hdl.ISA, allowBBLOverlap)
+      CFGRecovery(hdl.ISA, options)
       :> ICFGBuildingStrategy<_, _>
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl,
                                                      exnInfo,
                                                      funcId,
                                                      cfgBuilder) }
 
-  new(hdl: BinHandle, targets) =
-    let exnInfo = ExceptionInfo hdl
-    let funcId = FunctionIdentification(hdl, exnInfo)
-    let cfgBuilder =
-      CFGRecovery(hdl.ISA, false, targets)
-      :> ICFGBuildingStrategy<_, _>
-    BinaryBrew(hdl, funcId, cfgBuilder)
+  new(hdl: BinHandle) = BinaryBrew(hdl, CFGRecoveryOptions.Default)
 
 /// Default BinaryBrew type that uses EVM-specific user context.
 type EVMBinaryBrew =

@@ -147,9 +147,6 @@ and ICFGBuildingStrategy<'FnCtx, 'GlCtx
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
 
-  /// Whether to allow basic block overlap or not while building a CFG.
-  abstract AllowBBLOverlap: bool
-
   /// Return the recovery targets to build.
   abstract RecoveryTargets: RecoveryTargets
 

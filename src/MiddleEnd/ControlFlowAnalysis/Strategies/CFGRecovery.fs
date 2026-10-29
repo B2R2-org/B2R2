@@ -167,19 +167,14 @@ type CFGRecovery<'FnCtx, 'GlCtx
          sretAnalysis: ISRetAnalyzable<'FnCtx, 'GlCtx>,
          syscallAnalysis: ISyscallAnalyzable,
          postAnalysis: ICFGAnalysis<_>,
-         useTailcallHeuristic,
-         allowBBLOverlap,
-         useSSA,
-         recoveryTargets) as this =
+         options: CFGRecoveryOptions) as this =
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
     member _.Summarizer with get() = summarizer
 
     member _.ActionPrioritizer with get() = prioritizer
 
-    member _.AllowBBLOverlap with get() = allowBBLOverlap
-
-    member _.RecoveryTargets with get() = recoveryTargets
+    member _.RecoveryTargets with get() = options.RecoveryTargets
 
     member _.AnalyzeIndirectJump(ctx, _ppQueue, pp, srcVertex) =
       let insAddr = srcVertex.VData.Internals.LastInstruction.Address
@@ -197,7 +192,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
                syscallAnalysis
                jmptblAnalysis
                sretAnalysis
-               useTailcallHeuristic
+               options.UseTailcallHeuristic
                action
 
     member _.OnCreate _ctx = ()
@@ -207,25 +202,37 @@ type CFGRecovery<'FnCtx, 'GlCtx
     member _.OnCyclicDependency deps = onCyclicDependency deps
 
     member _.OnAddVertex(ctx, vertex) =
-      if not useSSA then markVertexAsPendingForAnalysis ctx vertex else ()
+      if not options.UseSSA then markVertexAsPendingForAnalysis ctx vertex
+      else ()
 
     member _.OnAddEdge(ctx, _srcVertex, dstVertex, _edgeKind) =
-      if not useSSA then markVertexAsPendingForAnalysis ctx dstVertex else ()
+      if not options.UseSSA then markVertexAsPendingForAnalysis ctx dstVertex
+      else ()
 
     member _.OnRemoveVertex(ctx, vertex) =
       markVertexAsRemovalForAnalysis ctx vertex
 
     member _.FindCandidatesForPostProcessing _ = [||]
 
-  new(recoveryTargets) = CFGRecovery(false, false, recoveryTargets)
+  new() = CFGRecovery(CFGRecoveryOptions.Default)
 
-  new(allowBBLOverlap, useSSA) = CFGRecovery(allowBBLOverlap, useSSA, All)
+  new(options: CFGRecoveryOptions) =
+    let sretAnalysis =
+      SRetAnalysis() :> ISRetAnalyzable<_, _>
+    CFGRecovery(sretAnalysis, options)
 
-  new(sretAnalysis, allowBBLOverlap, useSSA, recoveryTargets) =
+  new(isa: ISA, options: CFGRecoveryOptions) =
+    let sretAnalysis: ISRetAnalyzable<'FnCtx, 'GlCtx> =
+      match isa with
+      | X86 -> Intel32SRetAnalysis()
+      | _ -> SRetAnalysis()
+    CFGRecovery(sretAnalysis, options)
+
+  new(sretAnalysis, options: CFGRecoveryOptions) =
     let summarizer = FunctionSummarizer()
     let syscallAnalysis = SyscallAnalysis()
     let jmptblAnalysis, postAnalysis =
-      if useSSA then
+      if options.UseSSA then
         let ssaLifter = SSALifter() :> ICFGAnalysis<_>
         let onlyGraph (r: SSACFGWithDominance) = r.Graph
         let ssaOnly = ICFGAnalysis.map onlyGraph ssaLifter
@@ -243,95 +250,33 @@ type CFGRecovery<'FnCtx, 'GlCtx
                 sretAnalysis,
                 syscallAnalysis,
                 postAnalysis,
-                true,
-                allowBBLOverlap,
-                useSSA,
-                recoveryTargets)
-
-  new(isa: ISA, allowBBLOverlap, useSSA, recoveryTargets) =
-    let sretAnalysis: ISRetAnalyzable<'FnCtx, 'GlCtx> =
-      match isa with
-      | X86 -> Intel32SRetAnalysis()
-      | _ -> SRetAnalysis()
-    CFGRecovery(sretAnalysis, allowBBLOverlap, useSSA, recoveryTargets)
-
-  new(allowBBLOverlap, useSSA, recoveryTargets) =
-    let sretAnalysis =
-      SRetAnalysis() :> ISRetAnalyzable<_, _>
-    CFGRecovery(sretAnalysis, allowBBLOverlap, useSSA, recoveryTargets)
+                options)
 
 /// Base strategy for building a CFG without any customizable context.
 type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
-  new() = { inherit CFGRecovery<DummyContext, DummyContext>(false, false) }
+  new() = { inherit CFGRecovery<DummyContext, DummyContext>() }
 
-  new(allowBBLOverlap) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(allowBBLOverlap, false) }
+  new(options: CFGRecoveryOptions) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(options) }
 
-  new(allowBBLOverlap, recoveryTargets) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(allowBBLOverlap,
-                                                      false,
-                                                      recoveryTargets) }
+  new(isa: ISA, options: CFGRecoveryOptions) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(isa, options) }
 
   new(sretAnalysis: ISRetAnalyzable<DummyContext, DummyContext>,
-      allowBBLOverlap) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(sretAnalysis,
-                                                      allowBBLOverlap,
-                                                      false,
-                                                      All) }
-
-  new(sretAnalysis: ISRetAnalyzable<DummyContext, DummyContext>,
-      allowBBLOverlap,
-      recoveryTargets) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(sretAnalysis,
-                                                      allowBBLOverlap,
-                                                      false,
-                                                      recoveryTargets) }
-
-  new(isa: ISA, allowBBLOverlap) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(isa,
-                                                      allowBBLOverlap,
-                                                      false,
-                                                      All) }
-
-  new(isa: ISA, allowBBLOverlap, recoveryTargets) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(isa,
-                                                      allowBBLOverlap,
-                                                      false,
-                                                      recoveryTargets) }
+      options: CFGRecoveryOptions) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(sretAnalysis, options) }
 
   new(summarizer,
       jmptblAnalysis,
       sretAnalysis,
       syscallAnalysis,
       postAnalysis,
-      useTailcallHeuristic,
-      allowBBLOverlap) =
+      options: CFGRecoveryOptions) =
     { inherit CFGRecovery<DummyContext, DummyContext>(summarizer,
                                                       jmptblAnalysis,
                                                       sretAnalysis,
                                                       syscallAnalysis,
                                                       postAnalysis,
-                                                      useTailcallHeuristic,
-                                                      allowBBLOverlap,
-                                                      false,
-                                                      All) }
-
-  new(summarizer,
-      jmptblAnalysis,
-      sretAnalysis,
-      syscallAnalysis,
-      postAnalysis,
-      useTailcallHeuristic,
-      allowBBLOverlap,
-      recoveryTargets) =
-    { inherit CFGRecovery<DummyContext, DummyContext>(summarizer,
-                                                      jmptblAnalysis,
-                                                      sretAnalysis,
-                                                      syscallAnalysis,
-                                                      postAnalysis,
-                                                      useTailcallHeuristic,
-                                                      allowBBLOverlap,
-                                                      false,
-                                                      recoveryTargets) }
+                                                      options) }
