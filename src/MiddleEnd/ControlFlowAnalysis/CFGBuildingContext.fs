@@ -31,8 +31,8 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// The context for building a control flow graph of a function. This exists per
-/// function, and it can include a user-defined context, too.
+/// Represents the context for building a control flow graph of a function. This
+/// exists per function, and it can include a user-defined context, too.
 type CFGBuildingContext<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -107,10 +107,9 @@ type CFGBuildingContext<'FnCtx, 'GlCtx
     /// Thread ID that is currently building this function.
     mutable ThreadID: int }
 with
-  /// Reset the context to its initial state.
+  /// Resets the context to its initial state.
   member this.Reset() =
     this.Vertices.Clear()
-    this.CallerVertices.Clear()
     this.CFG <- LowUIRCFG.create this.CFG.ImplementationType
     this.CP.State.Reset()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
@@ -131,8 +130,8 @@ with
     this.UnwindingBytes <- 0
     this.UserContext.Reset()
 
-  /// Scan basic blocks starting from the given entry points. By discovering new
-  /// basic blocks, existing blocks can be divided into multiple blocks, in
+  /// Scans basic blocks starting from the given entry points. By discovering
+  /// new basic blocks, existing blocks can be divided into multiple blocks, in
   /// which case this will return a sequence of divided edges created by
   /// discovering new basic blocks.
   member this.ScanBBLs entryPoints =
@@ -143,10 +142,10 @@ with
     | true, (sum, _) -> dict[k] <- (sum + delta, v)
     | false, _ -> dict[k] <- (delta, v)
 
-  /// Search for the first overlapping vertex in the CFG by reverse traversing
+  /// Searches for the first overlapping vertex in the CFG by reverse traversing
   /// the vertices. Since there can be many vertices beyond the range of the
   /// current function, we should return the first one (with the smallest
-  /// addrress).
+  /// address).
   member private this.FindFunctionOverlap(lst, nextFnAddr, idx, res) =
     if idx = 0 then
 #if DEBUG
@@ -166,14 +165,14 @@ with
       else
         res
 
-  /// Find the first overlapping vertex in the CFG. We consider two cases: (1)
+  /// Finds the first overlapping vertex in the CFG. We consider two cases: (1)
   /// two vertices share the same address, or (2) a vertex is beyond the range
-  /// of the current function. If there's no such an overlap, return None.
+  /// of the current function. If there's no such overlap, this returns None.
   ///
   /// This function will check for the first case by traversing the vertices in
   /// the ascending order of addresses. This is crucial for the correctness of
   /// the rollback mechanism as we need to figure out which vertex is causing
-  /// the overlap. Since we run this function after fully over-appriximating the
+  /// the overlap. Since we run this function after fully over-approximating the
   /// CFG, we can assume that the first overlapping vertex is the problematic
   /// one.
   ///
@@ -239,9 +238,9 @@ with
       else
         acc
 
-  /// Find a gap between the current function and the next function. This
+  /// Finds a gap between the current function and the next function. This
   /// function finds every gap between the current function and the next
-  /// function. If there are multiple gaps, return all of them.
+  /// function. If there are multiple gaps, this returns all of them.
   member this.AnalyzeGap(nextFnAddrOpt) =
     match nextFnAddrOpt with
     | Some nextFnAddr ->
@@ -256,10 +255,11 @@ with
     | None ->
       []
 
-/// Call edge from its callsite address to the callee's address. This is to
-/// uniquely identify call edges for abstracted vertices. We create an abstract
-/// vertex for each call instruction even though multiple call instructions may
-/// target the same callee. The callee address can be None for an indirect call.
+/// Represents a call edge from its callsite address to the callee's address.
+/// This is to uniquely identify call edges for abstracted vertices. We create
+/// an abstract vertex for each call instruction even though multiple call
+/// instructions may target the same callee. The callee address can be None for
+/// an indirect call.
 and AbsCallEdge = Addr * Addr option
 
 /// Describes the binary location used to refer to an external function.
@@ -279,51 +279,52 @@ with
     | PLTTrampoline addr
     | RelocationSlot addr -> addr
 
-/// The interface for accessing the state of the TaskManager.
+/// Represents the interface for accessing the state of the TaskManager.
 and IManagerAccessible<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Start building a function at the given address if it is not (being) built.
+  /// Starts building a function at the given address if it is not (being)
+  /// built.
   abstract StartBuilding:
        addr: Addr
     -> unit
 
-  /// Update the dependency between two functions and return the current
+  /// Updates the dependency between two functions and returns the current
   /// building context of the callee.
   abstract AddDependency:
        caller: Addr
      * callee: Addr
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
-  /// Get the non-returning status of a function located at `addr`.
+  /// Gets the non-returning status of a function located at `addr`.
   abstract GetNonReturningStatus: addr: Addr -> NonReturningStatus
 
-  /// Get the builder of a function located at `addr` if it is available (i.e.,
+  /// Gets the builder of a function located at `addr` if it is available (i.e.,
   /// not in progress and valid). If the function builder is not available,
-  /// return None.
+  /// this returns None.
   abstract GetBuildingContext:
        addr: Addr
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
-  /// Get or create the builder of an external function.
+  /// Gets or creates the builder of an external function.
   abstract GetExternalBuildingContext:
        reference: ExternalFunctionReference
      * name: string
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
-  /// Get the next function address of the given function address. If there's no
-  /// next function, return None.
+  /// Gets the next function address of the given function address. If there's
+  /// no next function, this returns None.
   abstract GetNextFunctionAddress: addr: Addr -> Addr option
 
-  /// Notify the manager that a new jump table entry is about to be recovered,
-  /// and get the decision about what to do next.
+  /// Notifies the manager that a new jump table entry is about to be recovered,
+  /// and gets the decision about what to do next.
   abstract NotifyJumpTableRecovery:
        fnAddr: Addr
      * jmptbl: JmpTableInfo
     -> JumpTableRecoveryDecision
 
-  /// Notify the manager that a bogus jump table entry is found, and get the
+  /// Notifies the manager that a bogus jump table entry is found, and gets the
   /// decision whether to continue the analysis or not.
   abstract NotifyBogusJumpTableEntry:
        fnAddr: Addr
@@ -331,14 +332,14 @@ and IManagerAccessible<'FnCtx, 'GlCtx
      * idx: int
     -> bool
 
-  /// Let the manager know that the jump table recovery is canceled.
+  /// Lets the manager know that the jump table recovery is canceled.
   abstract CancelJumpTableRecovery:
        fnAddr: Addr
      * insAddr: Addr
      * tblAddr: Addr
     -> unit
 
-  /// Report the success of jump table entry recovery to the manager, and get
+  /// Reports the success of jump table entry recovery to the manager, and gets
   /// the decision whether to continue the analysis or not.
   abstract ReportJumpTableSuccess:
        fnAddr: Addr
@@ -348,13 +349,14 @@ and IManagerAccessible<'FnCtx, 'GlCtx
      * isFunctionPointerTable: bool
     -> bool
 
-  /// Get the current user-defined global state of the TaskManager.
+  /// Gets the current user-defined global state of the TaskManager.
   abstract GetGlobalContext: accessor: ('GlCtx -> 'Res) -> 'Res
 
-  /// Update the user-defined global state of the TaskManager.
+  /// Updates the user-defined global state of the TaskManager.
   abstract UpdateGlobalContext: updater: ('GlCtx -> 'GlCtx) -> unit
 
-/// Decision about what to do next in the jump table registration process.
+/// Represents a decision about what to do next in the jump table registration
+/// process.
 and JumpTableRecoveryDecision =
   /// Continue the recovery process.
   | GoRecovery
@@ -365,7 +367,7 @@ and JumpTableRecoveryDecision =
   /// handle.
   | StopRecoveryAndContinue
 
-/// Message containing the building context of a function.
+/// Represents a message containing the building context of a function.
 and BuildingCtxMsg<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)

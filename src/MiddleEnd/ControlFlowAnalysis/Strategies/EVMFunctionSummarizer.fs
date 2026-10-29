@@ -75,8 +75,9 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
 
     member _.ComputeUnwindingAmount _ = Terminator.impossible ()
 
-/// User-defined context for EVM functions. EVMFunctionSummarizer uses this
-/// information to summarize the function, especially the return target.
+/// Represents a user-defined context for EVM functions. EVMFunctionSummarizer
+/// uses this information to summarize the function, especially the return
+/// target.
 and EVMFuncUserContext() =
   let mutable cp: LowUIRSensitiveConstantPropagation<EVMExeCtx> | null = null
 
@@ -111,10 +112,10 @@ and EVMFuncUserContext() =
   let convertStackPointerToInt32 (bv: BitVector) =
     bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
 
-  /// Assuming that the stack pointer is always computed only using the
-  /// stack pointer register, we use a lightweight manner to compute the stack
-  /// pointer delta for the given vertex. This enables us to keep our design
-  /// where we compute stack pointers after reaching definition analysis.
+  /// Computes the stack pointer delta for the given vertex in a lightweight
+  /// manner, assuming that the stack pointer is always computed only using the
+  /// stack pointer register. This enables us to keep our design where we
+  /// compute stack pointers after reaching definition analysis.
   let rec computeStackPointerDelta (state: State<_, _>) v =
     let spId = getStackPointerId state.BinHandle
     let spRegType = state.BinHandle.RegisterFactory.GetRegType spId

@@ -29,13 +29,13 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Interface for summarizing a function based on the given context to abstract
-/// data.
+/// Represents an interface for summarizing a function based on the given
+/// context to abstract data.
 type IFunctionSummarizable<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Summarize a function based on the given context. The `ins` is the call
+  /// Summarizes a function based on the given context. The `ins` is the call
   /// instruction that calls the function.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
@@ -50,7 +50,7 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx
      * unwindingBytes: int
     -> FunctionSummary<LowUIR.Stmt>
 
-  /// Compute the stack unwinding amount of a function based on the given
+  /// Computes the stack unwinding amount of a function based on the given
   /// context.
   abstract ComputeUnwindingAmount:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>

@@ -83,7 +83,7 @@ let private evalBlock (st: ConcState) pc blk =
   st.PC <- pc
   evalBlockLoop 0 blk (Ok st)
 
-/// Concretely evaluate a basic block from an arbitrarily generated state.
+/// Concretely evaluates a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
   let pc = blk.VData.Internals.PPoint.Address
   let st = initState hdl pc

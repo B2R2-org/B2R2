@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 
-/// A priority queue to store the ICFGActions.
+/// Represents a priority queue that stores CFGActions.
 type CFGActionQueue() =
   let pq = PriorityQueue<CFGAction, Priority<int>>()
   let mutable count = 0
@@ -36,25 +36,25 @@ type CFGActionQueue() =
     count <- count + 1
     (-p, myCount)
 
-  /// Count the number of actions in the queue.
+  /// Returns the number of actions in the queue.
   member _.Count with get() = pq.Count
 
   member _.UnorderedItems with get() = pq.UnorderedItems
 
-  /// Push an action to the queue.
+  /// Pushes an action to the queue.
   member _.Push(judge: IPrioritizable, action) =
     pq.Enqueue(action, toPriority (action.Priority judge))
 
-  /// Pop an action from the queue.
+  /// Pops an action from the queue.
   member _.Pop() = pq.Dequeue()
 
-  /// Peek the action with the highest priority.
+  /// Peeks at the action with the highest priority.
   member _.Peek() = pq.Peek()
 
-  /// Check if the queue is empty.
+  /// Checks if the queue is empty.
   member _.IsEmpty() = pq.Count = 0
 
-  /// Clear the queue.
+  /// Clears the queue.
   member _.Clear() = pq.Clear()
 
 and private Priority<'P> = 'P * int

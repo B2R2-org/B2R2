@@ -32,8 +32,9 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Base class for summarizing a function in a lightweight manner. One can
-/// extend this class to implement a more sophisticated function summarizer.
+/// Represents a base class for summarizing a function in a lightweight manner.
+/// One can extend this class to implement a more sophisticated function
+/// summarizer.
 type FunctionSummarizer<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -139,11 +140,11 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
            yield! liveVarDefs
          yield! stackPointerDef hdl unwindingAmount |]
 
-  /// Compute how many bytes are unwound by this function.
+  /// Computes how many bytes are unwound by this function.
   abstract ComputeUnwindingAmount:
     ctx: CFGBuildingContext<'FnCtx, 'GlCtx> -> int
 
-  /// Summarize the function using LowUIR.
+  /// Summarizes the function using LowUIR.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * IInstruction
@@ -151,8 +152,8 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
      * clobbered: Set<RegisterID>
     -> Rundown<LowUIR.Stmt>
 
-  /// This is the simplistic way of counting the unwinding amount. Assuming that
-  /// "ret NN" instructions are used, compute how many bytes are unwound.
+  /// Computes how many bytes are unwound in a simplistic way, assuming that
+  /// "ret NN" instructions are used.
   default _.ComputeUnwindingAmount ctx =
     let mutable amount = 0
     let exits = ctx.CFG.Exits
@@ -174,7 +175,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
           ()
     amount
 
-  /// Simply over-approximate the function semantics. Particularly, we are
+  /// Simply over-approximates the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
   default _.Summarize(ctx, callInstruction, unwindingAmount, clobbered) =
     let returnAddress = callInstruction.Address + uint64 callInstruction.Length

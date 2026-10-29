@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Request messages for the task manager.
+/// Represents request messages for the task manager.
 type TaskManagerCommand<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)

@@ -35,9 +35,9 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Per-function factory for basic blocks. Each BBL is memoized so that we do
-/// not create multiple BBLs for the same address. As this is a per-function
-/// structure, each different function has its own BBLFactory.
+/// Represents a per-function factory for basic blocks. Each BBL is memoized so
+/// that we do not create multiple BBLs for the same address. As this is a
+/// per-function structure, each different function has its own BBLFactory.
 type BBLFactory(hdl: BinHandle,
                 instrs,
                 blkOptimizer: IIRBlockOptimizable | null) =
@@ -73,9 +73,9 @@ type BBLFactory(hdl: BinHandle,
 #endif
       Error e
 
-  /// Parse from the given address and return reachable addresses. If there
-  /// exists a BBL at the given address, then simply return an empty array. When
-  /// parsing fails, this function can return an error result.
+  /// Parses from the given address and returns reachable addresses. If there
+  /// exists a BBL at the given address, then this simply returns an empty
+  /// array. When parsing fails, this function can return an error result.
   let tryParse blocks addr =
     if interLeaders.ContainsKey addr then Ok [||]
     else parseBlock blocks [] 0 addr addr null
@@ -122,7 +122,8 @@ type BBLFactory(hdl: BinHandle,
       false
 #endif
 
-  /// The given list is reversed, so we fill the array in reverse order.
+  /// Lifts the given instructions and fills the array in reverse order, as the
+  /// given list is reversed.
   let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs ndx =
     match instrs with
     | ins :: tl ->
@@ -274,6 +275,9 @@ type BBLFactory(hdl: BinHandle,
     currentBBL.Internals.LiftedInstructions
     |> Array.exists (fun lifted -> lifted.Original.Address = addr)
 
+  /// Finds a subsequent leader that lies on an instruction boundary within the
+  /// current BBL.
+  ///
   /// We do *not* split BBLs when there is an instruction-level overlap. One may
   /// still split such BBLs by finding a merging instruction, but it is not
   /// desirable as it can introduce more bogus edges. For example, let BBL_1 and
@@ -303,7 +307,7 @@ type BBLFactory(hdl: BinHandle,
       else
         Error ErrorCase.ItemNotFound
 
-  /// Iterate over all the BBL leaders and split the BBLs if necessary.
+  /// Iterates over all the BBL leaders and splits the BBLs if necessary.
   let commit () =
     let leaders = getSortedLeaders ()
     let dividedEdges = List()
@@ -327,10 +331,10 @@ type BBLFactory(hdl: BinHandle,
 
   new(hdl: BinHandle, instrs) = BBLFactory(hdl, instrs, null)
 
-  /// Number of BBLs in the factory.
+  /// Returns the number of BBLs in the factory.
   member _.Count with get() = bbls.Count
 
-  /// Scan all directly reachable intra-procedural BBLs from the given
+  /// Scans all directly reachable intra-procedural BBLs from the given
   /// addresses. This function does not handle indirect branches nor call
   /// instructions. It always assumes that a call instruction will never return
   /// in order to avoid parsing incorrect BBLs. Fall-through BBLs should be
@@ -359,7 +363,7 @@ type BBLFactory(hdl: BinHandle,
     else
       Error ErrorCase.ParsingFailure
 
-  /// Peek the BBL at the given address without caching it. This function is
+  /// Peeks at the BBL at the given address without caching it. This function is
   /// useful when we want to check if an arbitrary address contains a meaningful
   /// BBL without affecting the BBLFactory state.
   member _.PeekBBL(addr) =
@@ -377,21 +381,21 @@ type BBLFactory(hdl: BinHandle,
         Error(List.rev acc)
     parse [] addr null
 
-  /// Check if there is a BBL at the given program point.
+  /// Checks if there is a BBL at the given program point.
   member _.Contains(ppoint: ProgramPoint) = bbls.ContainsKey ppoint
 
-  /// Find an existing BBL that is located at the given program point. If there
+  /// Finds an existing BBL that is located at the given program point. If there
   /// is no such BBL, then this function will return an error.
   member _.TryFind(ppoint: ProgramPoint) =
     match bbls.TryGetValue ppoint with
     | true, bbl -> Ok bbl
     | false, _ -> Error ErrorCase.ItemNotFound
 
-  /// Find an existing BBL that contains the given program point.
+  /// Finds an existing BBL that is located at the given program point.
   member _.Find(ppoint: ProgramPoint) = bbls[ppoint]
 
 #if DEBUG
-  /// Dump all BBLs in the factory for debugging purposes.
+  /// Dumps all BBLs in the factory for debugging purposes.
   member _.DumpBBLs() =
     bbls
     |> Seq.iter (fun kv ->

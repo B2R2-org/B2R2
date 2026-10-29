@@ -28,8 +28,8 @@ open System.Collections.Generic
 open B2R2
 open B2R2.Collections
 
-/// Global collection of jump table recovery notes. This is not thread-safe, so
-/// it should be accessed only by TaskManager.
+/// Represents a global collection of jump table recovery notes. This is not
+/// thread-safe, so it should be accessed only by TaskManager.
 type JmpTableRecoveryNotebook() =
   let notes = SortedList<Addr, JmpTableRecoveryNote>()
 
@@ -55,7 +55,7 @@ type JmpTableRecoveryNotebook() =
     | Some ub -> updatePotentialEndPoint note (ub - sz)
     | None -> ()
 
-  /// Create a new note for a newly found jump table, and return it. When we
+  /// Creates a new note for a newly found jump table, and returns it. When we
   /// detect overlapping jump tables, we return the problematic jump table note,
   /// which should be reverted.
   member _.Register(fnAddr, jmptbl) =
@@ -87,7 +87,7 @@ type JmpTableRecoveryNotebook() =
         syncAfterRegistration tblAddr note
         RegistrationSucceeded
 
-  /// Unregister the given jump table note associated with the given function
+  /// Unregisters the given jump table note associated with the given function
   /// address. This means, we later found out that the jump table is really not
   /// a jump table.
   member _.Unregister(tblAddr, fnAddr) =
@@ -98,32 +98,32 @@ type JmpTableRecoveryNotebook() =
     | _ ->
       Array.empty
 
-  /// Record another function that recovers the same jump table without owning
+  /// Records another function that recovers the same jump table without owning
   /// its global recovery note.
   member _.AddWaitingFunction(tblAddr, fnAddr) =
     notes[tblAddr].WaitingFunctions.Add(fnAddr) |> ignore
 
-  /// Check if the given index is expandable within the jump table.
+  /// Checks if the given index is expandable within the jump table.
   member _.IsExpandable(tblAddr, idx) =
     let note = notes[tblAddr]
     let target = note.StartingPoint + (uint64 idx * uint64 note.EntrySize)
     target <= note.PotentialEndPoint
 
-  /// Get the confirmed end point of the jump table.
+  /// Gets the confirmed end point of the jump table.
   member _.GetConfirmedEndPoint tblAddr = notes[tblAddr].ConfirmedEndPoint
 
-  /// Set the confirmed end point of the jump table.
+  /// Sets the confirmed end point of the jump table.
   member _.SetConfirmedEndPoint(tblAddr, idx) =
     let note = notes[tblAddr]
     let newEndPoint = note.StartingPoint + uint64 (idx * note.EntrySize)
     note.ConfirmedEndPoint <- newEndPoint
 
-  /// Get the potential end point of the jump table.
+  /// Gets the potential end point of the jump table.
   member _.GetPotentialEndPointIndex tblAddr =
     let note = notes[tblAddr]
     int (note.PotentialEndPoint - note.StartingPoint) / note.EntrySize
 
-  /// Set the potential end point of the jump table by giving the currently
+  /// Sets the potential end point of the jump table by giving the currently
   /// confirmed index.
   member _.SetPotentialEndPointByIndex(tblAddr, confirmedIdx) =
     let note = notes[tblAddr]
@@ -131,23 +131,23 @@ type JmpTableRecoveryNotebook() =
     updatePotentialEndPoint note newPoint
     syncConfirmedEndPoint note newPoint
 
-  /// Set the potential end point of the jump table by giving the currently
+  /// Sets the potential end point of the jump table by giving the currently
   /// confirmed address.
   member _.SetPotentialEndPointByAddr(tblAddr, confirmedAddr) =
     updatePotentialEndPoint notes[tblAddr] confirmedAddr
     syncConfirmedEndPoint notes[tblAddr] confirmedAddr
 
-  /// Get the indirect branch address that is associated with the given jump
+  /// Gets the indirect branch address that is associated with the given jump
   /// table address.
   member _.GetIndBranchAddress tblAddr = notes[tblAddr].InsAddr
 
-  /// Get the string representation of the note.
+  /// Gets the string representation of the note.
   member _.GetNoteString tblAddr =
     let n = notes[tblAddr]
     let confirmed = n.ConfirmedEndPoint
     $"{n.InsAddr:x} => {tblAddr:x}, {confirmed:x}, {n.PotentialEndPoint:x}"
 
-/// The result of jump table registration.
+/// Represents the result of jump table registration.
 and [<Struct>] JmpTableRegistrationResult =
   /// Registration has succeeded.
   | RegistrationSucceeded
@@ -162,7 +162,7 @@ and [<Struct>] JmpTableRegistrationResult =
   /// the address of the overlapping table.
   | OverlappingNote of note: JmpTableRecoveryNote
 
-/// A note (or a recovery state) for jump table recovery.
+/// Represents a note (or a recovery state) for jump table recovery.
 and JmpTableRecoveryNote =
   { /// Address of the host function that contains the indirect
     /// jump instruction.

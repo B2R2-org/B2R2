@@ -26,18 +26,18 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Threading.Tasks.Dataflow
 
-/// Stream of commands consumed by task workers.
+/// Represents a stream of commands consumed by task workers.
 type TaskWorkerCommandStream<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)>() =
     let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
 
-    /// Post a command to the stream.
+    /// Posts a command to the stream.
     member _.Post(command: TaskWorkerCommand<'FnCtx, 'GlCtx>) =
       stream.Post command |> ignore
 
-    /// Receive a command from the stream.
+    /// Receives a command from the stream.
     member _.Receive(ct) =
       task {
         match! stream.OutputAvailableAsync(ct) with
@@ -49,7 +49,7 @@ type TaskWorkerCommandStream<'FnCtx, 'GlCtx
           | false, _ -> return AvailableButNotReceived
       }
 
-    /// Stop receiving nor producing commands.
+    /// Stops receiving and producing commands.
     member _.Close() = stream.Complete()
 
 /// Status of a task worker command.

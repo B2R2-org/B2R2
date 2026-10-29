@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// Jump table information.
+/// Represents jump table information.
 type JmpTableInfo =
   { /// The address of the indirect branch instruction corresponding to the jump
     /// table.

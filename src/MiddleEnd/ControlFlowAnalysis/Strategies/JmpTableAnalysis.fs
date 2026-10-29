@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.DataFlow
 
 type private L = ConstantDomain.Lattice
 
-/// Base class for analyzing jump tables.
+/// Represents a base class for analyzing jump tables.
 type JmpTableAnalysis<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -157,9 +157,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | e ->
       e
 
-  /// Expand the given expression by recursively substituting the subexpressions
-  /// with their definitions. The recursion stops after following the next
-  /// definitions.
+  /// Expands the given expression by recursively substituting the
+  /// subexpressions with their definitions. The recursion stops after following
+  /// the next definitions.
   let rec symbExpand expandPhi findConst findDef doNext e =
     match e with
     | Num _ ->
@@ -211,7 +211,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | e ->
       e
 
-  /// Expand the given expression exhaustively by recursively substituting the
+  /// Expands the given expression exhaustively by recursively substituting the
   /// subexpressions with their definitions until no more expansion is possible.
   let rec symbExpandExhaustively expandPhi findConst findDef e =
     let e' = symbExpand expandPhi findConst findDef true e
@@ -239,7 +239,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | e ->
       e
 
-  /// Check whether the given expression is a proper index expression, i.e., it
+  /// Checks whether the given expression is a proper index expression, i.e., it
   /// does not contain multiplication or shift with a constant.
   let isProperIndex expandPhi findConst findDef e =
     e

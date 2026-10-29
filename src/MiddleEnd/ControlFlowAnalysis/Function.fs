@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Represents a function in a binary, which is essentially a continuous chunk
 /// of code. Functions may overlap with each other in rare cases. Function
 /// overlapping is rare because we will create a new function when there is an
-/// incoming edge in the middle of a funcion,
+/// incoming edge in the middle of a function,
 type Function(entryPoint,
               name,
               cfg,
@@ -46,32 +46,32 @@ type Function(entryPoint,
     let dummy = LowUIRCFG.create Persistent
     Function(entryPoint, name, dummy, noret, null, callers, jmptbls, isExtern)
 
-  /// Function entry point address.
+  /// Returns the entry point address of the function.
   member _.EntryPoint with get(): Addr = entryPoint
 
-  /// Unique ID of the function. A binary can have multiple functions with the
-  /// same name, but they will have different IDs.
+  /// Returns the unique ID of the function. A binary can have multiple
+  /// functions with the same name, but they will have different IDs.
   member _.ID with get(): string = Addr.toFuncName entryPoint
 
-  /// Name of the function.
+  /// Returns the name of the function.
   member _.Name with get(): string = name
 
-  /// Function's control flow graph.
+  /// Returns the control flow graph of the function.
   member _.CFG with get(): LowUIRCFG = cfg
 
-  /// Return the non-returning status of this function.
+  /// Returns the non-returning status of this function.
   member _.NoRet with get(): NonReturningStatus = isNoRet
 
-  /// Mapping from a callsite to its callee kind.
+  /// Returns the mapping from a callsite to its callee kind.
   member _.Callees with get(): SortedList<CallSite, CalleeKind> = callees
 
   /// Callers of this function.
   member _.Callers with get(): HashSet<Addr> = callers
 
-  /// Jump tables associated with this function.
+  /// Returns the jump tables associated with this function.
   member _.JumpTables with get(): JmpTableInfo[] = jmptbls
 
-  /// Whether this function is an external function.
+  /// Checks if this function is an external function.
   member _.IsExternal with get(): bool = isExtern
 
   interface ILinkage with

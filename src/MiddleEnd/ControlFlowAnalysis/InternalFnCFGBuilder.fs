@@ -32,10 +32,10 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// The main builder for an internal function. This is responsible for building
-/// the function CFG while maintaining its internal state. By "internal", we
-/// mean that the function is defined within the target binary as opposed to
-/// external (library) functions.
+/// Represents the main builder for an internal function. This is responsible
+/// for building the function CFG while maintaining its internal state. By
+/// "internal", we mean that the function is defined within the target binary as
+/// opposed to external (library) functions.
 type InternalFnCFGBuilder<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)

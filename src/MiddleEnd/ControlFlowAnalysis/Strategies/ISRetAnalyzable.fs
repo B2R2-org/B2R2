@@ -22,13 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Interface for analyzing whether an indirect call passes a hidden sret
-/// (structure-return) pointer, which the callee pops from the stack.
+/// Represents an interface for analyzing whether an indirect call passes a
+/// hidden sret (structure-return) pointer, which the callee pops from the
+/// stack.
 type ISRetAnalyzable<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)

@@ -34,7 +34,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<RequireQualifiedAccess>]
 module private CalleeClobberHelper =
-  /// How a function ends at an exit vertex.
+  /// Represents how a function ends at an exit vertex.
   type ExitKind =
     | ReturningExit
     | UnknownExit
@@ -86,7 +86,8 @@ module private CalleeClobberHelper =
           collectWrittenRegs written li.Stmts
     written
 
-  /// A register is modified if it or one of its aliases is written.
+  /// Checks if a register is modified, i.e., if it or one of its aliases is
+  /// written.
   let isModified (hdl: BinHandle) (written: HashSet<_>) rid =
     let aliases = hdl.RegisterFactory.GetRegisterIDAliases rid
     written.Contains rid || Array.exists written.Contains aliases

@@ -28,8 +28,9 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 
-/// The builder for an external function, which is responsible storing auxiliary
-/// information about the function, such as caller information.
+/// Represents the builder for an external function, which is responsible for
+/// storing auxiliary information about the function, such as caller
+/// information.
 type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -66,8 +67,8 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
       ManagerChannel = null
       ThreadID = -1 }
 
-  /// The location in this binary that refers to the external function. An
-  /// import trampoline is executable code, whereas a relocation slot is
+  /// Returns the location in this binary that refers to the external function.
+  /// An import trampoline is executable code, whereas a relocation slot is
   /// non-executable data containing the loader's resolved function address.
   member _.ExternalReference = reference
 

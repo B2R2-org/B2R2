@@ -35,7 +35,7 @@ type CFGRecoveryOptions =
     /// The functions to recover.
     RecoveryTargets: RecoveryTargets }
 
-  /// The default options: no SSA, the tail-call heuristic on, and every
+  /// Returns the default options: no SSA, the tail-call heuristic on, and every
   /// function recovered.
   static member Default =
     { UseSSA = false

@@ -24,8 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Linkage information. A symbol/identifier in C can have either internal or
-/// external linkage.
+/// Represents linkage information. A symbol/identifier in C can have either
+/// internal or external linkage.
 type ILinkage =
-  /// Is this defined outside of the binary? (e.g., library functions)
+  /// Checks if this is defined outside of the binary (e.g., library functions).
   abstract IsExternal: bool

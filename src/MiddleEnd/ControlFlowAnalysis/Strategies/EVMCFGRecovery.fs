@@ -55,7 +55,7 @@ module private EVMCFGRecovery =
     getFunctionContext ctx calleeAddr
     |> Result.bind (fun calleeCtx -> Ok calleeCtx.UserContext)
 
-  /// Check if this vertex was executed in the data-flow analysis. Note that
+  /// Checks if this vertex was executed in the data-flow analysis. Note that
   /// incomplete CFG traversal can lead to that situation, as we conduct path-
   /// sensitive data-flow analysis.
   let isExecuted (state: State<_, _>) v =
@@ -114,8 +114,8 @@ module private EVMCFGRecovery =
     if ctx.BBLFactory.Contains pp then () else scanBBLs ctx [ addr ] |> ignore
     getVertex ctx cfgRec pp
 
-  /// Try to find a feasible path from `srcV` to `dstV` in the given graph `g`.
-  /// We use BFS to find a path fast.
+  /// Tries to find a feasible path from `srcV` to `dstV` in the given graph
+  /// `g`. We use BFS to find a path fast.
   let tryFindFeasiblePath g srcV dstV =
     let q = Queue()
     let visited = HashSet<IVertex<_>>()
@@ -128,7 +128,7 @@ module private EVMCFGRecovery =
         if succ = dstV then foundPath <- Some(dstV :: p) else push succ p
     Option.map List.rev foundPath
 
-  /// Find a feasible path from `srcV` to `dstV` in the given graph `g`.
+  /// Finds a feasible path from `srcV` to `dstV` in the given graph `g`.
   let findFeasiblePath g srcV dstV =
     if srcV = dstV then
       [ srcV; dstV ]
@@ -183,7 +183,7 @@ module private EVMCFGRecovery =
       else for succ in g.GetSuccs v do push succ
     polyJumps
 
-  /// Find the intersection of two pathes. Time complexity is O(n+m) where n
+  /// Finds the intersection of two paths. Time complexity is O(n+m) where n
   /// and m are the lengths of the two pathes.
   let intersectPathes (p1: IVertex<_> list) p2 =
     let p1Set = HashSet p1
@@ -290,8 +290,8 @@ module private EVMCFGRecovery =
     | None -> LeafCallSite blk.LastInstruction.Address
     | Some callSite -> ChainedCallSite(callSite, blk.PPoint.Address)
 
-  /// This is the eseence of our CFG recovery in EVM, which finds a function
-  /// entry point.
+  /// Finds a function entry point, which is the essence of our CFG recovery in
+  /// EVM.
   let rec findFunctionEntry (path: IVertex<LowUIRBasicBlock> list) =
     assert (List.length path >= 2)
     let defSite, head, tail =
@@ -340,7 +340,8 @@ module private EVMCFGRecovery =
     let preds = g.GetPreds v
     Array.exists isFallthroughNode preds
 
-  /// Find the latest stack pointer **after** the execution of the given vertex.
+  /// Finds the latest stack pointer **after** the execution of the given
+  /// vertex.
   let findLatestStackOffset ctx (state: State<_, _>) v =
     let tags = state.PerVertexPossibleExeCtxs[v]
     let tag = Seq.head tags
@@ -351,10 +352,10 @@ module private EVMCFGRecovery =
 
   let isFakeVar var = (var: SSA.Variable).Identifier = 0
 
-  /// We met a returning jump, which uses an incoming variable as its target,
-  /// and we extract stack pointer difference and the target variable's stack
-  /// pointer offset to abstract the return information, which will be used
-  /// to build an inter-procedural (call) edge to this function later.
+  /// Analyzes a returning jump, which uses an incoming variable as its target,
+  /// by extracting the stack pointer difference and the target variable's stack
+  /// pointer offset to abstract the return information, which will be used to
+  /// build an inter-procedural (call) edge to this function later.
   let analyzeReturnInfo ctx state v incomingVars =
     assert (List.forall isFakeVar incomingVars)
     let var = List.head incomingVars
@@ -374,7 +375,7 @@ module private EVMCFGRecovery =
     dfa.Compute ctx.CFG |> ignore
     userCtx.CP.State
 
-  /// Summarize the callee's context.
+  /// Summarizes the callee's context.
   let summarize ctx calleeInfo =
     summarizer.Summarize(ctx, calleeInfo, null)
 
@@ -482,12 +483,12 @@ module private EVMCFGRecovery =
     let dstExeCtx = makeExeCtx usrCtx state srcV srcTag maybeDstConditions
     if tooManyContexts usrCtx srcV dstExeCtx then None else Some dstExeCtx
 
-  /// The successor's incoming stack offset is the outgoing stack offset of the
-  /// current vertex. We do lightweight stack pointer computation here, as we
-  /// might have not yet propagated stack pointers. Plus, we do selectively
-  /// path-sensitive analysis only for specific conditions such as calls and
-  /// invariant checks, and this is for avoiding infeasible paths introduced
-  /// by the try-catch mechanism in EVM.
+  /// Gets the execution context of a successor, whose incoming stack offset is
+  /// the outgoing stack offset of the current vertex. We do lightweight stack
+  /// pointer computation here, as we might have not yet propagated stack
+  /// pointers. Plus, we do selectively path-sensitive analysis only for
+  /// specific conditions such as calls and invariant checks, and this is for
+  /// avoiding infeasible paths introduced by the try-catch mechanism in EVM.
   let getSuccessorExecutionContext (ctx: CFGBuildingContext<_, _>)
                                    srcV
                                    exeCtx
@@ -525,9 +526,9 @@ module private EVMCFGRecovery =
         | None -> None
         | Some conds -> tryMakeExeCtx usrCtx state srcV exeCtx (Some conds)
 
-  /// If a vertex was not analyzed yet due to incomplete CFG traversal, we
-  /// postpone its analysis to the next time when the vertex is visited in the
-  /// data-flow analysis.
+  /// Postpones the analysis of a vertex that was not analyzed yet due to
+  /// incomplete CFG traversal, until the next time when the vertex is visited
+  /// in the data-flow analysis.
   let postponeVertexAnalysis ctx (v: IVertex<LowUIRBasicBlock>) =
     let userCtx = ctx.UserContext :> EVMFuncUserContext
     if userCtx.PostponedVertices.Contains v then
@@ -747,8 +748,9 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  /// We need to use UserContext of the callee function, so we need to directly
-  /// access the callee context instead of using the abstraction.
+  /// Connects the caller to an abstract vertex summarizing the callee. We need
+  /// to use UserContext of the callee function, so we need to directly access
+  /// the callee context instead of using the abstraction.
   let connectAbsVertex ctx
                        cfgRec
                        caller
@@ -785,7 +787,7 @@ module private EVMCFGRecovery =
     if not <| ctx.CFG.Contains caller then MoveOn
     else connectCall ctx cfgRec caller callee cs calleeInfo
 
-  /// Postpone the analysis of the source vertex if it was not executed in the
+  /// Postpones the analysis of the source vertex if it was not executed in the
   /// data-flow analysis, and run the given function if it was executed.
   let postponeOrGo ctx srcVertex fn =
     let state = computeCPState ctx
@@ -798,7 +800,7 @@ module private EVMCFGRecovery =
     else
       fn ()
 
-  /// Update the back-edges of the current function.
+  /// Updates the back-edges of the current function.
   /// TODO: We can use the dynamic DFS algorithm by Yang et al. (VLDB '19).
   let updateBackEdges ctx _srcV _dstV =
     let usrCtx = ctx.UserContext :> EVMFuncUserContext
@@ -1000,10 +1002,10 @@ type EVMCFGRecovery(fnCallback) as this =
       | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
       | _ -> MoveOn
 
-    member _.AnalyzeIndirectJump(ctx, _ppQueue, _pp, srcV) =
+    member _.AnalyzeIndirectJump(ctx, _pp, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this srcV)
 
-    member _.AnalyzeIndirectCondJump(ctx, _ppQueue, _pp, srcV) =
+    member _.AnalyzeIndirectCondJump(ctx, _pp, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterCJmp ctx this srcV)
 
     member _.OnAddVertex(ctx, v) =

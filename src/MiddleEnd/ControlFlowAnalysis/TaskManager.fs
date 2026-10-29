@@ -29,7 +29,7 @@ open System.Threading
 open System.Threading.Tasks
 open B2R2
 
-/// Task manager for control flow analysis.
+/// Represents a task manager for control flow analysis.
 type TaskManager<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -64,13 +64,13 @@ type TaskManager<'FnCtx, 'GlCtx
     managerMsgbox.Task.Wait()
     cts.Dispose()
 
-  /// Update callers of each builder.
+  /// Updates callers of each builder.
   let updateCallers () =
     for builder in builders.Values do
       depMap.GetConfirmedCallers builder.EntryPoint
       |> builder.Context.Callers.UnionWith
 
-  /// Create builders for the given addresses.
+  /// Creates builders for the given addresses.
   let createBuilders candidates targetAddrs =
     let targetAddrSet = Set.ofArray targetAddrs
     for candidate in candidates do
@@ -112,7 +112,7 @@ type TaskManager<'FnCtx, 'GlCtx
     for tid in 0 .. numThreads do flushLog tid
 #endif
 
-/// Task worker for control flow recovery.
+/// Represents a task worker for control flow recovery.
 and private TaskWorker<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)

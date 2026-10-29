@@ -36,7 +36,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open type UntouchedValueDomain.UntouchedTag
 
-/// This is a non-returning function identification strategy that can check
+/// Represents a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
 /// simple patterns that are handled by compilers, but we may have to extend
 /// this as the compilers evolve.
@@ -342,7 +342,7 @@ module CondAwareNoretAnalysis =
     | Def bv -> not bv.IsZero
     | _ -> false
 
-  /// Locally analyze the given basic block and see if the `nth` parameter
+  /// Locally analyzes the given basic block and checks if the `nth` parameter
   /// (defined by the current ABI) is non-zero.
   let hasNonZero (hdl: BinHandle) caller nth =
     let st = CFGEvaluator.evalBlockFromScratch hdl caller

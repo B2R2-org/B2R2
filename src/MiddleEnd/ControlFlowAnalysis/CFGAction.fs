@@ -27,9 +27,9 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Our CFG reconstruction algorithm is performed by consuming actions
-/// (CFGAction). Each action has a priority, which is used to determine the
-/// order of the actions to run.
+/// Represents an action that our CFG reconstruction algorithm consumes. Each
+/// action has a priority, which is used to determine the order of the actions
+/// to run.
 type CFGAction =
   /// Build an initial CFG that is reachable from the given function start
   /// address.
@@ -70,10 +70,10 @@ type CFGAction =
     /// Report the end of the gap analysis.
   | EndGapAnalysis
 with
-  /// The priority of the action. Higher values mean higher priority.
+  /// Returns the priority of the action. Higher values mean higher priority.
   member this.Priority(p: IPrioritizable) = p.GetPriority this
 
-/// Callee's abstract information.
+/// Represents the abstract information of a callee.
 and CalleeInfo =
   { /// Whether the callee returns.
     Status: NonReturningStatus
@@ -82,12 +82,12 @@ and CalleeInfo =
     /// The caller-saved registers that the callee may modify.
     Clobbered: Set<RegisterID> }
 with
-  /// Callee information to be replaced with the real one once the callee is
-  /// built. Nothing is assumed about the callee until then.
+  /// Returns the callee information to be replaced with the real one once the
+  /// callee is built. Nothing is assumed about the callee until then.
   static member Unknown =
     { Status = UnknownNoRet; Unwinding = 0; Clobbered = Set.empty }
 
-/// Interface for setting the priority of an action.
+/// Represents an interface for setting the priority of an action.
 and IPrioritizable =
-  /// Get the priority of the action. A higher value means higher priority.
+  /// Gets the priority of the action. A higher value means higher priority.
   abstract GetPriority: CFGAction -> int

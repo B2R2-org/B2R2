@@ -24,7 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Command to be consumed by task workers.
+/// Represents a command to be consumed by task workers.
 type TaskWorkerCommand<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)

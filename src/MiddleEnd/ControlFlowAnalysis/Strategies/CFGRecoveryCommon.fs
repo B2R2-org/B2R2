@@ -151,9 +151,9 @@ module internal CFGRecoveryCommon =
         lst
     lst.Add action
 
-  /// Try to remove a vertex in the CFG whose program point is given as `ppoint`
-  /// and return its predecessors and successors. When there's no such vertex,
-  /// return empty arrays.
+  /// Tries to remove a vertex in the CFG whose program point is given as
+  /// `ppoint` and returns its predecessors and successors. When there's no
+  /// such vertex, this returns empty arrays.
   let tryRemoveVertexAt ctx (cfgRec: ICFGRecovery<_, _>) ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v ->
@@ -250,7 +250,7 @@ module internal CFGRecoveryCommon =
       | Error _ ->
         Error ErrorCase.ItemNotFound
 
-  /// Check if an edge that has the given address as a destination goes from
+  /// Checks if an edge that has the given address as a destination goes from
   /// unreachables to reachables.
   let isIntrudingReachables ctx dstAddr dividedEdges =
     dividedEdges
@@ -259,7 +259,7 @@ module internal CFGRecoveryCommon =
       && (dstPP: ProgramPoint).Address = dstAddr
       && not <| ctx.GapAnalysisVertices.Contains(srcPP))
 
-  /// Filter out divided edges caused by edges that go from unreachables to
+  /// Filters out divided edges caused by edges that go from unreachables to
   /// reachables.
   let excludeUnreachableIncomings ctx dividedEdges =
     if not <| isDuringGapAnalysis ctx then dividedEdges
@@ -379,7 +379,7 @@ module internal CFGRecoveryCommon =
     | _ ->
       None
 
-  /// Try to get a vertex (which is either cached or newly created).
+  /// Tries to get a vertex (which is either cached or newly created).
   let tryGetVertex ctx cfgRec ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v ->
@@ -437,7 +437,7 @@ module internal CFGRecoveryCommon =
     | StillBuilding _ | FinalCtx _ -> true
     | FailedBuilding -> false
 
-  /// Build a CFG starting from the given program points.
+  /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
                (syscallAnalysis: ISyscallAnalyzable)
@@ -558,7 +558,7 @@ module internal CFGRecoveryCommon =
           | Some r ->
             result <- r
           | None ->
-            cfgRec.AnalyzeIndirectJump(ctx, queue, ppoint, srcVertex)
+            cfgRec.AnalyzeIndirectJump(ctx, ppoint, srcVertex)
             |> Option.iter (fun r -> result <- r)
         | InterJmp(Target = e; Kind = InterJmpKind.IsCall) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
@@ -570,7 +570,7 @@ module internal CFGRecoveryCommon =
             addCallerVertex ctx callsite srcVertex
             actionQueue.Push(prioritizer, MakeIndCall(callsite))
         | InterCJmp _ -> (* Indirect cond jumps *)
-          cfgRec.AnalyzeIndirectCondJump(ctx, queue, ppoint, srcVertex)
+          cfgRec.AnalyzeIndirectCondJump(ctx, ppoint, srcVertex)
           |> Option.iter (fun r -> result <- r)
         | SideEffect(Effect = Interrupt 0x80) | SideEffect(Effect = SysCall) ->
           let callsiteAddr = srcData.LastInstruction.Address
@@ -609,11 +609,6 @@ module internal CFGRecoveryCommon =
     | FailedBuilding ->
       Error ErrorCase.FailedToRecoverCFG
 
-  /// Create an exception abstraction. Without calculating CFA, we can compute
-  /// how much stack pointer is adjusted before entering the landing pad, as we
-  /// introduce this abstraction only after a function call and thus we can
-  /// simply unwind the stack by the size of a single element for the return
-  /// address pushed by the call instruction.
   /// Computes how far the stack pointer moves between a call site and the
   /// landing pad it unwinds to. The two canonical frame addresses tell us how
   /// deep each point is in the frame; on top of that difference the return
@@ -635,6 +630,11 @@ module internal CFGRecoveryCommon =
     | _ ->
       wordSize
 
+  /// Creates an exception abstraction. Without calculating CFA, we can compute
+  /// how much stack pointer is adjusted before entering the landing pad, as we
+  /// introduce this abstraction only after a function call and thus we can
+  /// simply unwind the stack by the size of a single element for the return
+  /// address pushed by the call instruction.
   let getExceptionAbstraction (hdl: BinHandle) callsiteAddr lpAddr =
     let rid = hdl.RegisterFactory.StackPointer.Value
     let rname = hdl.RegisterFactory.GetRegisterName(rid)
@@ -925,7 +925,7 @@ module internal CFGRecoveryCommon =
         v.VData.Internals.LastInstruction.IsRET)
     |> Option.isSome
 
-  /// Copy the recovered edges to other indirect branches that use the same
+  /// Copies the recovered edges to other indirect branches that use the same
   /// jump table. The table owner performs the actual recovery only once.
   let connectDelayedJumpTableEdges ctx (cfgRec: ICFGRecovery<_, _>) =
     let tryFindVertexByInstruction addr =
@@ -1012,7 +1012,7 @@ module internal CFGRecoveryCommon =
     v.VData.Internals.IsAbstract &&
     v.VData.Internals.AbstractContent.ReturningStatus = NoRet
 
-  /// Try to fill a no-return fall-through edge if applicable. This recovers a
+  /// Tries to fill a no-return fall-through edge if applicable. This recovers a
   /// fall-through edge from an abstract no-return vertex to the next vertex,
   /// which may be missing due to our precise analysis of no-return functions
   /// whereas a compiler may have generated a fall-through edge after a call to

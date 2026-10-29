@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
 
-/// Perform stack pointer propgation analysis on the current SSACFG. This
+/// Represents a stack pointer propagation analysis on the current SSACFG. This
 /// analysis performs mainly two tasks: (1) identify stack variables and promote
 /// the SSACFG, and (2) calculate the stack frame size of the function.
 type SSALifter() =

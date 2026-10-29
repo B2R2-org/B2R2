@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 
-/// Collection of recovered functions.
+/// Represents a collection of recovered functions.
 type FunctionCollection<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -61,27 +61,27 @@ type FunctionCollection<'FnCtx, 'GlCtx
 
   do createFunctions () |> updateCollection
 
-  /// Sequence of functions.
+  /// Returns the sequence of functions.
   member _.Sequence with get() = addrToFunction.Values
 
   /// Addresses of functions.
   member _.Addresses with get() = addrToFunction.Keys
 
-  /// Number of functions in the collection.
+  /// Returns the number of functions in the collection.
   member _.Count with get() = addrToFunction.Count
 
-  /// Find a function by its address.
+  /// Finds a function by its address.
   member _.Item with get(addr: Addr) = findByAddr addr
 
-  /// Find a function by its address.
+  /// Finds a function by its address.
   member _.Find(addr: Addr) = findByAddr addr
 
-  /// Find a function by its name. If there are multiple functions with the same
-  /// name, this function returns all of them.
+  /// Finds a function by its name. If there are multiple functions with the
+  /// same name, this function returns all of them.
   member _.Find(name: string) =
     match nameToFunction.TryGetValue name with
     | true, fns -> fns
     | false, _ -> raise (KeyNotFoundException($"Function not found: {name}"))
 
-  /// Find a function by its function ID.
+  /// Finds a function by its function ID.
   member _.FindByID(id: string) = findByAddr <| Addr.ofFuncName id

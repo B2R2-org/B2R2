@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -42,22 +41,29 @@ type ICFGRecovery<'UsrCtx, 'GlbCtx
   /// Returns the function summarizer for this CFG recovery strategy.
   abstract Summarizer: IFunctionSummarizable<'UsrCtx, 'GlbCtx>
 
-/// Handles the analysis of indirect jumps and conditional jumps during CFG
-/// recovery.
+/// Represents an interface for analyzing indirect jumps and conditional jumps
+/// during CFG recovery.
 and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Handles an indirect jump that no relocation resolves during the CFG
+  /// building. It takes the building context, the program point being visited,
+  /// and the vertex that ends with the jump. Returning None lets the building
+  /// go on as is; returning Some result overrides the building result, which
+  /// stops the building unless the result is MoveOn.
   abstract AnalyzeIndirectJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    * Queue<ProgramPoint>
     * ProgramPoint
     * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
 
+  /// Handles an indirect conditional jump during the CFG building, i.e., a
+  /// conditional jump whose targets are neither constants nor PC-relative. It
+  /// takes the same arguments as AnalyzeIndirectJump and returns its result in
+  /// the same way.
   abstract AnalyzeIndirectCondJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    * Queue<ProgramPoint>
     * ProgramPoint
     * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
@@ -67,13 +73,13 @@ and IGraphCallback<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
   and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Called when a new vertex is added to the CFG.
+  /// Handles a new vertex added to the CFG.
   abstract OnAddVertex:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * IVertex<LowUIRBasicBlock>
     -> unit
 
-  /// Called when an edge is added to the CFG.
+  /// Handles a new edge added to the CFG.
   abstract OnAddEdge:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * IVertex<LowUIRBasicBlock>
@@ -81,7 +87,7 @@ and IGraphCallback<'FnCtx, 'GlCtx
     * CFGEdgeKind
     -> unit
 
-  /// Called when a vertex is removed from the CFG.
+  /// Handles a vertex removed from the CFG.
   abstract OnRemoveVertex:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * IVertex<LowUIRBasicBlock>

@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents the base strategy for identifying function entry points.
 type FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
-  /// This function returns an initial sequence of entry points obtained from
+  /// Returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
   /// binary is stripped, the returned sequence will be incomplete, and we need
   /// to expand it during the main recovery phase.

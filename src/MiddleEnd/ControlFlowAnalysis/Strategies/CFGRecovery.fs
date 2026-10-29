@@ -157,7 +157,7 @@ module private CFGRecovery =
       Console.Error.WriteLine $"OnAction failed:\n{e}"
       FailStop ErrorCase.FailedToRecoverCFG
 
-/// Base strategy for building a CFG.
+/// Represents a base strategy for building a CFG.
 type CFGRecovery<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -176,14 +176,14 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
     member _.RecoveryTargets with get() = options.RecoveryTargets
 
-    member _.AnalyzeIndirectJump(ctx, _ppQueue, pp, srcVertex) =
+    member _.AnalyzeIndirectJump(ctx, pp, srcVertex) =
       let insAddr = srcVertex.VData.Internals.LastInstruction.Address
       let callsite = LeafCallSite insAddr
       addCallerVertex ctx callsite srcVertex
       pushAction ctx <| MakeIndEdges(pp.Address, insAddr)
       None
 
-    member _.AnalyzeIndirectCondJump(_, _, _, _) = None
+    member _.AnalyzeIndirectCondJump(_, _, _) = None
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx
@@ -252,7 +252,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
                 postAnalysis,
                 options)
 
-/// Base strategy for building a CFG without any customizable context.
+/// Represents a base strategy for building a CFG without any customizable
+/// context.
 type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 

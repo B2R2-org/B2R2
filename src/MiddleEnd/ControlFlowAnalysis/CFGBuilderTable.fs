@@ -148,30 +148,30 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
      | Some tbl -> loadFromImportTable hdl.File tbl
      | _ -> ()
 
-  /// Retrieve a function builder by its address.
+  /// Retrieves a function builder by its address.
   member _.Item with get(addr: Addr) = builders[addr]
 
-  /// Retrieve all function builders.
+  /// Retrieves all function builders.
   member _.Values with get() = builders.Values |> Seq.toArray
 
-  /// Return the current termination status of all function builders.
+  /// Returns the current termination status of all function builders.
   member _.GetTerminationStatus() =
     getTerminationStatus builders.Values [] (builders.Count - 1)
 
-  /// Get or create a function builder by its address.
+  /// Gets or creates a function builder by its address.
   member _.GetOrCreateBuilder(managerMsgbox, addr) =
     getOrCreateInternalBuilder managerMsgbox addr
 
-  /// Get or create an external function builder for the given reference.
+  /// Gets or creates an external function builder for the given reference.
   member _.GetOrCreateExternalBuilder(reference, name) =
     getOrCreateExternalBuilder reference name
 
-  /// Update existing function builder to have a new manager msgbox.
+  /// Updates the existing function builder to have a new manager msgbox.
   member _.Reload(builder: ICFGBuildable<_, _>, managerMsgbox) =
     let old = builders[builder.EntryPoint]
     builders[builder.EntryPoint] <- old.MakeNew managerMsgbox
 
-  /// Try to retrieve a function builder by its address.
+  /// Tries to retrieve a function builder by its address.
   member _.TryGetBuilder(addr: Addr) =
     match builders.TryGetValue addr with
     | true, builder -> Ok builder

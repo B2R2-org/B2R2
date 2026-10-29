@@ -84,18 +84,18 @@ type TaskScheduler<'FnCtx, 'GlCtx
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
     builder.Reset()
 
-  /// Restart = reset and reschedule builder.
+  /// Restarts the builder, i.e., resets and reschedules it.
   let restartBuilder (builder: ICFGBuildable<_, _>) =
     resetBuilder builder
     scheduleCFGBuilding builder.EntryPoint
 
-  /// Conditionally restart (reset and reload) builder based on its state. If
-  /// the builder is currently building, then it will send a delayed request to
-  /// the builder to reset itself after the current building process is done.
-  /// N.B. the BuilderState is not a reliable indicator of the builder's status
-  /// especially when the manager is handling the result of the builder. Thus,
-  /// this function should be only used for builders that are not currently
-  /// handled by the manager.
+  /// Conditionally restarts (resets and reloads) the builder based on its
+  /// state. If the builder is currently building, then it will send a delayed
+  /// request to the builder to reset itself after the current building process
+  /// is done. N.B. the BuilderState is not a reliable indicator of the
+  /// builder's status especially when the manager is handling the result of the
+  /// builder. Thus, this function should be only used for builders that are not
+  /// currently handled by the manager.
   let restartBuilderIfNotInProgress (builder: ICFGBuildable<_, _>) =
     if builder.BuilderState <> InProgress then restartBuilder builder
     else builder.DelayedBuilderRequests.Enqueue ResetBuilder
@@ -146,8 +146,8 @@ type TaskScheduler<'FnCtx, 'GlCtx
       builder.Invalidate() (* the builder will stop later *)
       for callerFnAddr in callers do invalidateBuilder builders[callerFnAddr]
 
-  /// A builder was performing a gap analysis when it was rolled back, and we
-  /// add the gap address to the blacklist to avoid re-analyzing it.
+  /// Rolls back a builder that was performing a gap analysis, adding the gap
+  /// address to the blacklist to avoid re-analyzing it.
   and rollbackOnGapAnalysis (builder: ICFGBuildable<_, _>) =
     match builder.Context.GapToAnalyze with
     | None ->
@@ -160,8 +160,8 @@ type TaskScheduler<'FnCtx, 'GlCtx
       builder.Context.GapBlacklist.Add(addr) |> ignore
       true
 
-  /// The builder was performing jump table recovery when it was rolled back,
-  /// and we adjust the jump table note accordingly.
+  /// Rolls back a builder that was performing jump table recovery, adjusting
+  /// the jump table note accordingly.
   and rollbackOnJumpTable (builder: ICFGBuildable<_, _>) =
     match builder.Context.JumpTableRecoveryStatus.TryPeek() with
     | false, _ ->
@@ -195,7 +195,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
     done
     if isAllStopped then Ok tuples else Error ErrorCase.ItemNotFound
 
-  /// Forcefully complete the target builder by under-approximating it as a
+  /// Forcefully completes the target builder by under-approximating it as a
   /// "non-returning" function.
   let forceFinish (targetBuilder: ICFGBuildable<_, _>) =
     let nextStatus = targetBuilder.Context.NonReturningStatus
@@ -312,7 +312,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
     if builder.DelayedBuilderRequests.Count = 0 then false
     else consumeUntilPendingReset builder; true
 
-  /// Conditionally update builder based on its state. If the builder is
+  /// Conditionally updates the builder based on its state. If the builder is
   /// currently building, then it will send a delayed request to the builder to
   /// update itself after the current building process is done. N.B. the
   /// BuilderState is not a reliable indicator of the builder's status
@@ -349,7 +349,7 @@ type TaskScheduler<'FnCtx, 'GlCtx
       caller.DelayedBuilderRequests.Enqueue
       <| NotifyCalleeChange(calleeAddr, calleeInfo)
 
-  /// Analyze gaps and return true if there was a meaningful gap to analyze so
+  /// Analyzes gaps and returns true if there was a meaningful gap to analyze so
   /// that we have to resume the building process.
   let analyzeGaps (builder: ICFGBuildable<_, _>) =
     let nextFnAddrOpt = builder.NextFunctionAddress
@@ -381,8 +381,8 @@ type TaskScheduler<'FnCtx, 'GlCtx
     else
       false (* Since there's no jmp table, no need to analyze gaps. *)
 
-  /// This function is called when a callee has been successfully built. It
-  /// propagates the success to its callers who are waiting for the builder.
+  /// Finalizes a callee that has been successfully built. It propagates the
+  /// success to its callers who are waiting for the builder.
   let finalizeBuilder (builder: ICFGBuildable<_, _>) entryPoint =
     assert (builder.DelayedBuilderRequests.Count = 0)
 #if CFGDEBUG
@@ -654,17 +654,17 @@ type TaskScheduler<'FnCtx, 'GlCtx
         try globalCtx <- updater globalCtx
         with e -> Console.Error.WriteLine $"Failed to update global ctx:\n{e}"
 
-  /// Start the scheduler and return the command message box.
+  /// Starts the scheduler and returns the command message box.
   member _.Start(token) =
     msgbox <- Agent<_>.Start(schedule, token)
     msgbox
 
-  /// Terminate the scheduler.
+  /// Terminates the scheduler.
   member _.Terminate() = terminateWorkers ()
 
-  /// Post a `StartBuilding` message to the msgbox to start building this
+  /// Posts a `StartBuilding` message to the msgbox to start building this
   /// function.
   member _.StartBuilding entryPoint = scheduleCFGBuilding entryPoint
 
-  /// Post a command to the msgbox.
+  /// Posts a command to the msgbox.
   member _.PostCommand cmd = msgbox.Post cmd
