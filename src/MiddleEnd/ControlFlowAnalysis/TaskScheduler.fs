@@ -54,8 +54,15 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     builder.Authorize()
     taskStream.Post <| BuildCFG builder
 
-  let isBuilderFinished (builder: ICFGBuildable<_, _>) =
+  let isBuilderFinished (builder: IFunctionBuilder) =
     builder.BuilderState = Finished || builder.BuilderState = ForceFinished
+
+  /// Checks if the builder is being built or done with, so that there is
+  /// nothing to schedule.
+  let isBusyOrDone (builder: ICFGBuildable<_, _>) =
+    match builder.BuilderState with
+    | InProgress | Invalid | ForceFinished | Finished -> true
+    | _ -> false
 
   let isFinished entryPoint =
     match builders.TryGetBuilder entryPoint with
@@ -63,7 +70,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     | Error _ -> false
 
   let toCalleeStatus = function
-    | Ok(builder: ICFGBuildable<_, _>) ->
+    | Ok(builder: IFunctionBuilder) ->
       match builder.BuilderState with
       | Invalid -> Failed
       | ForceFinished | Finished -> Built builder.CalleeInfo
@@ -232,7 +239,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       |> Array.iter (fun bld ->
         let state = bld.BuilderState
         if state <> Finished && state <> Invalid then
-          let addr = bld.Context.FunctionAddress
+          let addr = bld.EntryPoint
           let forceFinished = bld.BuilderState = ForceFinished
           dbglog ManagerTid "Terminate" $"? {addr:x} ({state}, {forceFinished})"
         else
@@ -609,21 +616,18 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     while not inbox.IsCancelled do
       match inbox.Receive() with
       | StartBuilding entryPoint ->
-        let builder = builders.GetOrCreateBuilder(msgbox, entryPoint)
-        if builder.BuilderState = InProgress ||
-           builder.BuilderState = Invalid ||
-           builder.BuilderState = ForceFinished ||
-           builder.BuilderState = Finished then
-           ()
-        else
+        match builders.TryGetOrCreateBuilder(msgbox, entryPoint) with
+        | Some builder when not (isBusyOrDone builder) ->
           workingSet.Add entryPoint |> ignore
           strategy.OnCreate builder.Context
           assignCFGBuildingTaskNow builder
+        | _ ->
+          ()
       | AddDependency(caller, callee, ch) ->
         let builder = builders.TryGetBuilder callee
         match builder with
-        | Ok builder when not builder.IsExternal
-                       && builder.Activation.IsDeactivated ->
+        | Ok(:? ICFGBuildable<'FnCtx, 'GlCtx> as builder)
+          when builder.Activation.IsDeactivated ->
           assert builder.BuilderState.IsFinished
           builder.Activation <- Activated
           builder.ReInitialize()

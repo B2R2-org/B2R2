@@ -77,9 +77,8 @@ type TaskManager<'FnCtx, 'GlCtx>
   let createBuilders candidates targetAddrs =
     let targetAddrSet = Set.ofArray targetAddrs
     for candidate in candidates do
-      let builder = builders.GetOrCreateBuilder(managerMsgbox, candidate)
-      if not builder.IsExternal &&
-         not <| Set.contains candidate targetAddrSet then
+      match builders.TryGetOrCreateBuilder(managerMsgbox, candidate) with
+      | Some builder when not <| Set.contains candidate targetAddrSet ->
         (* For candidates that are not in the initial recovery targets, we
            create their builders but set them to deactivated. This is because
            they might be added as recovery targets later when their callers are
@@ -88,7 +87,7 @@ type TaskManager<'FnCtx, 'GlCtx>
         builder.Authorize()
         builder.StartVerifying()
         builder.Finalize() (* Initially make them finished without building. *)
-      else
+      | _ ->
         ()
 
   let startBuildingCFGs recoveryTargets =

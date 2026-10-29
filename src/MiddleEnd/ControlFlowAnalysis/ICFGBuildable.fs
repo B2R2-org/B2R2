@@ -27,32 +27,14 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 
-/// Represents the interface for building a function.
+/// Represents the interface for building a function that the binary defines.
+/// A function defined outside of the binary is only an IFunctionBuilder, as
+/// there is nothing to build.
 type ICFGBuildable<'FnCtx, 'GlCtx> =
-  inherit ILinkage
+  inherit IFunctionBuilder
 
-  /// Returns the current state of the function builder.
-  abstract BuilderState: CFGBuilderState
-
-  /// Returns the entry point of the function that is being built.
-  abstract EntryPoint: Addr
-
-  /// Gets or sets the address of the next function if there is any. Otherwise,
-  /// this is None.
-  abstract NextFunctionAddress: Addr option with get, set
-
-  /// Returns the current building context. Only a builder that builds its
-  /// function has one, so this is impossible to call on an external function.
+  /// Returns the current building context.
   abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
-
-  /// Returns the functions that call this function, which the manager fills in
-  /// once the recovery is over.
-  abstract Callers: HashSet<Addr>
-
-  /// Returns what the callers of this function need to know about it, as of
-  /// when the builder last finished. Other functions read this snapshot rather
-  /// than the building context, which only the building thread may touch.
-  abstract CalleeInfo: CalleeInfo
 
   /// Returns the currently pending DelayedBuilderRequest(s). This queue can
   /// only be populated when another builder wants to update the status of this
@@ -110,34 +92,6 @@ type ICFGBuildable<'FnCtx, 'GlCtx> =
   /// The given provider resets the user context.
   abstract Reset: IContextProvidable<'FnCtx, 'GlCtx> -> unit
 
-  /// Makes a new builder with a new agent by copying the current one.
-  abstract MakeNew:
-       Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>
-    -> ICFGBuildable<'FnCtx, 'GlCtx>
-
-  /// Converts this builder to a function.
-  abstract ToFunction: unit -> Function
-
-and CFGBuilderState =
-  /// Initialized but not started.
-  | Initialized
-  /// Currently building.
-  | InProgress
-  /// Stopped and will be resumed later.
-  | Stopped
-  /// Error occurred so this builder is invalid. We can re-authorize this
-  /// builder later, but converting this builder to a function will fail.
-  | Invalid
-  /// Forcefully finished due to cyclic dependency. This builder has a
-  /// under-approximated CFG because every unknown callee is considered
-  /// non-returning.
-  | ForceFinished
-  /// Waiting for the builder to be finalized, while performing some
-  /// verification.
-  | Verifying
-  /// Finished building and everything has been valid.
-  | Finished
-
 and CFGBuilderActivation =
   /// The builder has been once scheduled (i.e., activated).
   | Activated
@@ -194,8 +148,7 @@ and ICFGBuildingStrategy<'FnCtx, 'GlCtx> =
   /// builders, once all function builders are done building. When it returns an
   /// empty array, it means that there are no candidates to analyze, and the
   /// recovery process is done.
-  abstract FindCandidatesForPostProcessing:
-    ICFGBuildable<'FnCtx, 'GlCtx>[] -> Addr[]
+  abstract FindCandidatesForPostProcessing: IFunctionBuilder[] -> Addr[]
 
 /// Represents the recovery targets to build. This is used for filtering the
 /// candidates to build, and it is defined as part of the strategy because some

@@ -186,8 +186,6 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
       ctx.Reset()
       contexts.ResetFunctionContext ctx.UserContext
 
-    member _.MakeNew(manager) = InternalFnCFGBuilder(ctx, nextFnAddr, manager)
-
     member _.ToFunction() =
       assert (state = Finished)
       let jmptbls = Seq.toArray ctx.JumpTables.Values

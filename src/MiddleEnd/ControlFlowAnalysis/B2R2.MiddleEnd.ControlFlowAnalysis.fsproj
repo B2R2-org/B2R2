@@ -23,6 +23,7 @@
     <Compile Include="Function.fs" />
     <Compile Include="TaskManagerCommand.fs" />
     <Compile Include="DelayedBuilderRequest.fs" />
+    <Compile Include="IFunctionBuilder.fs" />
     <Compile Include="ICFGBuildable.fs" />
     <Compile Include="IFunctionSummarizable.fs" />
     <Compile Include="InternalFnCFGBuilder.fs" />

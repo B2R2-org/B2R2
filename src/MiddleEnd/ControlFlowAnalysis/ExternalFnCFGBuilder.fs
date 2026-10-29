@@ -30,8 +30,9 @@ open B2R2.FrontEnd
 
 /// Represents the builder for an external function, which is responsible for
 /// storing auxiliary information about the function, such as caller
-/// information.
-type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
+/// information. Nothing builds an external function, so this is not an
+/// ICFGBuildable.
+type ExternalFnCFGBuilder
   public(hdl: BinHandle, reference, name, noretStatus) =
 
   let entryPoint = (reference: ExternalFunctionReference).ReferenceAddress
@@ -50,48 +51,18 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx>
   /// non-executable data containing the loader's resolved function address.
   member _.ExternalReference = reference
 
-  interface ICFGBuildable<'FnCtx, 'GlCtx> with
+  interface IFunctionBuilder with
     member _.BuilderState with get() = Finished
 
     member _.EntryPoint with get(): Addr = entryPoint
 
     member _.NextFunctionAddress with get() = None and set(_) = ()
 
-    member _.Context with get() = Terminator.impossible ()
+    member _.Callers with get() = callers
 
     member _.CalleeInfo with get() = calleeInfo
 
-    member _.Callers with get() = callers
-
-    member _.DelayedBuilderRequests with get() = Terminator.impossible ()
-
-    member _.HasJumpTable with get() = false
-
-    member _.Activation
-      with get() = Deactivated
-       and set(_) = Terminator.impossible ()
-
     member _.IsExternal with get() = true
-
-    member _.Authorize() = ()
-
-    member _.Stop() = ()
-
-    member _.ForceFinish _ = ()
-
-    member _.StartVerifying() = ()
-
-    member _.Finalize() = ()
-
-    member _.ReInitialize() = ()
-
-    member _.Invalidate() = ()
-
-    member _.Build _ = Terminator.impossible ()
-
-    member _.Reset _ = ()
-
-    member _.MakeNew _ = Terminator.impossible ()
 
     member _.ToFunction() =
       Function(entryPoint, name, noretStatus, callers, [||], true)

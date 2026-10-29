@@ -203,8 +203,10 @@ type BinaryBrewTests() =
     let brew = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64"))
     let builders =
       brew.Builders.Values
-      |> Array.filter (fun builder ->
-        builder.BuilderState = Finished && not builder.IsExternal)
+      |> Array.choose (function
+        | :? ICFGBuildable<DummyContext, DummyContext> as builder
+          when builder.BuilderState = Finished -> Some builder
+        | _ -> None)
     let expected =
       builders
       |> Array.map (fun builder ->
@@ -250,3 +252,17 @@ type BinaryBrewTests() =
         "UserContext"
         "Vertices" ]
     Assert.AreEqual<string list>(expected, names)
+
+  [<TestMethod>]
+  member _.``BinaryBrew builds only the functions defined in the binary``() =
+    let bytes = readZippedBinary "elf_x64_noplt"
+    let brew = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64"))
+    let kinds =
+      brew.Builders.Values
+      |> Array.map (fun builder ->
+        let isBuildable = builder :? ICFGBuildable<DummyContext, DummyContext>
+        builder.IsExternal, isBuildable)
+      |> Array.distinct
+      |> Array.sort
+      |> Array.toList
+    Assert.AreEqual<(bool * bool) list>([ false, true; true, false ], kinds)

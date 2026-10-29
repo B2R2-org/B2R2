@@ -32,13 +32,25 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 type CFGBuilderTable<'FnCtx, 'GlCtx>
   public(hdl, exnInfo, instrs, irBlkOptimizer, contexts) =
 
-  let builders = SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
+  let builders = SortedList<Addr, IFunctionBuilder>()
+
+  /// Returns the builder of a function that the binary defines, or None for an
+  /// external function, which has nothing to build.
+  let tryAsBuildable (builder: IFunctionBuilder) =
+    match builder with
+    | :? ICFGBuildable<'FnCtx, 'GlCtx> as builder -> Some builder
+    | _ -> None
+
+  let asBuildable addr builder =
+    match tryAsBuildable builder with
+    | Some builder -> builder
+    | None -> invalidOp $"Nothing builds the external function at {addr:x}."
 
   let updateNextFunctionOfPrevBuilder idx addr =
     if idx <= 0 then ()
     else builders.Values[idx - 1].NextFunctionAddress <- Some addr
 
-  let updateNextFunctionOfNewBuilder (newBuilder: ICFGBuildable<_, _>) idx =
+  let updateNextFunctionOfNewBuilder (newBuilder: IFunctionBuilder) idx =
     let endPoint =
       if idx = (builders.Count - 1) then None
       else Some(builders.Values[idx + 1].EntryPoint)
@@ -55,7 +67,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
   let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
     | true, builder ->
-      builder
+      tryAsBuildable builder
     | false, _ ->
       let fnCtx = createFunctionContext ()
       let builder =
@@ -68,7 +80,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
                              fnCtx) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
-      builder
+      Some builder
 
   let isOwnFunctionSlot slot =
     BinFileOps.tryGetInternalFunctionAddr hdl.File slot |> Result.isOk
@@ -77,7 +89,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     let isNoRet = ELF.getNoReturnStatusFromKnownFunc symbol
     let builder = ExternalFnCFGBuilder(hdl, reference, name, isNoRet)
     builders[reference.ReferenceAddress] <- builder
-    builder
+    builder :> IFunctionBuilder
 
   /// Tags the symbol with the kind of the reference, for a reference to a
   /// function that this binary defines itself, so that the reference does not
@@ -135,45 +147,48 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
       | None ->
         ()
 
-  let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =
+  let rec getTerminationStatus (builders: IList<IFunctionBuilder>) acc idx =
     if idx < 0 then
       if List.isEmpty acc then AllDone else ForceTerminated <| List.toArray acc
     else
       let b = builders[idx]
       match b.BuilderState with
-      | Finished | Invalid -> getTerminationStatus builders acc (idx - 1)
-      | ForceFinished -> getTerminationStatus builders (b :: acc) (idx - 1)
-      | _ -> YetDone
+      | Finished | Invalid ->
+        getTerminationStatus builders acc (idx - 1)
+      | ForceFinished ->
+        let acc = asBuildable b.EntryPoint b :: acc
+        getTerminationStatus builders acc (idx - 1)
+      | _ ->
+        YetDone
 
   (* Load external function builders from the import (PLT/linkage) table. *)
   do match hdl.File.ImportTable with
      | Some tbl -> loadFromImportTable hdl.File tbl
      | _ -> ()
 
-  /// Retrieves a function builder by its address.
-  member _.Item with get(addr: Addr) = builders[addr]
+  /// Retrieves the builder of the function at the given address, which the
+  /// binary defines. This raises an exception for an external function.
+  member _.Item with get(addr: Addr) = asBuildable addr builders[addr]
 
-  /// Retrieves all function builders.
+  /// Retrieves all function builders, including those of external functions.
   member _.Values with get() = builders.Values |> Seq.toArray
 
   /// Returns the current termination status of all function builders.
   member _.GetTerminationStatus() =
     getTerminationStatus builders.Values [] (builders.Count - 1)
 
-  /// Gets or creates a function builder by its address.
-  member _.GetOrCreateBuilder(managerMsgbox, addr) =
+  /// Gets or creates the builder of the function at the given address. This
+  /// returns None if an external function sits at the address, as there is
+  /// nothing to build.
+  member _.TryGetOrCreateBuilder(managerMsgbox, addr) =
     getOrCreateInternalBuilder managerMsgbox addr
 
   /// Gets or creates an external function builder for the given reference.
   member _.GetOrCreateExternalBuilder(reference, name) =
     getOrCreateExternalBuilder reference name
 
-  /// Updates the existing function builder to have a new manager msgbox.
-  member _.Reload(builder: ICFGBuildable<_, _>, managerMsgbox) =
-    let old = builders[builder.EntryPoint]
-    builders[builder.EntryPoint] <- old.MakeNew managerMsgbox
-
-  /// Tries to retrieve a function builder by its address.
+  /// Tries to retrieve the builder of the function at the given address, which
+  /// may be an external function.
   member _.TryGetBuilder(addr: Addr) =
     match builders.TryGetValue addr with
     | true, builder -> Ok builder
