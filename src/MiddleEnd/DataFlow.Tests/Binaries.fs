@@ -497,3 +497,121 @@ let private code6 =
      0xC3uy |]
 
 let sample6 = Binary(code6, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 7: CFG recovery adds the block at 0x1d after it has computed the data
+  flow of the rest. Every path stores 7 to [esp+4] before 0x4b reads it, but
+  the late block shows its stores only once its stack pointer is known; until
+  then, both slots seem to carry the 5s stored at 0x3 and 0xb down to 0x4b.
+
+  00000000: 83 EC 10                  sub  esp,10h
+  00000003: C7 44 24 04 05 00 00 00   mov  dword ptr [esp+4],5
+  0000000B: C7 44 24 08 05 00 00 00   mov  dword ptr [esp+8],5
+  00000013: 83 F8 01                  cmp  eax,1
+  00000016: 74 19                     je   00000031
+  00000018: 83 F8 02                  cmp  eax,2
+  0000001B: 74 26                     je   00000043
+  0000001D: 53                        push ebx
+  0000001E: C7 44 24 08 07 00 00 00   mov  dword ptr [esp+8],7
+  00000026: C7 44 24 0C 07 00 00 00   mov  dword ptr [esp+0Ch],7
+  0000002E: 5B                        pop  ebx
+  0000002F: EB 1A                     jmp  0000004B
+  00000031: C7 44 24 04 07 00 00 00   mov  dword ptr [esp+4],7
+  00000039: C7 44 24 08 09 00 00 00   mov  dword ptr [esp+8],9
+  00000041: EB 08                     jmp  0000004B
+  00000043: C7 44 24 04 07 00 00 00   mov  dword ptr [esp+4],7
+  0000004B: 8B 4C 24 04               mov  ecx,dword ptr [esp+4]
+  0000004F: 8B 54 24 08               mov  edx,dword ptr [esp+8]
+  00000053: 83 C4 10                  add  esp,10h
+  00000056: C3                        ret
+*)
+let private code7 =
+  [| 0x83uy
+     0xECuy
+     0x10uy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x04uy
+     0x05uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x08uy
+     0x05uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x83uy
+     0xF8uy
+     0x01uy
+     0x74uy
+     0x19uy
+     0x83uy
+     0xF8uy
+     0x02uy
+     0x74uy
+     0x26uy
+     0x53uy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x08uy
+     0x07uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x0Cuy
+     0x07uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x5Buy
+     0xEBuy
+     0x1Auy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x04uy
+     0x07uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x08uy
+     0x09uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xEBuy
+     0x08uy
+     0xC7uy
+     0x44uy
+     0x24uy
+     0x04uy
+     0x07uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x8Buy
+     0x4Cuy
+     0x24uy
+     0x04uy
+     0x8Buy
+     0x54uy
+     0x24uy
+     0x08uy
+     0x83uy
+     0xC4uy
+     0x10uy
+     0xC3uy |]
+
+let sample7 = Binary(code7, Architecture.Intel, WordSize.Bit32)

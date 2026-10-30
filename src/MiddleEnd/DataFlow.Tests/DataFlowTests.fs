@@ -117,6 +117,26 @@ type DataFlowTests() =
 
   let cmp vp c = vp, c
 
+  /// Computes constant propagation on sample 7 without the block at 0x1d, then
+  /// adds the block back and computes again, as CFG recovery would.
+  let computeWithLateBlock () =
+    let brew = Binaries.loadOne Binaries.sample7
+    let cfg = brew.Functions[0UL].CFG
+    let late =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0x1DUL)
+    let preds, succs = cfg.GetPredEdges late, cfg.GetSuccEdges late
+    cfg.RemoveVertex late
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let dfa = cp :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    let v = cfg.AddVertex late.VData
+    for e in preds do cfg.AddEdge(e.First, v, e.Label)
+    for e in succs do cfg.AddEdge(v, e.Second, e.Label)
+    cp.State.MarkVertexAsPending v
+    for e in succs do cp.State.MarkVertexAsPending e.Second
+    dfa.Compute cfg |> ignore
+    cp.State
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Reaching Definitions Test 1``() =
@@ -430,6 +450,78 @@ type DataFlowTests() =
     let eax = brew.BinHandle.RegisterFactory.GetRegVar "EAX"
     let out = cp.EvalExpr(spp 0x9UL 2, eax)
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+#endif
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    (* A temporary never outlives its instruction, so a block that starts an
+       instruction has no temporary coming in to join. *)
+    let tempPhis =
+      [ for KeyValue(v, phiInfo) in cp.State.PhiInfos do
+          if v.VData.Internals.PPoint.Position = 0 then
+            yield! Seq.filter VarKind.isTemporary phiInfo.Keys
+          else
+            () ]
+    Assert.AreEqual<VarKind list>([], tempPhis)
+
+#if !EMULATION
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 2``() =
+    let brew = Binaries.loadOne Binaries.sample6
+    let cfg = brew.Functions[0UL].CFG
+    let at addr =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = addr)
+    let taken = cfg.FindEdge(at 0x0UL, at 0x9UL)
+    cfg.RemoveEdge taken
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let dfa = cp :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    cfg.AddEdge(taken.First, taken.Second, taken.Label)
+    cp.State.MarkVertexAsPending taken.Second
+    (* Bringing the taken branch back places a phi at 0x9, a vertex that has
+       already run. The phi must still join both of its operands, including
+       the caller's EAX. *)
+    let state = dfa.Compute cfg
+    let out = state.GetAbsValue(irReg 0x9UL 0 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 3``() =
+    let state = computeWithLateBlock ()
+    (* The late block passes on the 5 from 0x3 only until its own store of 7
+       shows up, so the phi at 0x4b must never join that 5. *)
+    let out = state.GetAbsValue(irStk 0x4BUL 0 -12)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 7u 32<rt>, out)
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 4``() =
+    let state = computeWithLateBlock ()
+    (* The late block stops passing on the 5 from 0xb once its own store shows
+       up, but the block at 0x43 still does, so the phi at 0x4b remains a use
+       of that store. *)
+    let uses = state.DefUseMap[irStk 0xBUL 1 -8]
+    Assert.AreEqual<bool>(true, uses.Contains(irStk 0x4BUL 0 -8))
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Removal Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample7
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let dfa = cp :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    let join =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0x4BUL)
+    cp.State.MarkVertexAsRemoval join
+    cfg.RemoveVertex join
+    dfa.Compute cfg |> ignore
+    (* The phi at 0x4b leaves the graph with its vertex, so the store at 0x31
+       is no longer used there. *)
+    let uses = cp.State.DefUseMap[irStk 0x31UL 1 -12]
+    Assert.AreEqual<bool>(false, uses.Contains(irStk 0x4BUL 0 -12))
 #endif
 
   [<TestMethod>]
