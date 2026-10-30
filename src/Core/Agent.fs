@@ -25,15 +25,22 @@
 namespace B2R2
 
 open System
+open System.Collections.Concurrent
 open System.Threading
 open System.Threading.Tasks
-open System.Threading.Tasks.Dataflow
 
 /// <summary>
-/// Represents an agent that processes messages asynchronously using the TPL
-/// Dataflow. See also <see cref='T:B2R2.AgentReplyChannel`1'/>.
+/// Represents an agent that processes messages one at a time on a thread of
+/// its own. See also <see cref='T:B2R2.AgentReplyChannel`1'/>.
 /// </summary>
-type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
+/// <remarks>
+/// Neither handing a message to the agent nor handing a reply back takes a
+/// thread pool thread: the side that waits is woken directly. Callers often
+/// block on a reply from pool threads themselves, so a hand-over that queued
+/// work on the pool would leave both sides stuck for good whenever the pool
+/// does not get to run it.
+/// </remarks>
+type Agent<'Msg> private(ch: BlockingCollection<'Msg>, task: Task) =
 
   /// Gets the task associated with this agent.
   member _.Task with get() = task
@@ -41,23 +48,14 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
   /// Starts a new agent with a given task function and a cancellation token.
   /// Cancelling the token stops the agent, even one waiting for a message.
   static member Start(taskFn: IAgentMessageReceivable<'Msg> -> unit, token) =
-    let ch = BufferBlock<'Msg>()
+    let ch = new BlockingCollection<'Msg>()
     let receivable =
       { new IAgentMessageReceivable<'Msg> with
           member _.Receive() =
-            (* GetResult rather than Result, so that a cancelled wait raises
-               OperationCanceledException itself, not one wrapped in an
-               AggregateException, for the agent to recognize below. *)
-            task {
-              let! isAvailable = ch.OutputAvailableAsync token
-              if isAvailable then
-                match ch.TryReceive() with
-                | true, msg -> return msg
-                | false, _ -> return raise <| InvalidOperationException()
-              else
-                return raise <| OperationCanceledException()
-            } |> fun task -> task.GetAwaiter().GetResult()
-          member _.Complete() = ch.Complete()
+            let mutable msg = Unchecked.defaultof<'Msg>
+            if ch.TryTake(&msg, Timeout.Infinite, token) then msg
+            else raise <| OperationCanceledException()
+          member _.Complete() = ch.CompleteAdding()
           member _.IsCancelled with get() = token.IsCancellationRequested
           member _.Count with get() = ch.Count }
     let fn = fun () ->
@@ -66,19 +64,27 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
       with
       | :? OperationCanceledException when token.IsCancellationRequested -> ()
       | e -> e.ToString() |> Terminator.fatalExit
-    Agent(ch, Task.Run(fn, cancellationToken = token))
+    let options = TaskCreationOptions.LongRunning
+    let scheduler = TaskScheduler.Default
+    let loop = Task.Factory.StartNew(Action fn, token, options, scheduler)
+    Agent(ch, loop)
 
-  /// Posts a message to the agent.
-  member _.Post(msg: 'Msg) = ch.Post msg |> ignore
+  /// Posts a message to the agent. A message posted after the agent has
+  /// stopped taking messages is dropped.
+  member _.Post(msg: 'Msg) =
+    try
+      ch.Add msg
+    with :? InvalidOperationException ->
+      ()
 
   /// Posts a message and returns a reply from the agent.
-  member _.PostAndReply callback =
+  member this.PostAndReply callback =
     use cts = new CancellationTokenSource()
-    let replyChan = BufferBlock<_>()
-    let reply = AgentReplyChannel<_>(replyChan.Post >> ignore)
-    let msg = callback cts reply
-    ch.Post msg |> ignore
-    replyChan.Receive cts.Token
+    let reply = TaskCompletionSource<_>()
+    let msg = callback cts (AgentReplyChannel<_>(reply.TrySetResult >> ignore))
+    this.Post msg
+    reply.Task.Wait(cts.Token)
+    reply.Task.Result
 
 /// <summary>
 /// Represents a reply channel for an agent (<see cref='T:B2R2.Agent`1'/>). The
