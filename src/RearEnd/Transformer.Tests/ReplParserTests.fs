@@ -441,13 +441,26 @@ type ReplParserTests() =
   member _.``Completion preserves symbolic input widths``() =
     let solverValue name value: SolverValue =
       { Name = name; Value = BitVector(uint64 value, 8<rt>) }
+    let input = { Values = [| box () |] }
+    let loaded =
+      (LoadAction() :> IAction).Transform([ "90c3"; "x86-64" ], input)
+    let binary = loaded.Values[0] :?> Binary
+    let source = SymbExecutorValue(binary)
+    let source = source.WithSymbolicRegister("ESI", Some "idx")
+    let source = source.WithSymbolicRegister("RDX", Some "ind")
+    let solverName name =
+      source.Inputs
+      |> List.find (fun input -> input.Name = name)
+      |> fun input -> input.SolverName
+    let idx = solverName "idx"
+    let ind = solverName "ind"
     let values =
-      [ solverValue "idx_0" 0xf0
-        solverValue "idx_1" 0xff
-        solverValue "idx_2" 0xff
-        solverValue "idx_3" 0xf0 ]
+      [ solverValue $"{idx}_0" 0xf0
+        solverValue $"{idx}_1" 0xff
+        solverValue $"{idx}_2" 0xff
+        solverValue $"{idx}_3" 0xf0 ]
       @ ([ 0 .. 7 ]
-         |> List.map (fun index -> solverValue $"ind_{index}" 0))
+         |> List.map (fun index -> solverValue $"{ind}_{index}" 0))
     let answer: SymbSatisfiabilityAnswer =
       { Target = 0x401e5cUL
         State = SymbState()
@@ -458,7 +471,6 @@ type ReplParserTests() =
         PruneReasons = []
         StateCount = 1
         Timeout = None }
-    let source = Unchecked.defaultof<SymbExecutorValue>
     let run = SymbRunValue(source, "satisfy", Some answer.Target, result)
     let value =
       ReplValue.ofCollection
