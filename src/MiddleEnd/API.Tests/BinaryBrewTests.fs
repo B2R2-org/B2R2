@@ -32,6 +32,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
@@ -161,6 +162,26 @@ type BinaryBrewTests() =
       |> Seq.toList
     let expected = [ "helper", false; "entry", false; "helper@got", true ]
     Assert.AreEqual<(string * bool) list>(expected, named)
+
+  [<TestMethod>]
+  member _.``BinaryBrew reads a jump table past its dummy entries``() =
+    (* The cases pick leaves out are unreachable, so clang points their entries
+       at the end of pick, where the padding before next begins. Such an entry
+       adds no edge, yet the table goes on after it. *)
+    let fn = (recoverFunctions "elf_x64_jmptbl")[0x201300UL]
+    let jmptbl = Array.exactlyOne fn.JumpTables
+    let jmp =
+      fn.CFG.FindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
+    let targets =
+      fn.CFG.GetSuccEdges jmp
+      |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
+      |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
+      |> Array.sort
+      |> Array.toList
+    let expected = 6, [ 0x201312UL; 0x201319UL; 0x201322UL; 0x20132aUL ]
+    Assert.AreEqual<int * Addr list>(expected, (jmptbl.NumEntries, targets))
 
   [<TestMethod>]
   member _.``BinaryBrew writes nothing to the console``() =

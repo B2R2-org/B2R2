@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -822,6 +823,33 @@ module internal CFGRecoveryCommon =
     | EndTblRec _ -> ()
     | _ -> assert false
 
+  let rec isNopRunTo (instrs: IInstruction list) addr endAddr =
+    if addr = endAddr then
+      true
+    else
+      match instrs with
+      | ins :: rest when ins.IsNop ->
+        isNopRunTo rest (addr + uint64 ins.Length) endAddr
+      | _ ->
+        false
+
+  /// Checks if the given jump table target is a dummy entry, which points to
+  /// the padding between the current function and the next one. Compilers
+  /// fill the entries of unreachable cases with the end of the function, where
+  /// such padding begins.
+  let isDummyJumpTarget (ctx: CFGBuildingContext<_, _>) dstAddr =
+    match ctx.BBLFactory.PeekBBL dstAddr with
+    | Ok(ins :: _ as instrs)
+    | Error(ins :: _ as instrs) when ins.IsNop ->
+      let fnAddr = ctx.FunctionAddress
+      match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
+      | Some nextFnAddr when fnAddr < dstAddr && dstAddr < nextFnAddr ->
+        isNopRunTo instrs dstAddr nextFnAddr
+      | _ ->
+        false
+    | _ ->
+      false
+
   let recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr =
     let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
@@ -856,6 +884,10 @@ module internal CFGRecoveryCommon =
         let callsite = LeafCallSite lastInsAddr
         let act = MakeTlCall(callsite, dstAddr, CalleeInfo.Unknown)
         handleCall ctx cfgRec srcVertex callsite dstAddr act
+    elif isDummyJumpTarget ctx dstAddr then
+      (* A hole in the table: it adds no edge, but the entries after it are
+         still part of the table, so we move on to the next one. *)
+      MoveOn
     else
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge
       |> toCFGResult

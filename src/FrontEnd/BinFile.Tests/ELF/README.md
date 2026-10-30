@@ -198,6 +198,40 @@ int helper(int x) { return x + 1; }
 int entry(int x) { return helper(x) * 2; }
 ```
 
+## The jump table fixture
+
+A switch whose default is unreachable leaves holes in its jump table, and
+clang fills each hole with the end of the function: a label with no code of
+its own, so it lands on the padding before the next function. Such a dummy
+entry sits between real ones, which is what tells it apart from the end of the
+table.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_jmptbl` | `pick` jumps through a six-entry table whose entries 1 and 3 are dummies pointing to the padding between `pick` and `next` |
+
+```
+clang -O2 -fPIC -fuse-ld=lld -static -nostdlib jmptbl.c -o elf_x64_jmptbl
+```
+
+```c
+volatile int input;
+
+__attribute__((noinline)) int pick(int x) {
+  switch (x) {
+  case 0: asm volatile("nop"); return 10;
+  case 2: asm volatile("pause"); return 30;
+  case 4: asm volatile("lfence"); return 50;
+  case 5: asm volatile("mfence"); return 60;
+  default: __builtin_unreachable();
+  }
+}
+
+__attribute__((noinline)) int next(int x) { return x * 3; }
+
+void _start(void) { input = next(pick(input)); }
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |
