@@ -42,6 +42,28 @@ type BinaryBrewTests() =
     let bytes = readZippedBinary name
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64")).Functions
 
+  /// Collects the blocks that the indirect branch of the given jump table
+  /// reaches through the table, in address order.
+  let jumpTargets (fn: Function) (jmptbl: JmpTableInfo) =
+    let jmp =
+      fn.CFG.FindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
+    fn.CFG.GetSuccEdges jmp
+    |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
+    |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
+    |> Array.sort
+    |> Array.toList
+
+  /// Lists the jump tables of the given function in the order of their
+  /// indirect branches, each with its address, its size, and its targets.
+  let jumpTablesOf (fn: Function) =
+    fn.JumpTables
+    |> Array.sortBy (fun jmptbl -> jmptbl.InsAddr)
+    |> Array.map (fun jmptbl ->
+      jmptbl.TableAddress, jmptbl.NumEntries, jumpTargets fn jmptbl)
+    |> Array.toList
+
   /// Wraps the default strategy, letting a test take over how it orders and
   /// handles each action and how it makes and resets its contexts.
   let wrapStrategyWith judge onAction (contexts: IContextProvidable<_, _>) =
@@ -170,18 +192,47 @@ type BinaryBrewTests() =
        adds no edge, yet the table goes on after it. *)
     let fn = (recoverFunctions "elf_x64_jmptbl")[0x201300UL]
     let jmptbl = Array.exactlyOne fn.JumpTables
-    let jmp =
-      fn.CFG.FindVertexBy(fun v ->
-        not v.VData.Internals.IsAbstract
-        && v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
-    let targets =
-      fn.CFG.GetSuccEdges jmp
-      |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
-      |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
-      |> Array.sort
-      |> Array.toList
     let expected = 6, [ 0x201312UL; 0x201319UL; 0x201322UL; 0x20132aUL ]
-    Assert.AreEqual<int * Addr list>(expected, (jmptbl.NumEntries, targets))
+    let actual = jmptbl.NumEntries, jumpTargets fn jmptbl
+    Assert.AreEqual<int * Addr list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew starts a nested jump table at its first case``() =
+    (* Cases 4 to 9 of pick switch again on the same register, which GCC thus
+       knows to hold 4 to 9 there. Instead of checking the range, it folds case
+       4 into the table address, which points four entries before the inner
+       table, into the outer one. *)
+    let fn = (recoverFunctions "elf_x86_nestedjmptbl")[0x4011d4UL]
+    let outer =
+      [ 0x4011f6UL; 0x4011fdUL; 0x401205UL; 0x40120eUL; 0x401217UL; 0x401262UL ]
+    let inner =
+      [ 0x401223UL; 0x40122bUL; 0x401235UL; 0x401241UL; 0x40124dUL; 0x401259UL ]
+    let expected = [ 0x400118UL, 11, outer; 0x400144UL, 6, inner ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew leaves a range-checked jump table in place``() =
+    (* Only case 2 of checked reaches its second switch on the same register,
+       but that switch checks its range itself and so needs no enclosing switch
+       to bound it: its table starts at case 0, where the code computes it. *)
+    let fn = (recoverFunctions "elf_x86_samevarjmptbl")[0x401154UL]
+    let outer = [ 0x401167UL; 0x40116dUL; 0x401173UL; 0x401179UL ]
+    let inner = [ 0x401185UL; 0x40118bUL; 0x401191UL; 0x401197UL ]
+    let expected = [ 0x400130UL, 4, outer; 0x400140UL, 4, inner ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew rebases no jump table on an entry past a table end``() =
+    (* The second table of overread follows the first right away, so reading
+       on past the end of the first one, which is not known yet, reaches the
+       second jump through what is the first entry of the second table. *)
+    let fn = (recoverFunctions "elf_x86_samevarjmptbl")[0x4011a0UL]
+    let outer = [ 0x4011b0UL; 0x4011b6UL; 0x4011bcUL ]
+    let inner = [ 0x4011c9UL; 0x4011d0UL ]
+    let expected = [ 0x400118UL, 3, outer; 0x400124UL, 2, inner ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
 
   [<TestMethod>]
   member _.``BinaryBrew recovers functions while the thread pool is stuck``() =

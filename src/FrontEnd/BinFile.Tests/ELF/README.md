@@ -232,6 +232,158 @@ __attribute__((noinline)) int next(int x) { return x * 3; }
 void _start(void) { input = next(pick(input)); }
 ```
 
+## The nested jump table fixture
+
+A switch nested in a case of another switch on the same variable needs no range
+check of its own: the outer switch already bounds the values that reach it. GCC
+then indexes the inner table with the variable as it is, folding the smallest
+case into the table address instead of subtracting it. The address the code
+computes thus lies a few entries before the inner table, here inside the outer
+one.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_nestedjmptbl` | `pick` jumps through an eleven-entry table, and its cases 4 to 9 jump again through a six-entry table indexed by the same register, whose computed address is four entries early, inside the first table |
+
+```
+gcc -m32 -O1 -fPIE -fuse-ld=lld -static -nostdlib nested.c \
+    -o elf_x86_nestedjmptbl
+```
+
+```c
+volatile int input;
+
+__attribute__((noinline)) int pick(unsigned op) {
+  switch (op) {
+  case 0: asm volatile("nop"); return 1;
+  case 1: asm volatile("pause"); return 2;
+  case 2: asm volatile("lfence"); return 3;
+  case 3: asm volatile("mfence"); return 4;
+  case 4: case 5: case 6: case 7: case 8: case 9:
+    asm volatile("sfence");
+    switch (op) {
+    case 4: asm volatile("nop; nop"); return 5;
+    case 5: asm volatile("pause; pause"); return 6;
+    case 6: asm volatile("lfence; lfence"); return 7;
+    case 7: asm volatile("mfence; mfence"); return 8;
+    case 8: asm volatile("sfence; sfence"); return 9;
+    case 9: asm volatile("nop; pause"); return 10;
+    default: __builtin_unreachable();
+    }
+  case 10: asm volatile("nop; lfence"); return 11;
+  default: return 0;
+  }
+}
+
+void _start(void) { input = pick(input); }
+```
+
+The unreachable default of the inner switch is what lets GCC drop its range
+check. Without it, GCC subtracts 4 and checks the result, and the address the
+code computes is that of the table itself.
+
+## The same-register jump table fixture
+
+Two hand-written functions that each switch twice on the same register, where
+the second table does start at the address its code computes, unlike the one of
+the nested fixture above. `checked` reaches its second switch from case 2
+alone, yet checks the range itself, so its table still starts at case 0.
+`overread` keeps its two tables next to each other, so reading on past the end
+of the first one, before that end is known, leads to the second jump.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_samevarjmptbl` | `checked` and `overread` each jump through a table whose index register also indexes the table they jump through first, and both tables start where the code computes them |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib samevar.s -o elf_x86_samevarjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  checked
+        .type   checked, @function
+checked:
+        mov     eax, DWORD PTR [esp+4]
+        lea     ecx, [eax+1]
+        cmp     ecx, 3
+        ja      .Lc_zero
+        jmp     DWORD PTR [checked_outer+ecx*4]
+.Lc_o0: mov     eax, 1
+        ret
+.Lc_o1: mov     eax, 2
+        ret
+.Lc_o2: mov     eax, 3
+        ret
+.Lc_o3: cmp     eax, 3
+        ja      .Lc_zero
+        jmp     DWORD PTR [checked_inner+eax*4]
+.Lc_i0: mov     eax, 4
+        ret
+.Lc_i1: mov     eax, 5
+        ret
+.Lc_i2: mov     eax, 6
+        ret
+.Lc_i3: mov     eax, 7
+        ret
+.Lc_zero:
+        xor     eax, eax
+        ret
+        .size   checked, .-checked
+
+        .globl  overread
+        .type   overread, @function
+overread:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 2
+        ja      .Lr_zero
+        jmp     DWORD PTR [overread_outer+eax*4]
+.Lr_o0: mov     eax, 1
+        ret
+.Lr_o1: mov     eax, 2
+        ret
+.Lr_o2: mov     eax, 3
+        ret
+.Lr_loop:
+        jmp     DWORD PTR [overread_inner+eax*4]
+.Lr_i0: mov     edx, 4
+        jmp     .Lr_loop
+.Lr_i1: mov     eax, 5
+        ret
+.Lr_zero:
+        xor     eax, eax
+        ret
+        .size   overread, .-overread
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    checked
+        call    overread
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+overread_outer:
+        .long   .Lr_o0, .Lr_o1, .Lr_o2
+overread_inner:
+        .long   .Lr_i0, .Lr_i1
+        .long   0
+checked_outer:
+        .long   .Lc_o0, .Lc_o1, .Lc_o2, .Lc_o3
+checked_inner:
+        .long   .Lc_i0, .Lc_i1, .Lc_i2, .Lc_i3
+        .long   0
+```
+
+The zero after each pair of tables stops any table that runs on into it, as
+address zero lies in no function.
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |
