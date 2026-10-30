@@ -24,10 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Runtime.InteropServices
 open System.Collections.Generic
 open System.Collections.Immutable
-open System.Collections.Concurrent
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -38,13 +36,27 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Represents a per-function factory for basic blocks. Each BBL is memoized so
 /// that we do not create multiple BBLs for the same address. As this is a
 /// per-function structure, each different function has its own BBLFactory.
+///
+/// This type is not thread-safe. Callers must not invoke ScanBBLs concurrently
+/// with any other member; concurrent reads alone are fine. The CFG recovery
+/// satisfies this as each builder is owned by one thread at a time and handed
+/// over through the scheduler's message channels.
 type BBLFactory(hdl: BinHandle,
                 instrs,
                 blkOptimizer: IIRBlockOptimizable | null) =
   /// Inter-instruction (i.e., disassembly level) leaders.
-  let interLeaders = ConcurrentDictionary<Addr, unit>()
+  let interLeaders = SortedSet<Addr>()
 
-  let bbls = ConcurrentDictionary<ProgramPoint, LowUIRBasicBlock>()
+  /// Leaders added since the last commit, which are the only ones that can
+  /// cut a BBL.
+  let newLeaders = List<Addr>()
+
+  let bbls = Dictionary<ProgramPoint, LowUIRBasicBlock>()
+
+  /// Upper bound on the byte length of every BBL. If a BBL contains an address
+  /// A, the BBL must start within this many bytes before A, so commit only
+  /// needs to look that far back from each new leader.
+  let mutable maxBBLLen = 1UL
 
   let blkOptimizer =
     if isNull blkOptimizer then
@@ -57,7 +69,7 @@ type BBLFactory(hdl: BinHandle,
     match (instrs: InstructionCollection).TryFind addr with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
-      if ins.IsTerminator prev || interLeaders.ContainsKey nextAddr then
+      if ins.IsTerminator prev || interLeaders.Contains nextAddr then
         blocks.Add(leader, ins :: acc, insCount + 1)
         if ins.IsCall then
           Ok [||]
@@ -77,10 +89,10 @@ type BBLFactory(hdl: BinHandle,
   /// exists a BBL at the given address, then this simply returns an empty
   /// array. When parsing fails, this function can return an error result.
   let tryParse blocks addr =
-    if interLeaders.ContainsKey addr then Ok [||]
+    if interLeaders.Contains addr then Ok [||]
     else parseBlock blocks [] 0 addr addr null
 
-  let visited = ConcurrentDictionary<Addr, unit>()
+  let visited = HashSet<Addr>()
 
   /// Collects every block reachable from the given addresses, and answers
   /// whether all of them parsed.
@@ -89,16 +101,15 @@ type BBLFactory(hdl: BinHandle,
     let mutable parsed = true
     while queue.Count <> 0 do
       let addr = queue.Dequeue()
-      if visited.ContainsKey addr then
-        ()
-      else
-        visited.TryAdd(addr, ()) |> ignore
+      if visited.Add addr then
         match tryParse blocks addr with
         | Ok nextAddrs ->
           nextAddrs |> Array.iter queue.Enqueue
         | Error _ ->
           queue.Clear()
           parsed <- false
+      else
+        ()
     parsed
 
 #if DEBUG
@@ -217,7 +228,14 @@ type BBLFactory(hdl: BinHandle,
     extractLabelInfo lblMap liftedIns insAddr (liftedIns.Stmts.Length - 1)
     |> ImmutableDictionary.CreateRange
 
-  let addInterInstructionLeader addr = interLeaders.TryAdd(addr, ()) |> ignore
+  let addInterInstructionLeader addr =
+    if interLeaders.Add addr then newLeaders.Add addr else ()
+
+  let addBBL ppoint (bbl: LowUIRBasicBlock) =
+    if bbls.TryAdd(ppoint, bbl) then
+      maxBBLLen <- max maxBBLLen (bbl :> IAddressable).Range.Count
+    else
+      ()
 
   let addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx endNdx =
     let instrs = extractInstrs liftedInss (prevInsNdx, prevStmtNdx) endNdx
@@ -226,7 +244,7 @@ type BBLFactory(hdl: BinHandle,
     let lblMap = buildLabelMap lblMap lastIns
     let bbl = LowUIRBasicBlock.CreateRegular(instrs, ppoint, lblMap)
     if prevStmtNdx = 0 then addInterInstructionLeader ppoint.Address else ()
-    bbls.TryAdd(ppoint, bbl) |> ignore
+    addBBL ppoint bbl
 
   let rec gatherIntraBBLs liftedInss lblMap prevInsNdx prevStmtNdx idxs =
     match idxs with
@@ -245,7 +263,7 @@ type BBLFactory(hdl: BinHandle,
     if intraLeaders.Count = 0 then
       let ppoint = ProgramPoint(leaderAddr, 0)
       let bbl = LowUIRBasicBlock.CreateRegular(arr, ppoint)
-      bbls.TryAdd(ppoint, bbl) |> ignore
+      addBBL ppoint bbl
     else
       gatherIntraBBLs arr lblMap 0 0 (Seq.toList intraLeaders)
 
@@ -266,10 +284,17 @@ type BBLFactory(hdl: BinHandle,
     let liftingUnit = hdl.NewLiftingUnit()
     Seq.forall (tryLiftBlock liftingUnit) blocks
 
-  let getSortedLeaders () =
-    interLeaders.Keys
-    |> Seq.toArray
-    |> Array.sort
+  /// Collects the leaders whose BBLs may have to be cut: the new leaders and
+  /// every leader close enough before one of them for its BBL to cover it. The
+  /// leader right before a new one is not enough, as a misaligned leader (see
+  /// findOverlappingLeader) can sit between a BBL and the leader cutting it.
+  let collectCommitCandidates () =
+    let candidates = SortedSet<Addr>()
+    for addr in newLeaders do
+      let lo = addr - min addr (maxBBLLen - 1UL)
+      candidates.UnionWith(interLeaders.GetViewBetween(lo, addr))
+    newLeaders.Clear()
+    candidates
 
   let isInstructionAddress (currentBBL: LowUIRBasicBlock) addr =
     currentBBL.Internals.LiftedInstructions
@@ -296,37 +321,35 @@ type BBLFactory(hdl: BinHandle,
   /// Nonetheless, we have to check if there is any subsequent leaders that have
   /// a BBL-level overlap because when there is an instruction-level overlap,
   /// our pairwise check will miss the overlapping BBLs.
-  let rec findOverlappingLeader currentBBL (leaders: Addr[]) idx =
-    if idx = leaders.Length then
-      Error ErrorCase.ItemNotFound
+  let findOverlappingLeader currentBBL leader =
+    let range = (currentBBL :> IAddressable).Range
+    if leader < range.Max then
+      interLeaders.GetViewBetween(leader + 1UL, range.Max)
+      |> Seq.tryFind (isInstructionAddress currentBBL)
     else
-      let nextAddr = leaders[idx]
-      if (currentBBL :> IAddressable).Range.IsIncluding nextAddr then
-        if isInstructionAddress currentBBL nextAddr then Ok nextAddr
-        else findOverlappingLeader currentBBL leaders (idx + 1)
-      else
-        Error ErrorCase.ItemNotFound
+      None
 
-  /// Iterates over all the BBL leaders and splits the BBLs if necessary.
+  /// Splits every BBL that contains a leader added since the last commit. A BBL
+  /// is split at the leader into two, and the one starting at the leader is
+  /// checked again, as it may contain yet another leader.
   let commit () =
-    let leaders = getSortedLeaders ()
+    let candidates = collectCommitCandidates ()
     let dividedEdges = List()
-    for i = 0 to leaders.Length - 1 do
-      if i = leaders.Length - 1 then
+    while candidates.Count <> 0 do
+      let leader = candidates.Min
+      candidates.Remove leader |> ignore
+      let currPPoint = ProgramPoint(leader, 0)
+      let currentBBL = bbls[currPPoint]
+      match findOverlappingLeader currentBBL leader with
+      | Some nextAddr ->
+        let nextPPoint = ProgramPoint(nextAddr, 0)
+        let fst, snd = currentBBL.Cut nextAddr
+        bbls[currPPoint] <- fst
+        bbls[nextPPoint] <- snd
+        candidates.Add nextAddr |> ignore
+        dividedEdges.Add((currPPoint, nextPPoint))
+      | None ->
         ()
-      else
-        let currPPoint = ProgramPoint(leaders[i], 0)
-        let currentBBL = bbls[currPPoint]
-        match findOverlappingLeader currentBBL leaders (i + 1) with
-        | Ok nextAddr ->
-          let nextPPoint = ProgramPoint(nextAddr, 0)
-          let fst, snd = currentBBL.Cut nextAddr
-          bbls[currPPoint] <- fst
-          bbls[nextPPoint] <- snd
-          dividedEdges.Add((currPPoint, nextPPoint))
-        | Error _ ->
-          ()
-    done
     Ok dividedEdges
 
   new(hdl: BinHandle, instrs) = BBLFactory(hdl, instrs, null)
@@ -343,25 +366,14 @@ type BBLFactory(hdl: BinHandle,
   /// this function returns a list of divided edges, which are pairs of BBL
   /// addresses that have been created from a single BBL by splitting it. A BBL
   /// can be divided if there is a new control flow target within the BBL.
-  /// When the `allowOverlap` argument is true, however, we do not split BBLs
-  /// and allow overlapping BBLs. This is useful when we analyze EVM binaries,
-  /// for instance.
-  member _.ScanBBLs(addrs,
-                    [<Optional; DefaultParameterValue(false)>] allowOverlap) =
+  member _.ScanBBLs(addrs) =
     (* The two passes cannot be interleaved, let alone run at once: parsing
        decides where a block ends by asking interLeaders, and lifting is what
-       writes interLeaders. So every block is collected before any is lifted,
-       which is what the dataflow channel this used to run through amounted to
-       anyway -- its producer never awaited, so it always ran to completion
-       before its one consumer started, which then paid a lock per block to
-       read a queue that was already complete. *)
+       writes interLeaders. So every block is collected before any is lifted. *)
     let blocks = List<Addr * IInstruction list * int>()
     let parsed = parseBlocks blocks addrs
     let lifted = liftBlocks blocks
-    if parsed && lifted then
-      if allowOverlap then Ok(List()) else commit ()
-    else
-      Error ErrorCase.ParsingFailure
+    if parsed && lifted then commit () else Error ErrorCase.ParsingFailure
 
   /// Peeks at the BBL at the given address without caching it. This function is
   /// useful when we want to check if an arbitrary address contains a meaningful
