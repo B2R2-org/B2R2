@@ -133,6 +133,11 @@ type ActionMetadata =
     Examples: string list
     Priority: int }
 
+/// Top-level argument facts recovered from complete or partial action input.
+type ActionArgumentInput =
+  { Names: string list
+    Trigger: string option }
+
 /// Implemented by external actions that support the interactive environment.
 type IActionMetadataProvider =
   abstract member Metadata: ActionMetadata
@@ -739,12 +744,31 @@ module ActionMetadata =
     tryParameterHeader token
     |> Option.map (fun (name, _, _) -> name)
 
-  let private syntaxMatchesOutputArguments args syntax =
-    let names = args |> List.choose tryParameterName
-    if List.isEmpty args || List.isEmpty names then
+  let analyzeArguments tokens =
+    let collect (depth, names) token =
+      match token with
+      | "(" | "[" | "[|" ->
+        depth + 1, names
+      | ")" | "]" | "|]" ->
+        max 0 (depth - 1), names
+      | _ when depth = 0 ->
+        let names =
+          match tryParameterName token with
+          | Some name -> name :: names
+          | None -> names
+        depth, names
+      | _ ->
+        depth, names
+    let names = tokens |> List.fold collect (0, []) |> snd |> List.rev
+    { Names = names
+      Trigger = List.tryHead tokens }
+
+  let private syntaxMatchesOutputArguments
+    (input: ActionArgumentInput) syntax =
+    if input.Trigger.IsNone || List.isEmpty input.Names then
       true
     else
-      names
+      input.Names
       |> List.forall (fun name ->
         (syntax: ActionSyntax).Arguments
         |> List.exists (fun argument ->
@@ -778,11 +802,12 @@ module ActionMetadata =
     applyOutputRelation metadata.OutputRelation inputKind output
 
   let outputForArguments (metadata: ActionMetadata) inputKind args =
+    let input = analyzeArguments args
     metadata.Syntaxes
     |> List.tryFind (fun syntax ->
       syntaxAccepts inputKind syntax
       && syntaxMatchesOutputTrigger args syntax
-      && syntaxMatchesOutputArguments args syntax)
+      && syntaxMatchesOutputArguments input syntax)
     |> Option.map (outputForSyntax metadata inputKind)
     |> Option.defaultWith (fun () ->
       applyOutputRelation
@@ -805,13 +830,13 @@ module ActionMetadata =
     |> List.exists (fun argument ->
       argumentKeys argument |> List.contains (name.ToLowerInvariant()))
 
-  let syntaxMatchesParameters args syntax =
-    let names = args |> List.choose tryParameterName
-    names |> List.forall (fun name -> syntaxHasParameter name syntax)
+  let syntaxMatchesParameters input syntax =
+    (input: ActionArgumentInput).Names
+    |> List.forall (fun name -> syntaxHasParameter name syntax)
 
-  let private matchingTriggerSyntaxes args syntaxes =
-    match args with
-    | actual :: _ ->
+  let private matchingTriggerSyntaxes trigger syntaxes =
+    match trigger with
+    | Some actual ->
       let triggered =
         syntaxes
         |> List.filter (fun syntax ->
@@ -823,16 +848,20 @@ module ActionMetadata =
               StringComparison.OrdinalIgnoreCase
             )))
       if List.isEmpty triggered then syntaxes else triggered
-    | [] ->
+    | None ->
       syntaxes
 
   let private inputSyntaxes (metadata: ActionMetadata) inputKind =
     metadata.Syntaxes |> List.filter (syntaxAccepts inputKind)
 
-  let matchingSyntaxes metadata inputKind args =
+  let matchingSyntaxesForInput
+    metadata inputKind (input: ActionArgumentInput) =
     inputSyntaxes metadata inputKind
-    |> matchingTriggerSyntaxes args
-    |> List.filter (syntaxMatchesParameters args)
+    |> matchingTriggerSyntaxes input.Trigger
+    |> List.filter (syntaxMatchesParameters input)
+
+  let matchingSyntaxes metadata inputKind args =
+    analyzeArguments args |> matchingSyntaxesForInput metadata inputKind
 
   let typedSignatureFor (metadata: ActionMetadata) inputKind args =
     let syntaxes = matchingSyntaxes metadata inputKind args

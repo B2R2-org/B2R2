@@ -826,8 +826,9 @@ module Suggestions =
     || String.Equals(head, "iteri", StringComparison.OrdinalIgnoreCase)
 
   let private syntaxArguments (metadata: ActionMetadata) inputKind completed =
+    let input = ActionMetadata.analyzeArguments completed
     let syntaxes =
-      ActionMetadata.matchingSyntaxes metadata inputKind completed
+      ActionMetadata.matchingSyntaxesForInput metadata inputKind input
     let triggered =
       match completed with
       | trigger :: _ ->
@@ -847,7 +848,7 @@ module Suggestions =
         syntaxes |> List.filter (fun syntax -> syntax.Trigger.IsNone)
       else
         triggered
-    let names = completed |> List.choose ActionMetadata.tryParameterName
+    let names = input.Names
     syntaxes
     |> List.collect (fun syntax -> syntax.Arguments)
     |> List.filter (fun argument ->
@@ -1023,13 +1024,10 @@ module Suggestions =
         Form = SuggestionForm.SyntaxSnippet
         CursorOffset = None } ]
 
-  let private parameterNameSet tokens =
-    tokens
-    |> List.choose ActionMetadata.tryParameterName
-    |> Set.ofList
-
   let private hasCompleteRequiredParameters metadata inputKind completed =
-    let names = parameterNameSet completed
+    let names =
+      ActionMetadata.analyzeArguments completed
+      |> fun input -> Set.ofList input.Names
     (metadata: ActionMetadata).Syntaxes
     |> List.exists (fun syntax ->
       ActionMetadata.syntaxAccepts inputKind syntax
