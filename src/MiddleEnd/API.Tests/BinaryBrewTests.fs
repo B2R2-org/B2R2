@@ -184,6 +184,17 @@ type BinaryBrewTests() =
     Assert.AreEqual<int * Addr list>(expected, (jmptbl.NumEntries, targets))
 
   [<TestMethod>]
+  member _.``BinaryBrew recovers functions while the thread pool is stuck``() =
+    (* The workers block on replies from the manager, so if handing over a
+       request or a reply ever waited for a pool thread, a pool that stops
+       running work would stall the whole recovery for good. *)
+    let count = ref 0
+    let finished =
+      runWithoutThreadPool (TimeSpan.FromSeconds 60.0) (fun () ->
+        count.Value <- (recoverFunctions "elf_x64_jmptbl").Count)
+    Assert.AreEqual<bool * bool>((true, true), (finished, count.Value > 0))
+
+  [<TestMethod>]
   member _.``BinaryBrew writes nothing to the console``() =
     use captured = new StringWriter()
     let stdout, stderr = Console.Out, Console.Error

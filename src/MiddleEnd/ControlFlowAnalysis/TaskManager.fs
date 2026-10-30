@@ -49,10 +49,7 @@ type TaskManager<'FnCtx, 'GlCtx>
     Array.init numThreads (fun idx ->
       TaskWorker(idx, scheduler, strategy, stream, cts.Token).Task)
 
-  let waitForWorkers () =
-    Task.WhenAll workers (* all done *)
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
+  let waitForWorkers () = Task.WaitAll(workers)
 
   /// Stops the scheduler, which would otherwise wait forever for a message once
   /// the workers are done, holding on to every builder while it waits.
@@ -121,7 +118,9 @@ type TaskManager<'FnCtx, 'GlCtx>
     for tid in 0 .. numThreads do flushLog tid
 #endif
 
-/// Represents a task worker for control flow recovery.
+/// Represents a task worker for control flow recovery. Each worker runs on a
+/// thread of its own, since it blocks on the replies of the manager, and a pool
+/// thread blocked that way would hold up the pool it may itself depend on.
 and private TaskWorker<'FnCtx, 'GlCtx>
   public(tid: int,
          scheduler: TaskScheduler<'FnCtx, 'GlCtx>,
@@ -129,26 +128,26 @@ and private TaskWorker<'FnCtx, 'GlCtx>
          stream: TaskWorkerCommandStream<'FnCtx, 'GlCtx>,
          token) =
 
-  let mutable doContinue = true
+  let work () =
+    let mutable doContinue = true
+    while doContinue do
+      match stream.Receive(token) with
+      | NotAvailable ->
+        doContinue <- false
+      | Received(BuildCFG builder) ->
+        builder.Context.ThreadID <- tid
+        try
+          let res = builder.Build strategy
+          scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
+        with e ->
+          scheduler.PostCommand <| ReportCFGException(builder.EntryPoint, e)
+#if CFGDEBUG
+        flushLog tid
+#endif
 
   let worker =
-    task {
-      while doContinue do
-        match! stream.Receive(token) with
-        | NotAvailable ->
-          doContinue <- false
-        | AvailableButNotReceived ->
-          ()
-        | Received(BuildCFG builder) ->
-          builder.Context.ThreadID <- tid
-          try
-            let res = builder.Build strategy
-            scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
-          with e ->
-            scheduler.PostCommand <| ReportCFGException(builder.EntryPoint, e)
-#if CFGDEBUG
-          flushLog tid
-#endif
-    }
+    let options = TaskCreationOptions.LongRunning
+    let defaultScheduler = Tasks.TaskScheduler.Default
+    Task.Factory.StartNew(Action work, token, options, defaultScheduler)
 
   member _.Task with get() = worker

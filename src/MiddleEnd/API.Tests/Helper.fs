@@ -24,9 +24,12 @@
 
 namespace B2R2.MiddleEnd.Tests
 
+open System
 open System.Collections.Generic
 open System.IO
 open System.IO.Compression
+open System.Threading
+open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -97,3 +100,28 @@ module Helper =
     use ms = new MemoryStream()
     stream.CopyTo ms
     ms.ToArray()
+
+  /// Runs the given function on a thread of its own while the thread pool can
+  /// run nothing else, telling whether the function finished in time. Anything
+  /// that waits on the pool times out.
+  let runWithoutThreadPool (timeout: TimeSpan) f =
+    let mutable minWorkers, minIOs = 0, 0
+    let mutable maxWorkers, maxIOs = 0, 0
+    ThreadPool.GetMinThreads(&minWorkers, &minIOs)
+    ThreadPool.GetMaxThreads(&maxWorkers, &maxIOs)
+    let limit = max minWorkers Environment.ProcessorCount
+    (* Never disposed, since a blocker that is still queued when this returns
+       waits on it afterwards. *)
+    let release = new ManualResetEventSlim()
+    ThreadPool.SetMaxThreads(limit, maxIOs) |> ignore
+    try
+      (* With as many blockers as the pool may have threads, whatever is queued
+         after them runs only once they are released. *)
+      for _ in 1 .. limit do
+        ThreadPool.QueueUserWorkItem(fun _ -> release.Wait()) |> ignore
+      let thread = Thread(ThreadStart f, IsBackground = true)
+      thread.Start()
+      thread.Join timeout
+    finally
+      release.Set()
+      ThreadPool.SetMaxThreads(maxWorkers, maxIOs) |> ignore

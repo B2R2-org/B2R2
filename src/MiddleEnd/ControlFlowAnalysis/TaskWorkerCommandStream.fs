@@ -24,33 +24,35 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Threading.Tasks.Dataflow
+open System
+open System.Collections.Concurrent
+open System.Threading
 
-/// Represents a stream of commands consumed by task workers.
+/// Represents a stream of commands consumed by task workers. A worker blocks
+/// on the stream until a command arrives, and posting the command wakes it up
+/// directly instead of queueing work on the thread pool.
 type TaskWorkerCommandStream<'FnCtx, 'GlCtx>() =
-  let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
+  let stream = new BlockingCollection<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
 
-  /// Posts a command to the stream.
+  /// Posts a command to the stream. A command posted after the stream is
+  /// closed is dropped.
   member _.Post(command: TaskWorkerCommand<'FnCtx, 'GlCtx>) =
-    stream.Post command |> ignore
+    try
+      stream.Add command
+    with :? InvalidOperationException ->
+      ()
 
-  /// Receives a command from the stream.
-  member _.Receive(ct) =
-    task {
-      match! stream.OutputAvailableAsync(ct) with
-      | false ->
-        return NotAvailable
-      | true ->
-        match stream.TryReceive() with
-        | true, command -> return Received command
-        | false, _ -> return AvailableButNotReceived
-    }
+  /// Receives a command from the stream, blocking until one arrives. It
+  /// returns NotAvailable once the stream is closed and drained.
+  member _.Receive(ct: CancellationToken) =
+    let mutable command = Unchecked.defaultof<_>
+    if stream.TryTake(&command, Timeout.Infinite, ct) then Received command
+    else NotAvailable
 
   /// Stops receiving and producing commands.
-  member _.Close() = stream.Complete()
+  member _.Close() = stream.CompleteAdding()
 
 /// Status of a task worker command.
 and TaskWorkerCommandStatus<'FnCtx, 'GlCtx> =
   | NotAvailable
-  | AvailableButNotReceived
   | Received of TaskWorkerCommand<'FnCtx, 'GlCtx>
