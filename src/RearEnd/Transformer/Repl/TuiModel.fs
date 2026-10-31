@@ -354,9 +354,16 @@ type TransformerTuiModel =
 
 module TransformerTuiModel =
   type private TranscriptLayoutCache =
-    { Model: TransformerTuiModel
-      Width: int
-      Height: int
+    { Content: TuiTranscript
+      Collapsed: Set<int>
+      DisplayMode: TuiLayout
+      ActiveFocus: TuiFocus
+      ActiveOverlay: TuiOverlay
+      SelectionCursor: TuiTextCursor
+      SelectionAnchor: TuiTextCursor option
+      RequestedViewport: int option
+      CachedWidth: int
+      CachedHeight: int
       TranscriptLayout: TuiTranscriptLayout }
 
   let mutable private transcriptLayoutCache: TranscriptLayoutCache option = None
@@ -1485,11 +1492,21 @@ module TransformerTuiModel =
           anchor
     max 0 (min maximumStart start)
 
+  let private matchesTranscriptLayout width height model cache =
+    cache.CachedWidth = width
+    && cache.CachedHeight = height
+    && Object.ReferenceEquals(cache.Content, model.Transcript)
+    && Object.ReferenceEquals(cache.Collapsed, model.CollapsedCommands)
+    && cache.DisplayMode = model.Layout
+    && cache.ActiveFocus = model.Focus
+    && cache.ActiveOverlay = model.Overlay
+    && cache.SelectionCursor = model.TranscriptCursor
+    && cache.SelectionAnchor = model.TranscriptAnchor
+    && cache.RequestedViewport = model.TranscriptViewportStart
+
   let transcriptLayout width height model =
     match transcriptLayoutCache with
-    | Some cache when cache.Width = width
-                      && cache.Height = height
-                      && Object.ReferenceEquals(cache.Model, model) ->
+    | Some cache when matchesTranscriptLayout width height model cache ->
       cache.TranscriptLayout
     | _ ->
       let rows =
@@ -1504,9 +1521,16 @@ module TransformerTuiModel =
           autoTranscriptViewportStart height model rows
       let layout = { Rows = rows; ViewportStart = start }
       transcriptLayoutCache <-
-        Some { Model = model
-               Width = width
-               Height = height
+        Some { Content = model.Transcript
+               Collapsed = model.CollapsedCommands
+               DisplayMode = model.Layout
+               ActiveFocus = model.Focus
+               ActiveOverlay = model.Overlay
+               SelectionCursor = model.TranscriptCursor
+               SelectionAnchor = model.TranscriptAnchor
+               RequestedViewport = model.TranscriptViewportStart
+               CachedWidth = width
+               CachedHeight = height
                TranscriptLayout = layout }
       layout
 
