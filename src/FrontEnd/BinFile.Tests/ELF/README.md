@@ -781,6 +781,134 @@ cross_n2:
         .long   0
 ```
 
+## The indirect call fixture
+
+Hand-written functions whose indirect calls only the call frame information
+can tell apart, as GCC writes it with asynchronous unwind tables: a row at
+every instruction that moves the stack pointer. The code after a call that
+returns runs as deep in the frame as the call, less what the callee pops, so
+the depth the rows give that code tells whether and how the call returns.
+`joined` and `padded` push two words for a callee that never returns, and the
+code after the call, past nops in `padded`, runs with them gone, where a
+branch around the call lands. `popped` and `unpopped` call callees that
+return, the first popping the word it pushed and the second popping nothing
+although its call looks like an sret call. `last` ends its frame with a call
+that pushes nothing, so `_start` follows it at the depth the call runs.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_indcall` | `joined`, `padded` and `last` end with a call that never returns, which only their frames tell; `popped` and `unpopped` return from callees that pop one word and none |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib indcall.s -o elf_x86_indcall
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  joined
+        .type   joined, @function
+joined:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        mov     edx, DWORD PTR [esp+8]
+        test    edx, edx
+        je      .Lj_done
+        push    edx
+        .cfi_def_cfa_offset 8
+        push    edx
+        .cfi_def_cfa_offset 12
+        call    DWORD PTR [eax]
+.Lj_done:
+        .cfi_def_cfa_offset 4
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   joined, .-joined
+
+        .globl  popped
+        .type   popped, @function
+popped:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        push    DWORD PTR [esp+8]
+        .cfi_def_cfa_offset 8
+        call    DWORD PTR [eax]
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   popped, .-popped
+
+        .globl  unpopped
+        .type   unpopped, @function
+unpopped:
+        .cfi_startproc
+        sub     esp, 8
+        .cfi_def_cfa_offset 12
+        mov     eax, DWORD PTR [esp+12]
+        lea     edx, [esp]
+        push    edx
+        .cfi_def_cfa_offset 16
+        call    DWORD PTR [eax]
+        add     esp, 8
+        .cfi_def_cfa_offset 8
+        add     esp, 4
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   unpopped, .-unpopped
+
+        .globl  padded
+        .type   padded, @function
+padded:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        mov     edx, DWORD PTR [esp+8]
+        test    edx, edx
+        je      .Lp_done
+        push    edx
+        .cfi_def_cfa_offset 8
+        push    edx
+        .cfi_def_cfa_offset 12
+        call    DWORD PTR [eax]
+        .byte   0x8d, 0xb4, 0x26, 0x00, 0x00, 0x00, 0x00
+        .byte   0x8d, 0x76, 0x00
+.Lp_done:
+        .cfi_def_cfa_offset 4
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   padded, .-padded
+
+        .globl  last
+        .type   last, @function
+last:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        call    DWORD PTR [eax]
+        .cfi_endproc
+        .size   last, .-last
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        .cfi_startproc
+        push    0
+        .cfi_def_cfa_offset 8
+        push    0
+        .cfi_def_cfa_offset 12
+        call    joined
+        call    popped
+        call    unpopped
+        call    padded
+        add     esp, 8
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   _start, .-_start
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |

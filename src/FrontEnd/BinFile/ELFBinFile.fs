@@ -631,6 +631,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       | RegPlusOffset(rid, off) -> Some(rid, off)
       | _ -> None)
 
+  /// Returns the range of code that the FDE covering the given address
+  /// describes; None when no FDE covers the address.
+  member _.TryFindFDERange(addr: Addr) =
+    findCoveringFDE sortedFDEs.Value addr
+    |> Option.map (fun fde -> AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
+
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
