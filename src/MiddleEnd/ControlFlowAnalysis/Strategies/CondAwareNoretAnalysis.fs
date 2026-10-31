@@ -71,6 +71,12 @@ module private CondAwareNoretAnalysisHelper =
     | ArgLocation.Stack layout -> hasNonZeroOnStack hdl st layout
     | ArgLocation.RegPair _ -> false
 
+  [<return: Struct>]
+  let (|Zero|_|) e =
+    match e with
+    | LowUIR.Num(Value = n) when n.IsZero -> ValueSome()
+    | _ -> ValueNone
+
 /// Represents a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
 /// simple patterns that are handled by compilers, but we may have to extend
@@ -193,12 +199,28 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | ConditionalNoRet loc -> Some(pp, absV, loc)
       | _ -> None)
 
-  let collectConditionalNoRetCallsFromIRCFG ctx (state: Lazy<_>) =
+  /// Makes a function that finds where the caller takes the argument that it
+  /// passes at the call to a conditionally non-returning function which the
+  /// given abstract vertex stands for, if it passes on one of its own. The
+  /// given tryConnect finds that for a call, once at most, so that the data
+  /// flow it needs is computed only for a call that matters.
+  let connectArguments ctx tryConnect =
+    let callerLocs = Dictionary()
+    for pp, absV, loc in collectCondNoRetCallees ctx do
+      callerLocs[absV] <- lazy tryConnect pp absV loc
+    fun absV ->
+      match callerLocs.TryGetValue absV with
+      | true, callerLoc -> callerLoc.Value
+      | false, _ -> None
+
+  let getLazyIRState g (uva: UntouchedValueAnalysis) =
+    lazy ((uva :> IDataFlowComputable<_, _, _>).Compute g |> ignore
+          uva.State)
+
+  let connectArgumentsInIRCFG ctx (state: Lazy<_>) =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
-    collectCondNoRetCallees ctx
-    |> List.choose (fun (_, absV, loc) ->
-      tryGetConnectedArgumentFromIRCFG hdl state.Value absV loc
-      |> Option.map (fun callerLoc -> absV, callerLoc))
+    connectArguments ctx (fun _ absV loc ->
+      tryGetConnectedArgumentFromIRCFG hdl state.Value absV loc)
 
   let findSSAVertexByAddr (ssa: SSACFG) addr =
     ssa.FindVertexBy(fun v ->
@@ -261,34 +283,27 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     lazy ((uva :> IDataFlowComputable<_, _, _>).Compute g |> ignore
           uva.State)
 
-  let getLazyIRState g (uva: UntouchedValueAnalysis) =
-    lazy ((uva :> IDataFlowComputable<_, _, _>).Compute g |> ignore
-          uva.State)
-
-  let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG dom =
+  let connectArgumentsInSSACFG ctx ssaCFG dom =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     let state = SSAUntouchedValueAnalysis hdl |> getLazySSAState ssaCFG
-    collectCondNoRetCallees ctx
-    |> List.choose (fun (pp, absV, loc) ->
-      tryGetConnectedArgumentFromSSACFG ctx ssaCFG dom state.Value pp loc
-      |> Option.map (fun callerLoc -> absV, callerLoc))
+    connectArguments ctx (fun pp _ loc ->
+      tryGetConnectedArgumentFromSSACFG ctx ssaCFG dom state.Value pp loc)
 
-  let tryFindCondNoRetDom (dom: IForwardDominance<_>) absVSet v =
-    dom.Dominators v
-    |> Seq.filter (fun v -> (absVSet: HashSet<_>).Contains v)
-    |> fun doms ->
-      if Seq.isEmpty doms then
-        None
-      else
-        (* When there are two or more conditionally returning (and dominating)
-           abstract vertices, we assume that they will be referring to the same
-           callee. *)
-        Some <| Seq.head doms
+  /// Finds where the function takes the argument that it passes on at a call
+  /// to a conditionally non-returning function dominating the given vertex.
+  let tryFindCondNoRetDom (dom: IForwardDominance<_>) tryGetCallerLoc v =
+    (* When there are two or more conditionally returning (and dominating)
+       abstract vertices, we assume that they will be referring to the same
+       callee. *)
+    dom.Dominators v |> Seq.tryPick tryGetCallerLoc
 
-  let getStatusFromDominators dom absVSet (argMap: Dictionary<_, _>) exit =
-    match tryFindCondNoRetDom dom absVSet exit with
-    | None -> NotNoRet
-    | Some dom -> ConditionalNoRet argMap[dom]
+  /// Gets the status of the given exit, through which the function returns
+  /// unless a call to a conditionally non-returning function dominates it.
+  /// Leaves to judgeReturn an exit that no such call dominates.
+  let getStatusFromDominators dom tryGetCallerLoc judgeReturn exit =
+    match tryFindCondNoRetDom dom tryGetCallerLoc exit with
+    | Some callerLoc -> ConditionalNoRet callerLoc
+    | None -> judgeReturn exit
 
   /// Checks if the given exit vertex has a corrupted stack pointer value before
   /// executing the return instruction. This means we cannot statically decide
@@ -318,59 +333,176 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   /// only once it is found to pass a non-zero argument, but a tail call
   /// returns for the function itself: on the same condition if the function
   /// passes on one of its own arguments.
-  let judgeConditionalExit (ctx: CFGBuildingContext<_, _>) argMap v loc =
-    let g = ctx.CFG
+  let judgeConditionalExit ctx tryGetCallerLoc v loc =
+    let g = (ctx: CFGBuildingContext<_, _>).CFG
     if isTailCall g v then
-      match (argMap: Dictionary<_, _>).TryGetValue v with
-      | true, callerLoc ->
+      match tryGetCallerLoc v with
+      | Some callerLoc ->
         ConditionalNoRet callerLoc
-      | false, _ ->
+      | None ->
         let caller = g.GetPreds v |> Seq.exactlyOne
         if hasNonZero ctx.BinHandle caller loc then NoRet else NotNoRet
     else
       NoRet
 
-  let analyze (ctx: CFGBuildingContext<_, _>) condNoRetCalls =
+  /// Judges whether the function returns through the given exit vertex,
+  /// leaving to judgeReturn an exit through which it returns unless a call to
+  /// a conditionally non-returning function dominates the exit.
+  let judgeExit ctx dom tryGetCallerLoc judgeReturn (v: IVertex<_>) =
+    let vData = v.VData :> ILowUIRBasicBlock
+    if not vData.IsAbstract then
+      if vData.LastInstruction.IsRET then
+        if hasUndecidableReturnTarget ctx v then
+          NoRet
+        else
+          getStatusFromDominators dom tryGetCallerLoc judgeReturn v
+      elif vData.LastInstruction.IsIndirectBranch then
+        NotNoRet
+      else
+        UnknownNoRet
+    else
+      match vData.AbstractContent.ReturningStatus with
+      | ConditionalNoRet loc ->
+        judgeConditionalExit ctx tryGetCallerLoc v loc
+      | NotNoRet ->
+        getStatusFromDominators dom tryGetCallerLoc judgeReturn v
+      | status ->
+        status
+
+  /// Meets the statuses that the given judge finds for the given exits, until
+  /// the function turns out to return.
+  let rec meetExits judge status exits =
+    match exits with
+    | v :: rest when status <> NotNoRet ->
+      meetExits judge (meet status (judge v)) rest
+    | _ ->
+      status
+
+  /// Gets the condition of the conditional jump that ends the given vertex,
+  /// along with the statements of the vertex, which tell what it reads.
+  let tryGetCondition (state: LowUIRSparseDataFlow.State<_>) v =
+    if (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
+      None
+    else
+      let stmts = state.GetStmtInfos v
+      match fst stmts[stmts.Length - 1] with
+      | LowUIR.InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f)
+        when t <> f ->
+        Some(stmts, c)
+      | _ ->
+        None
+
+  /// Finds the statement before the i-th of the given ones that defines the
+  /// given variable, along with its index and what it defines the variable as.
+  let rec tryFindLocalDef (stmts: (LowUIR.Stmt * ProgramPoint)[]) i var =
+    if i = 0 then
+      None
+    else
+      match fst stmts[i - 1] with
+      | LowUIR.Put(Dst = dst; Src = src) when dst = var -> Some(i - 1, src)
+      | _ -> tryFindLocalDef stmts (i - 1) var
+
+  /// Finds what the given expression, which the i-th of the given statements
+  /// of a block reads, tests against zero: a register or memory read, along
+  /// with the program point at which it is read, and whether the expression
+  /// is non-zero exactly when the read is zero. Only those tests that tell
+  /// zero from any other value count, and the definitions in the block are
+  /// followed.
+  let rec tryFindZeroTest stmts i e =
+    let find = tryFindZeroTest stmts i
+    let negate = Option.map (fun (read, pp, onZero) -> read, pp, not onZero)
+    match e with
+    | LowUIR.Var _ | LowUIR.TempVar _ ->
+      match tryFindLocalDef stmts i e with
+      | Some(j, src) -> tryFindZeroTest stmts j src
+      | None -> Some(e, snd stmts[i], false)
+    | LowUIR.Load _ ->
+      Some(e, snd stmts[i], false)
+    | LowUIR.RelOp(Op = RelOpType.EQ; Left = e; Right = Zero)
+    | LowUIR.RelOp(Op = RelOpType.EQ; Left = Zero; Right = e) ->
+      find e |> negate
+    | LowUIR.RelOp(Op = RelOpType.NEQ; Left = e; Right = Zero)
+    | LowUIR.RelOp(Op = RelOpType.NEQ; Left = Zero; Right = e) ->
+      find e
+    | LowUIR.UnOp(Op = UnOpType.NOT; Operand = e)
+      when LowUIR.Expr.typeOf e = 1<rt> ->
+      find e |> negate
+    | LowUIR.BinOp(Op = (BinOpType.AND | BinOpType.OR); Left = e1; Right = e2)
+      when e1 = e2 ->
+      find e1
+    | LowUIR.BinOp(Op = BinOpType.SUB; Left = e; Right = Zero) ->
+      find e
+    (* The low part of a register holds an argument narrower than the
+       register, such as an int in RDI, which is what a test of it tells. *)
+    | LowUIR.Extract(Operand = e; StartPos = 0)
+    | LowUIR.Cast(Kind = (CastKind.ZeroExt | CastKind.SignExt); Operand = e) ->
+      find e
+    | _ ->
+      None
+
+  /// Gets the location of the argument that the given read at the given
+  /// program point gets untouched since the entry.
+  let tryGetUntouchedArgument hdl state pp read =
+    match (state: LowUIRSparseDataFlow.State<_>).Scheme.EvalExpr(pp, read) with
+    | UntouchedValueDomain.Untouched(RegisterTag origin) ->
+      tryGetArgLocationFromIR hdl origin
+    | _ ->
+      None
+
+  /// Finds the argument that the given guard finds zero whenever it lets a
+  /// path through. The data flow that tells whether the guard tests one is
+  /// computed only once the guard tests something that may be one.
+  let tryGetZeroOnGuard hdl (state: Lazy<_>) ((stmts, cond), outcome) =
+    match tryFindZeroTest stmts (Array.length stmts - 1) cond with
+    | Some(read, pp, onZero) when onZero = outcome ->
+      tryGetUntouchedArgument hdl state.Value pp read
+    | _ ->
+      None
+
+  /// Finds the argument that a guard on every path to the given vertex finds
+  /// zero, reading the statements that the given analysis lifts and the data
+  /// flow that it computes into the given state.
+  let tryFindZeroArgument ctx (uva: UntouchedValueAnalysis) state dom v =
+    let g = (ctx: CFGBuildingContext<_, _>).CFG
+    Guard.collectDominating (tryGetCondition uva.State) g dom v
+    |> List.tryPick (tryGetZeroOnGuard ctx.BinHandle state)
+
+  /// Judges whether the function returns through the given exit, which no
+  /// call to a conditionally non-returning function dominates: if the exit is
+  /// reached only when an argument is zero, the function never returns while
+  /// the argument is non-zero.
+  let judgeReturn ctx uva state dom v =
+    match tryFindZeroArgument ctx uva state dom v with
+    | Some loc -> ConditionalNoRet loc
+    | None -> NotNoRet
+
+  let analyze (ctx: CFGBuildingContext<_, _>) uva state tryGetCallerLoc =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
-    let exits = ctx.CFG.Exits
-    let absVSet = HashSet(condNoRetCalls |> List.map fst)
-    let argMap = Dictionary(condNoRetCalls |> Seq.map KeyValuePair)
-    let mutable status = UnknownNoRet
-    let mutable i = 0
-    let updateStatus foundStatus = status <- meet status foundStatus
-    while i < exits.Length && status <> NotNoRet do
-      let v = exits[i]
-      i <- i + 1
-      let vData = v.VData :> ILowUIRBasicBlock
-      if not vData.IsAbstract then
-        if vData.LastInstruction.IsRET then
-          if hasUndecidableReturnTarget ctx v then updateStatus NoRet
-          else updateStatus (getStatusFromDominators dom absVSet argMap v)
-        elif vData.LastInstruction.IsIndirectBranch then
-          updateStatus NotNoRet
-        else
-          ()
-      else
-        match vData.AbstractContent.ReturningStatus with
-        | ConditionalNoRet loc ->
-          updateStatus (judgeConditionalExit ctx argMap v loc)
-        | NotNoRet ->
-          updateStatus (getStatusFromDominators dom absVSet argMap v)
-        | status ->
-          updateStatus status
-    status
+    let returns = List()
+    let deferReturn v =
+      returns.Add v
+      UnknownNoRet
+    let judge = judgeExit ctx dom tryGetCallerLoc deferReturn
+    let status = meetExits judge UnknownNoRet (List.ofArray ctx.CFG.Exits)
+    (* A return that only a zero argument reaches keeps the function from
+       returning on a non-zero one only if another exit never returns, so the
+       data flow that tells it waits until one does. *)
+    let judgeReturn =
+      match status with
+      | NoRet | ConditionalNoRet _ -> judgeReturn ctx uva state dom
+      | _ -> fun _ -> NotNoRet
+    meetExits judgeReturn status (List.ofSeq returns)
 
   (* Non-returning function identification for IR-based CFG. *)
   interface ICFGAnalysis<unit -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->
-        let hdl = ctx.BinHandle
-        let g = ctx.CFG
-        let state = UntouchedValueAnalysis(hdl, g.Vertices) |> getLazyIRState g
-        let condNoRetCalls = collectConditionalNoRetCallsFromIRCFG ctx state
-        match analyze ctx condNoRetCalls with
+        let uva = UntouchedValueAnalysis(ctx.BinHandle, ctx.CFG.Vertices)
+        let state = getLazyIRState ctx.CFG uva
+        let tryGetCallerLoc = connectArgumentsInIRCFG ctx state
+        match analyze ctx uva state tryGetCallerLoc with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
 #if CFGDEBUG
@@ -383,9 +515,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     member _.Unwrap env =
       let ctx = env.Context
       fun (r: SSACFGWithDominance) ->
-        let condNoRetCalls =
-          collectConditionalNoRetCallsFromSSACFG ctx r.Graph r.Dominance
-        match analyze ctx condNoRetCalls with
+        let uva = UntouchedValueAnalysis(ctx.BinHandle, ctx.CFG.Vertices)
+        let state = getLazyIRState ctx.CFG uva
+        let tryGetCallerLoc = connectArgumentsInSSACFG ctx r.Graph r.Dominance
+        match analyze ctx uva state tryGetCallerLoc with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
 #if CFGDEBUG

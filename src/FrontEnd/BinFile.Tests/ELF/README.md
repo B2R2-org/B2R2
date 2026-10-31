@@ -916,15 +916,21 @@ first argument, the status, is non-zero. `wrap` passes its own first argument
 on as the status, so it returns on the same condition, and `_start` calls it
 with a zero status and then with one. `tailwrap` jumps to `error` with the
 arguments it got, whereas `die` sets the status to one before it jumps. `pick`
-passes its first argument on one path and its second on the other. The
-x86-64 fixture has `wrap` and `_start` alone, passing the status in a
-register. Both link against the libc of the host without its start files, so
-that `error` is an import.
+passes its first argument on one path and its second on the other.
+
+The rest call `exit` themselves, as gnulib's `error_tail` does, and return
+only once they find their argument zero. `tail` keeps the status it gets in
+ECX across a call, as Clang passes it, and `fail` calls it with one, whereas
+`check` takes the status on the stack, as GCC passes it. `assure` is the other
+way around, returning only once its argument is non-zero. The x86-64 fixture
+has `wrap`, `_start` and `tail` alone, passing the status in a register. Both
+link against the libc of the host without its start files, so that `error`
+and `exit` are imports.
 
 | Fixture | Purpose |
 | --- | --- |
-| `elf_x86_condnoret` | `wrap`, `tailwrap`, `die` and `pick` call `error` with a status taken from their own stack arguments or set to one |
-| `elf_x64_condnoret` | `wrap` calls `error` with the status it takes in RDI |
+| `elf_x86_condnoret` | `wrap`, `tailwrap`, `die` and `pick` call `error` with a status taken from their own stack arguments or set to one; `tail`, `check` and `assure` call `exit` depending on their argument |
+| `elf_x64_condnoret` | `wrap` calls `error` with the status it takes in RDI; `tail` calls `exit` unless that status is zero |
 
 ```
 gcc -m32 -fuse-ld=lld -nostdlib -no-pie condnoret.s /usr/lib32/libc.so.6 \
@@ -993,6 +999,53 @@ pick:
         add     esp, 12
         ret
         .size   pick, .-pick
+
+        .globl  tail
+        .type   tail, @function
+tail:
+        push    esi
+        mov     esi, ecx
+        push    0
+        call    fflush@PLT
+        add     esp, 4
+        test    esi, esi
+        jne     .Lt_exit
+        pop     esi
+        ret
+.Lt_exit:
+        push    esi
+        call    exit@PLT
+        .size   tail, .-tail
+
+        .globl  fail
+        .type   fail, @function
+fail:
+        mov     ecx, 1
+        call    tail
+        .size   fail, .-fail
+
+        .globl  check
+        .type   check, @function
+check:
+        mov     eax, DWORD PTR [esp+4]
+        test    eax, eax
+        je      .Lc_ret
+        push    eax
+        call    exit@PLT
+.Lc_ret:
+        ret
+        .size   check, .-check
+
+        .globl  assure
+        .type   assure, @function
+assure:
+        cmp     DWORD PTR [esp+4], 0
+        jne     .La_ret
+        push    1
+        call    exit@PLT
+.La_ret:
+        ret
+        .size   assure, .-assure
 ```
 
 ```asm
@@ -1022,6 +1075,22 @@ wrap:
         add     rsp, 8
         ret
         .size   wrap, .-wrap
+
+        .globl  tail
+        .type   tail, @function
+tail:
+        push    rbx
+        mov     ebx, edi
+        xor     edi, edi
+        call    fflush@PLT
+        test    ebx, ebx
+        je      .Lt_ret
+        mov     edi, ebx
+        call    exit@PLT
+.Lt_ret:
+        pop     rbx
+        ret
+        .size   tail, .-tail
 ```
 
 ## x86-64 feature fixtures

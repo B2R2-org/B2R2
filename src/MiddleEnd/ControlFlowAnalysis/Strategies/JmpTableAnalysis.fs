@@ -54,51 +54,27 @@ type private IndexOrigin =
 type JmpTableAnalysis<'FnCtx, 'GlCtx>
   public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
-  /// Gets the guard on the edge from pred to v: the condition of the
-  /// conditional jump that ends pred, and whether the jump takes the edge
-  /// when that holds.
-  let tryGetGuard stmExtractor (g: IDiGraph<_, _>) pred v =
-    match stmExtractor pred, g.FindEdge(pred, v).Label with
-    | Some(Jmp(InterCJmp(cond, t, f))), InterCJmpTrueEdge when t <> f ->
-      Some(cond, true)
-    | Some(Jmp(InterCJmp(cond, t, f))), InterCJmpFalseEdge when t <> f ->
-      Some(cond, false)
-    | _ ->
-      None
+  /// Gets the condition of the conditional jump that ends the given vertex, as
+  /// stmExtractor gives it in an SSA form.
+  let tryGetCondition stmExtractor v =
+    match stmExtractor v with
+    | Some(Jmp(InterCJmp(cond, t, f))) when t <> f -> Some cond
+    | _ -> None
 
-  /// Collects the guards on the edges into the given vertex, which is where an
-  /// indirect branch checks its range.
-  let collectGuards stmExtractor (g: IDiGraph<_, _>) v =
-    g.GetPreds v
-    |> Seq.choose (fun pred -> tryGetGuard stmExtractor g pred v)
-    |> Seq.toList
-
-  /// Collects the guards that every path to the given vertex passes: those on
-  /// the edge into the vertex or into one of its dominators, from the only
-  /// predecessor that it has.
-  let collectDominatingGuards stmExtractor (g: IDiGraph<_, _>) v =
+  /// Collects the guards that every path to the given vertex passes.
+  let collectDominatingGuards stmExtractor g v =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create g df
-    let rec collect (v: IVertex<_>) acc =
-      match dom.ImmediateDominator v with
-      | null ->
-        acc
-      | idom ->
-        match g.GetPreds v with
-        | [| pred |] ->
-          match tryGetGuard stmExtractor g pred v with
-          | Some guard -> collect idom (guard :: acc)
-          | None -> collect idom acc
-        | _ ->
-          collect idom acc
-    collect v []
+    Guard.collectDominating (tryGetCondition stmExtractor) g dom v
 
   let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst =
     function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
       | Some(Jmp(InterJmp jmpExpr)) ->
-        let guards = collectGuards stmExtractor g v
+        (* The guards on the edges into v are where the branch checks its
+           range. *)
+        let guards = Guard.collect (tryGetCondition stmExtractor) g v
         Ok(jmpExpr, guards, lazy collectDominatingGuards stmExtractor g v)
       | _ ->
         let vs =
