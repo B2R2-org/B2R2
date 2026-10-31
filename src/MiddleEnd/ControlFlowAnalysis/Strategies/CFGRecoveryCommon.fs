@@ -733,8 +733,8 @@ module internal CFGRecoveryCommon =
         connectCallWithoutFT ctx cfgRec caller callee calleeInfo
       | NotNoRet ->
         connectCallWithFT ctx cfgRec caller callee calleeInfo
-      | ConditionalNoRet nth ->
-        if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
+      | ConditionalNoRet loc ->
+        if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller loc then
           connectCallWithoutFT ctx cfgRec caller callee calleeInfo
         else
           connectCallWithFT ctx cfgRec caller callee calleeInfo

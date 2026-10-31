@@ -387,6 +387,23 @@ type DataFlowTests() =
       Assert.AreEqual<UntouchedValueDomain.Lattice>(ans, out))
 
   [<TestMethod>]
+  member _.``Untouched Value Analysis 2``() =
+    let brew = Binaries.loadOne Binaries.sample8
+    let cfg = brew.Functions[0UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    (* EAX takes the first argument, four bytes above the stack pointer at
+       entry, which the function never writes. *)
+    let arg =
+      StackLocal 4
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    let out = state.GetAbsValue(irReg 0x0UL 1 Register.EAX)
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(arg, out)
+
+  [<TestMethod>]
   member _.``Sensitive Constant Propagation EvalExpr 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let scheme =

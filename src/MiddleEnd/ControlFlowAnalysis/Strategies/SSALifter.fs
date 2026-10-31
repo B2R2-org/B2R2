@@ -70,9 +70,12 @@ type SSALifter() =
       let spName = hdl.RegisterFactory.GetRegisterName rid
       let rt = hdl.ISA.WordSize |> WordSize.toRegType
       let spRegKind = RegVar(rt, rid, spName)
-      match findLastStackDef dom v spRegKind with
-      | Some sp -> updateIfStackValueIsConstant ctx ssaCFG state v sp
-      | None -> ()
+      (* With no definition reaching the callee, the stack pointer is the one
+         that the function has on entry. *)
+      let sp =
+        findLastStackDef dom v spRegKind
+        |> Option.defaultValue { Kind = spRegKind; Identifier = 0 }
+      updateIfStackValueIsConstant ctx ssaCFG state v sp
     | None ->
       ()
 

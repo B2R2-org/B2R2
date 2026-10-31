@@ -615,3 +615,19 @@ let private code7 =
      0xC3uy |]
 
 let sample7 = Binary(code7, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 8: A function that returns its first argument, which the caller left
+  on the stack right above the return address.
+
+  00000000: 8B 44 24 04        mov         eax,dword ptr [esp+4]
+  00000004: C3                 ret
+*)
+let private code8 =
+  [| 0x8Buy
+     0x44uy
+     0x24uy
+     0x04uy
+     0xC3uy |]
+
+let sample8 = Binary(code8, Architecture.Intel, WordSize.Bit32)

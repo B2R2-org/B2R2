@@ -909,6 +909,121 @@ _start:
         .size   _start, .-_start
 ```
 
+## The conditionally non-returning fixtures
+
+Hand-written functions around libc's `error`, which never returns when its
+first argument, the status, is non-zero. `wrap` passes its own first argument
+on as the status, so it returns on the same condition, and `_start` calls it
+with a zero status and then with one. `tailwrap` jumps to `error` with the
+arguments it got, whereas `die` sets the status to one before it jumps. `pick`
+passes its first argument on one path and its second on the other. The
+x86-64 fixture has `wrap` and `_start` alone, passing the status in a
+register. Both link against the libc of the host without its start files, so
+that `error` is an import.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_condnoret` | `wrap`, `tailwrap`, `die` and `pick` call `error` with a status taken from their own stack arguments or set to one |
+| `elf_x64_condnoret` | `wrap` calls `error` with the status it takes in RDI |
+
+```
+gcc -m32 -fuse-ld=lld -nostdlib -no-pie condnoret.s /usr/lib32/libc.so.6 \
+    -o elf_x86_condnoret
+gcc -fuse-ld=lld -nostdlib -no-pie condnoret64.s \
+    /lib/x86_64-linux-gnu/libc.so.6 -o elf_x64_condnoret
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    wrap
+        add     esp, 8
+        push    0
+        push    1
+        call    wrap
+        .size   _start, .-_start
+
+        .globl  wrap
+        .type   wrap, @function
+wrap:
+        push    DWORD PTR [esp+8]
+        push    0
+        push    DWORD PTR [esp+12]
+        call    error@PLT
+        add     esp, 12
+        ret
+        .size   wrap, .-wrap
+
+        .globl  tailwrap
+        .type   tailwrap, @function
+tailwrap:
+        jmp     error@PLT
+        .size   tailwrap, .-tailwrap
+
+        .globl  die
+        .type   die, @function
+die:
+        mov     DWORD PTR [esp+4], 1
+        jmp     error@PLT
+        .size   die, .-die
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        mov     eax, DWORD PTR [esp+12]
+        test    eax, eax
+        je      .Lp_b
+        push    0
+        push    0
+        push    DWORD PTR [esp+12]
+        call    error@PLT
+        add     esp, 12
+        ret
+.Lp_b:
+        push    0
+        push    0
+        push    DWORD PTR [esp+16]
+        call    error@PLT
+        add     esp, 12
+        ret
+        .size   pick, .-pick
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        sub     rsp, 8
+        xor     edi, edi
+        xor     esi, esi
+        call    wrap
+        mov     edi, 1
+        xor     esi, esi
+        call    wrap
+        .size   _start, .-_start
+
+        .globl  wrap
+        .type   wrap, @function
+wrap:
+        sub     rsp, 8
+        mov     rdx, rsi
+        xor     esi, esi
+        xor     eax, eax
+        call    error@PLT
+        add     rsp, 8
+        ret
+        .size   wrap, .-wrap
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |

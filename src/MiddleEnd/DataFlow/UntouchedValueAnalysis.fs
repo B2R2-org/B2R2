@@ -43,10 +43,13 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     UntouchedValueDomain.RegisterTag varKind
     |> UntouchedValueDomain.Untouched
 
+  (* A stack slot at or above the stack pointer on entry holds what the caller
+     left there, such as an argument, whereas one below it holds nothing yet. *)
   let getBaseCase varKind =
     match varKind with
     | Regular rid when isStackPointer rid -> UntouchedValueDomain.Touched
     | Regular _ -> mkUntouched varKind
+    | StackLocal offset when offset >= 0 -> mkUntouched varKind
     | _ -> UntouchedValueDomain.Undef
 
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =

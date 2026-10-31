@@ -30,6 +30,7 @@ open System.IO
 open System.Runtime.CompilerServices
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -81,6 +82,11 @@ type BinaryBrewTests() =
     let returns =
       fn.CFG.GetSuccEdges callee |> Array.exists (fun e -> e.Label = RetEdge)
     summary.ReturningStatus, summary.UnwindingBytes, returns
+
+  /// Makes the status of an x86 function that does not return when its
+  /// argument at the given offset on the stack is non-zero.
+  let condNoRetOnStack offset =
+    ConditionalNoRet(ArgLocation.Stack { FirstOffset = offset; SlotSize = 4 })
 
   /// Wraps the default strategy, letting a test take over how it orders and
   /// handles each action and how it makes and resets its contexts.
@@ -369,6 +375,62 @@ type BinaryBrewTests() =
     let expected = NoRet, 0, false
     let actual = summarizeCall fn 0x401227UL
     Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew passes the condition of error on to a wrapper``() =
+    (* wrap hands its first argument to error as the status, so it returns
+       when, and only when, that argument is zero. *)
+    let fn = (recoverFunctions "elf_x86_condnoret")[0x401241UL]
+    Assert.AreEqual<NonReturningStatus>(condNoRetOnStack 4, fn.NoRet)
+
+  [<TestMethod>]
+  member _.``BinaryBrew passes the condition of error on in a register``() =
+    (* The x86-64 wrap hands error the status it gets in RDI, untouched. *)
+    let fn = (recoverFunctions "elf_x64_condnoret")[0x201379UL]
+    let rdi = Intel.Register.toRegID Intel.Register.RDI
+    let expected = ConditionalNoRet(ArgLocation.Reg rdi)
+    Assert.AreEqual<NonReturningStatus>(expected, fn.NoRet)
+
+  [<TestMethod>]
+  member _.``BinaryBrew ends a call passing a non-zero status to a wrapper``() =
+    (* _start calls wrap with a zero status and then with one, after which
+       wrap never returns, so the code after the second call is not its. *)
+    let fn = (recoverFunctions "elf_x86_condnoret")[0x40122cUL]
+    let status = condNoRetOnStack 4
+    let expected = [ status, 0, true; status, 0, false ]
+    let actual = [ summarizeCall fn 0x401230UL; summarizeCall fn 0x40123cUL ]
+    Assert.AreEqual<(NonReturningStatus * int * bool) list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew passes the condition of a tail call on``() =
+    (* tailwrap jumps to error with the arguments it got, so it returns on
+       the same condition, while die sets the status to one first, so it
+       never returns. *)
+    let fns = recoverFunctions "elf_x86_condnoret"
+    let expected = [ condNoRetOnStack 4; NoRet ]
+    let actual = [ fns[0x401254UL].NoRet; fns[0x401259UL].NoRet ]
+    Assert.AreEqual<NonReturningStatus list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew with SSA passes the condition of a tail call on``() =
+    (* tailwrap jumps before it moves the stack pointer, so the frame of
+       error starts right where its own does. *)
+    let bytes = readZippedBinary "elf_x86_condnoret"
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "x86")
+    let options = { CFGRecoveryOptions.Default with UseSSA = true }
+    let fns = BinaryBrew(hdl, options).Functions
+    let expected = [ condNoRetOnStack 4; condNoRetOnStack 4; NoRet ]
+    let actual =
+      [ 0x401241UL; 0x401254UL; 0x401259UL ] |> List.map (fun a -> fns[a].NoRet)
+    Assert.AreEqual<NonReturningStatus list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew returns from calls conditioned on two arguments``() =
+    (* pick passes error its first argument on one path and its second on
+       the other, so whether it returns is up to the path as well, which no
+       single argument decides. *)
+    let fn = (recoverFunctions "elf_x86_condnoret")[0x401266UL]
+    Assert.AreEqual<NonReturningStatus>(NotNoRet, fn.NoRet)
 
   [<TestMethod>]
   member _.``BinaryBrew recovers functions while the thread pool is stuck``() =

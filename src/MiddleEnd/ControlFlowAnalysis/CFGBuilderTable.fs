@@ -82,7 +82,8 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     BinFileOps.tryGetInternalFunctionAddr hdl.File slot |> Result.isOk
 
   let addExternalBuilder (reference: ExternalFunctionReference) symbol name =
-    let isNoRet = ELF.getNoReturnStatusFromKnownFunc symbol
+    let cc = hdl.Conventions.Calling
+    let isNoRet = ELF.getNoReturnStatusFromKnownFunc cc symbol
     let builder = ExternalFnCFGBuilder(hdl, reference, name, isNoRet)
     builders[reference.ReferenceAddress] <- builder
     builder :> IFunctionBuilder

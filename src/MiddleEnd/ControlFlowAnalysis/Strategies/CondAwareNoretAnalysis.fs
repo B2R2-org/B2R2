@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open System.Collections.Generic
 open System.Runtime.InteropServices
 open B2R2
+open B2R2.ABI
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
@@ -36,6 +37,40 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open type UntouchedValueDomain.UntouchedTag
 
+[<AutoOpen>]
+module private CondAwareNoretAnalysisHelper =
+  let hasNonZeroInRegister st rid =
+    match (st: ConcState).TryGetReg rid with
+    | Def bv -> not bv.IsZero
+    | _ -> false
+
+  let tryGetStackPointer (hdl: BinHandle) (st: ConcState) =
+    hdl.RegisterFactory.StackPointer
+    |> Option.bind (fun rid ->
+      match st.TryGetReg rid with
+      | Def sp -> Some sp
+      | _ -> None)
+
+  let hasNonZeroOnStack (hdl: BinHandle) st (layout: StackArgLayout) =
+    match tryGetStackPointer hdl st with
+    | Some sp ->
+      let p = sp + BitVector(layout.FirstOffset, sp.Length)
+      let rt = RegType.fromByteWidth layout.SlotSize
+      match Memory.read (p.ToUInt64()) hdl.ISA.Endian rt st.Memory with
+      | Ok v -> not v.IsZero
+      | Error _ -> false
+    | None ->
+      false
+
+  /// Locally analyzes the given basic block and checks if the argument at the
+  /// given location, which the call ending the block passes, is non-zero.
+  let hasNonZero hdl caller loc =
+    let st = CFGEvaluator.evalBlockFromScratch hdl caller
+    match loc with
+    | ArgLocation.Reg rid -> hasNonZeroInRegister st rid
+    | ArgLocation.Stack layout -> hasNonZeroOnStack hdl st layout
+    | ArgLocation.RegPair _ -> false
+
 /// Represents a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
 /// simple patterns that are handled by compilers, but we may have to extend
@@ -43,13 +78,6 @@ open type UntouchedValueDomain.UntouchedTag
 type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   /// Default value used for unknown non-returning status.
   let defaultStatus = if strict then NoRet else NotNoRet
-
-  let hasNoReturnFallThrough g (v: IVertex<LowUIRBasicBlock>) =
-    assert (v.VData.Internals.IsAbstract)
-    let succEdges = (g: IDiGraph<_, _>).GetSuccEdges v
-    match succEdges |> Array.tryExactlyOne with
-    | Some(e) -> e.Label = NoReturnFallThroughEdge
-    | None -> false
 
   let meet a b =
     match a, b with
@@ -60,7 +88,9 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | _, NotNoRet -> b
     | NoRet, ConditionalNoRet _ -> b
     | ConditionalNoRet _, NoRet -> a
-    | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
+    (* Returning when one argument is zero on some paths and when another is
+       on others is returning on no single condition. *)
+    | ConditionalNoRet _, ConditionalNoRet _ -> NotNoRet
     | _ -> Terminator.impossible ()
 
   let tryGetValue (state: LowUIRSparseDataFlow.State<_>) v varKind =
@@ -69,40 +99,84 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | Some defVp -> state.GetAbsValue defVp |> Some
     | None -> None
 
-  let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =
-    let argOff = uint64 <| frameDist - 4 * nth
-    let varKind = Memory <| Some(Constants.InitialStackPointer + argOff)
-    let absV = (ctx: CFGBuildingContext<_, _>).Vertices[pp]
-    match tryGetValue state absV varKind with
-    | Some(UntouchedValueDomain.Untouched(RegisterTag(StackLocal off))) ->
-      Some(-off / 4)
+  /// Gets the location of the argument that the given register holds on
+  /// entry. A callee preserves none of the registers it takes arguments in,
+  /// whichever convention a compiler picks for a function of its own.
+  let tryGetRegArgLocation (hdl: BinHandle) rid =
+    let cc = hdl.Conventions.Calling
+    if cc.IsCalleeSaved rid || hdl.RegisterFactory.IsStackPointer rid then None
+    else Some(ArgLocation.Reg rid)
+
+  /// Gets the location of the argument that lies at the given offset from the
+  /// stack pointer on entry, if the calling convention passes arguments there.
+  let tryGetStackArgLocation (hdl: BinHandle) offset =
+    match Array.tryLast hdl.Conventions.Calling.IntArgs with
+    | Some(ArgLocation.Stack layout) when offset >= layout.FirstOffset ->
+      Some(ArgLocation.Stack { layout with FirstOffset = offset })
     | _ ->
       None
 
-  let regIdToArgNumX64 (hdl: BinHandle) rid =
-    [ 1 .. 6 ]
-    |> List.tryFind (fun nth ->
-      rid = hdl.Conventions.Calling.IntArgRegister(nth - 1))
+  /// Gets the location of the argument that the function takes in the given
+  /// variable of the IR-level data flow, whose stack offsets grow upward from
+  /// the stack pointer on entry.
+  let tryGetArgLocationFromIR hdl varKind =
+    match varKind with
+    | Regular rid -> tryGetRegArgLocation hdl rid
+    | StackLocal offset -> tryGetStackArgLocation hdl offset
+    | _ -> None
 
-  let untouchedArgIndexX64FromIRCFG (hdl: BinHandle) ctx pp state nth =
-    let argRegId = hdl.Conventions.Calling.IntArgRegister(nth - 1)
-    let varKind = Regular argRegId
-    let absV = (ctx: CFGBuildingContext<_, _>).Vertices[pp]
-    match tryGetValue state absV varKind with
-    | Some(UntouchedValueDomain.Untouched(RegisterTag(Regular rid))) ->
-      regIdToArgNumX64 hdl rid
-    | _ ->
-      (* If no definition is found, this means the parameter register is
-         untouched, thus conditional no return. *)
-      Some nth
+  let isStackPointer (hdl: BinHandle) dst =
+    match dst with
+    | LowUIR.Var(RegisterID = rid) -> hdl.RegisterFactory.IsStackPointer rid
+    | _ -> false
 
-  let hasCallFallthroughNode (ctx: CFGBuildingContext<_, _>) pp =
-    assert (ctx.Vertices.ContainsKey pp)
-    let absV = ctx.Vertices[pp]
-    let succs = ctx.CFG.GetSuccs absV
-    not <| Seq.isEmpty succs
+  /// Gets the stack pointer on entry to the callee of the given abstract
+  /// vertex, which the summary of the callee reads to adjust it.
+  let tryGetCalleeEntrySP hdl (state: LowUIRSparseDataFlow.State<_>) absV =
+    state.GetStmtInfos absV
+    |> Array.tryPick (fun (stmt, pp) ->
+      match stmt with
+      | LowUIR.Put(Dst = dst) when isStackPointer hdl dst ->
+        match state.EvaluateStackPointerExpr(pp, dst) with
+        | StackPointerDomain.ConstSP sp -> Some sp
+        | _ -> None
+      | _ ->
+        None)
 
-  let collectReturningAbsPPs (ctx: CFGBuildingContext<_, _>) =
+  /// Finds the variable in which the caller of the given abstract vertex
+  /// passes the callee its argument at the given location.
+  let tryGetPassingVarFromIR hdl state absV loc =
+    match loc with
+    | ArgLocation.Reg rid ->
+      Some(Regular rid)
+    | ArgLocation.Stack layout ->
+      tryGetCalleeEntrySP hdl state absV
+      |> Option.map (fun sp ->
+        let offset = LowUIRStackPointer.toFrameOffset (sp.ToUInt64())
+        StackLocal(offset + layout.FirstOffset))
+    | ArgLocation.RegPair _ ->
+      None
+
+  /// Finds where the caller of the given abstract vertex takes the argument
+  /// that it passes the callee at the given location, if it passes on one of
+  /// its own arguments untouched.
+  let tryGetConnectedArgumentFromIRCFG hdl state absV loc =
+    tryGetPassingVarFromIR hdl state absV loc
+    |> Option.bind (fun varKind ->
+      match tryGetValue state absV varKind with
+      | Some(UntouchedValueDomain.Untouched(RegisterTag origin)) ->
+        tryGetArgLocationFromIR hdl origin
+      | Some _ ->
+        None
+      | None ->
+        (* With no definition reaching the callee, the caller passes on what
+           it took in the same variable. *)
+        tryGetArgLocationFromIR hdl varKind)
+
+  /// Collects the abstract vertices of the calls to conditionally
+  /// non-returning functions, each with the location of the argument that
+  /// decides whether its callee returns.
+  let collectCondNoRetCallees (ctx: CFGBuildingContext<_, _>) =
     ctx.IntraCallTable.Callees
     |> Seq.fold (fun acc (KeyValue(cs, calleeKind)) ->
       match calleeKind with
@@ -113,82 +187,75 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         Set.fold (fun acc c -> ProgramPoint(cs, c, 0) :: acc) acc callees
       | _ ->
         acc) []
-    |> List.filter (hasCallFallthroughNode ctx)
-
-  let tryGetConnectedArgumentFromIRCFG ctx state pp nth =
-    let callSite = (pp: ProgramPoint).CallSite |> Option.get
-    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.ISA
-    match ctx.IntraCallTable.TryGetFrameDistance callSite with
-    | true, frameDist when isa.IsX86 ->
-      untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth
-    | true, _ when isa.IsX64 ->
-      untouchedArgIndexX64FromIRCFG ctx.BinHandle ctx pp state nth
-    | _ ->
-      None
-
-  let collectConditionalNoRetCallsFromIRCFG ctx (cfg: LowUIRCFG) state =
-    collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
-      let absV = (ctx: CFGBuildingContext<_, _>).Vertices[pp]
+      let absV = ctx.Vertices[pp]
       match absV.VData.Internals.AbstractContent.ReturningStatus with
-      | ConditionalNoRet nth ->
-        tryGetConnectedArgumentFromIRCFG ctx (state: Lazy<_>).Value pp nth
-        |> Option.bind (fun nth' -> Some(absV, nth'))
-      | NotNoRet | UnknownNoRet ->
-        None
-      | NoRet when hasNoReturnFallThrough cfg absV ->
-        None
-      | NoRet ->
-        Terminator.impossible ())
+      | ConditionalNoRet loc -> Some(pp, absV, loc)
+      | _ -> None)
 
-  let untouchedArgIndexX86FromSSACFG dom frameDist absV state nth =
-    let argOff = frameDist - 4 * nth
-    let varKind = SSA.StackVar(32<rt>, argOff)
-    SSACFG.findReachingDef dom absV varKind
-    |> Option.bind (function
-      | SSA.Def(var, _) ->
-        match (state: SSASparseDataFlow.State<_>).GetRegValue var with
-        | UntouchedValueDomain.Untouched(RegisterTag(StackLocal off)) ->
-          Some(-off / 4)
-        | _ ->
-          None
-      | _ ->
-        None)
-
-  let untouchedArgIndexX64FromSSACFG hdl dom absV state nth =
-    let argReg = (hdl: BinHandle).Conventions.Calling.IntArgRegister(nth - 1)
-    let name = hdl.RegisterFactory.GetRegisterName argReg
-    let varKind = SSA.RegVar(64<rt>, argReg, name)
-    match SSACFG.findReachingDef dom absV varKind with
-    | Some(SSA.Def(var, _)) ->
-      match (state: SSASparseDataFlow.State<_>).GetRegValue var with
-      | UntouchedValueDomain.Untouched(RegisterTag(Regular rid)) ->
-        regIdToArgNumX64 hdl rid
-      | _ ->
-        None
-    | _ ->
-      (* If no definition is found, this means the parameter register is
-         untouched, thus conditional no return. *)
-      Some nth
+  let collectConditionalNoRetCallsFromIRCFG ctx (state: Lazy<_>) =
+    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
+    collectCondNoRetCallees ctx
+    |> List.choose (fun (_, absV, loc) ->
+      tryGetConnectedArgumentFromIRCFG hdl state.Value absV loc
+      |> Option.map (fun callerLoc -> absV, callerLoc))
 
   let findSSAVertexByAddr (ssa: SSACFG) addr =
     ssa.FindVertexBy(fun v ->
       if v.VData.Internals.IsAbstract then false
       else v.VData.Internals.Range.IsIncluding addr)
 
-  let tryGetConnectedArgumentFromSSACFG ctx (ssa: SSACFG) dom state pp nth =
-    let callSite = (pp: ProgramPoint).CallSite |> Option.get
-    let callSiteAddr = callSite.CallSiteAddress
-    let callerSSAV = findSSAVertexByAddr ssa callSiteAddr
-    let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
-    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.ISA
+  let tryGetFrameDistance (ctx: CFGBuildingContext<_, _>) callSite =
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
-    | true, frameDist when isa.IsX86 ->
-      untouchedArgIndexX86FromSSACFG dom frameDist absSSAV state nth
-    | true, _ when isa.IsX64 ->
-      untouchedArgIndexX64FromSSACFG ctx.BinHandle dom absSSAV state nth
+    | true, dist -> Some dist
+    | false, _ -> None
+
+  /// Finds the variable in which the caller passes the callee its argument at
+  /// the given location, where the frame of the callee lies at the given
+  /// distance below the stack pointer of the caller on entry.
+  let tryGetPassingVarFromSSA (hdl: BinHandle) frameDist loc =
+    match loc, frameDist with
+    | ArgLocation.Reg rid, _ ->
+      let rt = hdl.RegisterFactory.GetRegType rid
+      let name = hdl.RegisterFactory.GetRegisterName rid
+      Some(SSA.RegVar(rt, rid, name))
+    | ArgLocation.Stack layout, Some dist ->
+      let rt = RegType.fromByteWidth layout.SlotSize
+      Some(SSA.StackVar(rt, dist - layout.FirstOffset))
     | _ ->
       None
+
+  /// Gets the location of the argument that the function takes in the given
+  /// variable of the SSA-level data flow, whose stack offsets grow downward
+  /// from the stack pointer on entry.
+  let tryGetArgLocationFromSSA hdl varKind =
+    match varKind with
+    | Regular rid -> tryGetRegArgLocation hdl rid
+    | StackLocal offset -> tryGetStackArgLocation hdl (-offset)
+    | _ -> None
+
+  let tryGetConnectedArgumentFromSSACFG ctx (ssa: SSACFG) dom state pp loc =
+    let callSite = (pp: ProgramPoint).CallSite |> Option.get
+    let callerSSAV = findSSAVertexByAddr ssa callSite.CallSiteAddress
+    let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
+    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
+    let frameDist = tryGetFrameDistance ctx callSite
+    tryGetPassingVarFromSSA hdl frameDist loc
+    |> Option.bind (fun varKind ->
+      match SSACFG.findReachingDef dom absSSAV varKind with
+      | Some(SSA.Def(var, _))
+      | Some(SSA.Phi(var, _)) ->
+        match (state: SSASparseDataFlow.State<_>).GetRegValue var with
+        | UntouchedValueDomain.Untouched(RegisterTag origin) ->
+          tryGetArgLocationFromSSA hdl origin
+        | _ ->
+          None
+      | Some _ ->
+        None
+      | None ->
+        (* With no definition reaching the callee, the caller passes on what
+           it took in the same variable. *)
+        tryGetArgLocationFromSSA hdl (VarKind.ofSSAVarKind varKind))
 
   let getLazySSAState g (uva: SSAUntouchedValueAnalysis) =
     lazy ((uva :> IDataFlowComputable<_, _, _>).Compute g |> ignore
@@ -201,17 +268,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG dom =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     let state = SSAUntouchedValueAnalysis hdl |> getLazySSAState ssaCFG
-    collectReturningAbsPPs ctx
-    |> List.choose (fun pp ->
-      let absV = ctx.Vertices[pp]
-      match absV.VData.Internals.AbstractContent.ReturningStatus with
-      | ConditionalNoRet nth ->
-        tryGetConnectedArgumentFromSSACFG ctx ssaCFG dom state.Value pp nth
-        |> Option.bind (fun nth' -> Some(absV, nth'))
-      | NotNoRet | UnknownNoRet ->
-        None
-      | NoRet ->
-        Terminator.impossible ())
+    collectCondNoRetCallees ctx
+    |> List.choose (fun (pp, absV, loc) ->
+      tryGetConnectedArgumentFromSSACFG ctx ssaCFG dom state.Value pp loc
+      |> Option.map (fun callerLoc -> absV, callerLoc))
 
   let tryFindCondNoRetDom (dom: IForwardDominance<_>) absVSet v =
     dom.Dominators v
@@ -225,21 +285,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
            callee. *)
         Some <| Seq.head doms
 
-  let getStatusFromDominators dom absVSet (argNumMap: Dictionary<_, _>) exit =
+  let getStatusFromDominators dom absVSet (argMap: Dictionary<_, _>) exit =
     match tryFindCondNoRetDom dom absVSet exit with
     | None -> NotNoRet
-    | Some dom -> ConditionalNoRet argNumMap[dom]
-
-  let isStackPointer (ctx: CFGBuildingContext<_, _>) dst =
-    let regFactory = ctx.BinHandle.RegisterFactory
-    let rid = regFactory.StackPointer.Value
-    let rt = regFactory.GetRegType(rid)
-    let rname = regFactory.GetRegisterName(rid)
-    match dst with
-    | LowUIR.Var(Type = dstRT; RegisterID = dstId; Name = dstName) ->
-      dstRT = rt && dstId = rid && dstName = rname
-    | _ ->
-      false
+    | Some dom -> ConditionalNoRet argMap[dom]
 
   /// Checks if the given exit vertex has a corrupted stack pointer value before
   /// executing the return instruction. This means we cannot statically decide
@@ -260,12 +309,33 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
       true
 
+  let isTailCall (g: IDiGraph<_, _>) v =
+    g.GetPredEdges v |> Array.exists (fun e -> e.Label = TailCallEdge)
+
+  /// Judges whether the function returns through the given abstract vertex,
+  /// which exits the function by calling a conditionally non-returning one
+  /// that takes the argument deciding it at the given location. A call exits
+  /// only once it is found to pass a non-zero argument, but a tail call
+  /// returns for the function itself: on the same condition if the function
+  /// passes on one of its own arguments.
+  let judgeConditionalExit (ctx: CFGBuildingContext<_, _>) argMap v loc =
+    let g = ctx.CFG
+    if isTailCall g v then
+      match (argMap: Dictionary<_, _>).TryGetValue v with
+      | true, callerLoc ->
+        ConditionalNoRet callerLoc
+      | false, _ ->
+        let caller = g.GetPreds v |> Seq.exactlyOne
+        if hasNonZero ctx.BinHandle caller loc then NoRet else NotNoRet
+    else
+      NoRet
+
   let analyze (ctx: CFGBuildingContext<_, _>) condNoRetCalls =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
     let absVSet = HashSet(condNoRetCalls |> List.map fst)
-    let argNumMap = Dictionary(condNoRetCalls |> Seq.map KeyValuePair)
+    let argMap = Dictionary(condNoRetCalls |> Seq.map KeyValuePair)
     let mutable status = UnknownNoRet
     let mutable i = 0
     let updateStatus foundStatus = status <- meet status foundStatus
@@ -276,17 +346,17 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       if not vData.IsAbstract then
         if vData.LastInstruction.IsRET then
           if hasUndecidableReturnTarget ctx v then updateStatus NoRet
-          else updateStatus (getStatusFromDominators dom absVSet argNumMap v)
+          else updateStatus (getStatusFromDominators dom absVSet argMap v)
         elif vData.LastInstruction.IsIndirectBranch then
           updateStatus NotNoRet
         else
           ()
       else
         match vData.AbstractContent.ReturningStatus with
-        | ConditionalNoRet _ ->
-          updateStatus NoRet
+        | ConditionalNoRet loc ->
+          updateStatus (judgeConditionalExit ctx argMap v loc)
         | NotNoRet ->
-          updateStatus (getStatusFromDominators dom absVSet argNumMap v)
+          updateStatus (getStatusFromDominators dom absVSet argMap v)
         | status ->
           updateStatus status
     status
@@ -299,7 +369,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         let hdl = ctx.BinHandle
         let g = ctx.CFG
         let state = UntouchedValueAnalysis(hdl, g.Vertices) |> getLazyIRState g
-        let condNoRetCalls = collectConditionalNoRetCallsFromIRCFG ctx g state
+        let condNoRetCalls = collectConditionalNoRetCallsFromIRCFG ctx state
         match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
@@ -324,29 +394,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
 
 module CondAwareNoretAnalysis =
-  let private hasNonZeroOnX86 st nth =
-    let esp = Intel.Register.ESP |> Intel.Register.toRegID
-    match (st: ConcState).TryGetReg esp with
-    | Def esp ->
-      let p = esp + BitVector(4 * nth, 32<rt>)
-      let endian = Endian.Little
-      match Memory.read (p.ToUInt64()) endian 32<rt> st.Memory with
-      | Ok v -> not v.IsZero
-      | _ -> false
-    | _ ->
-      false
-
-  let private hasNonZeroOnX64 (hdl: BinHandle) st nth =
-    let reg = hdl.Conventions.Calling.IntArgRegister(nth - 1)
-    match (st: ConcState).TryGetReg reg with
-    | Def bv -> not bv.IsZero
-    | _ -> false
-
-  /// Locally analyzes the given basic block and checks if the `nth` parameter
-  /// (defined by the current ABI) is non-zero.
-  let hasNonZero (hdl: BinHandle) caller nth =
-    let st = CFGEvaluator.evalBlockFromScratch hdl caller
-    match hdl.ISA with
-    | X86 -> hasNonZeroOnX86 st nth
-    | X64 -> hasNonZeroOnX64 hdl st nth
-    | _ -> false
+  /// Locally analyzes the given basic block and checks if the argument at the
+  /// given location, which the call ending the block passes, is non-zero.
+  let hasNonZero hdl caller loc =
+    CondAwareNoretAnalysisHelper.hasNonZero hdl caller loc
