@@ -384,6 +384,162 @@ checked_inner:
 The zero after each pair of tables stops any table that runs on into it, as
 address zero lies in no function.
 
+## The range check jump table fixture
+
+Three hand-written functions whose first switch checks its range with a jump
+that the two fixtures above do not use, each laid out like one of them.
+`strict` and `taken` follow `checked`, but `strict` leaves through `jae` and
+`taken` reaches its table through `jb`, the branch the check takes. `nested`
+follows the nested fixture, folding case 4 into the address of its second
+table, behind the signed checks `js` and `jge`.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_jccjmptbl` | `strict`, `taken` and `nested` each switch twice on one register, the first time behind a range check that is strict, taken, or signed |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib jcc.s -o elf_x86_jccjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  strict
+        .type   strict, @function
+strict:
+        mov     eax, DWORD PTR [esp+4]
+        lea     ecx, [eax+1]
+        cmp     ecx, 4
+        jae     .Ls_zero
+        jmp     DWORD PTR [strict_outer+ecx*4]
+.Ls_o0: mov     eax, 1
+        ret
+.Ls_o1: mov     eax, 2
+        ret
+.Ls_o2: mov     eax, 3
+        ret
+.Ls_o3: cmp     eax, 3
+        ja      .Ls_zero
+        jmp     DWORD PTR [strict_inner+eax*4]
+.Ls_i0: mov     eax, 4
+        ret
+.Ls_i1: mov     eax, 5
+        ret
+.Ls_i2: mov     eax, 6
+        ret
+.Ls_i3: mov     eax, 7
+        ret
+.Ls_zero:
+        xor     eax, eax
+        ret
+        .size   strict, .-strict
+
+        .globl  taken
+        .type   taken, @function
+taken:
+        mov     eax, DWORD PTR [esp+4]
+        lea     ecx, [eax+1]
+        cmp     ecx, 4
+        jb      .Lt_switch
+        xor     eax, eax
+        ret
+.Lt_switch:
+        jmp     DWORD PTR [taken_outer+ecx*4]
+.Lt_o0: mov     eax, 1
+        ret
+.Lt_o1: mov     eax, 2
+        ret
+.Lt_o2: mov     eax, 3
+        ret
+.Lt_o3: cmp     eax, 3
+        ja      .Lt_zero
+        jmp     DWORD PTR [taken_inner+eax*4]
+.Lt_i0: mov     eax, 4
+        ret
+.Lt_i1: mov     eax, 5
+        ret
+.Lt_i2: mov     eax, 6
+        ret
+.Lt_i3: mov     eax, 7
+        ret
+.Lt_zero:
+        xor     eax, eax
+        ret
+        .size   taken, .-taken
+
+        .globl  nested
+        .type   nested, @function
+nested:
+        mov     eax, DWORD PTR [esp+4]
+        test    eax, eax
+        js      .Ln_zero
+        cmp     eax, 11
+        jge     .Ln_zero
+        jmp     DWORD PTR [nested_outer+eax*4]
+.Ln_o0: mov     eax, 1
+        ret
+.Ln_o1: mov     eax, 2
+        ret
+.Ln_o2: mov     eax, 3
+        ret
+.Ln_o3: mov     eax, 4
+        ret
+.Ln_inner:
+        jmp     DWORD PTR [nested_inner-16+eax*4]
+.Ln_i4: mov     eax, 5
+        ret
+.Ln_i5: mov     eax, 6
+        ret
+.Ln_i6: mov     eax, 7
+        ret
+.Ln_i7: mov     eax, 8
+        ret
+.Ln_i8: mov     eax, 9
+        ret
+.Ln_i9: mov     eax, 10
+        ret
+.Ln_o10:
+        mov     eax, 11
+        ret
+.Ln_zero:
+        xor     eax, eax
+        ret
+        .size   nested, .-nested
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    strict
+        call    taken
+        call    nested
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+strict_outer:
+        .long   .Ls_o0, .Ls_o1, .Ls_o2, .Ls_o3
+strict_inner:
+        .long   .Ls_i0, .Ls_i1, .Ls_i2, .Ls_i3
+        .long   0
+taken_outer:
+        .long   .Lt_o0, .Lt_o1, .Lt_o2, .Lt_o3
+taken_inner:
+        .long   .Lt_i0, .Lt_i1, .Lt_i2, .Lt_i3
+        .long   0
+nested_outer:
+        .long   .Ln_o0, .Ln_o1, .Ln_o2, .Ln_o3
+        .long   .Ln_inner, .Ln_inner, .Ln_inner
+        .long   .Ln_inner, .Ln_inner, .Ln_inner
+        .long   .Ln_o10
+nested_inner:
+        .long   .Ln_i4, .Ln_i5, .Ln_i6, .Ln_i7, .Ln_i8, .Ln_i9
+        .long   0
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |

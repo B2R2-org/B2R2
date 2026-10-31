@@ -41,22 +41,29 @@ type private IndexOrigin =
     Root: Variable
     /// The address of the entry that the index selects when Root is zero.
     ZeroAddr: int64
-    /// The largest value of Root that the range check of the branch admits.
-    MaxRoot: int64 option }
+    /// The index itself, whose value is the number of the entry it selects.
+    Index: Expr
+    /// Tells whether the range check of the branch lets the index select the
+    /// entry at the given address.
+    Admits: int64 -> bool }
 
 /// Represents a base class for analyzing jump tables.
 type JmpTableAnalysis<'FnCtx, 'GlCtx>
   public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
-  /// Collects the conditions of the conditional jumps that end the predecessors
-  /// of the given vertex, which is where an indirect branch checks its range.
+  /// Collects the conditional jumps that end the predecessors of the given
+  /// vertex, which is where an indirect branch checks its range, each as its
+  /// condition and whether the jump reaches the vertex when that holds.
   let collectGuards stmExtractor (g: IDiGraph<_, _>) v =
     g.GetPreds v
     |> Seq.choose (fun pred ->
-      match stmExtractor pred with
-      | Jmp(InterCJmp(cond, _, _))
-      | Jmp(IntraCJmp(cond, _, _)) -> Some cond
-      | _ -> None)
+      match stmExtractor pred, g.FindEdge(pred, v).Label with
+      | Jmp(InterCJmp(cond, t, f)), InterCJmpTrueEdge when t <> f ->
+        Some(cond, true)
+      | Jmp(InterCJmp(cond, t, f)), InterCJmpFalseEdge when t <> f ->
+        Some(cond, false)
+      | _ ->
+        None)
     |> Seq.toList
 
   let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst =
@@ -364,13 +371,17 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// Finds how the index of the given table selects its entries, leaving the
   /// range check of the indirect branch to be found later.
   let findIndexOrigin findDef (jmptbl: JmpTableInfo) tblExpr =
-    tryExtractIndexExpr tblExpr
-    |> Option.bind (decomposeIndex findDef)
-    |> Option.map (fun (root, offset) ->
-      let size = int64 jmptbl.EntrySize
-      { Root = root
-        ZeroAddr = int64 jmptbl.TableAddress + offset * size
-        MaxRoot = None })
+    match tryExtractIndexExpr tblExpr with
+    | Some idx ->
+      decomposeIndex findDef idx
+      |> Option.map (fun (root, offset) ->
+        let size = int64 jmptbl.EntrySize
+        { Root = root
+          ZeroAddr = int64 jmptbl.TableAddress + offset * size
+          Index = idx
+          Admits = fun _ -> false })
+    | None ->
+      None
 
   let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt singleEntry =
     let baseAddr = extractBaseAddr findConst findDef baseExpr
@@ -466,42 +477,42 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | ConstantDomain.Const bv -> Num bv
     | _ -> e
 
-  /// Collects the bounds that the comparisons in the given expression put on
-  /// the root, following the definitions of the variables it reads up to the
-  /// given depth. Comparing the root plus c with a constant k bounds the root
-  /// by k - c.
-  let rec collectBounds findDef root depth e =
-    let collect = collectBounds findDef root depth
-    match e with
-    | RelOp(_, _, e1, Num k)
-    | RelOp(_, _, Num k, e1) ->
-      let bound =
-        match decomposeIndex findDef e1 with
-        | Some(v, c) when v = root -> [ int64 (k.ToUInt64()) - c ]
-        | _ -> []
-      bound @ collect e1
-    | RelOp(_, _, e1, e2)
-    | BinOp(_, _, e1, e2) ->
-      collect e1 @ collect e2
-    | Var v when depth > 0 ->
-      match findDef v with
-      | Some(Def(_, def)) -> collectBounds findDef root (depth - 1) def
-      | _ -> []
-    | Load(_, _, e) | UnOp(_, _, e) | Cast(_, _, e) | Extract(e, _, _) ->
-      collect e
-    | Ite(e1, _, e2, e3) ->
-      collect e1 @ collect e2 @ collect e3
-    | _ ->
-      []
+  /// Checks if the index that the origin describes selects the given entry
+  /// while its root holds the given value.
+  let selects findDef origin value (entry: uint64) =
+    let evaluate = SSAExprEvaluator.evaluate findDef origin.Root value MaxDepth
+    match evaluate origin.Index with
+    | ConstantDomain.Const n -> n.Length <= 64<rt> && n.ToUInt64() = entry
+    | _ -> false
 
-  /// Sets the largest value of the root that the given conditions, which guard
-  /// the indirect branch, admit. Of several bounds, the tightest one is taken.
-  let boundRoot findDef guards (jmptbl: JmpTableInfo, origin) =
-    let tryBound o =
-      match List.collect (collectBounds findDef o.Root MaxDepth) guards with
-      | [] -> None
-      | bounds -> Some(List.min bounds)
-    jmptbl, origin |> Option.map (fun o -> { o with MaxRoot = tryBound o })
+  /// Checks if the given guard, a condition paired with the outcome on which it
+  /// branches to the indirect jump, branches there while the root holds the
+  /// given value. A condition that does not read the root bounds nothing.
+  let takesBranch findDef root value (cond, outcome) =
+    let eval value = SSAExprEvaluator.evaluate findDef root value MaxDepth cond
+    match eval None, eval value with
+    | ConstantDomain.NotAConst, ConstantDomain.Const c -> c.IsTrue = outcome
+    | _ -> false
+
+  /// Checks if one of the given guards lets the index of the given table select
+  /// the entry at addr: the root has to hold the value with which the index
+  /// selects that entry, and with that value the guard has to branch to the
+  /// indirect jump.
+  let admits findDef guards (jmptbl: JmpTableInfo) origin addr =
+    let size = int64 jmptbl.EntrySize
+    let offset = addr - int64 jmptbl.TableAddress
+    if offset >= 0L && offset % size = 0L then
+      let value = Some((addr - origin.ZeroAddr) / size)
+      selects findDef origin value (uint64 (offset / size))
+      && List.exists (takesBranch findDef origin.Root value) guards
+    else
+      false
+
+  /// Lets the origin of the index tell which entries the range check admits,
+  /// which the given guards of the indirect branch decide.
+  let guardOrigin findDef guards (jmptbl: JmpTableInfo, origin) =
+    let guard o = { o with Admits = admits findDef guards jmptbl o }
+    jmptbl, Option.map guard origin
 
   let analyzeSymbolicallyWithIRCFG ctx state insAddr bblAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
@@ -511,7 +522,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       let findDef = findDefFromIRCFG state
       let fnAddr = ctx.FunctionAddress
       findSymbPattern expandPhiFromIRCFG findConst findDef fnAddr insAddr 0 exp
-      |> Result.map (boundRoot findDef guards)
+      |> Result.map (guardOrigin findDef guards)
     | Error e ->
       Error e
 
@@ -542,7 +553,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       let findDef = findDefFromSSACFG state
       let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
-      |> Result.map (boundRoot findDef guards)
+      |> Result.map (guardOrigin findDef guards)
     | Error e ->
       Error e
 
@@ -576,22 +587,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | None ->
       None
 
-  /// Checks if the range check of the given table, whose index the origin
-  /// describes, admits the entry at addr.
-  let isAdmitted (jmptbl: JmpTableInfo) origin addr =
-    match origin.MaxRoot with
-    | Some maxRoot ->
-      let last = origin.ZeroAddr + maxRoot * int64 jmptbl.EntrySize
-      int64 jmptbl.TableAddress <= addr && addr <= last
-    | None ->
-      false
-
   /// Computes the value that the variable indexing the given table holds when
   /// the entry at entryAddr is taken, along with the variable. The range check
   /// of the table must admit both that entry and the one at addr.
   let tryComputeIndexValue ctx analyze (jmptbl: JmpTableInfo) entryAddr addr =
     match tryFindIndexOrigin ctx analyze jmptbl with
-    | Some o when isAdmitted jmptbl o entryAddr && isAdmitted jmptbl o addr ->
+    | Some o when o.Admits entryAddr && o.Admits addr ->
       Some(o.Root, (entryAddr - o.ZeroAddr) / int64 jmptbl.EntrySize)
     | _ ->
       None

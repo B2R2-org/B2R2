@@ -235,6 +235,42 @@ type BinaryBrewTests() =
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
 
   [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew bounds a jump table by a strict range check``() =
+    (* strict leaves its first switch through jae when its index reaches 4, so
+       the index takes 0 to 3 alone, and the second table, right after the
+       first, holds none of its entries. *)
+    let fn = (recoverFunctions "elf_x86_jccjmptbl")[0x4011a8UL]
+    let outer = [ 0x4011bbUL; 0x4011c1UL; 0x4011c7UL; 0x4011cdUL ]
+    let inner = [ 0x4011d9UL; 0x4011dfUL; 0x4011e5UL; 0x4011ebUL ]
+    let expected = [ 0x400118UL, 4, outer; 0x400128UL, 4, inner ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew bounds a jump table by the branch its check takes``() =
+    (* taken reaches its first switch through jb, the branch its range check
+       takes, so it is that branch that bounds the index to 0 to 3. *)
+    let fn = (recoverFunctions "elf_x86_jccjmptbl")[0x4011f4UL]
+    let outer = [ 0x40120aUL; 0x401210UL; 0x401216UL; 0x40121cUL ]
+    let inner = [ 0x401228UL; 0x40122eUL; 0x401234UL; 0x40123aUL ]
+    let expected = [ 0x40013cUL, 4, outer; 0x40014cUL, 4, inner ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  member _.``BinaryBrew bounds a jump table by a signed range check``() =
+    (* nested checks its index with js and jge, signed comparisons, before it
+       switches twice on it, folding case 4 into its second table address as
+       the nested fixture does. *)
+    let fn = (recoverFunctions "elf_x86_jccjmptbl")[0x401243UL]
+    let outer =
+      [ 0x401257UL; 0x40125dUL; 0x401263UL; 0x401269UL; 0x40126fUL; 0x40129aUL ]
+    let inner =
+      [ 0x401276UL; 0x40127cUL; 0x401282UL; 0x401288UL; 0x40128eUL; 0x401294UL ]
+    let expected = [ 0x400160UL, 11, outer; 0x40018cUL, 6, inner ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
   member _.``BinaryBrew recovers functions while the thread pool is stuck``() =
     (* The workers block on replies from the manager, so if handing over a
        request or a reply ever waited for a pool thread, a pool that stops
