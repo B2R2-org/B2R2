@@ -69,6 +69,19 @@ type BinaryBrewTests() =
   let casesFrom (start: Addr) size count =
     [ for i in 0 .. count - 1 -> start + uint64 (size * i) ]
 
+  /// Tells what the given function makes of the callee of its call at
+  /// callAddr: whether the callee returns, how many bytes it pops on return,
+  /// and whether the call returns to the code after it.
+  let summarizeCall (fn: Function) callAddr =
+    let callee =
+      fn.CFG.FindVertexBy(fun v ->
+        v.VData.Internals.IsAbstract
+        && v.VData.Internals.PPoint.CallSite = Some(LeafCallSite callAddr))
+    let summary = callee.VData.Internals.AbstractContent
+    let returns =
+      fn.CFG.GetSuccEdges callee |> Array.exists (fun e -> e.Label = RetEdge)
+    summary.ReturningStatus, summary.UnwindingBytes, returns
+
   /// Wraps the default strategy, letting a test take over how it orders and
   /// handles each action and how it makes and resets its contexts.
   let wrapStrategyWith judge onAction (contexts: IContextProvidable<_, _>) =
@@ -304,6 +317,58 @@ type BinaryBrewTests() =
       [ 0x40125aUL; 0x40129dUL; 0x4012e4UL; 0x40132bUL ]
       |> List.collect (fun addr -> jumpTablesOf fns[addr])
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew ends an indirect call its next code has unwound``() =
+    (* joined pushes two words for the callee of its indirect call, but the
+       call frame information says the code after the call runs with them
+       gone, which no callee popping its arguments explains: the call never
+       returns, and that code is where the branch around it lands. *)
+    let fn = (recoverFunctions "elf_x86_indcall")[0x4011d4UL]
+    let expected = NoRet, 0, false
+    let actual = summarizeCall fn 0x4011e2UL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew pops nothing the frame keeps on an indirect call``() =
+    (* unpopped passes a pointer into its frame last and drops one word less
+       than it pushed right after the call, the way an sret call goes, yet the
+       call frame information says the callee pops nothing. *)
+    let fn = (recoverFunctions "elf_x86_indcall")[0x4011f2UL]
+    let expected = NotNoRet, 0, true
+    let actual = summarizeCall fn 0x4011fdUL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew pops the word the frame drops on an indirect call``() =
+    (* popped passes no pointer into its frame, unlike an sret call, but the
+       call frame information says the code after the call runs with the word
+       it pushed gone, which only a callee popping it explains. *)
+    let fn = (recoverFunctions "elf_x86_indcall")[0x4011e7UL]
+    let expected = NotNoRet, 4, true
+    let actual = summarizeCall fn 0x4011efUL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew looks past padding for the code after a call``() =
+    (* padded is joined with nops after its indirect call, as GCC aligns the
+       code after a call that never returns. The nops run at whatever depth the
+       call left, so it is the code after them that tells. *)
+    let fn = (recoverFunctions "elf_x86_indcall")[0x401206UL]
+    let expected = NoRet, 0, false
+    let actual = summarizeCall fn 0x401214UL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew ends an indirect call that ends its frame``() =
+    (* last pushes nothing for the callee of its indirect call, so _start,
+       which follows it, runs as deep in its own frame as the call does in the
+       frame of last. But the call is where that frame ends, so there is no
+       code of its function for the call to return to. *)
+    let fn = (recoverFunctions "elf_x86_indcall")[0x401223UL]
+    let expected = NoRet, 0, false
+    let actual = summarizeCall fn 0x401227UL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
 
   [<TestMethod>]
   member _.``BinaryBrew recovers functions while the thread pool is stuck``() =

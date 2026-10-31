@@ -741,6 +741,85 @@ module internal CFGRecoveryCommon =
       | UnknownNoRet ->
         Terminator.impossible ()
 
+  let rec skipNops (instrs: IInstruction list) addr =
+    match instrs with
+    | ins :: rest when ins.IsNop -> skipNops rest (addr + uint64 ins.Length)
+    | _ -> addr
+
+  /// Finds the first instruction from the given address on that is not a nop,
+  /// skipping the padding that a compiler may put after a call.
+  let skipPadding (ctx: CFGBuildingContext<_, _>) addr =
+    match ctx.BBLFactory.PeekBBL addr with
+    | Ok instrs
+    | Error instrs -> skipNops instrs addr
+
+  /// Finds how deep in its frame the code at the given address runs, which is
+  /// how far its canonical frame address lies above the stack pointer.
+  let tryFindFrameDepth (hdl: BinHandle) (elf: BinFile.ELFBinFile) addr =
+    match elf.TryFindCFARegOffset addr with
+    | Some(rid, offset) when hdl.RegisterFactory.IsStackPointer rid ->
+      Some offset
+    | _ ->
+      None
+
+  /// Judges whether a call returns, given how many bytes shallower in the
+  /// frame the code after it runs than the call itself.
+  let judgeByPoppedBytes (hdl: BinHandle) popped =
+    if popped = 0 || popped = WordSize.toByteWidth hdl.ISA.WordSize then
+      NotNoRet, popped
+    else
+      NoRet, 0
+
+  /// Judges whether the call at callAddr returns, comparing how deep in their
+  /// frame it and the code at nextAddr run.
+  let judgeByFrameDepth hdl elf callAddr nextAddr =
+    let callDepth = tryFindFrameDepth hdl elf callAddr
+    match callDepth, tryFindFrameDepth hdl elf nextAddr with
+    | Some c, Some n -> Some(judgeByPoppedBytes hdl (c - n))
+    | _ -> None
+
+  /// Judges from the call frame information whether the given indirect call
+  /// returns, along with how many bytes its callee pops when it does. The code
+  /// after a call that returns, past any padding, lies in the frame of the
+  /// call and runs as deep in it as the call, less what the callee pops, which
+  /// is a word at most: a hidden sret pointer. Code anywhere else is not where
+  /// the call returns to, so the call never does. Returns None when the
+  /// information does not tell.
+  let tryJudgeReturnByCFA (ctx: CFGBuildingContext<_, _>) (ins: IInstruction) =
+    let hdl = ctx.BinHandle
+    match hdl.File with
+    | :? BinFile.ELFBinFile as elf ->
+      let nextAddr = skipPadding ctx (ins.Address + uint64 ins.Length)
+      match elf.TryFindFDERange ins.Address with
+      | Some frame when frame.IsIncluding nextAddr ->
+        judgeByFrameDepth hdl elf ins.Address nextAddr
+      | Some _ ->
+        Some(NoRet, 0)
+      | None ->
+        None
+    | _ ->
+      None
+
+  /// Computes how many bytes the callee of the given indirect call pops on
+  /// return, which is a word when the call passes a hidden sret pointer.
+  let computeSRetUnwinding ctx (sretAnalysis: ISRetAnalyzable<_, _>) caller =
+    if sretAnalysis.IsSRetCall(ctx, caller) then
+      WordSize.toByteWidth ctx.BinHandle.ISA.WordSize
+    else
+      0
+
+  /// Copies the given summary, saying that its function has the given
+  /// non-returning status.
+  let withReturningStatus status (abs: FunctionSummary<_>) =
+    FunctionSummary(abs.EntryPoint,
+                    abs.UnwindingBytes,
+                    abs.Rundown,
+                    abs.IsExternal,
+                    status)
+
+  /// Computes the summary of the callee of the given indirect call, which the
+  /// call frame information decides when it tells, and the sret analysis
+  /// otherwise.
   let computeIndirectCalleeAbstraction
      ctx
      (sretAnalysis: ISRetAnalyzable<_, _>)
@@ -748,12 +827,19 @@ module internal CFGRecoveryCommon =
      (caller: IVertex<LowUIRBasicBlock>) =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     let callIns = caller.VData.Internals.LastInstruction
-    let unwindingBytes =
-      if sretAnalysis.IsSRetCall(ctx, caller) then
-        WordSize.toByteWidth hdl.ISA.WordSize
-      else
-        0
+    let status, unwindingBytes =
+      tryJudgeReturnByCFA ctx callIns
+      |> Option.defaultWith (fun () ->
+        NotNoRet, computeSRetUnwinding ctx sretAnalysis caller)
     summarizer.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes)
+    |> withReturningStatus status
+
+  /// Connects the given indirect callee back to the code at retAddr, unless
+  /// the callee never returns.
+  let connectIndirectRet ctx cfgRec (absV: IVertex<LowUIRBasicBlock>) retAddr =
+    match absV.VData.Internals.AbstractContent.ReturningStatus with
+    | NoRet -> Ok()
+    | _ -> connectRet ctx cfgRec (absV, retAddr)
 
   let connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr =
     let caller = (ctx: CFGBuildingContext<_, _>).CallerVertices[callsiteAddr]
@@ -765,7 +851,7 @@ module internal CFGRecoveryCommon =
       computeIndirectCalleeAbstraction ctx sretAnalysis summarizer caller
     let absV = getAbsVertex ctx cfgRec callSite None abs
     connectEdge ctx cfgRec caller absV CallEdge
-    connectRet ctx cfgRec (absV, callSiteAddr + uint64 callIns.Length)
+    connectIndirectRet ctx cfgRec absV (callSiteAddr + uint64 callIns.Length)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec callIns.Address)
     |> toCFGResult
 
