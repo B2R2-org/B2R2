@@ -76,6 +76,12 @@ type FunctionCollection<'FnCtx, 'GlCtx
   /// Find a function by its address.
   member _.Find(addr: Addr) = findByAddr addr
 
+  /// Try to find a function by its address.
+  member _.TryFind(addr: Addr) =
+    match addrToFunction.TryGetValue addr with
+    | true, fn -> Some fn
+    | _ -> None
+
   /// Find a function by its name. If there are multiple functions with the same
   /// name, this function returns all of them.
   member _.Find(name: string) =
