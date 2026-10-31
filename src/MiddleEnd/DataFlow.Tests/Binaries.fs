@@ -631,3 +631,32 @@ let private code8 =
      0xC3uy |]
 
 let sample8 = Binary(code8, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 9: A function in which the blocks at 0x4 and 0x8 both clear ECX
+  before they join at 0xa, which reads it.
+
+  00000000: 85 C0              test        eax,eax
+  00000002: 74 04              je          00000008
+  00000004: 31 C9              xor         ecx,ecx
+  00000006: EB 02              jmp         0000000A
+  00000008: 31 C9              xor         ecx,ecx
+  0000000A: 89 C8              mov         eax,ecx
+  0000000C: C3                 ret
+*)
+let private code9 =
+  [| 0x85uy
+     0xC0uy
+     0x74uy
+     0x04uy
+     0x31uy
+     0xC9uy
+     0xEBuy
+     0x02uy
+     0x31uy
+     0xC9uy
+     0x89uy
+     0xC8uy
+     0xC3uy |]
+
+let sample9 = Binary(code9, Architecture.Intel, WordSize.Bit32)

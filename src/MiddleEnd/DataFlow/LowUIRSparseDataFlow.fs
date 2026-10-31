@@ -1000,7 +1000,10 @@ module internal AnalysisCore = begin
   let calculateChains g state dom =
     let visited = HashSet<IVertex<LowUIRBasicBlock>>()
     placePhis g state dom
-    for root in g.Roots do incrementalUpdate g state visited dom root
+    (* A vertex that two roots of the graph share has no dominator, so the
+       walk starts from it as well. *)
+    for root in dom.DominatorTree.Roots do
+      incrementalUpdate g state visited dom root
     updatePhis g state visited
 
   let isStackRelatedRegister (hdl: BinHandle) rid =

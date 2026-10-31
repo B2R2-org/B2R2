@@ -346,6 +346,19 @@ type DataFlowTests() =
 #endif
 
   [<TestMethod>]
+  member _.``Constant Propagation Test 3``() =
+    let brew = Binaries.loadOne Binaries.sample9
+    let cfg = brew.Functions[0UL].CFG
+    (* Gap analysis makes 0x8 a root as well, after which no root dominates
+       0xa alone. Both of its predecessors still clear ECX before it. *)
+    let v8 = cfg.FindVertexBy(fun v -> v.VData.Internals.PPoint.Address = 0x8UL)
+    cfg.AddRoot v8
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let out = state.GetAbsValue(irReg 0xaUL 1 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0u 32<rt>, out)
+
+  [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
