@@ -61,10 +61,11 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Some(Jmp(InterCJmp(cond, t, f))) when t <> f -> Some cond
     | _ -> None
 
-  /// Collects the guards on the edges into the given vertex, each with a
-  /// function that tells what a variable stands for along the edge of the
-  /// guard: the operand from that edge, as tryGetPhiOperand finds it, if a phi
-  /// of the vertex defines the variable, or else the variable itself.
+  /// Collects the guards on the edges into the given vertex, one per edge, or
+  /// None for an edge without one, each with a function that tells what a
+  /// variable stands for along the edge: the operand from that edge, as
+  /// tryGetPhiOperand finds it, if a phi of the vertex defines the variable,
+  /// or else the variable itself.
   let collectGuards stmExtractor tryGetPhiOperand g v =
     Guard.collect (tryGetCondition stmExtractor) g v
     |> List.map (fun (pred, guard) ->
@@ -544,16 +545,21 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     else
       None
 
-  /// Checks if one of the given guards, each paired with what the root stands
-  /// for along its edge, lets the index of the given table select the entry at
-  /// addr: the root has to hold the value with which the index selects that
-  /// entry, and with that value the guard has to branch to the indirect jump.
+  /// Checks if the given guards, one per edge into the indirect jump or None
+  /// for an edge without one, each paired with what the root stands for along
+  /// its edge, let the index of the given table select the entry at addr: the
+  /// root has to hold the value with which the index selects that entry, and
+  /// with that value one of the guards has to branch to the indirect jump. An
+  /// edge whose guard cannot tell lets the index in unchecked, and then there
+  /// is no range check to admit the entry.
   let admits findDef guards jmptbl origin addr =
     match tryComputeRootValue findDef jmptbl origin addr with
     | Some _ as value ->
-      guards
-      |> List.exists (fun (root, guard) ->
-        tryTakeBranch findDef root value guard = Some true)
+      let branches =
+        guards
+        |> List.map (fun (root, guard) ->
+          guard |> Option.bind (tryTakeBranch findDef root value))
+      List.forall Option.isSome branches && List.contains (Some true) branches
     | None ->
       false
 

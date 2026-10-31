@@ -46,12 +46,11 @@ module internal Guard =
     | _ ->
       None
 
-  /// Collects the guards on the edges into the given vertex, each paired with
-  /// the source of its edge.
+  /// Collects the edges into the given vertex, each as its source paired with
+  /// its guard, if it has one.
   let collect tryGetCondition (g: IDiGraph<_, _>) v =
     g.GetPreds v
-    |> Seq.choose (fun pred ->
-      tryGet tryGetCondition g pred v |> Option.map (fun guard -> pred, guard))
+    |> Seq.map (fun pred -> pred, tryGet tryGetCondition g pred v)
     |> Seq.toList
 
   /// Collects the guards that every path to the given vertex passes: those on

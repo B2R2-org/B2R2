@@ -617,6 +617,87 @@ dup_inner:
         .long   0
 ```
 
+## The bypassed jump table fixture
+
+Two hand-written functions whose switch has no range check, though one of the
+two ways into it checks the index: for zero, as GCC does when it compares the
+index with the one of the previous iteration. The other way in leaves the
+index unchecked, so nothing bounds the table.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_bypassjmptbl` | `other` reaches its switch through a check of the index and through one of the second argument; `skip` reaches it through a check of the index and by falling through with an index from the second argument |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib bypass.s -o elf_x86_bypassjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  other
+        .type   other, @function
+other:
+        mov     eax, DWORD PTR [esp+4]
+        test    eax, eax
+        je      .Lo_switch
+        cmp     DWORD PTR [esp+8], 0
+        jne     .Lo_switch
+        xor     eax, eax
+        ret
+.Lo_switch:
+        jmp     DWORD PTR [other_table+eax*4]
+.Lo_c0: mov     eax, 1
+        ret
+.Lo_c1: mov     eax, 2
+        ret
+.Lo_c2: mov     eax, 3
+        ret
+.Lo_c3: mov     eax, 4
+        ret
+        .size   other, .-other
+
+        .globl  skip
+        .type   skip, @function
+skip:
+        mov     eax, DWORD PTR [esp+4]
+        test    eax, eax
+        je      .Ls_switch
+        mov     eax, DWORD PTR [esp+8]
+.Ls_switch:
+        jmp     DWORD PTR [skip_table+eax*4]
+.Ls_c0: mov     eax, 1
+        ret
+.Ls_c1: mov     eax, 2
+        ret
+.Ls_c2: mov     eax, 3
+        ret
+.Ls_c3: mov     eax, 4
+        ret
+        .size   skip, .-skip
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    other
+        call    skip
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+other_table:
+        .long   .Lo_c0, .Lo_c1, .Lo_c2, .Lo_c3
+        .long   0
+skip_table:
+        .long   .Ls_c0, .Ls_c1, .Ls_c2, .Ls_c3
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional

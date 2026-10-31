@@ -323,6 +323,25 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew bounds no jump table an unrelated check reaches``() =
+    (* One way into the switch of other checks the index for zero, but the
+       other checks the second argument, which leaves the index unbounded. *)
+    let fn = (recoverFunctions "elf_x86_bypassjmptbl")[0x401140UL]
+    let jmptbl = Array.exactlyOne fn.JumpTables
+    Assert.AreEqual<int option>(None, jmptbl.OwnRangeEntries)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew bounds no jump table an unchecked edge reaches``() =
+    (* One way into the switch of skip checks the index for zero, but the
+       other falls through to it with an index read from the second argument,
+       which nothing checks. *)
+    let fn = (recoverFunctions "elf_x86_bypassjmptbl")[0x401171UL]
+    let jmptbl = Array.exactlyOne fn.JumpTables
+    Assert.AreEqual<int option>(None, jmptbl.OwnRangeEntries)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew starts a folded jump table after one of its own``() =
     (* samefn checks the range of its second switch by a conditional jump
        before a call, so the address of the table has case 4 folded in. That
