@@ -105,6 +105,25 @@ type SSALifterTests() =
     Assert.AreEqual<int>(0, elsewhere |> Array.sumBy snd)
 
   [<TestMethod>]
+  member _.``Lift places a phi for a variable only a jump reads``() =
+    (* Both arms set the register that the join jumps to, so the jump reads a
+       phi of the two rather than the register the function started with. *)
+    let lifter = SSALifterFactory.Create jumpHdl
+    let ssaCFG = (lifter.Lift(buildJumpDiamondCFG Mutable)).Graph
+    let stmts = (vertexAt ssaCFG jumpJoinAddr).VData.Internals.Statements
+    let phiDefs =
+      stmts
+      |> Array.choose (fun (_, stmt) ->
+        match stmt with
+        | Phi(def, _) -> Some def
+        | _ -> None)
+    match Array.last stmts with
+    | _, Jmp(InterJmp(Var target)) ->
+      CollectionAssert.Contains(phiDefs, target)
+    | _, stmt ->
+      Assert.Fail $"Unexpected terminator: {stmt}"
+
+  [<TestMethod>]
   [<DynamicData(nameof SSALifterTests.GraphTypes)>]
   member _.``Lift leaves no variable unrenamed``(t) =
     (* A variable the lifter never reached keeps the -1 identifier it is born

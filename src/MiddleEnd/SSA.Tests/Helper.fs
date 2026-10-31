@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Provides the sample binary every SSA test lifts, along with the readers a
+/// Provides the sample binaries the SSA tests lift, along with the readers a
 /// test needs to state what it expects of the lifted graph.
 [<AutoOpen>]
 module Helper =
@@ -58,24 +58,40 @@ module Helper =
   /// The address of the block the two arms of the diamond join into.
   let joinAddr = 0x1dUL
 
+  /// A raw x86-64 snippet shaped as the same diamond, whose join jumps to the
+  /// register that both arms set. The jump is the only read of the register,
+  /// so the lifter has to place a phi for a variable that only a jump reads.
+  ///
+  /// 00: 85 ff           test edi, edi
+  /// 02: 74 07           je   0x0b
+  /// 04: b9 01 00 00 00  mov  ecx, 1
+  /// 09: eb 02           jmp  0x0d
+  /// 0b: 89 f9           mov  ecx, edi
+  /// 0d: ff e1           jmp  rcx
+  let jumpBinary = ByteArray.ofHexString "85ff7407b901000000eb0289f9ffe1"
+
+  /// The address of the block the two arms of the jumping diamond join into.
+  let jumpJoinAddr = 0x0dUL
+
   let isa = ISA(Architecture.Intel, WordSize.Bit64)
 
   let hdl = BinHandle.LoadRawImage(binary, isa)
 
-  let private instrs =
-    InstructionCollection(LinearSweepInstructionCollector hdl)
+  let jumpHdl = BinHandle.LoadRawImage(jumpBinary, isa)
 
-  /// Builds the LowUIR CFG of the sample binary. The blocks are scanned from
-  /// the entry point, so the diamond comes out of the scan whole, and the
-  /// edges are then spelled out here rather than recovered, which keeps a test
-  /// of the lifter from turning into a test of CFG recovery.
-  let buildDiamondCFG t =
+  /// Builds the LowUIR CFG of the diamond of the given binary, whose arms and
+  /// join start at the given addresses. The blocks are scanned from the entry
+  /// point, so the diamond comes out of the scan whole, and the edges are then
+  /// spelled out here rather than recovered, which keeps a test of the lifter
+  /// from turning into a test of CFG recovery.
+  let private buildCFG hdl (thenAddr, elseAddr, joinAddr) t =
+    let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
     let bblFactory = BBLFactory(hdl, instrs)
     bblFactory.ScanBBLs [| 0x00UL |] |> ignore
     let cfg = LowUIRCFG.create t
     let entry = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x00UL, 0)))
-    let thenV = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x0dUL, 0)))
-    let elseV = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x16UL, 0)))
+    let thenV = cfg.AddVertex(bblFactory.Find(ProgramPoint(thenAddr, 0)))
+    let elseV = cfg.AddVertex(bblFactory.Find(ProgramPoint(elseAddr, 0)))
     let joinV = cfg.AddVertex(bblFactory.Find(ProgramPoint(joinAddr, 0)))
     cfg.AddEdge(entry, thenV, InterCJmpFalseEdge)
     cfg.AddEdge(entry, elseV, InterCJmpTrueEdge)
@@ -83,6 +99,12 @@ module Helper =
     cfg.AddEdge(elseV, joinV, FallThroughEdge)
     cfg.SetRoots [ entry ]
     cfg
+
+  /// Builds the LowUIR CFG of the sample binary.
+  let buildDiamondCFG t = buildCFG hdl (0x0dUL, 0x16UL, joinAddr) t
+
+  /// Builds the LowUIR CFG of the jumping sample binary.
+  let buildJumpDiamondCFG t = buildCFG jumpHdl (0x04UL, 0x0bUL, jumpJoinAddr) t
 
   /// Returns every statement of the given SSA graph.
   let statementsOf (g: SSACFG) =

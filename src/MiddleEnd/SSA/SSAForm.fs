@@ -74,6 +74,18 @@ module internal SSAForm =
     | Extract(e, _, _) ->
       updateGlobals globals varKill e
 
+  let updateGlobalsOfJmp globals varKill = function
+    | IntraJmp _ ->
+      ()
+    | IntraCJmp(cond, _, _) ->
+      updateGlobals globals varKill cond
+    | InterJmp target ->
+      updateGlobals globals varKill target
+    | InterCJmp(cond, target1, target2) ->
+      updateGlobals globals varKill cond
+      updateGlobals globals varKill target1
+      updateGlobals globals varKill target2
+
   let findDefVars ssaCFG (defSites: DefSites) =
     let ssaCFG = ssaCFG :> IDiGraph<SSABasicBlock, _>
     let globals = HashSet()
@@ -88,6 +100,8 @@ module internal SSAForm =
           match defSites.TryGetValue k with
           | true, sites -> sites.Add v |> ignore
           | false, _ -> defSites[k] <- HashSet [v]
+        | Jmp jmpTy ->
+          updateGlobalsOfJmp globals varKill jmpTy
         | _ ->
           ()
     globals
