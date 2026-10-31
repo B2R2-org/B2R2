@@ -37,3 +37,12 @@ type IJmpTableAnalyzable<'FnCtx, 'GlCtx> =
      * insAddr: Addr
      * blkAddr: Addr
     -> Result<JmpTableInfo, ErrorCase>
+
+  /// Checks if the indirect branch of the given table selects the entry at the
+  /// given address first: the conditional jumps that every path to the branch
+  /// passes admit that entry but not the one before it.
+  abstract ConfirmStart:
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * jmptbl: JmpTableInfo
+     * addr: Addr
+    -> bool

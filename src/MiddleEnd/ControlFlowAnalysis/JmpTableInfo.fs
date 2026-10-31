@@ -47,6 +47,10 @@ type JmpTableInfo =
     /// without any index computation (e.g., jmp qword ptr [constant_address]).
     /// If so, we do not expand the entries during jump table analysis.
     IsSingleEntry: bool
+    /// The number of entries, from the first, that the range check right before
+    /// the indirect branch admits, or None if no such check bounds the table
+    /// from its first entry.
+    OwnRangeEntries: int option
     /// Indicates whether the jump table is accessed via a function pointer
     /// table.
     mutable IsFunctionPointerTable: bool }

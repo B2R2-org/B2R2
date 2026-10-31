@@ -64,6 +64,11 @@ type BinaryBrewTests() =
       jmptbl.TableAddress, jmptbl.NumEntries, jumpTargets fn jmptbl)
     |> Array.toList
 
+  /// Lists the addresses of the given number of cases that follow one another
+  /// from start, each taking the given number of bytes.
+  let casesFrom (start: Addr) size count =
+    [ for i in 0 .. count - 1 -> start + uint64 (size * i) ]
+
   /// Wraps the default strategy, letting a test take over how it orders and
   /// handles each action and how it makes and resets its contexts.
   let wrapStrategyWith judge onAction (contexts: IContextProvidable<_, _>) =
@@ -269,6 +274,36 @@ type BinaryBrewTests() =
       [ 0x401276UL; 0x40127cUL; 0x401282UL; 0x401288UL; 0x40128eUL; 0x401294UL ]
     let expected = [ 0x400160UL, 11, outer; 0x40018cUL, 6, inner ]
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew starts a folded jump table after one of its own``() =
+    (* samefn checks the range of its second switch by a conditional jump
+       before a call, so the address of the table has case 4 folded in. That
+       address lies four entries into the table of its first switch. *)
+    let fn = (recoverFunctions "elf_x86_foldjmptbl")[0x4011cdUL]
+    let first = casesFrom 0x4011e2UL 7 8
+    let second = casesFrom 0x40122cUL 7 6
+    let expected = [ 0x400118UL, 8, first; 0x400138UL, 6, second ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew starts a folded jump table after one of another``() =
+    (* nfn and nfn2 switch like the second switch of samefn, but their folded
+       addresses lie in the tables of tfn and tfn2. tfn precedes nfn in the
+       code and tfn2 follows nfn2, so either one may register its table first;
+       when nfn2 goes first, its folded entry 0 points into tfn2. *)
+    let fns = recoverFunctions "elf_x86_foldjmptbl"
+    let expected =
+      [ 0x400154UL, 8, casesFrom 0x40126aUL 6 8
+        0x400174UL, 6, casesFrom 0x4012b6UL 7 6
+        0x4001b0UL, 6, casesFrom 0x4012fdUL 7 6
+        0x400190UL, 8, casesFrom 0x40133bUL 6 8 ]
+    let actual =
+      [ 0x40125aUL; 0x40129dUL; 0x4012e4UL; 0x40132bUL ]
+      |> List.collect (fun addr -> jumpTablesOf fns[addr])
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
 
   [<TestMethod>]
   member _.``BinaryBrew recovers functions while the thread pool is stuck``() =

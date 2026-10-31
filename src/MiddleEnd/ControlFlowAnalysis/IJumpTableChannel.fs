@@ -73,3 +73,7 @@ and JumpTableRecoveryDecision =
   /// Stop the recovery process since this is a fatal error that we cannot
   /// handle.
   | StopRecoveryAndContinue
+  /// Do not recover the table from where its code computes it to start, since
+  /// that address lies within the entries of another table, which end at the
+  /// given address: the table may start there instead.
+  | Overlapping of tableEnd: Addr

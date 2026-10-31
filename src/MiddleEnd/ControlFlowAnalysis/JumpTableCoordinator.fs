@@ -40,6 +40,35 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
   /// Functions that have recovered a jump table at least once.
   let hostFunctions = HashSet<Addr>()
 
+  /// Restarts the functions that recover the given phantom tables, which start
+  /// within the entries of the table that the given function has registered.
+  /// The given function reloads instead if it is one of them.
+  let restartPhantomHosts fnAddr phantoms =
+    let hosts = HashSet<Addr>()
+    for note in phantoms do
+#if CFGDEBUG
+      dbglog ManagerTid "JumpTable phantom"
+      <| notes.GetNoteString note.StartingPoint
+#endif
+      hosts.Add note.HostFunctionAddr |> ignore
+      hosts.UnionWith note.WaitingFunctions
+    for host in hosts do
+      if host <> fnAddr then restartIfNotInProgress builders[host] else ()
+    if hosts.Contains fnAddr then StopRecoveryButReload else GoRecovery
+
+  /// Decides what the given function does after registering its table.
+  let proceedAfterRegistration fnAddr (jmptbl: JmpTableInfo) result =
+#if CFGDEBUG
+    dbglog ManagerTid "JumpTable registered"
+    <| notes.GetNoteString jmptbl.TableAddress
+#endif
+    match result with
+    | RegisteredOverPhantoms phantoms ->
+      restartPhantomHosts fnAddr phantoms
+    | _ ->
+      assert (result = RegistrationSucceeded)
+      GoRecovery
+
   let transferOwnership fnAddr oldFnAddr (jmptbl: JmpTableInfo) =
 #if CFGDEBUG
     dbglog ManagerTid "JumpTable shared"
@@ -48,11 +77,10 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
     let waitingFunctions = notes.Unregister(jmptbl.TableAddress, oldFnAddr)
     restartIfNotInProgress builders[oldFnAddr]
     let result = notes.Register(fnAddr, jmptbl)
-    assert (result = RegistrationSucceeded)
     notes.AddWaitingFunction(jmptbl.TableAddress, oldFnAddr)
     for waitingFnAddr in waitingFunctions do
       notes.AddWaitingFunction(jmptbl.TableAddress, waitingFnAddr)
-    GoRecovery
+    proceedAfterRegistration fnAddr jmptbl result
 
   let shareByFunctions fnAddr oldFnAddr (jmptbl: JmpTableInfo) =
 #if CFGDEBUG
@@ -115,9 +143,7 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" $"overlap resolved and continue"
 #endif
-      let result = notes.Register(fnAddr, jmptbl)
-      assert (result = RegistrationSucceeded)
-      GoRecovery
+      notes.Register(fnAddr, jmptbl) |> proceedAfterRegistration fnAddr jmptbl
     else
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable rollback"
@@ -129,20 +155,37 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
         ()
       StopRecoveryButReload
 
-  let register fnAddr jmptbl =
+  let registerNote fnAddr jmptbl =
     match notes.Register(fnAddr, jmptbl) with
-    | RegistrationSucceeded ->
-#if CFGDEBUG
-      dbglog ManagerTid "JumpTable registered"
-      <| notes.GetNoteString jmptbl.TableAddress
-#endif
-      GoRecovery
+    | RegistrationSucceeded
+    | RegisteredOverPhantoms _ as result ->
+      proceedAfterRegistration fnAddr jmptbl result
     | SharedByFunctions oldFnAddr ->
       shareByFunctions fnAddr oldFnAddr jmptbl
     | SharedByInstructions ->
       shareByInstructions fnAddr jmptbl
     | OverlappingNote oldNote ->
       resolveOverlap fnAddr jmptbl oldNote
+    | PhantomStart ->
+#if CFGDEBUG
+      dbglog ManagerTid "JumpTable phantom"
+      <| $"{jmptbl.InsAddr:x}:{jmptbl.TableAddress:x} ignored"
+#endif
+      StopRecoveryAndContinue
+
+  /// Registers the given table, unless it starts within the entries that the
+  /// range check of another table admits, in which case its function learns
+  /// where those entries end.
+  let register fnAddr (jmptbl: JmpTableInfo) =
+    match notes.TryFindHeldEnd jmptbl with
+    | Some tableEnd ->
+#if CFGDEBUG
+      dbglog ManagerTid "JumpTable overlap"
+      <| $"{jmptbl.InsAddr:x}:{jmptbl.TableAddress:x} lies before {tableEnd:x}"
+#endif
+      Overlapping tableEnd
+    | None ->
+      registerNote fnAddr jmptbl
 
   let markBogus fnAddr tblAddr idx =
     let currentIdx = notes.GetPotentialEndPointIndex tblAddr
@@ -207,18 +250,26 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
       ch.Reply <| confirm fnAddr tblAddr idx nextTarget isFPTab
 
   /// Rolls back the jump table entry that the builder was recovering, if any,
-  /// by shrinking the table to the entries before it. Returns true if there
-  /// was such an entry.
+  /// by shrinking the table to the entries before it, or by marking the table
+  /// as a phantom if the entry was its first. Returns true if there was such
+  /// an entry.
   member _.Rollback(builder: ICFGBuildable<'FnCtx, 'GlCtx>) =
     match builder.Context.JumpTableRecoveryStatus.TryPeek() with
     | false, _ ->
       false
+    | true, (tblAddr, 0) ->
+#if CFGDEBUG
+      dbglog ManagerTid "Rollback for jump table"
+      <| $"{tblAddr:x}[0] @ {builder.EntryPoint:x} is a phantom"
+#endif
+      (* No entry is left, so no table starts there. *)
+      notes.MarkPhantom tblAddr
+      true
     | true, (tblAddr, idx) ->
 #if CFGDEBUG
       dbglog ManagerTid "Rollback for jump table"
       <| $"{tblAddr:x}[{idx}] @ {builder.EntryPoint:x}"
 #endif
-      assert (idx > 0)
       notes.SetPotentialEndPointByIndex(tblAddr, idx - 1)
       true
 

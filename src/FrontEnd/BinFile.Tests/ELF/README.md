@@ -540,6 +540,247 @@ nested_inner:
         .long   0
 ```
 
+## The folded jump table fixture
+
+Hand-written functions that switch on a register whose range a conditional
+jump has already checked, calling a function in between, through a table whose
+address has case 4 folded in, as GCC does. The computed address therefore lies
+four entries before the table, within the table that precedes it: one of the
+same function in `samefn`, and one of another function in `nfn` and `nfn2`,
+which follow and precede the owner of that table, `tfn` and `tfn2`.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_foldjmptbl` | `samefn`, `nfn` and `nfn2` each jump through a table whose computed address lies in the last four entries of the table before it, of their own function or of another one |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib fold.s -o elf_x86_foldjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  helper
+        .type   helper, @function
+helper:
+        ret
+        .size   helper, .-helper
+
+        .globl  samefn
+        .type   samefn, @function
+samefn:
+        push    esi
+        mov     esi, DWORD PTR [esp+8]
+        mov     eax, DWORD PTR [esp+12]
+        cmp     eax, 7
+        ja      .Ls_check
+        jmp     DWORD PTR [same_a+eax*4]
+.Ls_a0: mov     ecx, 1
+        jmp     .Ls_check
+.Ls_a1: mov     ecx, 2
+        jmp     .Ls_check
+.Ls_a2: mov     ecx, 3
+        jmp     .Ls_check
+.Ls_a3: mov     ecx, 4
+        jmp     .Ls_check
+.Ls_a4: mov     ecx, 5
+        jmp     .Ls_check
+.Ls_a5: mov     ecx, 6
+        jmp     .Ls_check
+.Ls_a6: mov     ecx, 7
+        jmp     .Ls_check
+.Ls_a7: mov     ecx, 8
+.Ls_check:
+        lea     eax, [esi-4]
+        cmp     eax, 5
+        ja      .Ls_zero
+        call    helper
+        jmp     DWORD PTR [same_b-16+esi*4]
+.Ls_b4: mov     eax, 4
+        pop     esi
+        ret
+.Ls_b5: mov     eax, 5
+        pop     esi
+        ret
+.Ls_b6: mov     eax, 6
+        pop     esi
+        ret
+.Ls_b7: mov     eax, 7
+        pop     esi
+        ret
+.Ls_b8: mov     eax, 8
+        pop     esi
+        ret
+.Ls_b9: mov     eax, 9
+        pop     esi
+        ret
+.Ls_zero:
+        xor     eax, eax
+        pop     esi
+        ret
+        .size   samefn, .-samefn
+
+        .globl  tfn
+        .type   tfn, @function
+tfn:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 7
+        ja      .Lt_zero
+        jmp     DWORD PTR [cross_t+eax*4]
+.Lt_0: mov     eax, 1
+        ret
+.Lt_1: mov     eax, 2
+        ret
+.Lt_2: mov     eax, 3
+        ret
+.Lt_3: mov     eax, 4
+        ret
+.Lt_4: mov     eax, 5
+        ret
+.Lt_5: mov     eax, 6
+        ret
+.Lt_6: mov     eax, 7
+        ret
+.Lt_7: mov     eax, 8
+        ret
+.Lt_zero:
+        xor     eax, eax
+        ret
+        .size   tfn, .-tfn
+
+        .globl  nfn
+        .type   nfn, @function
+nfn:
+        push    esi
+        mov     esi, DWORD PTR [esp+8]
+        lea     eax, [esi-4]
+        cmp     eax, 5
+        ja      .Ln_zero
+        call    helper
+        jmp     DWORD PTR [cross_n-16+esi*4]
+.Ln_4: mov     eax, 4
+        pop     esi
+        ret
+.Ln_5: mov     eax, 5
+        pop     esi
+        ret
+.Ln_6: mov     eax, 6
+        pop     esi
+        ret
+.Ln_7: mov     eax, 7
+        pop     esi
+        ret
+.Ln_8: mov     eax, 8
+        pop     esi
+        ret
+.Ln_9: mov     eax, 9
+        pop     esi
+        ret
+.Ln_zero:
+        xor     eax, eax
+        pop     esi
+        ret
+        .size   nfn, .-nfn
+
+        .globl  nfn2
+        .type   nfn2, @function
+nfn2:
+        push    esi
+        mov     esi, DWORD PTR [esp+8]
+        lea     eax, [esi-4]
+        cmp     eax, 5
+        ja      .Ln2_zero
+        call    helper
+        jmp     DWORD PTR [cross_n2-16+esi*4]
+.Ln2_4: mov     eax, 4
+        pop     esi
+        ret
+.Ln2_5: mov     eax, 5
+        pop     esi
+        ret
+.Ln2_6: mov     eax, 6
+        pop     esi
+        ret
+.Ln2_7: mov     eax, 7
+        pop     esi
+        ret
+.Ln2_8: mov     eax, 8
+        pop     esi
+        ret
+.Ln2_9: mov     eax, 9
+        pop     esi
+        ret
+.Ln2_zero:
+        xor     eax, eax
+        pop     esi
+        ret
+        .size   nfn2, .-nfn2
+
+        .globl  tfn2
+        .type   tfn2, @function
+tfn2:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 7
+        ja      .Lt2_zero
+        jmp     DWORD PTR [cross_t2+eax*4]
+.Lt2_0: mov     eax, 1
+        ret
+.Lt2_1: mov     eax, 2
+        ret
+.Lt2_2: mov     eax, 3
+        ret
+.Lt2_3: mov     eax, 4
+        ret
+.Lt2_4: mov     eax, 5
+        ret
+.Lt2_5: mov     eax, 6
+        ret
+.Lt2_6: mov     eax, 7
+        ret
+.Lt2_7: mov     eax, 8
+        ret
+.Lt2_zero:
+        xor     eax, eax
+        ret
+        .size   tfn2, .-tfn2
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    3
+        push    5
+        call    samefn
+        call    tfn
+        call    nfn
+        call    nfn2
+        call    tfn2
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+same_a:
+        .long   .Ls_a0, .Ls_a1, .Ls_a2, .Ls_a3
+        .long   .Ls_a4, .Ls_a5, .Ls_a6, .Ls_a7
+same_b:
+        .long   .Ls_b4, .Ls_b5, .Ls_b6, .Ls_b7, .Ls_b8, .Ls_b9
+        .long   0
+cross_t:
+        .long   .Lt_0, .Lt_1, .Lt_2, .Lt_3
+        .long   .Lt_4, .Lt_5, .Lt_6, .Lt_7
+cross_n:
+        .long   .Ln_4, .Ln_5, .Ln_6, .Ln_7, .Ln_8, .Ln_9
+        .long   0
+cross_t2:
+        .long   .Lt2_0, .Lt2_1, .Lt2_2, .Lt2_3
+        .long   .Lt2_4, .Lt2_5, .Lt2_6, .Lt2_7
+cross_n2:
+        .long   .Ln2_4, .Ln2_5, .Ln2_6, .Ln2_7, .Ln2_8, .Ln2_9
+        .long   0
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |

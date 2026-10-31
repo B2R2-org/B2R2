@@ -790,23 +790,46 @@ module internal CFGRecoveryCommon =
     queue.Push(EndTblRec(jmptbl, idx))
     MoveOn
 
+  /// Notifies the manager of the given jump table, and follows its decision.
+  /// When the table starts within the entries of another, its code may have
+  /// folded the smallest index into its address, so it may start right after
+  /// those entries instead. We move it there once, if the conditional jumps on
+  /// every path to its indirect branch say so, and ignore the branch if not.
+  let rec notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl canMove =
+    let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
+    match ctx.JumpTableChannel.NotifyRecovery(fnAddr, jmptbl) with
+    | GoRecovery ->
+      pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
+    | StopRecoveryButReload ->
+      StopAndReload
+    | StopRecoveryAndContinue ->
+      MoveOn
+    | Overlapping tableEnd when canMove ->
+      let analysis: IJmpTableAnalyzable<_, _> = jmptblAnalysis
+      if analysis.ConfirmStart(ctx, jmptbl, tableEnd) then
+#if CFGDEBUG
+        dbglog ctx.ThreadID "JumpTable"
+        <| $"{jmptbl.InsAddr:x}: moved to [{tableEnd:x}]"
+#endif
+        let jmptbl = { jmptbl with TableAddress = tableEnd }
+        notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl false
+      else
+        MoveOn (* We ignore this indirect branch. *)
+    | Overlapping _ ->
+      MoveOn
+
   let recoverIndirectBranches ctx
                               (jmptblAnalysis: IJmpTableAnalyzable<_, _>)
                               queue
                               insAddr
                               bblAddr =
-    let funcAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     match jmptblAnalysis.Identify(ctx, insAddr, bblAddr) with
     | Ok(jmptbl) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable"
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
-      ctx.JumpTableChannel.NotifyRecovery(funcAddr, jmptbl)
-      |> function
-        | GoRecovery -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
-        | StopRecoveryButReload -> StopAndReload
-        | StopRecoveryAndContinue -> MoveOn
+      notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl true
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"

@@ -33,6 +33,11 @@ open B2R2.Collections
 type JmpTableRecoveryNotebook() =
   let notes = SortedList<Addr, JmpTableRecoveryNote>()
 
+  /// Starting points of the notes whose tables do not start there, which we
+  /// call phantoms. We keep their notes for the functions still recovering
+  /// them, but no table starts at a phantom, and none is cut short at one.
+  let phantoms = HashSet<Addr>()
+
   let findOverlap addr =
     notes.Values
     |> Seq.tryFind (fun note ->
@@ -46,21 +51,86 @@ type JmpTableRecoveryNotebook() =
     if note.ConfirmedEndPoint > newPoint then note.ConfirmedEndPoint <- newPoint
     else ()
 
+  /// Computes where the entries that the range check of the table of the given
+  /// note admits end, if the table has a range check of its own.
+  let tryGetHeldEnd note =
+    note.OwnRangeEntries
+    |> Option.map (fun n -> note.StartingPoint + uint64 (n * note.EntrySize))
+
+  let markPhantom note =
+    phantoms.Add note.StartingPoint |> ignore
+    updatePotentialEndPoint note note.StartingPoint
+    syncConfirmedEndPoint note note.StartingPoint
+
+  /// Marks the notes that start after addr and before heldEnd as phantoms, and
+  /// returns them, if their tables have no range check of their own. A table
+  /// that has one starts where it does, so its note ends the search, unless it
+  /// is a phantom already.
+  let rec markPhantomsWithin heldEnd addr acc =
+    match SortedList.tryFindNextKey addr notes with
+    | Some key when key < heldEnd ->
+      let note = notes[key]
+      match note.OwnRangeEntries with
+      | None ->
+        markPhantom note
+        markPhantomsWithin heldEnd key (note :: acc)
+      | Some _ when phantoms.Contains key ->
+        markPhantomsWithin heldEnd key acc
+      | Some _ ->
+        acc
+    | _ ->
+      acc
+
+  let rec tryFindPreviousLiveKey addr =
+    match SortedList.tryFindPreviousKey addr notes with
+    | Some key when phantoms.Contains key -> tryFindPreviousLiveKey key
+    | key -> key
+
+  let rec tryFindNextLiveKey addr =
+    match SortedList.tryFindNextKey addr notes with
+    | Some key when phantoms.Contains key -> tryFindNextLiveKey key
+    | key -> key
+
   let syncAfterRegistration tblAddr note =
     let sz = uint64 note.EntrySize
-    match SortedList.tryFindPreviousKey tblAddr notes with
+    match tryFindPreviousLiveKey tblAddr with
     | Some lb -> updatePotentialEndPoint notes[lb] (note.StartingPoint - sz)
     | None -> ()
-    match SortedList.tryFindNextKey tblAddr notes with
+    match tryFindNextLiveKey tblAddr with
     | Some ub -> updatePotentialEndPoint note (ub - sz)
     | None -> ()
+
+  let registerAnew fnAddr jmptbl =
+    let tblAddr = jmptbl.TableAddress
+    let potentialEndPoint =
+      if jmptbl.IsSingleEntry then tblAddr else System.UInt64.MaxValue
+    let note =
+      { HostFunctionAddr = fnAddr
+        InsAddr = jmptbl.InsAddr
+        BaseAddr = jmptbl.JumpBase
+        EntrySize = jmptbl.EntrySize
+        StartingPoint = tblAddr
+        ConfirmedEndPoint = tblAddr
+        PotentialEndPoint = potentialEndPoint
+        OwnRangeEntries = jmptbl.OwnRangeEntries
+        WaitingFunctions = HashSet() }
+    notes[tblAddr] <- note
+    let phantomNotes =
+      match tryGetHeldEnd note with
+      | Some heldEnd -> markPhantomsWithin heldEnd tblAddr []
+      | None -> []
+    syncAfterRegistration tblAddr note
+    if List.isEmpty phantomNotes then RegistrationSucceeded
+    else RegisteredOverPhantoms phantomNotes
 
   /// Creates a new note for a newly found jump table, and returns it. When we
   /// detect overlapping jump tables, we return the problematic jump table note,
   /// which should be reverted.
   member _.Register(fnAddr, jmptbl) =
     let tblAddr = jmptbl.TableAddress
-    if notes.ContainsKey tblAddr then
+    if phantoms.Contains tblAddr then
+      PhantomStart
+    elif notes.ContainsKey tblAddr then
       (* Duplicate registeration is possible due to rollback. *)
       let note = notes[tblAddr]
       match note.HostFunctionAddr = fnAddr, note.InsAddr = jmptbl.InsAddr with
@@ -72,20 +142,25 @@ type JmpTableRecoveryNotebook() =
       | Some note ->
         OverlappingNote note (* Return the overlapping note. *)
       | None ->
-        let potentialEndPoint =
-          if jmptbl.IsSingleEntry then tblAddr else System.UInt64.MaxValue
-        let note =
-          { HostFunctionAddr = fnAddr
-            InsAddr = jmptbl.InsAddr
-            BaseAddr = jmptbl.JumpBase
-            EntrySize = jmptbl.EntrySize
-            StartingPoint = tblAddr
-            ConfirmedEndPoint = tblAddr
-            PotentialEndPoint = potentialEndPoint
-            WaitingFunctions = HashSet() }
-        notes[tblAddr] <- note
-        syncAfterRegistration tblAddr note
-        RegistrationSucceeded
+        registerAnew fnAddr jmptbl
+
+  /// Finds where the entries that the range check of the table before the
+  /// given one admits end, if the given table starts within them, past the
+  /// first, without a range check of its own. Such a table does not start
+  /// where its code computes it to: the computation has folded the smallest
+  /// index into the address of the table.
+  member _.TryFindHeldEnd(jmptbl: JmpTableInfo) =
+    let tblAddr = jmptbl.TableAddress
+    match jmptbl.OwnRangeEntries, tryFindPreviousLiveKey tblAddr with
+    | None, Some key ->
+      tryGetHeldEnd notes[key]
+      |> Option.filter (fun heldEnd -> tblAddr < heldEnd)
+    | _ ->
+      None
+
+  /// Marks the given jump table as a phantom, since its first entry has turned
+  /// out not to be one.
+  member _.MarkPhantom tblAddr = markPhantom notes[tblAddr]
 
   /// Unregisters the given jump table note associated with the given function
   /// address. This means, we later found out that the jump table is really not
@@ -94,6 +169,7 @@ type JmpTableRecoveryNotebook() =
     match notes.TryGetValue tblAddr with
     | true, note when note.HostFunctionAddr = fnAddr ->
       notes.Remove tblAddr |> ignore
+      phantoms.Remove tblAddr |> ignore
       note.WaitingFunctions |> Seq.toArray
     | _ ->
       Array.empty
@@ -151,6 +227,10 @@ type JmpTableRecoveryNotebook() =
 and [<Struct>] JmpTableRegistrationResult =
   /// Registration has succeeded.
   | RegistrationSucceeded
+  /// Registration has succeeded, but the entries that the range check of the
+  /// table admits hold the starts of other tables, which have no range check
+  /// of their own. We mark those as phantoms and return their notes.
+  | RegisteredOverPhantoms of phantoms: JmpTableRecoveryNote list
   /// Registration has failed because there are two functions sharing the same
   /// table. We return the address of the function that previously registered
   /// the table.
@@ -161,6 +241,8 @@ and [<Struct>] JmpTableRegistrationResult =
   /// Registration has failed because there is an overlapping table. We return
   /// the address of the overlapping table.
   | OverlappingNote of note: JmpTableRecoveryNote
+  /// Registration has failed because the table starts at a phantom.
+  | PhantomStart
 
 /// Represents a note (or a recovery state) for jump table recovery.
 and JmpTableRecoveryNote =
@@ -180,5 +262,8 @@ and JmpTableRecoveryNote =
     /// Potential end point (the upperbound) of the jump table. We use inclusive
     /// range.
     mutable PotentialEndPoint: Addr
+    /// The number of entries, from the first, that the range check of the
+    /// jump table admits, or None if no check of its own bounds the table.
+    OwnRangeEntries: int option
     /// Functions that recover this table while another function owns its note.
     WaitingFunctions: HashSet<Addr> }
