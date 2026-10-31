@@ -493,6 +493,107 @@ module TransformerRepl =
       | ControlEvaluation ->
         TransformerTuiModel.setStatus "Cancelling command" model
 
+  let private restoreKey key =
+    ConsoleKeyInfo(char 0, key, false, false, false)
+
+  let private restoreEscapeSequence addPendingKey first keys sequence =
+    match sequence with
+    | "[A" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.UpArrow)
+    | "[B" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.DownArrow)
+    | "[C" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.RightArrow)
+    | "[D" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.LeftArrow)
+    | "[H"
+    | "[1~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.Home)
+    | "[F"
+    | "[4~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.End)
+    | "[3~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.Delete)
+    | "[5~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.PageUp)
+    | "[6~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.PageDown)
+    | "[17~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.F6)
+    | _ ->
+      keys |> Seq.iter addPendingKey
+      TuiInputEvent.Key first
+
+  let private readEscapeSequence addPendingKey first =
+    if not Console.KeyAvailable then
+      TuiInputEvent.Key first
+    else
+      let keys = ResizeArray<ConsoleKeyInfo>()
+      let text = StringBuilder()
+      let mutable isComplete = false
+      while Console.KeyAvailable && text.Length < 64 && not isComplete do
+        let key = Console.ReadKey true
+        keys.Add key
+        text.Append key.KeyChar |> ignore
+        let sequence = text.ToString()
+        isComplete <-
+          if sequence.StartsWith("[<", StringComparison.Ordinal) then
+            key.KeyChar = 'M' || key.KeyChar = 'm'
+          elif sequence.StartsWith("[", StringComparison.Ordinal) then
+            Char.IsLetter key.KeyChar || key.KeyChar = '~'
+          else
+            true
+      let sequence = text.ToString()
+      match TransformerTuiTerminal.tryParseInputEvent sequence with
+      | Some input ->
+        input
+      | None ->
+        restoreEscapeSequence addPendingKey first keys sequence
+
+  let private isViewNavigationKey (model: TransformerTuiModel) key =
+    not (hasModifier ConsoleModifiers.Control key)
+    && not (hasModifier ConsoleModifiers.Alt key)
+    && model.Overlay = TuiOverlay.View
+    && (model.ViewPane |> Option.exists (fun pane -> not pane.IsFinding))
+    && (match key.Key with
+        | ConsoleKey.UpArrow
+        | ConsoleKey.DownArrow
+        | ConsoleKey.LeftArrow
+        | ConsoleKey.RightArrow
+        | ConsoleKey.PageUp
+        | ConsoleKey.PageDown ->
+          true
+        | _ ->
+          false)
+
+  let private samePhysicalKey (left: ConsoleKeyInfo) right =
+    left.Key = (right: ConsoleKeyInfo).Key
+    && left.Modifiers = right.Modifiers
+
+  let private applyViewNavigation count (key: ConsoleKeyInfo) model =
+    let shift = hasModifier ConsoleModifiers.Shift key
+    let width, height = TransformerTuiTerminal.dimensions ()
+    let pageHeight = TransformerTuiModel.transcriptHeight height model
+    match key.Key with
+    | ConsoleKey.UpArrow ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height -count shift model
+    | ConsoleKey.DownArrow ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height count shift model
+    | ConsoleKey.LeftArrow ->
+      TransformerTuiModel.moveViewCursor 0 -count shift model
+    | ConsoleKey.RightArrow ->
+      TransformerTuiModel.moveViewCursor 0 count shift model
+    | ConsoleKey.PageUp ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height (-(pageHeight * count)) shift model
+    | ConsoleKey.PageDown ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height (pageHeight * count) shift model
+    | _ ->
+      model
+
   let private runTui initialLayout initialRegistry =
     let restoreTerminal = TransformerTuiTerminal.enter ()
     let mutable registry = initialRegistry
@@ -508,60 +609,6 @@ module TransformerRepl =
     let mutable lastSpinner = Environment.TickCount64
     let addPending input = pendingInput.Enqueue input
     let addPendingKey key = pendingInput.Enqueue(TuiInputEvent.Key key)
-    let restoreKey key =
-      ConsoleKeyInfo(char 0, key, false, false, false)
-    let restoreEscapeSequence (first: ConsoleKeyInfo) keys sequence =
-      match sequence with
-      | "[A" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.UpArrow)
-      | "[B" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.DownArrow)
-      | "[C" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.RightArrow)
-      | "[D" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.LeftArrow)
-      | "[H"
-      | "[1~" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.Home)
-      | "[F"
-      | "[4~" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.End)
-      | "[3~" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.Delete)
-      | "[5~" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.PageUp)
-      | "[6~" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.PageDown)
-      | "[17~" ->
-        TuiInputEvent.Key(restoreKey ConsoleKey.F6)
-      | _ ->
-        keys |> Seq.iter addPendingKey
-        TuiInputEvent.Key first
-    let readEscapeSequence (first: ConsoleKeyInfo) =
-      if not Console.KeyAvailable then
-        TuiInputEvent.Key first
-      else
-        let keys = ResizeArray<ConsoleKeyInfo>()
-        let text = StringBuilder()
-        let mutable isComplete = false
-        while Console.KeyAvailable && text.Length < 64 && not isComplete do
-          let key = Console.ReadKey true
-          keys.Add key
-          text.Append key.KeyChar |> ignore
-          let sequence = text.ToString()
-          isComplete <-
-            if sequence.StartsWith("[<", StringComparison.Ordinal) then
-              key.KeyChar = 'M' || key.KeyChar = 'm'
-            elif sequence.StartsWith("[", StringComparison.Ordinal) then
-              Char.IsLetter key.KeyChar || key.KeyChar = '~'
-            else
-              true
-        let sequence = text.ToString()
-        match TransformerTuiTerminal.tryParseInputEvent sequence with
-        | Some input ->
-          input
-        | None ->
-          restoreEscapeSequence first keys sequence
     let readInput () =
       if pendingInput.Count > 0 then
         Some(pendingInput.Dequeue())
@@ -570,7 +617,7 @@ module TransformerRepl =
       elif Console.KeyAvailable then
         let key = Console.ReadKey true
         if key.Key = ConsoleKey.Escape && key.KeyChar = '\u001b' then
-          Some(readEscapeSequence key)
+          Some(readEscapeSequence addPendingKey key)
         else
           Some(TuiInputEvent.Key key)
       else
@@ -589,23 +636,6 @@ module TransformerRepl =
         | None ->
           keepReading <- false
       builder.ToString()
-    let isViewNavigationKey (key: ConsoleKeyInfo) =
-      not (hasModifier ConsoleModifiers.Control key)
-      && not (hasModifier ConsoleModifiers.Alt key)
-      && model.Overlay = TuiOverlay.View
-      && (model.ViewPane |> Option.exists (fun pane -> not pane.IsFinding))
-      && (match key.Key with
-          | ConsoleKey.UpArrow
-          | ConsoleKey.DownArrow
-          | ConsoleKey.LeftArrow
-          | ConsoleKey.RightArrow
-          | ConsoleKey.PageUp
-          | ConsoleKey.PageDown ->
-            true
-          | _ ->
-            false)
-    let samePhysicalKey (left: ConsoleKeyInfo) (right: ConsoleKeyInfo) =
-      left.Key = right.Key && left.Modifiers = right.Modifiers
     let repeatedKeyCount first =
       let mutable count = 1
       let mutable keepReading = true
@@ -619,29 +649,6 @@ module TransformerRepl =
         | None ->
           keepReading <- false
       count
-    let applyViewNavigation count (key: ConsoleKeyInfo) model =
-      let shift = hasModifier ConsoleModifiers.Shift key
-      let width, height = TransformerTuiTerminal.dimensions ()
-      let pageHeight = TransformerTuiModel.transcriptHeight height model
-      match key.Key with
-      | ConsoleKey.UpArrow ->
-        TransformerTuiRenderer.moveViewCursorByRows
-          width height -count shift model
-      | ConsoleKey.DownArrow ->
-        TransformerTuiRenderer.moveViewCursorByRows
-          width height count shift model
-      | ConsoleKey.LeftArrow ->
-        TransformerTuiModel.moveViewCursor 0 -count shift model
-      | ConsoleKey.RightArrow ->
-        TransformerTuiModel.moveViewCursor 0 count shift model
-      | ConsoleKey.PageUp ->
-        TransformerTuiRenderer.moveViewCursorByRows
-          width height (-(pageHeight * count)) shift model
-      | ConsoleKey.PageDown ->
-        TransformerTuiRenderer.moveViewCursorByRows
-          width height (pageHeight * count) shift model
-      | _ ->
-        model
     let currentSuggestions () =
       match suggestionCache with
       | Some cached
@@ -691,116 +698,126 @@ module TransformerRepl =
         let next, task = startCommandEvaluation registry command next
         model <- next
         running <- task
-    try
-      while not shouldExit do
-        let width, height = TransformerTuiTerminal.dimensions ()
-        if width <> lastWidth || height <> lastHeight then
-          lastWidth <- width
-          lastHeight <- height
-          dirty <- true
+    let refreshDimensions width height =
+      if width <> lastWidth || height <> lastHeight then
+        lastWidth <- width
+        lastHeight <- height
+        dirty <- true
+      else
+        ()
+    let advanceEvaluation () =
+      match running with
+      | Some runningEvaluation when runningEvaluation.Task.IsCompleted ->
+        let task = runningEvaluation.Task
+        if runningEvaluation.Cancellation.IsCancellationRequested then
+          model <- finishCancellation runningEvaluation model
         else
+          try
+            let evaluation, preview = task.Result
+            let nextRegistry, nextModel, exit =
+              match runningEvaluation.Origin with
+              | ShellEvaluation ->
+                finishShellEvaluation evaluation preview model
+              | ControlEvaluation ->
+                finishControlEvaluation
+                  runningEvaluation.Command evaluation model
+            registry <- nextRegistry
+            suggestionCache <- None
+            model <- nextModel
+            shouldExit <- exit
+          with error ->
+            model <-
+              match runningEvaluation.Origin with
+              | ShellEvaluation ->
+                failShellEvaluation error model
+              | ControlEvaluation ->
+                failControlEvaluation runningEvaluation.Command error model
+        runningEvaluation.Cancellation.Dispose()
+        running <- None
+        dirty <- true
+      | Some _ when Environment.TickCount64 - lastSpinner >= 80L ->
+        model <- TransformerTuiModel.advanceSpinner model
+        lastSpinner <- Environment.TickCount64
+        dirty <- true
+      | _ ->
+        ()
+    let advanceMouseDrag width height =
+      let mouseModel =
+        TransformerTuiInputController.advanceMouseDrag width height model
+      if mouseModel.LastMouseScrollAt <> model.LastMouseScrollAt then
+        model <- mouseModel
+        dirty <- true
+      else
+        ()
+    let dispatchInput width height =
+      if not shouldExit then
+        match readInput () with
+        | None ->
           ()
-        match running with
-        | Some runningEvaluation when runningEvaluation.Task.IsCompleted ->
-          let task = runningEvaluation.Task
-          if runningEvaluation.Cancellation.IsCancellationRequested then
-            model <- finishCancellation runningEvaluation model
-          else
-            try
-              let evaluation, preview = task.Result
-              let nextRegistry, nextModel, exit =
-                match runningEvaluation.Origin with
-                | ShellEvaluation ->
-                  finishShellEvaluation evaluation preview model
-                | ControlEvaluation ->
-                  finishControlEvaluation
-                    runningEvaluation.Command evaluation model
-              registry <- nextRegistry
-              suggestionCache <- None
-              model <- nextModel
-              shouldExit <- exit
-            with error ->
-              model <-
-                match runningEvaluation.Origin with
-                | ShellEvaluation ->
-                  failShellEvaluation error model
-                | ControlEvaluation ->
-                  failControlEvaluation runningEvaluation.Command error model
-          runningEvaluation.Cancellation.Dispose()
-          running <- None
-          dirty <- true
-        | Some _ when Environment.TickCount64 - lastSpinner >= 80L ->
-          model <- TransformerTuiModel.advanceSpinner model
-          lastSpinner <- Environment.TickCount64
-          dirty <- true
-        | _ ->
-          ()
-        let mouseModel =
-          TransformerTuiInputController.advanceMouseDrag width height model
-        if mouseModel.LastMouseScrollAt <> model.LastMouseScrollAt then
-          model <- mouseModel
-          dirty <- true
-        else
-          ()
-        if not shouldExit then
-          match readInput () with
+        | Some(TuiInputEvent.Mouse mouse) ->
+          let completion = currentSuggestions ()
+          match running with
+          | Some _ ->
+            TransformerTuiInputController.handlePassiveMouse
+              width height completion mouse model
+            |> applyInputResult
           | None ->
-            ()
-          | Some(TuiInputEvent.Mouse mouse) ->
-            let completion = currentSuggestions ()
-            match running with
-            | Some _ ->
-              TransformerTuiInputController.handlePassiveMouse
-                width height completion mouse model
-              |> applyInputResult
-            | None ->
-              TransformerTuiInputController.handleMouse
-                width height completion mouse model
-              |> applyInputResult
-            dirty <- true
-          | Some(TuiInputEvent.Key key) ->
-            match running with
-            | Some runningEvaluation
-              when hasModifier ConsoleModifiers.Control key
-                   && key.Key = ConsoleKey.C ->
-              model <- requestCancellation runningEvaluation model
-            | Some _ when isTextKey key
-                          && model.Overlay = TuiOverlay.None
-                          && not model.IsFindingTranscript
-                          && model.Focus = TuiFocus.Shell ->
-              let text = readTextBurst key
-              TransformerTuiInputController.appendShellText text model
-              |> applyInputResult
-            | Some _ ->
-              ()
-            | None when isTextKey key
+            TransformerTuiInputController.handleMouse
+              width height completion mouse model
+            |> applyInputResult
+          dirty <- true
+        | Some(TuiInputEvent.Key key) ->
+          match running with
+          | Some runningEvaluation
+            when hasModifier ConsoleModifiers.Control key
+                 && key.Key = ConsoleKey.C ->
+            model <- requestCancellation runningEvaluation model
+          | Some _ when isTextKey key
                         && model.Overlay = TuiOverlay.None
                         && not model.IsFindingTranscript
                         && model.Focus = TuiFocus.Shell ->
-              let text = readTextBurst key
-              TransformerTuiInputController.appendShellText text model
-              |> applyInputResult
-            | None when isViewNavigationKey key ->
-              let count = repeatedKeyCount key
-              model <- applyViewNavigation count key model
-              let scrollOffset =
-                TransformerTuiRenderer.viewScrollOffset width height model
-              model <- { model with ScrollOffset = scrollOffset }
-            | None ->
-              let completion = currentSuggestions ()
-              TransformerTuiInputController.handle completion key model
-              |> applyInputResult
-            dirty <- true
-        else
-          ()
-        if not shouldExit && dirty then
-          let completion = currentSuggestions ()
-          let render = TransformerTuiRenderer.render width height registry model
-          let frame = render completion
-          TransformerTuiTerminal.draw model.IsBusy frame
-          dirty <- false
-        else
-          ()
+            let text = readTextBurst key
+            TransformerTuiInputController.appendShellText text model
+            |> applyInputResult
+          | Some _ ->
+            ()
+          | None when isTextKey key
+                      && model.Overlay = TuiOverlay.None
+                      && not model.IsFindingTranscript
+                      && model.Focus = TuiFocus.Shell ->
+            let text = readTextBurst key
+            TransformerTuiInputController.appendShellText text model
+            |> applyInputResult
+          | None when isViewNavigationKey model key ->
+            let count = repeatedKeyCount key
+            model <- applyViewNavigation count key model
+            let scrollOffset =
+              TransformerTuiRenderer.viewScrollOffset width height model
+            model <- { model with ScrollOffset = scrollOffset }
+          | None ->
+            let completion = currentSuggestions ()
+            TransformerTuiInputController.handle completion key model
+            |> applyInputResult
+          dirty <- true
+      else
+        ()
+    let renderFrame width height =
+      if not shouldExit && dirty then
+        let completion = currentSuggestions ()
+        let render = TransformerTuiRenderer.render width height registry model
+        let frame = render completion
+        TransformerTuiTerminal.draw model.IsBusy frame
+        dirty <- false
+      else
+        ()
+    try
+      while not shouldExit do
+        let width, height = TransformerTuiTerminal.dimensions ()
+        refreshDimensions width height
+        advanceEvaluation ()
+        advanceMouseDrag width height
+        dispatchInput width height
+        renderFrame width height
         if not shouldExit then
           Thread.Sleep 20
         else
