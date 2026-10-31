@@ -29,11 +29,8 @@ open System.Threading
 open System.Threading.Tasks
 open B2R2
 
-/// Task manager for control flow analysis.
-type TaskManager<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+/// Represents a task manager for control flow analysis.
+type TaskManager<'FnCtx, 'GlCtx>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          numThreads) =
@@ -52,24 +49,33 @@ type TaskManager<'FnCtx, 'GlCtx
     Array.init numThreads (fun idx ->
       TaskWorker(idx, scheduler, strategy, stream, cts.Token).Task)
 
-  let waitForWorkers () =
-    Task.WhenAll workers (* all done *)
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
+  let waitForWorkers () = Task.WaitAll(workers)
 
-  /// Update callers of each builder.
+  /// Stops the scheduler, which would otherwise wait forever for a message once
+  /// the workers are done, holding on to every builder while it waits.
+  let stopScheduler () =
+    cts.Cancel()
+    managerMsgbox.Task.Wait()
+    cts.Dispose()
+
+  /// Raises the errors that made the scheduler abort the recovery, if any.
+  let raiseIfAborted () =
+    match scheduler.FatalErrors with
+    | [||] -> ()
+    | errors -> raise (AggregateException("CFG recovery aborted.", errors))
+
+  /// Updates callers of each builder.
   let updateCallers () =
     for builder in builders.Values do
       depMap.GetConfirmedCallers builder.EntryPoint
-      |> builder.Context.Callers.UnionWith
+      |> builder.Callers.UnionWith
 
-  /// Create builders for the given addresses.
+  /// Creates builders for the given addresses.
   let createBuilders candidates targetAddrs =
     let targetAddrSet = Set.ofArray targetAddrs
     for candidate in candidates do
-      let builder = builders.GetOrCreateBuilder(managerMsgbox, candidate)
-      if not builder.IsExternal &&
-         not <| Set.contains candidate targetAddrSet then
+      match builders.TryGetOrCreateBuilder(managerMsgbox, candidate) with
+      | Some builder when not <| Set.contains candidate targetAddrSet ->
         (* For candidates that are not in the initial recovery targets, we
            create their builders but set them to deactivated. This is because
            they might be added as recovery targets later when their callers are
@@ -78,7 +84,7 @@ type TaskManager<'FnCtx, 'GlCtx
         builder.Authorize()
         builder.StartVerifying()
         builder.Finalize() (* Initially make them finished without building. *)
-      else
+      | _ ->
         ()
 
   let startBuildingCFGs recoveryTargets =
@@ -94,50 +100,54 @@ type TaskManager<'FnCtx, 'GlCtx
   do initLogger numThreads
 #endif
 
+  /// Functions whose recovery raised an unexpected exception.
+  member _.Failures with get(): CFGRecoveryFailure[] = scheduler.Failures
+
+  /// The global context that the recovery has built up.
+  member _.GlobalContext with get(): 'GlCtx = scheduler.GlobalContext
+
   member _.StartAndWait candidates =
     let targetAddrs = getInitialRecoveryAddrs candidates
     createBuilders candidates targetAddrs
     startBuildingCFGs targetAddrs
     waitForWorkers ()
+    stopScheduler ()
+    raiseIfAborted ()
     updateCallers ()
 #if CFGDEBUG
     for tid in 0 .. numThreads do flushLog tid
 #endif
 
-/// Task worker for control flow recovery.
-and private TaskWorker<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+/// Represents a task worker for control flow recovery. Each worker runs on a
+/// thread of its own, since it blocks on the replies of the manager, and a pool
+/// thread blocked that way would hold up the pool it may itself depend on.
+and private TaskWorker<'FnCtx, 'GlCtx>
   public(tid: int,
          scheduler: TaskScheduler<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          stream: TaskWorkerCommandStream<'FnCtx, 'GlCtx>,
          token) =
 
-  let mutable doContinue = true
+  let work () =
+    let mutable doContinue = true
+    while doContinue do
+      match stream.Receive(token) with
+      | NotAvailable ->
+        doContinue <- false
+      | Received(BuildCFG builder) ->
+        builder.Context.ThreadID <- tid
+        try
+          let res = builder.Build strategy
+          scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
+        with e ->
+          scheduler.PostCommand <| ReportCFGException(builder.EntryPoint, e)
+#if CFGDEBUG
+        flushLog tid
+#endif
 
   let worker =
-    task {
-      while doContinue do
-        match! stream.Receive(token) with
-        | NotAvailable ->
-          doContinue <- false
-        | AvailableButNotReceived ->
-          ()
-        | Received(BuildCFG builder) ->
-          builder.Context.ThreadID <- tid
-          try
-            let res = builder.Build strategy
-            scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
-          with e ->
-            Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
-            let failure = FailStop ErrorCase.UnexpectedError
-            scheduler.PostCommand
-            <| ReportCFGResult(builder.EntryPoint, failure)
-#if CFGDEBUG
-          flushLog tid
-#endif
-    }
+    let options = TaskCreationOptions.LongRunning
+    let defaultScheduler = Tasks.TaskScheduler.Default
+    Task.Factory.StartNew(Action work, token, options, defaultScheduler)
 
   member _.Task with get() = worker

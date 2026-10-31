@@ -130,9 +130,11 @@ let private load case binPath arch =
         hdl.ISA
       None
 
-/// Recovers CFGs and reports every jump table B2R2 found. CFG recovery writes
-/// progress to the console, which would bury the report, so it is muted for
-/// the duration.
+/// Recovers CFGs and reports every jump table B2R2 found, once for each
+/// indirect branch that jumps through it: the one that recovered the table and
+/// the ones waiting on it, since the ground truth lists them all. CFG recovery
+/// writes progress to the console, which would bury the report, so it is muted
+/// for the duration.
 let private recover (hdl: BinHandle) =
   let saved = Console.Out
   Console.SetOut TextWriter.Null
@@ -142,9 +144,10 @@ let private recover (hdl: BinHandle) =
        below off its absent CFG. *)
     [ for fn in brew.Functions.Sequence do
         for jmptbl in fn.JumpTables do
-          { InsAddr = jmptbl.InsAddr
-            Kind = kindOf jmptbl
-            Targets = targetsOf fn.CFG jmptbl.InsAddr } ]
+          for insAddr in jmptbl.InsAddr :: jmptbl.WaitingInstructions do
+            { InsAddr = insAddr
+              Kind = kindOf jmptbl
+              Targets = targetsOf fn.CFG insAddr } ]
   finally
     Console.SetOut saved
 

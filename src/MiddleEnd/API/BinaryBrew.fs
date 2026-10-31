@@ -24,9 +24,7 @@
 
 namespace B2R2.MiddleEnd
 
-open System.Runtime.InteropServices
 open System
-open System.Diagnostics
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -44,21 +42,19 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 /// the target binary, such as instructions, IRs, functions, CFGs, and exception
 /// information, etc.
 /// </summary>
-type BinaryBrew<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type BinaryBrew<'FnCtx, 'GlCtx>
   public(hdl: BinHandle,
          exnInfo: ExceptionInfo,
          funcID: IFunctionIdentifiable,
          cfgBuilder: ICFGBuildingStrategy<_, _>,
          irBlkOptimizer: IIRBlockOptimizable) =
 
-  let numThreads = Environment.ProcessorCount / 2
+  let numThreads = max 1 (Environment.ProcessorCount / 2)
 
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
-  let builders = CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer)
+  let builders =
+    CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer, cfgBuilder)
 
   let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
     builders.Values
@@ -66,18 +62,12 @@ type BinaryBrew<'FnCtx, 'GlCtx
     |> FunctionCollection
 
   let recoverFunctions () =
-    let sw = Stopwatch()
-    Console.WriteLine "[*] CFG recovery started."
-    sw.Start()
     let candidates = funcID.Identify()
     let manager = TaskManager<'FnCtx, 'GlCtx>(builders, cfgBuilder, numThreads)
     manager.StartAndWait candidates
-    sw.Stop()
-    let ts = sw.Elapsed
-    Console.WriteLine $"[*] Total {ts.TotalSeconds}s elapsed."
-    buildersToFunctions builders
+    buildersToFunctions builders, manager.Failures, manager.GlobalContext
 
-  let funcs = recoverFunctions ()
+  let funcs, failures, glCtx = recoverFunctions ()
 
   new(hdl: BinHandle, funcId, cfgRecovery) =
     let exnInfo = ExceptionInfo hdl
@@ -95,6 +85,14 @@ type BinaryBrew<'FnCtx, 'GlCtx
 
   /// Recovered functions.
   member _.Functions with get() = funcs
+
+  /// Functions whose recovery raised an unexpected exception. They are left
+  /// out of the recovered functions.
+  member _.RecoveryFailures with get(): CFGRecoveryFailure[] = failures
+
+  /// The global context that the CFG recovery has built up, which holds what
+  /// the recovery of each function found out about the others.
+  member _.GlobalContext with get(): 'GlCtx = glCtx
 
   /// Exception information.
   member _.ExceptionInfo with get() = exnInfo
@@ -116,29 +114,22 @@ type BinaryBrew =
   new(hdl: BinHandle, funcId, cfgBuilder) =
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl, funcId, cfgBuilder) }
 
-  new(hdl: BinHandle,
-      [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
+  new(hdl: BinHandle, options: CFGRecoveryOptions) =
     let exnInfo = ExceptionInfo hdl
     let funcId = FunctionIdentification(hdl, exnInfo)
     let cfgBuilder =
-      CFGRecovery(hdl.ISA, allowBBLOverlap)
+      CFGRecovery(hdl.ISA, options)
       :> ICFGBuildingStrategy<_, _>
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl,
                                                      exnInfo,
                                                      funcId,
                                                      cfgBuilder) }
 
-  new(hdl: BinHandle, targets) =
-    let exnInfo = ExceptionInfo hdl
-    let funcId = FunctionIdentification(hdl, exnInfo)
-    let cfgBuilder =
-      CFGRecovery(hdl.ISA, false, targets)
-      :> ICFGBuildingStrategy<_, _>
-    BinaryBrew(hdl, funcId, cfgBuilder)
+  new(hdl: BinHandle) = BinaryBrew(hdl, CFGRecoveryOptions.Default)
 
 /// Default BinaryBrew type that uses EVM-specific user context.
 type EVMBinaryBrew =
-  inherit BinaryBrew<EVMFuncUserContext, DummyContext>
+  inherit BinaryBrew<EVMFuncUserContext, EVMGlobalContext>
 
   new(hdl: BinHandle, cfgBuilder) =
     let optimizer =
@@ -150,7 +141,7 @@ type EVMBinaryBrew =
     let funcId =
       { new IFunctionIdentifiable with
           member _.Identify() = [| 0x0UL |] }
-    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl,
-                                                           funcId,
-                                                           cfgBuilder,
-                                                           optimizer) }
+    { inherit BinaryBrew<EVMFuncUserContext, EVMGlobalContext>(hdl,
+                                                               funcId,
+                                                               cfgBuilder,
+                                                               optimizer) }

@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// The result obtained from recovering a CFG.
+/// Represents the result obtained from recovering a CFG.
 type CFGResult =
   /// We have successfully handled the task, so move on to the next task.
   | MoveOn

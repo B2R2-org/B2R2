@@ -315,11 +315,13 @@ type State<'Lattice when 'Lattice: equality>
   let domainSubState =
     let flowQueue = UniqueQueue()
     let defSiteQueue = UniqueQueue()
+    let phiQueue = Queue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
     { new ISubState<'Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
+        member _.PhiQueue = phiQueue
         member _.ExecutedFlows = executedFlows
         member _.ExecutedVertices = executedVertices
         member _.Bottom = lattice.Bottom
@@ -331,11 +333,13 @@ type State<'Lattice when 'Lattice: equality>
   let spSubState =
     let flowQueue = UniqueQueue()
     let defSiteQueue = UniqueQueue()
+    let phiQueue = Queue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
     { new ISubState<StackPointerDomain.Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
+        member _.PhiQueue = phiQueue
         member _.ExecutedFlows = executedFlows
         member _.ExecutedVertices = executedVertices
         member _.Bottom = StackPointerDomain.Undef
@@ -347,6 +351,7 @@ type State<'Lattice when 'Lattice: equality>
   let resetSubState (subState: ISubState<_>) =
     subState.FlowQueue.Clear()
     subState.DefSiteQueue.Clear()
+    subState.PhiQueue.Clear()
     subState.ExecutedFlows.Clear()
     subState.ExecutedVertices.Clear()
 
@@ -518,6 +523,10 @@ and ISubState<'Lattice when 'Lattice: equality> =
   /// Returns the definition site queue for calculating the data flow.
   abstract DefSiteQueue: UniqueQueue<ProgramPoint>
 
+  /// Returns the queue of phi operands to join, as pairs of a phi and one of
+  /// its operands.
+  abstract PhiQueue: Queue<VarPoint * VarPoint>
+
   /// Returns the edges executed during the data flow calculation.
   abstract ExecutedFlows:
     HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>
@@ -547,12 +556,27 @@ and IScheme<'Lattice when 'Lattice: equality> =
 [<AutoOpen>]
 module internal AnalysisCore = begin
 
+  /// Removes the phis of `v` from the uses of their operands, as the phis leave
+  /// the graph with `v`. A vertex that takes the place of `v` later has phis of
+  /// the same variable points, which must not inherit these uses.
+  let removePhisOf (state: State<_>) (v: IVertex<LowUIRBasicBlock>) =
+    match state.PhiInfos.TryGetValue v with
+    | true, phiInfo ->
+      let pp = v.VData.Internals.PPoint
+      for (KeyValue(vk, defs)) in phiInfo do
+        let phi = { ProgramPoint = pp; VarKind = vk }
+        for def in defs.Values do
+          state.MutableDefUseMap[def].Remove phi |> ignore
+    | false, _ ->
+      ()
+
   /// Invalidates the dataflow chains of the vertices that are pending
   /// removal, since a vertex leaving the graph makes its chains invalid.
   let rec removeInvalidChains (state: State<_>) =
     match state.DequeueVertexForRemoval() with
     | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
       state.RemoveStmtsOf v
+      removePhisOf state v
       state.MutablePhiInfos.Remove v |> ignore
       state.MutablePerVertexIncomingDefs.Remove v |> ignore
       state.MutablePerVertexOutgoingDefs.Remove v |> ignore
@@ -605,7 +629,7 @@ module internal AnalysisCore = begin
       true
 
   let isInnerScopeVarKind (v: IVertex<LowUIRBasicBlock>) = function
-    | Temporary _ when v.VData.Internals.PPoint.Address = 0UL -> true
+    | Temporary _ when v.VData.Internals.PPoint.Position = 0 -> true
     | _ -> false
 
   let getDefinedVarKinds memo (state: State<_>) v =
@@ -915,19 +939,36 @@ module internal AnalysisCore = begin
     |> Array.last
     |> snd
 
+  /// Removes the phi `useSite` from the uses of `def`, an operand that it has
+  /// just lost, unless another predecessor still brings `def` in. The uses of
+  /// a definition thus tell exactly which phis it is an operand of.
+  let removePhiUse (state: State<_>) (inDefs: Dictionary<_, _>) def useSite =
+    if Seq.contains def inDefs.Values then ()
+    else state.MutableDefUseMap[def].Remove useSite |> ignore
+
+  /// Queues a phi operand that the chains have just added or replaced, since
+  /// the phi may belong to a vertex that has already run, and no flow is bound
+  /// to bring the operand in. The stack-pointer domain has already run when
+  /// the second pass of the chains adds operands, so it joins those on its
+  /// next run.
+  let enqueuePhiOperand (state: State<_>) phi def =
+    state.StackPointerSubState.PhiQueue.Enqueue((phi, def))
+    state.DomainSubState.PhiQueue.Enqueue((phi, def))
+
   let updatePhiWithPredecessor state inDefs pred incomingDef useSite =
     let incomingPP = getEndPP state pred
     match (inDefs: Dictionary<_, _>).TryGetValue incomingPP with
     | true, oldDef when oldDef = incomingDef ->
       () (* already added *)
     | true, oldDef ->
-      (* Remove the old one. *)
-      state.MutableDefUseMap[oldDef].Remove useSite |> ignore
       inDefs[incomingPP] <- incomingDef
+      removePhiUse state inDefs oldDef useSite
       updateDefUseChain state useSite incomingDef
+      enqueuePhiOperand state useSite incomingDef
     | false, _ ->
       inDefs[incomingPP] <- incomingDef
       updateDefUseChain state useSite incomingDef
+      enqueuePhiOperand state useSite incomingDef
 
   /// Updates the dataflow information of phis. Unlike Cytron's approach though,
   /// the update process is done **after** the dominator tree traversal. This is
@@ -966,6 +1007,16 @@ module internal AnalysisCore = begin
     hdl.RegisterFactory.IsStackPointer rid
     || hdl.RegisterFactory.IsFramePointer rid
 
+  /// Queues a use of the definition `def`, whose value has just grown. A phi
+  /// sits at position 0 and joins only this one operand, as joining all of its
+  /// operands again would cost a pass over every predecessor of its vertex.
+  /// Any other use has its statement evaluated again.
+  let enqueueUse (subState: ISubState<_>) def (useVp: VarPoint) =
+    if useVp.ProgramPoint.Position = 0 then
+      subState.PhiQueue.Enqueue((useVp, def))
+    else
+      subState.DefSiteQueue.Enqueue useVp.ProgramPoint
+
   let updateAbsValue subState defUseMap vp prev curr =
     if (subState: ISubState<_>).Subsume(prev, curr) then
       ()
@@ -974,9 +1025,8 @@ module internal AnalysisCore = begin
       match (defUseMap: IReadOnlyDictionary<_, _>).TryGetValue vp with
       | false, _ ->
         ()
-      | true, defs ->
-        defs
-        |> Seq.iter (fun vp -> subState.DefSiteQueue.Enqueue vp.ProgramPoint)
+      | true, uses ->
+        uses |> Seq.iter (enqueueUse subState vp)
 
   let spTransfer (state: State<_>) (stmt, pp) =
     match stmt with
@@ -1043,6 +1093,20 @@ module internal AnalysisCore = begin
       let defUseMap = (state: State<_>).DefUseMap
       updateAbsValue subState defUseMap vp prev curr)
 
+  /// Joins into each phi of a vertex the operand that comes from `pred`.
+  let transferPhiFrom state subState phiInfo defPp pred =
+    let predPp = getEndPP state pred
+    phiInfo
+    |> Seq.iter (fun (KeyValue(varKind, defs: Dictionary<_, _>)) ->
+      match defs.TryGetValue predPp with
+      | true, def ->
+        let vp = { ProgramPoint = defPp; VarKind = varKind }
+        let prev = (subState: ISubState<_>).GetAbsValue vp
+        let curr = subState.GetAbsValue def
+        updateAbsValue subState (state: State<_>).DefUseMap vp prev curr
+      | false, _ ->
+        ())
+
   let isExecuted state (subState: ISubState<_>) defPp =
     match (state: State<_>).StmtOfBBLs.TryGetValue defPp with
     | false, _ -> false
@@ -1051,24 +1115,50 @@ module internal AnalysisCore = begin
   let processDefSite state (subState: ISubState<_>) fnTransfer =
     match subState.DefSiteQueue.TryDequeue() with
     | true, defPp when isExecuted state subState defPp ->
-      if defPp.Position <> 0 then (* non-phi *)
-        let stmt, _ = (state: State<_>).StmtOfBBLs[defPp]
-        fnTransfer state (stmt, defPp)
-      else (* phi *)
-        let _, bbl = state.StmtOfBBLs[defPp]
-        assert (state.PhiInfos.ContainsKey bbl)
-        transferPhi state subState state.PhiInfos[bbl] defPp
+      let stmt, _ = (state: State<_>).StmtOfBBLs[defPp]
+      fnTransfer state (stmt, defPp)
     | _ ->
       ()
 
-  let transferFlow state subState g v fnTransfer =
-    (subState: ISubState<_>).ExecutedVertices.Add v |> ignore
-    (* Execute phis first. *)
+  /// Tells whether a queued operand is to be joined into its phi. It is not if
+  /// the vertex of the phi has yet to run, as the first run of the vertex joins
+  /// every operand anyway, or if the chains have replaced the operand after it
+  /// was queued, as the phi no longer reads it.
+  let isJoinable state subState (phi: VarPoint) def =
+    isExecuted state subState phi.ProgramPoint
+    && (state: State<_>).DefUseMap[def].Contains phi
+
+  /// Joins a queued operand into its phi.
+  let processPhiOperand state (subState: ISubState<_>) =
+    match subState.PhiQueue.TryDequeue() with
+    | true, (phi, def) when isJoinable state subState phi def ->
+      let prev = subState.GetAbsValue phi
+      let curr = subState.GetAbsValue def
+      updateAbsValue subState (state: State<_>).DefUseMap phi prev curr
+    | _ ->
+      ()
+
+  /// Executes the phis of `v` on the flow from `src`. The first run joins every
+  /// operand, but a later flow brings in only the operand of its own edge, as
+  /// every other operand comes through the phi queue whenever it changes. The
+  /// phis of a vertex inside an instruction are not on that queue, so they
+  /// join every operand on every flow.
+  let transferPhis state subState isFirstRun src v =
     match (state: State<_>).PhiInfos.TryGetValue v with
     | false, _ ->
       ()
     | true, phiInfo ->
-      transferPhi state subState phiInfo v.VData.Internals.PPoint
+      let defPp = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
+      match src with
+      | NonNull pred when not isFirstRun && defPp.Position = 0 ->
+        transferPhiFrom state subState phiInfo defPp pred
+      | _ ->
+        transferPhi state subState phiInfo defPp
+
+  let transferFlow state subState g src v fnTransfer =
+    let isFirstRun = (subState: ISubState<_>).ExecutedVertices.Add v
+    (* Execute phis first. *)
+    transferPhis state subState isFirstRun src v
     for stmt in state.GetStmtInfos v do fnTransfer state stmt done
     (g: IDiGraph<_, _>).GetSuccs v
     |> Array.map (fun succ -> v, succ)
@@ -1086,7 +1176,7 @@ module internal AnalysisCore = begin
       elif not <| (g: IDiGraph<_, _>).Contains dst then
         ()
       else
-        transferFlow state subState g dst fnTransfer
+        transferFlow state subState g src dst fnTransfer
 
   let registerPendingVertices state (subState: ISubState<_>) =
     (state: State<_>).EnqueuePendingVertices subState
@@ -1094,9 +1184,11 @@ module internal AnalysisCore = begin
   let propagateAux g state subState fnTransfer =
     registerPendingVertices state subState
     while not subState.FlowQueue.IsEmpty
-          || not subState.DefSiteQueue.IsEmpty do
+          || not subState.DefSiteQueue.IsEmpty
+          || subState.PhiQueue.Count > 0 do
       processFlow g state subState fnTransfer
       processDefSite state subState fnTransfer
+      processPhiOperand state subState
 
   let propagateStackPointer g state =
     propagateAux g state state.StackPointerSubState spTransfer

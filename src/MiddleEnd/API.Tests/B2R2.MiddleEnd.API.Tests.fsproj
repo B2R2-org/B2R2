@@ -10,7 +10,11 @@
     <Compile Include="CFG2Tests.fs" />
     <Compile Include="BBLCutTests.fs" />
     <Compile Include="BBLScanTests.fs" />
+    <Compile Include="BBLOverlapTests.fs" />
     <Compile Include="FunctionSummaryTests.fs" />
+    <Compile Include="JmpTableRecoveryNotebookTests.fs" />
+    <Compile Include="BinaryBrewTests.fs" />
+    <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

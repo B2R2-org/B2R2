@@ -22,19 +22,27 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Interface for analyzing indirect branch instructions that use a jump table.
-type IJmpTableAnalyzable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Check the given indirect branch instruction and return the jump table
+/// Represents an interface for analyzing indirect branch instructions that use
+/// a jump table.
+type IJmpTableAnalyzable<'FnCtx, 'GlCtx> =
+  /// Checks the given indirect branch instruction and returns the jump table
   /// information if it uses a jump table.
   abstract Identify:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * insAddr: Addr
      * blkAddr: Addr
     -> Result<JmpTableInfo, ErrorCase>
+
+  /// Checks if the indirect branch of the given table selects the entry at the
+  /// given address first: the conditional jumps that every path to the branch
+  /// passes admit that entry but not the one before it.
+  abstract ConfirmStart:
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * jmptbl: JmpTableInfo
+     * addr: Addr
+    -> bool

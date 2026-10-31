@@ -28,92 +28,41 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 
-/// The builder for an external function, which is responsible storing auxiliary
-/// information about the function, such as caller information.
-type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl: BinHandle, exnInfo, reference, name, noretStatus) =
+/// Represents the builder for an external function, which is responsible for
+/// storing auxiliary information about the function, such as caller
+/// information. Nothing builds an external function, so this is not an
+/// ICFGBuildable.
+type ExternalFnCFGBuilder
+  public(hdl: BinHandle, reference, name, noretStatus) =
 
   let entryPoint = (reference: ExternalFunctionReference).ReferenceAddress
 
-  let ctx =
-    { FunctionAddress = entryPoint
-      FunctionName = name
-      BinHandle = hdl
-      ExnInfo = exnInfo
-      Vertices = null
-      GapAnalysisVertices = null
-      CFG = null
-      CP = null
-      BBLFactory = null
-      NonReturningStatus = noretStatus
-      JumpTableRecoveryStatus = null
-      JumpTables = null
-      GapToAnalyze = None
-      GapBlacklist = null
-      Callers = HashSet()
-      IntraCallTable = null
-      VisitedPPoints = null
-      ActionQueue = null
-      PendingCallActions = null
-      CallerVertices = Dictionary()
-      UnwindingBytes = 0
-      ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
-      UserContext = new 'FnCtx()
-      IsExternal = true
-      ManagerChannel = null
-      ThreadID = -1 }
+  let callers = HashSet<Addr>()
 
-  /// The location in this binary that refers to the external function. An
-  /// import trampoline is executable code, whereas a relocation slot is
+  /// What callers know about this function never changes, as nothing builds it.
+  let calleeInfo =
+    { Status = noretStatus
+      Unwinding = 0
+      Clobbered = Set.ofSeq (ClobberedRegisters.ofCallingConvention hdl)
+      IsExternal = true }
+
+  /// Returns the location in this binary that refers to the external function.
+  /// An import trampoline is executable code, whereas a relocation slot is
   /// non-executable data containing the loader's resolved function address.
   member _.ExternalReference = reference
 
-  interface ICFGBuildable<'FnCtx, 'GlCtx> with
+  interface IFunctionBuilder with
     member _.BuilderState with get() = Finished
 
     member _.EntryPoint with get(): Addr = entryPoint
 
     member _.NextFunctionAddress with get() = None and set(_) = ()
 
-    member _.Context with get() = ctx
+    member _.Callers with get() = callers
 
-    member _.DelayedBuilderRequests with get() = Terminator.impossible ()
-
-    member _.HasJumpTable with get() = false
-
-    member _.Activation
-      with get() = Deactivated
-       and set(_) = Terminator.impossible ()
+    member _.CalleeInfo with get() = calleeInfo
 
     member _.IsExternal with get() = true
 
-    member _.Authorize() = ()
-
-    member _.Stop() = ()
-
-    member _.ForceFinish() = ()
-
-    member _.StartVerifying() = ()
-
-    member _.Finalize() = ()
-
-    member _.ReInitialize() = ()
-
-    member _.Invalidate() = ()
-
-    member _.Build _ = Terminator.impossible ()
-
-    member _.Reset() = ()
-
-    member _.MakeNew _ = Terminator.impossible ()
-
     member _.ToFunction() =
-      Function(entryPoint,
-               name,
-               ctx.NonReturningStatus,
-               ctx.Callers,
-               [||],
-               true)
+      Function(entryPoint, name, noretStatus, callers, [||], true)

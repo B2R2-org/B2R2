@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
+open B2R2.ABI
 
 /// Represents what an intra-procedural CFG knows about a function it calls,
 /// summarizing the callee in place of its body. This exists per function call,
@@ -61,8 +62,8 @@ and NonReturningStatus =
   | NoRet
   /// Regular case: *not* no-return (i.e., this is a returning function).
   | NotNoRet
-  /// Conditionally no-return; function does not return only if the n-th
-  /// argument (starting from one) specified is non-zero.
-  | ConditionalNoRet of int
+  /// Conditionally no-return; function does not return only if the argument
+  /// at the given location is non-zero.
+  | ConditionalNoRet of ArgLocation
   /// We don't know yet: we need further analyses.
   | UnknownNoRet

@@ -24,8 +24,6 @@
 
 namespace B2R2.MiddleEnd.Tests
 
-open System.IO
-open System.IO.Compression
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR
@@ -39,19 +37,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// these make sure that such a register is defined chunk by chunk.
 [<TestClass>]
 type FunctionSummaryTests() =
-  (* We reuse the ELF fixtures that live next to the BinFile tests. *)
-  let elfDir =
-    System.AppDomain.CurrentDomain.BaseDirectory
-    + "../../../../../FrontEnd/BinFile.Tests/ELF/"
-
-  let readZippedBinary name =
-    let path = elfDir + name + ".zip"
-    let archive = ZipFile.Open(path, ZipArchiveMode.Read)
-    let stream = archive.GetEntry(name).Open()
-    use ms = new MemoryStream()
-    stream.CopyTo ms
-    ms.ToArray()
-
   let definedVars (blk: ILowUIRBasicBlock) =
     if blk.IsAbstract then
       [| for stmt in blk.AbstractContent.Rundown do

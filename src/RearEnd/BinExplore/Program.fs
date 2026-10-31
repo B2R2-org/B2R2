@@ -24,6 +24,8 @@
 
 module B2R2.RearEnd.BinExplore.Program
 
+open System
+open System.Diagnostics
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
@@ -33,6 +35,20 @@ open B2R2.RearEnd.Utils
 let [<Literal>] private ToolName = "explore"
 
 let [<Literal>] private UsageTail = "<binary file>"
+
+let private reportFailure (failure: CFGRecoveryFailure) =
+  let addr, e = failure.EntryPoint, failure.Exception
+  Console.Error.WriteLine $"[!] Failed to recover {addr:x}:\n{e}"
+
+/// Brews a binary with the given function, reporting the progress and the
+/// functions that failed to recover, which the brew itself keeps quiet about.
+let private brewWithProgress (brew: unit -> BinaryBrew<_, _>) =
+  let sw = Stopwatch.StartNew()
+  Console.WriteLine "[*] CFG recovery started."
+  let brew = brew ()
+  Console.WriteLine $"[*] Total {sw.Elapsed.TotalSeconds}s elapsed."
+  brew.RecoveryFailures |> Array.iter reportFailure
+  brew
 
 let private loadAllFiles (arbiter: Arbiter<_, _>) files =
   files
@@ -59,16 +75,17 @@ let private runWithBrewLoader files (opts: BinExploreOpts) =
         member _.LoadBrew file =
           let hdl = BinHandle.LoadFile(file, opts.ISA, None)
           let cfgRecovery = Strategies.EVMCFGRecovery()
-          EVMBinaryBrew(hdl, cfgRecovery) }
+          brewWithProgress (fun () -> EVMBinaryBrew(hdl, cfgRecovery)) }
     |> startServerAndUI files opts
   | _ ->
     { new IBrewLoadable<_, _> with
         member _.LoadBrew file =
           let hdl = BinHandle.LoadFile(file, opts.ISA, None)
           let exnInfo = ExceptionInfo hdl
-          let cfgRecovery = Strategies.CFGRecovery(hdl.ISA, false)
+          let options = Strategies.CFGRecoveryOptions.Default
+          let cfgRecovery = Strategies.CFGRecovery(hdl.ISA, options)
           let strategy = cfgRecovery :> ICFGBuildingStrategy<_, _>
-          BinaryBrew(hdl, exnInfo, strategy) }
+          brewWithProgress (fun () -> BinaryBrew(hdl, exnInfo, strategy)) }
     |> startServerAndUI files opts
 
 let private explore files opts =

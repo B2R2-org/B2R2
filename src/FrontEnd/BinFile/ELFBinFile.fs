@@ -435,6 +435,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
            for fde in cfi.FDEs do
              { FunctionStart = fde.PCBegin
                FunctionEnd = fde.PCEnd - 1UL
+               IsFragment = fde.StartsMidFrame
                PersonalityRoutine = personality
                Handlers = toExceptionHandlers fde } |]
       |> ImmutableArray.ofArray
@@ -629,6 +630,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       match row.CanonicalFrameAddress with
       | RegPlusOffset(rid, off) -> Some(rid, off)
       | _ -> None)
+
+  /// Returns the range of code that the FDE covering the given address
+  /// describes; None when no FDE covers the address.
+  member _.TryFindFDERange(addr: Addr) =
+    findCoveringFDE sortedFDEs.Value addr
+    |> Option.map (fun fde -> AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

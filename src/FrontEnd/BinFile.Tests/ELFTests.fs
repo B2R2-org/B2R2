@@ -2117,6 +2117,30 @@ type ELFTests() =
     assertCFA None (file.TryFindCFARegOffset gapStart)
 
   [<TestMethod>]
+  member _.``[ELF] x64 FDE range lookup finds the FDE covering an address``() =
+    let file = parseEhFrameFile ()
+    for cfi in file.ExceptionFrame do
+      for fde in cfi.FDEs do
+        let expected = Some(AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
+        let first = file.TryFindFDERange fde.PCBegin
+        let last = file.TryFindFDERange(fde.PCEnd - 1UL)
+        Assert.AreEqual<AddrRange option>(expected, first)
+        Assert.AreEqual<AddrRange option>(expected, last)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 FDE range lookup finds nothing outside the FDEs``() =
+    let file = parseEhFrameFile ()
+    let fdes =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.sortBy (fun fde -> fde.PCBegin)
+    let first, last = List.head fdes, List.last fdes
+    let hasGap (a: FDE, b: FDE) = a.PCEnd < b.PCBegin
+    let gapStart = (fdes |> List.pairwise |> List.find hasGap |> fst).PCEnd
+    for addr in [ first.PCBegin - 1UL; last.PCEnd; gapStart ] do
+      Assert.AreEqual<AddrRange option>(None, file.TryFindFDERange addr)
+
+  [<TestMethod>]
   member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let rsp = DWRegister.toRegID isa 7uy
@@ -2141,6 +2165,27 @@ type ELFTests() =
         |> Option.map (fun e -> fde.PCBegin, e.Location))
     Assert.AreEqual<bool>(true, not starts.IsEmpty)
     Assert.AreEqual<bool>(true, starts |> List.forall (fun (b, l) -> b = l))
+
+  [<TestMethod>]
+  member _.``[ELF] x64 only the PLT FDE starts mid-frame``() =
+    (* PLT0 is entered from a stub that has already pushed a relocation index,
+       so the PLT's FDE starts at CFA rsp+16; every other FDE describes a
+       function from its entry. *)
+    let starts =
+      x64EhFrameFile.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.filter (fun fde -> fde.StartsMidFrame)
+      |> List.map (fun fde -> fde.PCBegin)
+      |> List.toArray
+    CollectionAssert.AreEqual([| 0x1020UL |], starts)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 only the PLT frame is a fragment``() =
+    let fragments =
+      (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
+      |> ImmutableArray.choose (fun f ->
+        if f.IsFragment then Some f.FunctionStart else None)
+    CollectionAssert.AreEqual([| 0x1020UL |], fragments)
 
   [<TestMethod>]
   member _.``[ELF] arm32 exidx exception table is parsed``() =

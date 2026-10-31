@@ -35,19 +35,71 @@ open B2R2.MiddleEnd.DataFlow
 
 type private L = ConstantDomain.Lattice
 
-/// Base class for analyzing jump tables.
-type JmpTableAnalysis<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+/// Represents how the index of a jump table selects its entries.
+type private IndexOrigin =
+  { /// The variable that the index derives from.
+    Root: Variable
+    /// The address of the entry that the index selects when Root is zero.
+    ZeroAddr: int64
+    /// The index itself, whose value is the number of the entry it selects.
+    Index: Expr
+    /// Tells whether the range check of the branch lets the index select the
+    /// entry at the given address.
+    Admits: int64 -> bool
+    /// Tells whether the entry at the given address is the first that the
+    /// conditional jumps on every path to the branch let the index select.
+    StartsAt: int64 -> bool }
+
+/// Represents a base class for analyzing jump tables.
+type JmpTableAnalysis<'FnCtx, 'GlCtx>
   public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
+
+  /// Gets the guard on the edge from pred to v: the condition of the
+  /// conditional jump that ends pred, and whether the jump takes the edge
+  /// when that holds.
+  let tryGetGuard stmExtractor (g: IDiGraph<_, _>) pred v =
+    match stmExtractor pred, g.FindEdge(pred, v).Label with
+    | Some(Jmp(InterCJmp(cond, t, f))), InterCJmpTrueEdge when t <> f ->
+      Some(cond, true)
+    | Some(Jmp(InterCJmp(cond, t, f))), InterCJmpFalseEdge when t <> f ->
+      Some(cond, false)
+    | _ ->
+      None
+
+  /// Collects the guards on the edges into the given vertex, which is where an
+  /// indirect branch checks its range.
+  let collectGuards stmExtractor (g: IDiGraph<_, _>) v =
+    g.GetPreds v
+    |> Seq.choose (fun pred -> tryGetGuard stmExtractor g pred v)
+    |> Seq.toList
+
+  /// Collects the guards that every path to the given vertex passes: those on
+  /// the edge into the vertex or into one of its dominators, from the only
+  /// predecessor that it has.
+  let collectDominatingGuards stmExtractor (g: IDiGraph<_, _>) v =
+    let df = Dominance.CooperDominanceFrontier()
+    let dom = Dominance.LengauerTarjanDominance.create g df
+    let rec collect (v: IVertex<_>) acc =
+      match dom.ImmediateDominator v with
+      | null ->
+        acc
+      | idom ->
+        match g.GetPreds v with
+        | [| pred |] ->
+          match tryGetGuard stmExtractor g pred v with
+          | Some guard -> collect idom (guard :: acc)
+          | None -> collect idom acc
+        | _ ->
+          collect idom acc
+    collect v []
 
   let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst =
     function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
-      | Jmp(InterJmp jmpExpr) ->
-        Ok jmpExpr
+      | Some(Jmp(InterJmp jmpExpr)) ->
+        let guards = collectGuards stmExtractor g v
+        Ok(jmpExpr, guards, lazy collectDominatingGuards stmExtractor g v)
       | _ ->
         let vs =
           g.GetSuccs v
@@ -60,13 +112,17 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
   let findIndBranchExprFromIRCFG (g: LowUIRCFG) state addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = g.FindVertexBy(fun v -> v.VData.Internals.BlockAddress = addr)
-    let stmExtractor = (state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA
+    let stmExtractor (v: IVertex<LowUIRBasicBlock>) =
+      if v.VData.Internals.IsAbstract then None
+      else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
     findJumpExpr stmExtractor g v [ v ]
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = ssaCFG.FindVertexBy(fun v -> v.VData.Internals.BlockAddress = addr)
-    let stmExtractor (v: IVertex<SSABasicBlock>) = v.VData.Internals.LastStmt
+    let stmExtractor (v: IVertex<SSABasicBlock>) =
+      if v.VData.Internals.IsAbstract then None
+      else Some v.VData.Internals.LastStmt
     findJumpExpr stmExtractor ssaCFG v [ v ]
 
   let rec simplify e =
@@ -157,9 +213,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | e ->
       e
 
-  /// Expand the given expression by recursively substituting the subexpressions
-  /// with their definitions. The recursion stops after following the next
-  /// definitions.
+  /// Expands the given expression by recursively substituting the
+  /// subexpressions with their definitions. The recursion stops after following
+  /// the next definitions.
   let rec symbExpand expandPhi findConst findDef doNext e =
     match e with
     | Num _ ->
@@ -211,7 +267,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | e ->
       e
 
-  /// Expand the given expression exhaustively by recursively substituting the
+  /// Expands the given expression exhaustively by recursively substituting the
   /// subexpressions with their definitions until no more expansion is possible.
   let rec symbExpandExhaustively expandPhi findConst findDef e =
     let e' = symbExpand expandPhi findConst findDef true e
@@ -239,7 +295,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | e ->
       e
 
-  /// Check whether the given expression is a proper index expression, i.e., it
+  /// Checks whether the given expression is a proper index expression, i.e., it
   /// does not contain multiplication or shift with a constant.
   let isProperIndex expandPhi findConst findDef e =
     e
@@ -298,19 +354,84 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
       | Num t -> Ok <| t.ToUInt64()
       | _ -> Error ErrorCase.ItemNotFound
 
+  /// Finds the index in the given table expression, i.e., the operand of the
+  /// scaled term that extractTableExpr strips.
+  let rec tryExtractIndexExpr = function
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, idx, Num _), _)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, Num _, idx), _)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.SHL, _, idx, Num _), _)
+    | BinOp(BinOpType.ADD, _, _, BinOp(BinOpType.MUL, _, idx, Num _))
+    | BinOp(BinOpType.ADD, _, _, BinOp(BinOpType.MUL, _, Num _, idx))
+    | BinOp(BinOpType.ADD, _, _, BinOp(BinOpType.SHL, _, idx, Num _)) ->
+      Some idx
+    | BinOp(_, _, e1, e2) ->
+      match tryExtractIndexExpr e1 with
+      | None -> tryExtractIndexExpr e2
+      | idx -> idx
+    | _ ->
+      None
+
+  /// Reads the given constant as a signed integer.
+  let toSigned (n: BitVector) =
+    BitVector.SExt(n, max n.Length 64<rt>).ToInt64()
+
+  /// Decomposes an index into the variable it derives from and the constant
+  /// added to that variable, looking through copies, extensions, and constant
+  /// additions.
+  let rec decomposeIndex findDef e =
+    match e with
+    | Var v ->
+      match findDef v with
+      | Some(Def(_, def)) ->
+        decomposeIndex findDef def |> Option.orElse (Some(v, 0L))
+      | _ ->
+        Some(v, 0L)
+    | BinOp(BinOpType.ADD, _, e, Num n)
+    | BinOp(BinOpType.ADD, _, Num n, e) ->
+      decomposeIndex findDef e
+      |> Option.map (fun (v, offset) -> v, offset + toSigned n)
+    | BinOp(BinOpType.SUB, _, e, Num n) ->
+      decomposeIndex findDef e
+      |> Option.map (fun (v, offset) -> v, offset - toSigned n)
+    | Cast(CastKind.ZeroExt, _, e)
+    | Cast(CastKind.SignExt, _, e)
+    | Extract(e, _, 0) ->
+      decomposeIndex findDef e
+    | _ ->
+      None
+
+  /// Finds how the index of the given table selects its entries, leaving the
+  /// range check of the indirect branch to be found later.
+  let findIndexOrigin findDef (jmptbl: JmpTableInfo) tblExpr =
+    match tryExtractIndexExpr tblExpr with
+    | Some idx ->
+      decomposeIndex findDef idx
+      |> Option.map (fun (root, offset) ->
+        let size = int64 jmptbl.EntrySize
+        { Root = root
+          ZeroAddr = int64 jmptbl.TableAddress + offset * size
+          Index = idx
+          Admits = fun _ -> false
+          StartsAt = fun _ -> false })
+    | None ->
+      None
+
   let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt singleEntry =
     let baseAddr = extractBaseAddr findConst findDef baseExpr
     let tblAddr = extractTableAddr findConst findDef tblExpr
     match baseAddr, tblAddr with
     | Ok baseAddr, Ok tblAddr ->
-      Ok({ InsAddr = insAddr
-           JumpBase = baseAddr
-           TableAddress = tblAddr
-           EntrySize = RegType.toByteWidth rt
-           NumEntries = 0
-           WaitingInstructions = []
-           IsSingleEntry = singleEntry
-           IsFunctionPointerTable = false })
+      let jmptbl =
+        { InsAddr = insAddr
+          JumpBase = baseAddr
+          TableAddress = tblAddr
+          EntrySize = RegType.toByteWidth rt
+          NumEntries = 0
+          WaitingInstructions = []
+          IsSingleEntry = singleEntry
+          OwnRangeEntries = None
+          IsFunctionPointerTable = false }
+      Ok(jmptbl, findIndexOrigin findDef jmptbl tblExpr)
     | _ ->
       Error ErrorCase.ItemNotFound
 
@@ -366,11 +487,11 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     <| $"{insAddr:x} ({depth}): {PrettyPrinter.ToString(ssaExpr = exp)}"
 #endif
     match detect expandPhi findConst findDef insAddr exp with
-    | Ok(info) ->
+    | Ok(info, origin) ->
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
 #endif
-      Ok(info)
+      Ok(info, origin)
     | Error _ ->
       if depth < MaxDepth then
         let e = symbExpand expandPhi findConst findDef true exp |> simplify
@@ -390,13 +511,85 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | ConstantDomain.Const bv -> Num bv
     | _ -> e
 
+  /// Checks if the index that the origin describes selects the given entry
+  /// while its root holds the given value.
+  let selects findDef origin value (entry: uint64) =
+    let evaluate = SSAExprEvaluator.evaluate findDef origin.Root value MaxDepth
+    match evaluate origin.Index with
+    | ConstantDomain.Const n -> n.Length <= 64<rt> && n.ToUInt64() = entry
+    | _ -> false
+
+  /// Checks if the given guard, a condition paired with the outcome on which it
+  /// branches toward the indirect jump, branches there while the root holds
+  /// the given value. Returns None if the condition does not read the root,
+  /// since then it bounds nothing.
+  let tryTakeBranch findDef root value (cond, outcome) =
+    let eval value = SSAExprEvaluator.evaluate findDef root value MaxDepth cond
+    match eval None, eval value with
+    | ConstantDomain.NotAConst, ConstantDomain.Const c ->
+      Some(c.IsTrue = outcome)
+    | _ ->
+      None
+
+  /// Computes the value that the root has to hold for the index of the given
+  /// table to select the entry at addr, if the index can select it at all.
+  let tryComputeRootValue findDef (jmptbl: JmpTableInfo) origin addr =
+    let size = int64 jmptbl.EntrySize
+    let offset = addr - int64 jmptbl.TableAddress
+    if offset >= 0L && offset % size = 0L then
+      let value = Some((addr - origin.ZeroAddr) / size)
+      if selects findDef origin value (uint64 (offset / size)) then value
+      else None
+    else
+      None
+
+  /// Checks if one of the given guards lets the index of the given table select
+  /// the entry at addr: the root has to hold the value with which the index
+  /// selects that entry, and with that value the guard has to branch to the
+  /// indirect jump.
+  let admits findDef guards jmptbl origin addr =
+    match tryComputeRootValue findDef jmptbl origin addr with
+    | Some _ as value ->
+      guards
+      |> List.exists (fun guard ->
+        tryTakeBranch findDef origin.Root value guard = Some true)
+    | None ->
+      false
+
+  /// Checks if the entry at addr is the first that the given guards, which
+  /// every path to the indirect jump passes, let the index of the given table
+  /// select: none of them keeps the index from selecting that entry, while one
+  /// of them keeps it from selecting the entry before.
+  let startsAt findDef (guards: Lazy<_>) (jmptbl: JmpTableInfo) origin addr =
+    let prevAddr = addr - int64 jmptbl.EntrySize
+    let tryCompute = tryComputeRootValue findDef jmptbl origin
+    match tryCompute addr, tryCompute prevAddr with
+    | Some _ as value, (Some _ as prevValue) ->
+      let branch value guard = tryTakeBranch findDef origin.Root value guard
+      guards.Value |> List.forall (fun g -> branch value g <> Some false)
+      && guards.Value |> List.exists (fun g -> branch prevValue g = Some false)
+    | _ ->
+      false
+
+  /// Lets the origin of the index tell which entries the range check admits,
+  /// which the given guards of the indirect branch decide, and which entry it
+  /// selects first, which the given guards on every path to it decide.
+  let guardOrigin findDef guards domGuards (jmptbl: JmpTableInfo, origin) =
+    let guard o =
+      { o with
+          Admits = admits findDef guards jmptbl o
+          StartsAt = startsAt findDef domGuards jmptbl o }
+    jmptbl, Option.map guard origin
+
   let analyzeSymbolicallyWithIRCFG ctx state insAddr bblAddr =
-    match findIndBranchExprFromIRCFG ctx.CFG state bblAddr with
-    | Ok exp ->
+    let cfg = (ctx: CFGBuildingContext<_, _>).CFG
+    match findIndBranchExprFromIRCFG cfg state bblAddr with
+    | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromIRCFG state
       let findDef = findDefFromIRCFG state
       let fnAddr = ctx.FunctionAddress
       findSymbPattern expandPhiFromIRCFG findConst findDef fnAddr insAddr 0 exp
+      |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e
 
@@ -422,13 +615,83 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
 
   let analyzeSymbolicallyWithSSACFG ctx ssaCFG state insAddr bblAddr =
     match findIndBranchExprFromSSACFG ssaCFG bblAddr with
-    | Ok exp ->
+    | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromSSACFG state
       let findDef = findDefFromSSACFG state
-      let fnAddr = ctx.FunctionAddress
+      let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
+      |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e
+
+  /// Finds the vertex that ends with the indirect branch at insAddr.
+  let tryFindIndBranchVertex (ctx: CFGBuildingContext<_, _>) insAddr =
+    match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
+    | true, v -> Some v
+    | false, _ -> None
+
+  /// Finds the jump table entry through which the indirect branch of the given
+  /// table was first reached, if the entry belongs to another table. Returns
+  /// that table along with the entry address.
+  let tryFindEnclosingEntry ctx (jmptbl: JmpTableInfo) =
+    tryFindIndBranchVertex ctx jmptbl.InsAddr
+    |> Option.bind (fun v -> v.VData.DominatingJumpTableEntry)
+    |> Option.bind (fun (tblAddr, idx) ->
+      match ctx.JumpTables.TryGetValue tblAddr with
+      | true, outer when outer.InsAddr <> jmptbl.InsAddr ->
+        Some(outer, int64 outer.TableAddress + int64 (idx * outer.EntrySize))
+      | _ ->
+        None)
+
+  /// Analyzes the indirect branch of the given table again, finding how its
+  /// index selects its entries.
+  let tryFindIndexOrigin ctx analyze (jmptbl: JmpTableInfo) =
+    match tryFindIndBranchVertex ctx jmptbl.InsAddr with
+    | Some v ->
+      match analyze jmptbl.InsAddr v.VData.Internals.BlockAddress with
+      | Ok(_, origin) -> origin
+      | Error _ -> None
+    | None ->
+      None
+
+  /// Computes the value that the variable indexing the given table holds when
+  /// the entry at entryAddr is taken, along with the variable. The range check
+  /// of the table must admit both that entry and the one at addr.
+  let tryComputeIndexValue ctx analyze (jmptbl: JmpTableInfo) entryAddr addr =
+    match tryFindIndexOrigin ctx analyze jmptbl with
+    | Some o when o.Admits entryAddr && o.Admits addr ->
+      Some(o.Root, (entryAddr - o.ZeroAddr) / int64 jmptbl.EntrySize)
+    | _ ->
+      None
+
+  /// Rebases the jump table onto the entry that its index selects first, when
+  /// the address its code computes lies within the enclosing table whose entry
+  /// led to its indirect branch, and the same variable indexes both tables. No
+  /// table starts within another, so the address is not where the table starts:
+  /// knowing from the enclosing switch which values the variable holds there,
+  /// the compiler has skipped the range check and folded the smallest value
+  /// into the table address. The range check of the enclosing table bounds it,
+  /// and must admit the entry that led to the branch too, since the table may
+  /// have been read past its end before that end was known.
+  let rebase ctx analyze (jmptbl: JmpTableInfo, origin) =
+    match origin, tryFindEnclosingEntry ctx jmptbl with
+    | Some o, Some(outer, entryAddr) ->
+      let tblAddr = int64 jmptbl.TableAddress
+      match tryComputeIndexValue ctx analyze outer entryAddr tblAddr with
+      | Some(root, value) when root = o.Root ->
+        let start = o.ZeroAddr + value * int64 jmptbl.EntrySize
+        if start > tblAddr then
+#if CFGDEBUG
+          dbglog ctx.ThreadID "JumpTable"
+          <| $"{jmptbl.InsAddr:x}: rebased to [{start:x}] by {outer.InsAddr:x}"
+#endif
+          { jmptbl with TableAddress = uint64 start }
+        else
+          jmptbl
+      | _ ->
+        jmptbl
+    | _ ->
+      jmptbl
 
   /// Returns the section names that may host a jump table per file format.
   let jumpTableSectionNames = function
@@ -436,6 +699,52 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | FileFormat.PEBinary -> [| PE.Section.Text; PE.Section.RData |]
     | FileFormat.MachBinary -> [| Mach.Section.Text; Mach.Section.Const |]
     | _ -> [||]
+
+  /// Counts the entries that fit between the start of the given table and the
+  /// end of its section, which has to be one that may host a jump table.
+  let countFittingEntries (file: IBinFile) (jmptbl: JmpTableInfo) =
+    match BinFileOps.tryFindSectionByAddr file jmptbl.TableAddress with
+    | Ok sec when Array.contains sec.Name (jumpTableSectionNames file.Format) ->
+      (sec.Address + sec.Size - jmptbl.TableAddress) / uint64 jmptbl.EntrySize
+    | _ ->
+      0UL
+
+  /// Counts the entries of the given table, from the first, that the range
+  /// check of its indirect branch lets the index select. Returns None if the
+  /// check keeps the index from the first entry, since then the table may not
+  /// start there, or lets it select the last entry that fits in the section,
+  /// since then the check bounds nothing.
+  let countAdmittedEntries file (jmptbl: JmpTableInfo) origin =
+    let size = uint64 jmptbl.EntrySize
+    let admitsEntry n = origin.Admits(int64 (jmptbl.TableAddress + n * size))
+    let rec count n = if admitsEntry n then count (n + 1UL) else n
+    match countFittingEntries file jmptbl with
+    | fits when fits > 0UL && not (admitsEntry (fits - 1UL)) ->
+      match count 0UL with
+      | 0UL -> None
+      | n -> Some(int n)
+    | _ ->
+      None
+
+  /// Counts the entries of the given table, from the first, that its indirect
+  /// branch can only reach as entries of this table. A table without an index
+  /// has its one entry.
+  let countOwnRange file (jmptbl: JmpTableInfo) origin =
+    if jmptbl.IsSingleEntry then
+      Some 1
+    else
+      match origin with
+      | Some o -> countAdmittedEntries file jmptbl o
+      | None -> None
+
+  /// Identifies the jump table of the indirect branch at insAddr, using the
+  /// given analysis of indirect branches for its enclosing branch as well.
+  let identify ctx analyze insAddr bblAddr =
+    analyze insAddr bblAddr
+    |> Result.map (fun (jmptbl, origin) ->
+      let jmptbl = rebase ctx analyze (jmptbl, origin)
+      let file = (ctx: CFGBuildingContext<_, _>).BinHandle.File
+      { jmptbl with OwnRangeEntries = countOwnRange file jmptbl origin })
 
   /// Checks if the address is in a section that may host a jump table,
   /// according to the file format's heuristic.
@@ -458,19 +767,29 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | Error e ->
       Error e
 
+  /// Prepares the analysis of the indirect branches of the given function,
+  /// computing the data flow that it reads.
+  let prepareAnalysis (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
+    match ssaLifter with
+    | Some ssaLifter ->
+      let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()
+      let cp = SSAConstantPropagation ctx.BinHandle
+      let dfa = cp :> IDataFlowComputable<_, _, _>
+      dfa.Compute ssaCFG |> ignore
+      analyzeSymbolicallyWithSSACFG ctx ssaCFG cp.State
+    | None ->
+      let cp = ctx.CP
+      let dfa = cp :> IDataFlowComputable<_, _, _>
+      dfa.Compute ctx.CFG |> ignore
+      analyzeSymbolicallyWithIRCFG ctx cp.State
+
   interface IJmpTableAnalyzable<'FnCtx, 'GlCtx> with
     member _.Identify(ctx, insAddr, bblAddr) =
-      match ssaLifter with
-      | Some ssaLifter ->
-        let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()
-        let cp = SSAConstantPropagation ctx.BinHandle
-        let dfa = cp :> IDataFlowComputable<_, _, _>
-        dfa.Compute ssaCFG |> ignore
-        analyzeSymbolicallyWithSSACFG ctx ssaCFG cp.State insAddr bblAddr
-        |> checkValidity ctx
-      | None ->
-        let cp = ctx.CP
-        let dfa = cp :> IDataFlowComputable<_, _, _>
-        dfa.Compute ctx.CFG |> ignore
-        analyzeSymbolicallyWithIRCFG ctx cp.State insAddr bblAddr
-        |> checkValidity ctx
+      let analyze = prepareAnalysis ctx
+      identify ctx analyze insAddr bblAddr
+      |> checkValidity ctx
+
+    member _.ConfirmStart(ctx, jmptbl, addr) =
+      match tryFindIndexOrigin ctx (prepareAnalysis ctx) jmptbl with
+      | Some o -> o.StartsAt(int64 addr)
+      | None -> false

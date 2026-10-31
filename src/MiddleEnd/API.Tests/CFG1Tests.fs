@@ -522,10 +522,9 @@ type CFG1Tests() =
     (* The SSA-based recovery reads its reaching definitions off the dominance
        the lifter hands back, which is the one path that dominance travels
        out of the lifter. It recovers what the plain recovery recovers. *)
-    let strategy =
-      Strategies.CFGRecovery<Strategies.DummyContext,
-                             Strategies.DummyContext>(false, true)
-    let ssaBrew = BinaryBrew(hdl, ExceptionInfo hdl, strategy)
+    let options =
+      { Strategies.CFGRecoveryOptions.Default with UseSSA = true }
+    let ssaBrew = BinaryBrew(hdl, options)
     let plainBrew = BinaryBrew hdl
     let entryPointsOf (brew: BinaryBrew) =
       brew.Functions.Sequence |> Seq.map (_.EntryPoint) |> Seq.toArray

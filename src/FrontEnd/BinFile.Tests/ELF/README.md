@@ -176,6 +176,854 @@ int g(void) __attribute__((ifunc("resolve_g")));
 void _start(void) { f(); g(); }
 ```
 
+## The -fno-plt fixture
+
+Built with `-fno-plt`, a call to a function that the loader may interpose on
+skips the PLT and goes straight through the GOT slot of the function, which a
+GLOB_DAT relocation fills. A shared library calling an exported function of
+its own does so too, and the slot then names a function defined in the very
+file that calls through it. `-z now` puts that slot under RELRO, so what the
+loader writes there stays.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_noplt` | `entry` calls `helper` through `call *helper@GOTPCREL(%rip)`, whose slot carries an `R_X86_64_GLOB_DAT` bound to `helper` of the same library |
+
+```
+gcc -O2 -fPIC -fno-plt -shared -nostdlib -Wl,-z,now noplt.c -o elf_x64_noplt
+```
+
+```c
+int helper(int x) { return x + 1; }
+int entry(int x) { return helper(x) * 2; }
+```
+
+## The jump table fixture
+
+A switch whose default is unreachable leaves holes in its jump table, and
+clang fills each hole with the end of the function: a label with no code of
+its own, so it lands on the padding before the next function. Such a dummy
+entry sits between real ones, which is what tells it apart from the end of the
+table.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_jmptbl` | `pick` jumps through a six-entry table whose entries 1 and 3 are dummies pointing to the padding between `pick` and `next` |
+
+```
+clang -O2 -fPIC -fuse-ld=lld -static -nostdlib jmptbl.c -o elf_x64_jmptbl
+```
+
+```c
+volatile int input;
+
+__attribute__((noinline)) int pick(int x) {
+  switch (x) {
+  case 0: asm volatile("nop"); return 10;
+  case 2: asm volatile("pause"); return 30;
+  case 4: asm volatile("lfence"); return 50;
+  case 5: asm volatile("mfence"); return 60;
+  default: __builtin_unreachable();
+  }
+}
+
+__attribute__((noinline)) int next(int x) { return x * 3; }
+
+void _start(void) { input = next(pick(input)); }
+```
+
+## The nested jump table fixture
+
+A switch nested in a case of another switch on the same variable needs no range
+check of its own: the outer switch already bounds the values that reach it. GCC
+then indexes the inner table with the variable as it is, folding the smallest
+case into the table address instead of subtracting it. The address the code
+computes thus lies a few entries before the inner table, here inside the outer
+one.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_nestedjmptbl` | `pick` jumps through an eleven-entry table, and its cases 4 to 9 jump again through a six-entry table indexed by the same register, whose computed address is four entries early, inside the first table |
+
+```
+gcc -m32 -O1 -fPIE -fuse-ld=lld -static -nostdlib nested.c \
+    -o elf_x86_nestedjmptbl
+```
+
+```c
+volatile int input;
+
+__attribute__((noinline)) int pick(unsigned op) {
+  switch (op) {
+  case 0: asm volatile("nop"); return 1;
+  case 1: asm volatile("pause"); return 2;
+  case 2: asm volatile("lfence"); return 3;
+  case 3: asm volatile("mfence"); return 4;
+  case 4: case 5: case 6: case 7: case 8: case 9:
+    asm volatile("sfence");
+    switch (op) {
+    case 4: asm volatile("nop; nop"); return 5;
+    case 5: asm volatile("pause; pause"); return 6;
+    case 6: asm volatile("lfence; lfence"); return 7;
+    case 7: asm volatile("mfence; mfence"); return 8;
+    case 8: asm volatile("sfence; sfence"); return 9;
+    case 9: asm volatile("nop; pause"); return 10;
+    default: __builtin_unreachable();
+    }
+  case 10: asm volatile("nop; lfence"); return 11;
+  default: return 0;
+  }
+}
+
+void _start(void) { input = pick(input); }
+```
+
+The unreachable default of the inner switch is what lets GCC drop its range
+check. Without it, GCC subtracts 4 and checks the result, and the address the
+code computes is that of the table itself.
+
+## The same-register jump table fixture
+
+Two hand-written functions that each switch twice on the same register, where
+the second table does start at the address its code computes, unlike the one of
+the nested fixture above. `checked` reaches its second switch from case 2
+alone, yet checks the range itself, so its table still starts at case 0.
+`overread` keeps its two tables next to each other, so reading on past the end
+of the first one, before that end is known, leads to the second jump.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_samevarjmptbl` | `checked` and `overread` each jump through a table whose index register also indexes the table they jump through first, and both tables start where the code computes them |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib samevar.s -o elf_x86_samevarjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  checked
+        .type   checked, @function
+checked:
+        mov     eax, DWORD PTR [esp+4]
+        lea     ecx, [eax+1]
+        cmp     ecx, 3
+        ja      .Lc_zero
+        jmp     DWORD PTR [checked_outer+ecx*4]
+.Lc_o0: mov     eax, 1
+        ret
+.Lc_o1: mov     eax, 2
+        ret
+.Lc_o2: mov     eax, 3
+        ret
+.Lc_o3: cmp     eax, 3
+        ja      .Lc_zero
+        jmp     DWORD PTR [checked_inner+eax*4]
+.Lc_i0: mov     eax, 4
+        ret
+.Lc_i1: mov     eax, 5
+        ret
+.Lc_i2: mov     eax, 6
+        ret
+.Lc_i3: mov     eax, 7
+        ret
+.Lc_zero:
+        xor     eax, eax
+        ret
+        .size   checked, .-checked
+
+        .globl  overread
+        .type   overread, @function
+overread:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 2
+        ja      .Lr_zero
+        jmp     DWORD PTR [overread_outer+eax*4]
+.Lr_o0: mov     eax, 1
+        ret
+.Lr_o1: mov     eax, 2
+        ret
+.Lr_o2: mov     eax, 3
+        ret
+.Lr_loop:
+        jmp     DWORD PTR [overread_inner+eax*4]
+.Lr_i0: mov     edx, 4
+        jmp     .Lr_loop
+.Lr_i1: mov     eax, 5
+        ret
+.Lr_zero:
+        xor     eax, eax
+        ret
+        .size   overread, .-overread
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    checked
+        call    overread
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+overread_outer:
+        .long   .Lr_o0, .Lr_o1, .Lr_o2
+overread_inner:
+        .long   .Lr_i0, .Lr_i1
+        .long   0
+checked_outer:
+        .long   .Lc_o0, .Lc_o1, .Lc_o2, .Lc_o3
+checked_inner:
+        .long   .Lc_i0, .Lc_i1, .Lc_i2, .Lc_i3
+        .long   0
+```
+
+The zero after each pair of tables stops any table that runs on into it, as
+address zero lies in no function.
+
+## The range check jump table fixture
+
+Three hand-written functions whose first switch checks its range with a jump
+that the two fixtures above do not use, each laid out like one of them.
+`strict` and `taken` follow `checked`, but `strict` leaves through `jae` and
+`taken` reaches its table through `jb`, the branch the check takes. `nested`
+follows the nested fixture, folding case 4 into the address of its second
+table, behind the signed checks `js` and `jge`.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_jccjmptbl` | `strict`, `taken` and `nested` each switch twice on one register, the first time behind a range check that is strict, taken, or signed |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib jcc.s -o elf_x86_jccjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  strict
+        .type   strict, @function
+strict:
+        mov     eax, DWORD PTR [esp+4]
+        lea     ecx, [eax+1]
+        cmp     ecx, 4
+        jae     .Ls_zero
+        jmp     DWORD PTR [strict_outer+ecx*4]
+.Ls_o0: mov     eax, 1
+        ret
+.Ls_o1: mov     eax, 2
+        ret
+.Ls_o2: mov     eax, 3
+        ret
+.Ls_o3: cmp     eax, 3
+        ja      .Ls_zero
+        jmp     DWORD PTR [strict_inner+eax*4]
+.Ls_i0: mov     eax, 4
+        ret
+.Ls_i1: mov     eax, 5
+        ret
+.Ls_i2: mov     eax, 6
+        ret
+.Ls_i3: mov     eax, 7
+        ret
+.Ls_zero:
+        xor     eax, eax
+        ret
+        .size   strict, .-strict
+
+        .globl  taken
+        .type   taken, @function
+taken:
+        mov     eax, DWORD PTR [esp+4]
+        lea     ecx, [eax+1]
+        cmp     ecx, 4
+        jb      .Lt_switch
+        xor     eax, eax
+        ret
+.Lt_switch:
+        jmp     DWORD PTR [taken_outer+ecx*4]
+.Lt_o0: mov     eax, 1
+        ret
+.Lt_o1: mov     eax, 2
+        ret
+.Lt_o2: mov     eax, 3
+        ret
+.Lt_o3: cmp     eax, 3
+        ja      .Lt_zero
+        jmp     DWORD PTR [taken_inner+eax*4]
+.Lt_i0: mov     eax, 4
+        ret
+.Lt_i1: mov     eax, 5
+        ret
+.Lt_i2: mov     eax, 6
+        ret
+.Lt_i3: mov     eax, 7
+        ret
+.Lt_zero:
+        xor     eax, eax
+        ret
+        .size   taken, .-taken
+
+        .globl  nested
+        .type   nested, @function
+nested:
+        mov     eax, DWORD PTR [esp+4]
+        test    eax, eax
+        js      .Ln_zero
+        cmp     eax, 11
+        jge     .Ln_zero
+        jmp     DWORD PTR [nested_outer+eax*4]
+.Ln_o0: mov     eax, 1
+        ret
+.Ln_o1: mov     eax, 2
+        ret
+.Ln_o2: mov     eax, 3
+        ret
+.Ln_o3: mov     eax, 4
+        ret
+.Ln_inner:
+        jmp     DWORD PTR [nested_inner-16+eax*4]
+.Ln_i4: mov     eax, 5
+        ret
+.Ln_i5: mov     eax, 6
+        ret
+.Ln_i6: mov     eax, 7
+        ret
+.Ln_i7: mov     eax, 8
+        ret
+.Ln_i8: mov     eax, 9
+        ret
+.Ln_i9: mov     eax, 10
+        ret
+.Ln_o10:
+        mov     eax, 11
+        ret
+.Ln_zero:
+        xor     eax, eax
+        ret
+        .size   nested, .-nested
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    strict
+        call    taken
+        call    nested
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+strict_outer:
+        .long   .Ls_o0, .Ls_o1, .Ls_o2, .Ls_o3
+strict_inner:
+        .long   .Ls_i0, .Ls_i1, .Ls_i2, .Ls_i3
+        .long   0
+taken_outer:
+        .long   .Lt_o0, .Lt_o1, .Lt_o2, .Lt_o3
+taken_inner:
+        .long   .Lt_i0, .Lt_i1, .Lt_i2, .Lt_i3
+        .long   0
+nested_outer:
+        .long   .Ln_o0, .Ln_o1, .Ln_o2, .Ln_o3
+        .long   .Ln_inner, .Ln_inner, .Ln_inner
+        .long   .Ln_inner, .Ln_inner, .Ln_inner
+        .long   .Ln_o10
+nested_inner:
+        .long   .Ln_i4, .Ln_i5, .Ln_i6, .Ln_i7, .Ln_i8, .Ln_i9
+        .long   0
+```
+
+## The folded jump table fixture
+
+Hand-written functions that switch on a register whose range a conditional
+jump has already checked, calling a function in between, through a table whose
+address has case 4 folded in, as GCC does. The computed address therefore lies
+four entries before the table, within the table that precedes it: one of the
+same function in `samefn`, and one of another function in `nfn` and `nfn2`,
+which follow and precede the owner of that table, `tfn` and `tfn2`.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_foldjmptbl` | `samefn`, `nfn` and `nfn2` each jump through a table whose computed address lies in the last four entries of the table before it, of their own function or of another one |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib fold.s -o elf_x86_foldjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  helper
+        .type   helper, @function
+helper:
+        ret
+        .size   helper, .-helper
+
+        .globl  samefn
+        .type   samefn, @function
+samefn:
+        push    esi
+        mov     esi, DWORD PTR [esp+8]
+        mov     eax, DWORD PTR [esp+12]
+        cmp     eax, 7
+        ja      .Ls_check
+        jmp     DWORD PTR [same_a+eax*4]
+.Ls_a0: mov     ecx, 1
+        jmp     .Ls_check
+.Ls_a1: mov     ecx, 2
+        jmp     .Ls_check
+.Ls_a2: mov     ecx, 3
+        jmp     .Ls_check
+.Ls_a3: mov     ecx, 4
+        jmp     .Ls_check
+.Ls_a4: mov     ecx, 5
+        jmp     .Ls_check
+.Ls_a5: mov     ecx, 6
+        jmp     .Ls_check
+.Ls_a6: mov     ecx, 7
+        jmp     .Ls_check
+.Ls_a7: mov     ecx, 8
+.Ls_check:
+        lea     eax, [esi-4]
+        cmp     eax, 5
+        ja      .Ls_zero
+        call    helper
+        jmp     DWORD PTR [same_b-16+esi*4]
+.Ls_b4: mov     eax, 4
+        pop     esi
+        ret
+.Ls_b5: mov     eax, 5
+        pop     esi
+        ret
+.Ls_b6: mov     eax, 6
+        pop     esi
+        ret
+.Ls_b7: mov     eax, 7
+        pop     esi
+        ret
+.Ls_b8: mov     eax, 8
+        pop     esi
+        ret
+.Ls_b9: mov     eax, 9
+        pop     esi
+        ret
+.Ls_zero:
+        xor     eax, eax
+        pop     esi
+        ret
+        .size   samefn, .-samefn
+
+        .globl  tfn
+        .type   tfn, @function
+tfn:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 7
+        ja      .Lt_zero
+        jmp     DWORD PTR [cross_t+eax*4]
+.Lt_0: mov     eax, 1
+        ret
+.Lt_1: mov     eax, 2
+        ret
+.Lt_2: mov     eax, 3
+        ret
+.Lt_3: mov     eax, 4
+        ret
+.Lt_4: mov     eax, 5
+        ret
+.Lt_5: mov     eax, 6
+        ret
+.Lt_6: mov     eax, 7
+        ret
+.Lt_7: mov     eax, 8
+        ret
+.Lt_zero:
+        xor     eax, eax
+        ret
+        .size   tfn, .-tfn
+
+        .globl  nfn
+        .type   nfn, @function
+nfn:
+        push    esi
+        mov     esi, DWORD PTR [esp+8]
+        lea     eax, [esi-4]
+        cmp     eax, 5
+        ja      .Ln_zero
+        call    helper
+        jmp     DWORD PTR [cross_n-16+esi*4]
+.Ln_4: mov     eax, 4
+        pop     esi
+        ret
+.Ln_5: mov     eax, 5
+        pop     esi
+        ret
+.Ln_6: mov     eax, 6
+        pop     esi
+        ret
+.Ln_7: mov     eax, 7
+        pop     esi
+        ret
+.Ln_8: mov     eax, 8
+        pop     esi
+        ret
+.Ln_9: mov     eax, 9
+        pop     esi
+        ret
+.Ln_zero:
+        xor     eax, eax
+        pop     esi
+        ret
+        .size   nfn, .-nfn
+
+        .globl  nfn2
+        .type   nfn2, @function
+nfn2:
+        push    esi
+        mov     esi, DWORD PTR [esp+8]
+        lea     eax, [esi-4]
+        cmp     eax, 5
+        ja      .Ln2_zero
+        call    helper
+        jmp     DWORD PTR [cross_n2-16+esi*4]
+.Ln2_4: mov     eax, 4
+        pop     esi
+        ret
+.Ln2_5: mov     eax, 5
+        pop     esi
+        ret
+.Ln2_6: mov     eax, 6
+        pop     esi
+        ret
+.Ln2_7: mov     eax, 7
+        pop     esi
+        ret
+.Ln2_8: mov     eax, 8
+        pop     esi
+        ret
+.Ln2_9: mov     eax, 9
+        pop     esi
+        ret
+.Ln2_zero:
+        xor     eax, eax
+        pop     esi
+        ret
+        .size   nfn2, .-nfn2
+
+        .globl  tfn2
+        .type   tfn2, @function
+tfn2:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 7
+        ja      .Lt2_zero
+        jmp     DWORD PTR [cross_t2+eax*4]
+.Lt2_0: mov     eax, 1
+        ret
+.Lt2_1: mov     eax, 2
+        ret
+.Lt2_2: mov     eax, 3
+        ret
+.Lt2_3: mov     eax, 4
+        ret
+.Lt2_4: mov     eax, 5
+        ret
+.Lt2_5: mov     eax, 6
+        ret
+.Lt2_6: mov     eax, 7
+        ret
+.Lt2_7: mov     eax, 8
+        ret
+.Lt2_zero:
+        xor     eax, eax
+        ret
+        .size   tfn2, .-tfn2
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    3
+        push    5
+        call    samefn
+        call    tfn
+        call    nfn
+        call    nfn2
+        call    tfn2
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+same_a:
+        .long   .Ls_a0, .Ls_a1, .Ls_a2, .Ls_a3
+        .long   .Ls_a4, .Ls_a5, .Ls_a6, .Ls_a7
+same_b:
+        .long   .Ls_b4, .Ls_b5, .Ls_b6, .Ls_b7, .Ls_b8, .Ls_b9
+        .long   0
+cross_t:
+        .long   .Lt_0, .Lt_1, .Lt_2, .Lt_3
+        .long   .Lt_4, .Lt_5, .Lt_6, .Lt_7
+cross_n:
+        .long   .Ln_4, .Ln_5, .Ln_6, .Ln_7, .Ln_8, .Ln_9
+        .long   0
+cross_t2:
+        .long   .Lt2_0, .Lt2_1, .Lt2_2, .Lt2_3
+        .long   .Lt2_4, .Lt2_5, .Lt2_6, .Lt2_7
+cross_n2:
+        .long   .Ln2_4, .Ln2_5, .Ln2_6, .Ln2_7, .Ln2_8, .Ln2_9
+        .long   0
+```
+
+## The indirect call fixture
+
+Hand-written functions whose indirect calls only the call frame information
+can tell apart, as GCC writes it with asynchronous unwind tables: a row at
+every instruction that moves the stack pointer. The code after a call that
+returns runs as deep in the frame as the call, less what the callee pops, so
+the depth the rows give that code tells whether and how the call returns.
+`joined` and `padded` push two words for a callee that never returns, and the
+code after the call, past nops in `padded`, runs with them gone, where a
+branch around the call lands. `popped` and `unpopped` call callees that
+return, the first popping the word it pushed and the second popping nothing
+although its call looks like an sret call. `last` ends its frame with a call
+that pushes nothing, so `_start` follows it at the depth the call runs.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_indcall` | `joined`, `padded` and `last` end with a call that never returns, which only their frames tell; `popped` and `unpopped` return from callees that pop one word and none |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib indcall.s -o elf_x86_indcall
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  joined
+        .type   joined, @function
+joined:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        mov     edx, DWORD PTR [esp+8]
+        test    edx, edx
+        je      .Lj_done
+        push    edx
+        .cfi_def_cfa_offset 8
+        push    edx
+        .cfi_def_cfa_offset 12
+        call    DWORD PTR [eax]
+.Lj_done:
+        .cfi_def_cfa_offset 4
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   joined, .-joined
+
+        .globl  popped
+        .type   popped, @function
+popped:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        push    DWORD PTR [esp+8]
+        .cfi_def_cfa_offset 8
+        call    DWORD PTR [eax]
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   popped, .-popped
+
+        .globl  unpopped
+        .type   unpopped, @function
+unpopped:
+        .cfi_startproc
+        sub     esp, 8
+        .cfi_def_cfa_offset 12
+        mov     eax, DWORD PTR [esp+12]
+        lea     edx, [esp]
+        push    edx
+        .cfi_def_cfa_offset 16
+        call    DWORD PTR [eax]
+        add     esp, 8
+        .cfi_def_cfa_offset 8
+        add     esp, 4
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   unpopped, .-unpopped
+
+        .globl  padded
+        .type   padded, @function
+padded:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        mov     edx, DWORD PTR [esp+8]
+        test    edx, edx
+        je      .Lp_done
+        push    edx
+        .cfi_def_cfa_offset 8
+        push    edx
+        .cfi_def_cfa_offset 12
+        call    DWORD PTR [eax]
+        .byte   0x8d, 0xb4, 0x26, 0x00, 0x00, 0x00, 0x00
+        .byte   0x8d, 0x76, 0x00
+.Lp_done:
+        .cfi_def_cfa_offset 4
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   padded, .-padded
+
+        .globl  last
+        .type   last, @function
+last:
+        .cfi_startproc
+        mov     eax, DWORD PTR [esp+4]
+        call    DWORD PTR [eax]
+        .cfi_endproc
+        .size   last, .-last
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        .cfi_startproc
+        push    0
+        .cfi_def_cfa_offset 8
+        push    0
+        .cfi_def_cfa_offset 12
+        call    joined
+        call    popped
+        call    unpopped
+        call    padded
+        add     esp, 8
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   _start, .-_start
+```
+
+## The conditionally non-returning fixtures
+
+Hand-written functions around libc's `error`, which never returns when its
+first argument, the status, is non-zero. `wrap` passes its own first argument
+on as the status, so it returns on the same condition, and `_start` calls it
+with a zero status and then with one. `tailwrap` jumps to `error` with the
+arguments it got, whereas `die` sets the status to one before it jumps. `pick`
+passes its first argument on one path and its second on the other. The
+x86-64 fixture has `wrap` and `_start` alone, passing the status in a
+register. Both link against the libc of the host without its start files, so
+that `error` is an import.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_condnoret` | `wrap`, `tailwrap`, `die` and `pick` call `error` with a status taken from their own stack arguments or set to one |
+| `elf_x64_condnoret` | `wrap` calls `error` with the status it takes in RDI |
+
+```
+gcc -m32 -fuse-ld=lld -nostdlib -no-pie condnoret.s /usr/lib32/libc.so.6 \
+    -o elf_x86_condnoret
+gcc -fuse-ld=lld -nostdlib -no-pie condnoret64.s \
+    /lib/x86_64-linux-gnu/libc.so.6 -o elf_x64_condnoret
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    wrap
+        add     esp, 8
+        push    0
+        push    1
+        call    wrap
+        .size   _start, .-_start
+
+        .globl  wrap
+        .type   wrap, @function
+wrap:
+        push    DWORD PTR [esp+8]
+        push    0
+        push    DWORD PTR [esp+12]
+        call    error@PLT
+        add     esp, 12
+        ret
+        .size   wrap, .-wrap
+
+        .globl  tailwrap
+        .type   tailwrap, @function
+tailwrap:
+        jmp     error@PLT
+        .size   tailwrap, .-tailwrap
+
+        .globl  die
+        .type   die, @function
+die:
+        mov     DWORD PTR [esp+4], 1
+        jmp     error@PLT
+        .size   die, .-die
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        mov     eax, DWORD PTR [esp+12]
+        test    eax, eax
+        je      .Lp_b
+        push    0
+        push    0
+        push    DWORD PTR [esp+12]
+        call    error@PLT
+        add     esp, 12
+        ret
+.Lp_b:
+        push    0
+        push    0
+        push    DWORD PTR [esp+16]
+        call    error@PLT
+        add     esp, 12
+        ret
+        .size   pick, .-pick
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        sub     rsp, 8
+        xor     edi, edi
+        xor     esi, esi
+        call    wrap
+        mov     edi, 1
+        xor     esi, esi
+        call    wrap
+        .size   _start, .-_start
+
+        .globl  wrap
+        .type   wrap, @function
+wrap:
+        sub     rsp, 8
+        mov     rdx, rsi
+        xor     esi, esi
+        xor     eax, eax
+        call    error@PLT
+        add     rsp, 8
+        ret
+        .size   wrap, .-wrap
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |

@@ -115,7 +115,8 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
           { PCBegin = entry.FuncAddr
             PCEnd = pcEnd
             LSDAPointer = Some lsdaAddr
-            UnwindingInfo = lazy [] }
+            UnwindingInfo = lazy []
+            StartsMidFrame = false }
         let acc = (fde :: fdes, Map.add lsdaAddr lsda lsdas)
         readExnTableEntry acc reader cls span sAddr tl
       | None ->

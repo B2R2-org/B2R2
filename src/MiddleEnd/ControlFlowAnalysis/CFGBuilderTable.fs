@@ -29,19 +29,28 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
-type CFGBuilderTable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl, exnInfo, instrs, irBlkOptimizer) =
+type CFGBuilderTable<'FnCtx, 'GlCtx>
+  public(hdl, exnInfo, instrs, irBlkOptimizer, strategy) =
 
-  let builders = SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
+  let builders = SortedList<Addr, IFunctionBuilder>()
+
+  /// Returns the builder of a function that the binary defines, or None for an
+  /// external function, which has nothing to build.
+  let tryAsBuildable (builder: IFunctionBuilder) =
+    match builder with
+    | :? ICFGBuildable<'FnCtx, 'GlCtx> as builder -> Some builder
+    | _ -> None
+
+  let asBuildable addr builder =
+    match tryAsBuildable builder with
+    | Some builder -> builder
+    | None -> invalidOp $"Nothing builds the external function at {addr:x}."
 
   let updateNextFunctionOfPrevBuilder idx addr =
     if idx <= 0 then ()
     else builders.Values[idx - 1].NextFunctionAddress <- Some addr
 
-  let updateNextFunctionOfNewBuilder (newBuilder: ICFGBuildable<_, _>) idx =
+  let updateNextFunctionOfNewBuilder (newBuilder: IFunctionBuilder) idx =
     let endPoint =
       if idx = (builders.Count - 1) then None
       else Some(builders.Values[idx + 1].EntryPoint)
@@ -55,7 +64,7 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
   let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
     | true, builder ->
-      builder
+      tryAsBuildable builder
     | false, _ ->
       let builder =
         InternalFnCFGBuilder(hdl,
@@ -63,92 +72,126 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
                              instrs,
                              addr,
                              managerMsgbox,
-                             irBlkOptimizer) :> ICFGBuildable<'FnCtx, 'GlCtx>
+                             irBlkOptimizer,
+                             strategy) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
-      builder
+      Some builder
+
+  let isOwnFunctionSlot slot =
+    BinFileOps.tryGetInternalFunctionAddr hdl.File slot |> Result.isOk
+
+  let addExternalBuilder (reference: ExternalFunctionReference) symbol name =
+    let cc = hdl.Conventions.Calling
+    let isNoRet = ELF.getNoReturnStatusFromKnownFunc cc symbol
+    let builder = ExternalFnCFGBuilder(hdl, reference, name, isNoRet)
+    builders[reference.ReferenceAddress] <- builder
+    builder :> IFunctionBuilder
+
+  /// Tags the symbol with the kind of the reference, for a reference to a
+  /// function that this binary defines itself, so that the reference does not
+  /// take the name of the function it refers to.
+  let tagOwnSymbol reference symbol =
+    match reference with
+    | PLTTrampoline _ -> symbol + "@plt"
+    | RelocationSlot _ -> symbol + "@got"
 
   let getOrCreateExternalBuilder (reference: ExternalFunctionReference) name =
-    let addr = reference.ReferenceAddress
-    match builders.TryGetValue addr with
+    match builders.TryGetValue reference.ReferenceAddress with
     | true, builder ->
       builder
     | false, _ ->
-      let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-      let builder =
-        ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
-      builders[addr] <- builder
-      builder
+      match reference with
+      | RelocationSlot slot when isOwnFunctionSlot slot ->
+        addExternalBuilder reference name (tagOwnSymbol reference name)
+      | _ ->
+        addExternalBuilder reference name name
+
+  /// Finds the symbol that an import stub refers to when its slot resolves to
+  /// a function of this binary. An ifunc slot names no symbol, but the ifunc
+  /// symbol sits at the address of its resolver, which is where we find it.
+  let tryFindOwnSymbol file (entry: BinImport) fnAddr =
+    if entry.Name <> "" then
+      Some entry.Name
+    else
+      match BinFileOps.tryResolveName file fnAddr with
+      | Ok name when name <> "" -> Some name
+      | _ -> None
+
+  /// Adds the builder for an import stub whose slot resolves to a function of
+  /// this binary. The stub only refers to that function, which the loader may
+  /// still interpose on or an ifunc resolver may pick, so it is an import all
+  /// the same, tagged so as not to take the name of the function itself.
+  let addOwnImportBuilder file entry fnAddr stubAddr =
+    let reference = PLTTrampoline stubAddr
+    match tryFindOwnSymbol file entry fnAddr with
+    | Some symbol ->
+      let name = tagOwnSymbol reference symbol
+      addExternalBuilder reference symbol name |> ignore
+    | None ->
+      addExternalBuilder reference "" (Addr.toFuncName stubAddr) |> ignore
 
   let loadFromImportTable (file: IBinFile) (tbl: IImportTable) =
     for entry in tbl.Imports do
-      match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
-      | Ok fnAddr ->
-        (* We create a mapping from a PLT address to an internal function
-           address because some static binaries have a PLT entry for an internal
-           function. *)
-        let builder = getOrCreateInternalBuilder null fnAddr
-        builders[fnAddr] <- builder
-      | Error _ ->
-        match entry.TrampolineAddress with
-        | Some addr ->
-          let name = entry.Name
-          let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-          let reference = PLTTrampoline addr
-          let builder =
-            ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
-          builders[addr] <- builder
-        | None ->
-          ()
+      match entry.TrampolineAddress with
+      | Some stubAddr ->
+        match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
+        | Ok fnAddr ->
+          addOwnImportBuilder file entry fnAddr stubAddr
+        | Error _ ->
+          let reference = PLTTrampoline stubAddr
+          addExternalBuilder reference entry.Name entry.Name |> ignore
+      | None ->
+        ()
 
-  let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =
+  let rec getTerminationStatus (builders: IList<IFunctionBuilder>) acc idx =
     if idx < 0 then
       if List.isEmpty acc then AllDone else ForceTerminated <| List.toArray acc
     else
       let b = builders[idx]
       match b.BuilderState with
-      | Finished | Invalid -> getTerminationStatus builders acc (idx - 1)
-      | ForceFinished -> getTerminationStatus builders (b :: acc) (idx - 1)
-      | _ -> YetDone
+      | Finished | Invalid ->
+        getTerminationStatus builders acc (idx - 1)
+      | ForceFinished ->
+        let acc = asBuildable b.EntryPoint b :: acc
+        getTerminationStatus builders acc (idx - 1)
+      | _ ->
+        YetDone
 
   (* Load external function builders from the import (PLT/linkage) table. *)
   do match hdl.File.ImportTable with
      | Some tbl -> loadFromImportTable hdl.File tbl
      | _ -> ()
 
-  /// Retrieve a function builder by its address.
-  member _.Item with get(addr: Addr) = builders[addr]
+  /// Retrieves the builder of the function at the given address, which the
+  /// binary defines. This raises an exception for an external function.
+  member _.Item with get(addr: Addr) = asBuildable addr builders[addr]
 
-  /// Retrieve all function builders.
+  /// Retrieves all function builders, including those of external functions.
   member _.Values with get() = builders.Values |> Seq.toArray
 
-  /// Return the current termination status of all function builders.
+  /// Returns the current termination status of all function builders.
   member _.GetTerminationStatus() =
     getTerminationStatus builders.Values [] (builders.Count - 1)
 
-  /// Get or create a function builder by its address.
-  member _.GetOrCreateBuilder(managerMsgbox, addr) =
+  /// Gets or creates the builder of the function at the given address. This
+  /// returns None if an external function sits at the address, as there is
+  /// nothing to build.
+  member _.TryGetOrCreateBuilder(managerMsgbox, addr) =
     getOrCreateInternalBuilder managerMsgbox addr
 
-  /// Get or create an external function builder for the given reference.
+  /// Gets or creates an external function builder for the given reference.
   member _.GetOrCreateExternalBuilder(reference, name) =
     getOrCreateExternalBuilder reference name
 
-  /// Update existing function builder to have a new manager msgbox.
-  member _.Reload(builder: ICFGBuildable<_, _>, managerMsgbox) =
-    let old = builders[builder.EntryPoint]
-    builders[builder.EntryPoint] <- old.MakeNew managerMsgbox
-
-  /// Try to retrieve a function builder by its address.
+  /// Tries to retrieve the builder of the function at the given address, which
+  /// may be an external function.
   member _.TryGetBuilder(addr: Addr) =
     match builders.TryGetValue addr with
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound
 
-and TerminationStatus<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and TerminationStatus<'FnCtx, 'GlCtx> =
   /// Everything is finished and there's no forcefully terminated builders.
   | AllDone
   /// Everything is finished, but there are some builders that are forcefully

@@ -44,18 +44,13 @@ module private EVMCFGRecovery =
 
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
-  let getFunctionContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>)
-                          calleeAddr =
-    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
-    | FinalCtx calleeCtx
-    | StillBuilding calleeCtx -> Ok calleeCtx
-    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
+  /// Checks that the given address is a function, built or being built.
+  let ensureFunction (ctx: CFGBuildingContext<EVMFuncUserContext, _>) addr =
+    match ctx.ManagerChannel.GetCalleeStatus addr with
+    | Built _ | Building -> Ok()
+    | Failed -> Error ErrorCase.FailedToRecoverCFG
 
-  let getFunctionUserContext ctx calleeAddr =
-    getFunctionContext ctx calleeAddr
-    |> Result.bind (fun calleeCtx -> Ok calleeCtx.UserContext)
-
-  /// Check if this vertex was executed in the data-flow analysis. Note that
+  /// Checks if this vertex was executed in the data-flow analysis. Note that
   /// incomplete CFG traversal can lead to that situation, as we conduct path-
   /// sensitive data-flow analysis.
   let isExecuted (state: State<_, _>) v =
@@ -109,13 +104,13 @@ module private EVMCFGRecovery =
         && (hasFuncSigExpr e || isMsgDataDivision e) -> true
     | _ -> false
 
-  let scanAndGetVertex ctx cfgRec addr =
+  let scanAndGetVertex (ctx: CFGBuildingContext<_, _>) cfgRec addr =
     let pp = ProgramPoint(addr, 0)
     if ctx.BBLFactory.Contains pp then () else scanBBLs ctx [ addr ] |> ignore
     getVertex ctx cfgRec pp
 
-  /// Try to find a feasible path from `srcV` to `dstV` in the given graph `g`.
-  /// We use BFS to find a path fast.
+  /// Tries to find a feasible path from `srcV` to `dstV` in the given graph
+  /// `g`. We use BFS to find a path fast.
   let tryFindFeasiblePath g srcV dstV =
     let q = Queue()
     let visited = HashSet<IVertex<_>>()
@@ -128,7 +123,7 @@ module private EVMCFGRecovery =
         if succ = dstV then foundPath <- Some(dstV :: p) else push succ p
     Option.map List.rev foundPath
 
-  /// Find a feasible path from `srcV` to `dstV` in the given graph `g`.
+  /// Finds a feasible path from `srcV` to `dstV` in the given graph `g`.
   let findFeasiblePath g srcV dstV =
     if srcV = dstV then
       [ srcV; dstV ]
@@ -183,13 +178,13 @@ module private EVMCFGRecovery =
       else for succ in g.GetSuccs v do push succ
     polyJumps
 
-  /// Find the intersection of two pathes. Time complexity is O(n+m) where n
+  /// Finds the intersection of two paths. Time complexity is O(n+m) where n
   /// and m are the lengths of the two pathes.
   let intersectPathes (p1: IVertex<_> list) p2 =
     let p1Set = HashSet p1
     List.filter (fun v -> p1Set.Contains v) p2
 
-  let removeReachableVertices ctx cfgRec root =
+  let removeReachableVertices (ctx: CFGBuildingContext<_, _>) cfgRec root =
     let removals = HashSet()
     let possiblyIncomings = HashSet()
     let rec removeReachables (vs: IVertex<LowUIRBasicBlock> list) =
@@ -214,7 +209,7 @@ module private EVMCFGRecovery =
     ctx.VisitedPPoints.Remove srcPP |> ignore
     pushAction ctx <| ExpandCFG [ srcPP ]
 
-  let removeAndReanalyze ctx cfgRec srcV newEP =
+  let removeAndReanalyze (ctx: CFGBuildingContext<_, _>) cfgRec srcV newEP =
     let ppoint = ProgramPoint(newEP, 0)
     match ctx.Vertices.TryGetValue ppoint with
     | false, _ ->
@@ -223,17 +218,24 @@ module private EVMCFGRecovery =
       removeReachableVertices ctx cfgRec [ ep ]
       |> Seq.iter (reanalyzeVertex ctx)
 
+  /// Records what the recovery of this function finds out about another
+  /// function. The manager applies it, as other functions read it, too.
+  let updateGlobalContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>) f =
+    ctx.UpdateGlobalContext(fun (glCtx: EVMGlobalContext) ->
+      f glCtx
+      glCtx)
+
   let introduceNewSharedRegion (ctx: CFGBuildingContext<_, _>) cfgRec srcV ep =
     assert (ep <> ctx.FunctionAddress)
     ctx.ManagerChannel.StartBuilding ep
-    getFunctionUserContext ctx ep
-    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion())
+    if isFailedBuilding ctx ep then ()
+    else updateGlobalContext ctx (fun glCtx -> glCtx.SetSharedRegion ep)
     if not UsesOptimizedReload then Some StopAndReload
     else removeAndReanalyze ctx cfgRec srcV ep; None
 
   let findAndIntroduceSharedRegion ctx cfgRec state v rdVars =
     assert (not <| Seq.isEmpty rdVars)
-    let g = ctx.CFG
+    let g = (ctx: CFGBuildingContext<_, _>).CFG
     let defVertices = Seq.map (getDefSiteVertex g state) rdVars
     let pathes = Seq.map (fun d -> findFeasiblePath g d v) defVertices
     let firstPath, restPathes = Seq.head pathes, Seq.tail pathes
@@ -275,23 +277,18 @@ module private EVMCFGRecovery =
       |> fun res -> r <- tryJoinMaybeCFGResults r res
     r
 
-  let makeCalleeInfoFromBuildingContext = function
-    | FinalCtx ctx ->
-      { Status = ctx.NonReturningStatus
-        Unwinding = ctx.UnwindingBytes
-        Clobbered = Set.empty }
-    | StillBuilding _ ->
-      { Status = NoRet; Unwinding = 0; Clobbered = Set.empty }
-    | _ ->
-      Terminator.impossible ()
+  let makeCalleeInfo = function
+    | Built info -> { info with Clobbered = Set.empty }
+    | Building -> { CalleeInfo.Unknown with Status = NoRet }
+    | Failed -> Terminator.impossible ()
 
   let fromBBLToCallSite (blk: ILowUIRBasicBlock) =
     match blk.PPoint.CallSite with
     | None -> LeafCallSite blk.LastInstruction.Address
     | Some callSite -> ChainedCallSite(callSite, blk.PPoint.Address)
 
-  /// This is the eseence of our CFG recovery in EVM, which finds a function
-  /// entry point.
+  /// Finds a function entry point, which is the essence of our CFG recovery in
+  /// EVM.
   let rec findFunctionEntry (path: IVertex<LowUIRBasicBlock> list) =
     assert (List.length path >= 2)
     let defSite, head, tail =
@@ -340,22 +337,26 @@ module private EVMCFGRecovery =
     let preds = g.GetPreds v
     Array.exists isFallthroughNode preds
 
-  /// Find the latest stack pointer **after** the execution of the given vertex.
+  let getUserContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>) =
+    ctx.UserContext
+
+  /// Finds the latest stack pointer **after** the execution of the given
+  /// vertex.
   let findLatestStackOffset ctx (state: State<_, _>) v =
     let tags = state.PerVertexPossibleExeCtxs[v]
     let tag = Seq.head tags
     let stackOffset = tag.StackOffset
-    let userCtx = ctx.UserContext :> EVMFuncUserContext
+    let userCtx = getUserContext ctx
     let delta = userCtx.GetStackPointerDelta(state, v)
     stackOffset + delta
 
   let isFakeVar var = (var: SSA.Variable).Identifier = 0
 
-  /// We met a returning jump, which uses an incoming variable as its target,
-  /// and we extract stack pointer difference and the target variable's stack
-  /// pointer offset to abstract the return information, which will be used
-  /// to build an inter-procedural (call) edge to this function later.
-  let analyzeReturnInfo ctx state v incomingVars =
+  /// Analyzes a returning jump, which uses an incoming variable as its target,
+  /// by extracting the stack pointer difference and the target variable's stack
+  /// pointer offset to abstract the return information, which will be used to
+  /// build an inter-procedural (call) edge to this function later.
+  let analyzeReturnInfo (ctx: CFGBuildingContext<_, _>) state v incomingVars =
     assert (List.forall isFakeVar incomingVars)
     let var = List.head incomingVars
     let returnTargetStackOff =
@@ -364,19 +365,21 @@ module private EVMCFGRecovery =
       | _ -> Terminator.impossible ()
     let stackPointerDiff = findLatestStackOffset ctx state v
     let fnUserCtx: EVMFuncUserContext = ctx.UserContext
-    fnUserCtx.SetReturnTargetStackOff returnTargetStackOff
     fnUserCtx.SetStackPointerDiff(uint64 stackPointerDiff)
+    let fnAddr = ctx.FunctionAddress
+    updateGlobalContext ctx (fun glCtx ->
+      glCtx.SetReturnTargetStackOff(fnAddr, returnTargetStackOff))
     None
 
-  let computeCPState ctx =
+  let computeCPState (ctx: CFGBuildingContext<_, _>) =
     let userCtx = ctx.UserContext :> EVMFuncUserContext
     let dfa = userCtx.CP :> IDataFlowComputable<_, _, _>
     dfa.Compute ctx.CFG |> ignore
     userCtx.CP.State
 
-  /// Summarize the callee's context.
-  let summarize ctx calleeInfo =
-    summarizer.Summarize(ctx, calleeInfo, null)
+  /// Summarizes the given callee of the function of the given context.
+  let summarize ctx callee calleeInfo =
+    summarizer.Summarize(ctx, callee, calleeInfo, null)
 
   let isCallRelatedFunction = function
     | "call"
@@ -433,7 +436,7 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  let hasNoFixpoint ctx srcV exeCtx dstV =
+  let hasNoFixpoint (ctx: CFGBuildingContext<_, _>) srcV exeCtx dstV =
     let usrCtx = ctx.UserContext :> EVMFuncUserContext
     let backEdges = usrCtx.BackEdges
     let currSrcDstPair = srcV, dstV
@@ -482,12 +485,12 @@ module private EVMCFGRecovery =
     let dstExeCtx = makeExeCtx usrCtx state srcV srcTag maybeDstConditions
     if tooManyContexts usrCtx srcV dstExeCtx then None else Some dstExeCtx
 
-  /// The successor's incoming stack offset is the outgoing stack offset of the
-  /// current vertex. We do lightweight stack pointer computation here, as we
-  /// might have not yet propagated stack pointers. Plus, we do selectively
-  /// path-sensitive analysis only for specific conditions such as calls and
-  /// invariant checks, and this is for avoiding infeasible paths introduced
-  /// by the try-catch mechanism in EVM.
+  /// Gets the execution context of a successor, whose incoming stack offset is
+  /// the outgoing stack offset of the current vertex. We do lightweight stack
+  /// pointer computation here, as we might have not yet propagated stack
+  /// pointers. Plus, we do selectively path-sensitive analysis only for
+  /// specific conditions such as calls and invariant checks, and this is for
+  /// avoiding infeasible paths introduced by the try-catch mechanism in EVM.
   let getSuccessorExecutionContext (ctx: CFGBuildingContext<_, _>)
                                    srcV
                                    exeCtx
@@ -525,11 +528,11 @@ module private EVMCFGRecovery =
         | None -> None
         | Some conds -> tryMakeExeCtx usrCtx state srcV exeCtx (Some conds)
 
-  /// If a vertex was not analyzed yet due to incomplete CFG traversal, we
-  /// postpone its analysis to the next time when the vertex is visited in the
-  /// data-flow analysis.
+  /// Postpones the analysis of a vertex that was not analyzed yet due to
+  /// incomplete CFG traversal, until the next time when the vertex is visited
+  /// in the data-flow analysis.
   let postponeVertexAnalysis ctx (v: IVertex<LowUIRBasicBlock>) =
-    let userCtx = ctx.UserContext :> EVMFuncUserContext
+    let userCtx = getUserContext ctx
     if userCtx.PostponedVertices.Contains v then
       ()
     else
@@ -610,8 +613,9 @@ module private EVMCFGRecovery =
   /// Handles a jump with a bitvector, which is the target address of the jump.
   let handleJmpWithBV ctx cfgRec srcV (dstBv: BitVector) edgeKind =
     let dstAddr = dstBv.ToUInt64()
-    match ctx.ManagerChannel.GetBuildingContext dstAddr with
-    | FailedBuilding -> (* Ignore when the target is not a function. *)
+    let ch = (ctx: CFGBuildingContext<_, _>).ManagerChannel
+    match ch.GetCalleeStatus dstAddr with
+    | Failed -> (* Ignore when the target is not a function. *)
       if UseCallFallthroughHeuristic
          && edgeKind = InterJmpEdge
          && not (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
@@ -643,10 +647,10 @@ module private EVMCFGRecovery =
             else None
         | Error errorCase ->
           Some <| FailStop errorCase
-    | bldCtx -> (* Okay, this is a function, so we connect to the function. *)
+    | status -> (* Okay, this is a function, so we connect to the function. *)
       let srcBlk = srcV.VData.Internals
       let callSite = fromBBLToCallSite srcBlk
-      let calleeInfo = makeCalleeInfoFromBuildingContext bldCtx
+      let calleeInfo = makeCalleeInfo status
       let act = MakeCall(callSite, dstAddr, calleeInfo)
       Some <| handleCall ctx cfgRec srcV callSite dstAddr act
 
@@ -658,11 +662,12 @@ module private EVMCFGRecovery =
 
   let findAndIntroduceFunction ctx cfgRec srcV rds rdVars =
     let sampledDefSite = Seq.head rds
-    let sampledPath = findFeasiblePath ctx.CFG sampledDefSite srcV
+    let cfg = (ctx: CFGBuildingContext<_, _>).CFG
+    let sampledPath = findFeasiblePath cfg sampledDefSite srcV
     let newEntryPoint = findFunctionEntry sampledPath
     let newEntryPointAddr = newEntryPoint.VData.Internals.PPoint.Address
     let hasAbstractPred =
-      ctx.CFG.GetPreds srcV
+      cfg.GetPreds srcV
       |> Array.exists (fun pred -> pred.VData.Internals.IsAbstract)
     if isInfeasibleEntryPoint ctx newEntryPoint || hasAbstractPred then
       introduceNewSharedRegion ctx cfgRec srcV newEntryPointAddr
@@ -702,7 +707,7 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  let handleInterCJmp ctx cfgRec v =
+  let handleInterCJmp (ctx: CFGBuildingContext<_, _>) cfgRec v =
     let state = computeCPState ctx
     match tryOverApproximateTerminator state v with
     | Some(SSA.Jmp(SSA.InterCJmp(cond, dstExpr, SSA.Num fBv))) ->
@@ -721,12 +726,12 @@ module private EVMCFGRecovery =
             let info = { CalleeInfo.Unknown with Status = NoRet }
             let act = MakeCall(cs, callee, info) (* treat as NoRet *)
             let ret = handleCall ctx cfgRec v cs callee act
-            match getFunctionUserContext ctx callee with
-            | Ok userCtx ->
-              userCtx.SetPublicFunction()
+            if isFailedBuilding ctx callee then
+              Some <| FailStop ErrorCase.FailedToRecoverCFG
+            else
+              updateGlobalContext ctx (fun glCtx ->
+                glCtx.SetPublicFunction callee)
               Some ret
-            | Error errorCase ->
-              Some <| FailStop errorCase
           | Error errorCase ->
             Some <| FailStop errorCase
         else
@@ -747,36 +752,29 @@ module private EVMCFGRecovery =
     | _ ->
       Terminator.impossible ()
 
-  /// We need to use UserContext of the callee function, so we need to directly
-  /// access the callee context instead of using the abstraction.
-  let connectAbsVertex ctx
-                       cfgRec
-                       caller
-                       callee
-                       callsite
-                       isTail
-                       calleeInfo
-                       calleeCtx =
-    let abs = summarize calleeCtx calleeInfo
+  /// Connects the caller to an abstract vertex summarizing the callee.
+  let connectAbsVertex ctx cfgRec caller callee callsite isTail calleeInfo =
+    let abs = summarize ctx callee calleeInfo
     let calleeOpt = Some callee
     let callee = getAbsVertex ctx cfgRec callsite calleeOpt abs
     let edgeKind = if isTail then TailCallEdge else CallEdge
     connectEdge ctx cfgRec caller callee edgeKind
     callee
 
-  let hasFinalContext ctx addr =
-    match ctx.ManagerChannel.GetBuildingContext addr with
-    | FinalCtx _ -> true
+  let hasFinalContext (ctx: CFGBuildingContext<_, _>) addr =
+    match ctx.ManagerChannel.GetCalleeStatus addr with
+    | Built _ -> true
     | _ -> false
 
-  let connectCall ctx cfgRec caller callee cs info =
+  let connectCall (ctx: CFGBuildingContext<_, _>) cfgRec caller callee cs info =
     assert (if ctx.FunctionAddress = callee then true
             else hasFinalContext ctx callee)
-    getFunctionContext ctx callee
-    |> Result.map (connectAbsVertex ctx cfgRec caller callee cs false info)
+    ensureFunction ctx callee
+    |> Result.map (fun () ->
+      connectAbsVertex ctx cfgRec caller callee cs false info)
     |> toCFGResult
 
-  let handleCall ctx cfgRec cs callee calleeInfo =
+  let handleCall (ctx: CFGBuildingContext<_, _>) cfgRec cs callee calleeInfo =
     let caller = ctx.CallerVertices[cs]
     let callsite = fromBBLToCallSite caller.VData.Internals
     let absPp = ProgramPoint(callsite, callee, 0)
@@ -785,7 +783,7 @@ module private EVMCFGRecovery =
     if not <| ctx.CFG.Contains caller then MoveOn
     else connectCall ctx cfgRec caller callee cs calleeInfo
 
-  /// Postpone the analysis of the source vertex if it was not executed in the
+  /// Postpones the analysis of the source vertex if it was not executed in the
   /// data-flow analysis, and run the given function if it was executed.
   let postponeOrGo ctx srcVertex fn =
     let state = computeCPState ctx
@@ -798,9 +796,9 @@ module private EVMCFGRecovery =
     else
       fn ()
 
-  /// Update the back-edges of the current function.
+  /// Updates the back-edges of the current function.
   /// TODO: We can use the dynamic DFS algorithm by Yang et al. (VLDB '19).
-  let updateBackEdges ctx _srcV _dstV =
+  let updateBackEdges (ctx: CFGBuildingContext<_, _>) _srcV _dstV =
     let usrCtx = ctx.UserContext :> EVMFuncUserContext
     let backEdges = usrCtx.BackEdges
     backEdges.Clear()
@@ -836,7 +834,7 @@ module private EVMCFGRecovery =
     let removalFn v = state.TryMarkVertexAsRemoval v
     traverseForRemovalMark visited g pendingFn removalFn [ v ]
 
-  let resumeAnalysis ctx pp callbackAction =
+  let resumeAnalysis (ctx: CFGBuildingContext<_, _>) pp callbackAction =
     let userCtx: EVMFuncUserContext = ctx.UserContext
     match ctx.Vertices.TryGetValue pp with
     | false, _ ->
@@ -864,7 +862,7 @@ module private EVMCFGRecovery =
         pushAction ctx (ResumeAnalysis(pp, callbackAction))
         MoveOn
 
-  let isInvalidProgramPoint ctx (pp: ProgramPoint) =
+  let isInvalidProgramPoint (ctx: CFGBuildingContext<_, _>) (pp: ProgramPoint) =
     (* If the program point has a call site and has been removed from the CFG,
        then we ignore it. *)
     if Option.isSome pp.CallSite && not <| ctx.Vertices.ContainsKey pp then true
@@ -876,89 +874,89 @@ module private EVMCFGRecovery =
                syscallAnalysis
                useTCHeuristic
                (action: CFGAction) =
-    try
-      match action with
-      | InitiateCFG ->
-        let fnAddr = ctx.FunctionAddress
+    match action with
+    | InitiateCFG ->
+      let fnAddr = ctx.FunctionAddress
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
+      dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
 #endif
-        let pp = ProgramPoint(fnAddr, 0)
-        match scanBBLs ctx [ fnAddr ] with
-        | Ok _ ->
-          buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
-        | Error e ->
-          FailStop e
-      | ExpandCFG pps ->
+      let pp = ProgramPoint(fnAddr, 0)
+      match scanBBLs ctx [ fnAddr ] with
+      | Ok _ ->
+        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
+      | Error e ->
+        FailStop e
+    | ExpandCFG pps ->
 #if CFGDEBUG
-        let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
-        dbglog ctx.ThreadID (nameof ExpandCFG)
-        <| $"{targets} @ {ctx.FunctionAddress:x}"
+      let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
+      dbglog ctx.ThreadID (nameof ExpandCFG)
+      <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif
-        pps
-        |> List.filter (not << (isInvalidProgramPoint ctx))
-        |> buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue
-      | MakeCall(callSite, calleeAddr, calleeInfo) ->
+      pps
+      |> List.filter (not << (isInvalidProgramPoint ctx))
+      |> buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue
+    | MakeCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof MakeCall)
-        <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof MakeCall)
+      <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-        handleCall ctx cfgRec callSite calleeAddr calleeInfo
-      | WaitForCallee calleeAddr ->
+      handleCall ctx cfgRec callSite calleeAddr calleeInfo
+    | WaitForCallee calleeAddr ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID (nameof WaitForCallee)
-        <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
+      dbglog ctx.ThreadID (nameof WaitForCallee)
+      <| $"{ctx.FunctionAddress:x} waits for {calleeAddr:x}"
 #endif
-        if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
+      if not (ctx.PendingCallActions.ContainsKey calleeAddr) then
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> move on"
 #endif
-          MoveOn
-        elif isFailedBuilding ctx calleeAddr then
+        MoveOn
+      elif isFailedBuilding ctx calleeAddr then
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
 #endif
-          FailStop ErrorCase.FailedToRecoverCFG
-        else
+        FailStop ErrorCase.FailedToRecoverCFG
+      else
 #if CFGDEBUG
-          dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
+        dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
 #endif
-          Wait (* yet resolved *)
-      | UpdateCallEdges(calleeAddr, calleeInfo) ->
+        Wait (* yet resolved *)
+    | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
-        let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
-        let fnAddr = ctx.FunctionAddress
-        dbglog ctx.ThreadID (nameof UpdateCallEdges)
-        <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
+      let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
+      let fnAddr = ctx.FunctionAddress
+      dbglog ctx.ThreadID (nameof UpdateCallEdges)
+      <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
 #endif
-        updateCallEdges ctx cfgRec calleeAddr calleeInfo
-      | ResumeAnalysis(pp, callbackAction) ->
-        resumeAnalysis ctx pp callbackAction
-      | MakeTlCall _
-      | MakeIndCall _
-      | MakeSyscall _
-      | MakeIndEdges _
-      | StartTblRec _
-      | EndTblRec _
-      | StartGapAnalysis _
-      | EndGapAnalysis ->
-        Terminator.impossible ()
-    with e ->
-      Console.Error.WriteLine $"OnAction failed:\n{e}"
-      FailStop ErrorCase.FailedToRecoverCFG
+      updateCallEdges ctx cfgRec calleeAddr calleeInfo
+    | ResumeAnalysis(pp, callbackAction) ->
+      resumeAnalysis ctx pp callbackAction
+    | MakeTlCall _
+    | MakeIndCall _
+    | MakeSyscall _
+    | MakeIndEdges _
+    | StartTblRec _
+    | EndTblRec _
+    | StartGapAnalysis _
+    | EndGapAnalysis ->
+      Terminator.impossible ()
 
 
 type EVMCFGRecovery(fnCallback) as this =
   let syscallAnalysis = SyscallAnalysis()
 
-  interface ICFGRecovery<EVMFuncUserContext, DummyContext> with
+  interface ICFGRecovery<EVMFuncUserContext, EVMGlobalContext> with
     member _.Summarizer with get() = summarizer
 
     member _.ActionPrioritizer with get() = prioritizer
 
-    member _.AllowBBLOverlap with get() = false
-
     member _.RecoveryTargets with get() = All
+
+    member _.CreateFunctionContext() = EVMFuncUserContext()
+
+    member _.ResetFunctionContext fnCtx = (fnCtx :> IResettable).Reset()
+
+    member _.CreateGlobalContext() = EVMGlobalContext()
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis false action
@@ -1002,10 +1000,10 @@ type EVMCFGRecovery(fnCallback) as this =
       | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
       | _ -> MoveOn
 
-    member _.AnalyzeIndirectJump(ctx, _ppQueue, _pp, srcV) =
+    member _.AnalyzeIndirectJump(ctx, _pp, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this srcV)
 
-    member _.AnalyzeIndirectCondJump(ctx, _ppQueue, _pp, srcV) =
+    member _.AnalyzeIndirectCondJump(ctx, _pp, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterCJmp ctx this srcV)
 
     member _.OnAddVertex(ctx, v) =

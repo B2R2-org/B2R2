@@ -69,6 +69,7 @@ module internal ExceptionData =
         [ for fde in cfi.FDEs ->
             { FuncStart = fde.PCBegin
               FuncEnd = fde.PCEnd
+              IsFragment = fde.StartsMidFrame
               LSDAPointer = fde.LSDAPointer
               PersonalityRoutine = personality } ])
     | _ ->
