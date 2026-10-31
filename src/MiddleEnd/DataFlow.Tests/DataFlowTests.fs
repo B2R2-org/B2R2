@@ -378,6 +378,28 @@ type DataFlowTests() =
     Assert.AreEqual<bool>(true, Option.isNone miss)
 
   [<TestMethod>]
+  member _.``SSA Phi Operand Lookup Test``() =
+    let brew = Binaries.loadOne Binaries.sample10
+    let cfg = brew.Functions[0UL].CFG
+    let at addr =
+      cfg.FindVertexBy(fun v -> v.VData.Internals.PPoint.Address = addr)
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    let state = cp.State
+    let join = at 0xaUL
+    match state.GetTerminatorInSSA join with
+    | SSA.Jmp(SSA.InterJmp(SSA.Var phi)) ->
+      (* Each operand of the phi of ECX is the definition from its own edge. *)
+      let defAddrFrom pred =
+        state.TryGetSSAPhiOperand(phi, at pred, join)
+        |> Option.map (fun v -> state.SSAVarToVp[v].ProgramPoint.Address)
+      let actual = [ defAddrFrom 0x4UL; defAddrFrom 0x8UL ]
+      let expected = [ Some 0x4UL; Some 0x8UL ]
+      Assert.AreEqual<Addr option list>(expected, actual)
+    | terminator ->
+      Assert.Fail $"Unexpected terminator: {terminator}"
+
+  [<TestMethod>]
   member _.``Untouched Value Analysis 1``() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG

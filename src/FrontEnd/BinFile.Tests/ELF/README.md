@@ -540,6 +540,83 @@ nested_inner:
         .long   0
 ```
 
+## The phi jump table fixture
+
+A hand-written function that reaches its first switch from two blocks, each of
+which computes the index and checks its range on its own, as Clang does when it
+copies the check into both predecessors of the switch. The switch thus reads a
+phi of the two indices, which neither check reads. The tables are laid out like
+those of `strict`.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_phijmptbl` | `dup` switches twice on one register, the first time on a phi of two copies of the index, each behind a range check of its own |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib phi.s -o elf_x86_phijmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  dup
+        .type   dup, @function
+dup:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     DWORD PTR [esp+8], 0
+        je      .Ld_other
+        lea     ecx, [eax+1]
+        cmp     ecx, 3
+        jbe     .Ld_switch
+        jmp     .Ld_zero
+.Ld_other:
+        lea     ecx, [eax+1]
+        cmp     ecx, 3
+        ja      .Ld_zero
+.Ld_switch:
+        jmp     DWORD PTR [dup_outer+ecx*4]
+.Ld_o0: mov     eax, 1
+        ret
+.Ld_o1: mov     eax, 2
+        ret
+.Ld_o2: mov     eax, 3
+        ret
+.Ld_o3: cmp     eax, 3
+        ja      .Ld_zero
+        jmp     DWORD PTR [dup_inner+eax*4]
+.Ld_i0: mov     eax, 4
+        ret
+.Ld_i1: mov     eax, 5
+        ret
+.Ld_i2: mov     eax, 6
+        ret
+.Ld_i3: mov     eax, 7
+        ret
+.Ld_zero:
+        xor     eax, eax
+        ret
+        .size   dup, .-dup
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    dup
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+dup_outer:
+        .long   .Ld_o0, .Ld_o1, .Ld_o2, .Ld_o3
+dup_inner:
+        .long   .Ld_i0, .Ld_i1, .Ld_i2, .Ld_i3
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional

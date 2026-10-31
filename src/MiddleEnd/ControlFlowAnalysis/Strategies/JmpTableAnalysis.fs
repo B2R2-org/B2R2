@@ -61,27 +61,37 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Some(Jmp(InterCJmp(cond, t, f))) when t <> f -> Some cond
     | _ -> None
 
+  /// Collects the guards on the edges into the given vertex, each with a
+  /// function that tells what a variable stands for along the edge of the
+  /// guard: the operand from that edge, as tryGetPhiOperand finds it, if a phi
+  /// of the vertex defines the variable, or else the variable itself.
+  let collectGuards stmExtractor tryGetPhiOperand g v =
+    Guard.collect (tryGetCondition stmExtractor) g v
+    |> List.map (fun (pred, guard) ->
+      let along var = tryGetPhiOperand var pred v |> Option.defaultValue var
+      along, guard)
+
   /// Collects the guards that every path to the given vertex passes.
   let collectDominatingGuards stmExtractor g v =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create g df
     Guard.collectDominating (tryGetCondition stmExtractor) g dom v
 
-  let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst =
+  let rec findJumpExpr stmExtractor tryGetPhiOperand (g: IDiGraph<_, _>) vFst =
     function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
       | Some(Jmp(InterJmp jmpExpr)) ->
         (* The guards on the edges into v are where the branch checks its
            range. *)
-        let guards = Guard.collect (tryGetCondition stmExtractor) g v
+        let guards = collectGuards stmExtractor tryGetPhiOperand g v
         Ok(jmpExpr, guards, lazy collectDominatingGuards stmExtractor g v)
       | _ ->
         let vs =
           g.GetSuccs v
           |> Seq.fold (fun acc succ ->
             if succ <> vFst then succ :: acc else acc) vs
-        findJumpExpr stmExtractor g vFst vs
+        findJumpExpr stmExtractor tryGetPhiOperand g vFst vs
     | [] ->
       Error ErrorCase.ItemNotFound
 
@@ -91,7 +101,21 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     let stmExtractor (v: IVertex<LowUIRBasicBlock>) =
       if v.VData.Internals.IsAbstract then None
       else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
-    findJumpExpr stmExtractor g v [ v ]
+    let tryGetPhiOperand var pred v = state.TryGetSSAPhiOperand(var, pred, v)
+    findJumpExpr stmExtractor tryGetPhiOperand g v [ v ]
+
+  /// Tries to get the operand that the phi of v defining the given variable
+  /// takes from pred, which is the operand at the index of pred among the
+  /// predecessors of v.
+  let tryGetPhiOperandFromSSACFG g var pred (v: IVertex<SSABasicBlock>) =
+    v.VData.Internals.Statements
+    |> Array.tryPick (fun (_, stmt) ->
+      match stmt with
+      | Phi(def, ids) when def = var ->
+        let idx = (g: SSACFG).GetPreds v |> Array.findIndex ((=) pred)
+        Some { var with Identifier = ids[idx] }
+      | _ ->
+        None)
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
@@ -99,7 +123,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     let stmExtractor (v: IVertex<SSABasicBlock>) =
       if v.VData.Internals.IsAbstract then None
       else Some v.VData.Internals.LastStmt
-    findJumpExpr stmExtractor ssaCFG v [ v ]
+    let tryGetPhiOperand = tryGetPhiOperandFromSSACFG ssaCFG
+    findJumpExpr stmExtractor tryGetPhiOperand ssaCFG v [ v ]
 
   let rec simplify e =
     match e with
@@ -519,16 +544,16 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     else
       None
 
-  /// Checks if one of the given guards lets the index of the given table select
-  /// the entry at addr: the root has to hold the value with which the index
-  /// selects that entry, and with that value the guard has to branch to the
-  /// indirect jump.
+  /// Checks if one of the given guards, each paired with what the root stands
+  /// for along its edge, lets the index of the given table select the entry at
+  /// addr: the root has to hold the value with which the index selects that
+  /// entry, and with that value the guard has to branch to the indirect jump.
   let admits findDef guards jmptbl origin addr =
     match tryComputeRootValue findDef jmptbl origin addr with
     | Some _ as value ->
       guards
-      |> List.exists (fun guard ->
-        tryTakeBranch findDef origin.Root value guard = Some true)
+      |> List.exists (fun (root, guard) ->
+        tryTakeBranch findDef root value guard = Some true)
     | None ->
       false
 
@@ -549,9 +574,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   /// Lets the origin of the index tell which entries the range check admits,
   /// which the given guards of the indirect branch decide, and which entry it
-  /// selects first, which the given guards on every path to it decide.
+  /// selects first, which the given guards on every path to it decide. A guard
+  /// of the branch reads the root as it flows in along its own edge, which is
+  /// the operand from that edge if the root is a phi of the branch.
   let guardOrigin findDef guards domGuards (jmptbl: JmpTableInfo, origin) =
     let guard o =
+      let guards = guards |> List.map (fun (along, g) -> along o.Root, g)
       { o with
           Admits = admits findDef guards jmptbl o
           StartsAt = startsAt findDef domGuards jmptbl o }

@@ -660,3 +660,30 @@ let private code9 =
      0xC3uy |]
 
 let sample9 = Binary(code9, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 10: A function in which the blocks at 0x4 and 0x8 set ECX each in
+  its own way before they join at 0xa, which jumps through it.
+
+  00000000: 85 C0              test        eax,eax
+  00000002: 74 04              je          00000008
+  00000004: 31 C9              xor         ecx,ecx
+  00000006: EB 02              jmp         0000000A
+  00000008: 89 C1              mov         ecx,eax
+  0000000A: FF E1              jmp         ecx
+*)
+let private code10 =
+  [| 0x85uy
+     0xC0uy
+     0x74uy
+     0x04uy
+     0x31uy
+     0xC9uy
+     0xEBuy
+     0x02uy
+     0x89uy
+     0xC1uy
+     0xFFuy
+     0xE1uy |]
+
+let sample10 = Binary(code10, Architecture.Intel, WordSize.Bit32)

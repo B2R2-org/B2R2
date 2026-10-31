@@ -308,6 +308,21 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew bounds a jump table by checks on its phi operands``() =
+    (* Both ways into the first switch of dup compute and check the index on
+       their own, so the switch reads a phi of the two, which neither check
+       reads. Each check still bounds the operand of its own way in. *)
+    let fn = (recoverFunctions "elf_x86_phijmptbl")[0x40113cUL]
+    let expected = [ 0x400118UL, Some 4; 0x400128UL, Some 4 ]
+    let actual =
+      fn.JumpTables
+      |> Array.sortBy (fun jmptbl -> jmptbl.InsAddr)
+      |> Array.map (fun jmptbl -> jmptbl.TableAddress, jmptbl.OwnRangeEntries)
+      |> Array.toList
+    Assert.AreEqual<(Addr * int option) list>(expected, actual)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew starts a folded jump table after one of its own``() =
     (* samefn checks the range of its second switch by a conditional jump
        before a call, so the address of the table has case 4 folded in. That

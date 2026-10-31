@@ -487,6 +487,23 @@ type State<'Lattice when 'Lattice: equality>
       else
         generatePhiSSAStmt vp |> Some
 
+  /// Tries to get the operand that the given SSA variable takes along the edge
+  /// from pred to v, as an SSA variable. Returns None unless a phi of v defines
+  /// the variable.
+  member _.TryGetSSAPhiOperand(var, pred, v: IVertex<LowUIRBasicBlock>) =
+    match ssaVarToVp.TryGetValue var with
+    | true, vp when vp.ProgramPoint = v.VData.Internals.PPoint ->
+      let _, endPP = getStatements pred |> Array.last
+      match phiInfos.TryGetValue v with
+      | true, phiInfo when phiInfo.ContainsKey vp.VarKind ->
+        match phiInfo[vp.VarKind].TryGetValue endPP with
+        | true, def -> Some(getSSAVar def)
+        | false, _ -> None
+      | _ ->
+        None
+    | _ ->
+      None
+
   /// Returns the abstract value at the given variable point.
   member _.GetAbsValue vp = domainGetAbsValue vp
 
