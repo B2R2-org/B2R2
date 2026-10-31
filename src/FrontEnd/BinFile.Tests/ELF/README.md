@@ -909,6 +909,120 @@ _start:
         .size   _start, .-_start
 ```
 
+## The conditional tail call fixture
+
+Hand-written functions whose conditional jumps to the entry of a function only
+the call frame information can tell apart. `maybe` jumps to `bump` before it
+moves the stack pointer, so it calls `bump` as its tail, as Clang does.
+`framed` jumps back to `framed.cold` with a word still pushed, which
+`framed.cold` pops before it returns for `framed`, as GCC splits off the cold
+part of a function, names it with a symbol of its own, and places it before
+the hot part. `countdown` jumps back to its own entry on a condition and
+`drain` without one, both of which loop.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_condtail` | `maybe` calls `bump` as its tail on a condition; `framed` jumps to `framed.cold` with its frame open; `countdown` and `drain` loop back to their entries |
+
+```
+gcc -fuse-ld=lld -static -nostdlib condtail.s -o elf_x64_condtail
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  bump
+        .type   bump, @function
+bump:
+        .cfi_startproc
+        lea     eax, [rdi+1]
+        ret
+        .cfi_endproc
+        .size   bump, .-bump
+
+        .globl  maybe
+        .type   maybe, @function
+maybe:
+        .cfi_startproc
+        test    edi, edi
+        jne     bump
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   maybe, .-maybe
+
+        .type   framed.cold, @function
+framed.cold:
+        .cfi_startproc
+        .cfi_def_cfa_offset 16
+        .cfi_offset rbx, -16
+        lea     eax, [rbx+1]
+        pop     rbx
+        .cfi_def_cfa_offset 8
+        ret
+        .cfi_endproc
+        .size   framed.cold, .-framed.cold
+
+        .globl  framed
+        .type   framed, @function
+framed:
+        .cfi_startproc
+        push    rbx
+        .cfi_def_cfa_offset 16
+        .cfi_offset rbx, -16
+        mov     ebx, edi
+        test    ebx, ebx
+        jne     framed.cold
+        xor     eax, eax
+        pop     rbx
+        .cfi_def_cfa_offset 8
+        ret
+        .cfi_endproc
+        .size   framed, .-framed
+
+        .globl  countdown
+        .type   countdown, @function
+countdown:
+        .cfi_startproc
+        dec     edi
+        jne     countdown
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   countdown, .-countdown
+
+        .globl  drain
+        .type   drain, @function
+drain:
+        .cfi_startproc
+        test    edi, edi
+        je      .Ldrained
+        dec     edi
+        jmp     drain
+.Ldrained:
+        xor     eax, eax
+        ret
+        .cfi_endproc
+        .size   drain, .-drain
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        .cfi_startproc
+        mov     edi, 1
+        call    maybe
+        mov     edi, 1
+        call    framed
+        mov     edi, 3
+        call    countdown
+        mov     edi, 3
+        call    drain
+        ret
+        .cfi_endproc
+        .size   _start, .-_start
+```
+
 ## The conditionally non-returning fixtures
 
 Hand-written functions around libc's `error`, which never returns when its

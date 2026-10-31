@@ -40,13 +40,13 @@ module internal ExceptionData =
 
   let [<Literal>] private GccExceptTableSection = ".gcc_except_table"
 
-  /// Returns the FDEs of the given exception frames, sorted by the address
-  /// they begin at.
+  /// Returns the FDEs of the given exception frames, each paired with the CIE
+  /// it belongs to, sorted by the address they begin at.
   let getFDEs (exns: ExceptionFrame) =
-    exns
-    |> List.toArray
-    |> Array.collect (fun cfi -> cfi.FDEs)
-    |> Array.sortBy (fun fde -> fde.PCBegin)
+    [| for cfi in exns do
+         for fde in cfi.FDEs do
+           cfi.CIE, fde |]
+    |> Array.sortBy (fun (_, fde) -> fde.PCBegin)
 
   /// Builds a relocation resolver for the FDE begin addresses of the given
   /// frame section. Only relocatable objects (ET_REL) carry such relocations;

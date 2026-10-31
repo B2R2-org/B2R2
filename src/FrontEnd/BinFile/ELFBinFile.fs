@@ -82,22 +82,34 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let exn = lazy ExceptionData.parse toolBox shdrs.Value rfOpt relocs.Value
 
-  /// Holds the FDEs sorted by the address they begin at, so that the FDE
-  /// covering a given address can be found by binary search.
+  /// Holds the FDEs, each with its CIE, sorted by the address they begin at,
+  /// so that the FDE covering a given address can be found by binary search.
   let sortedFDEs = lazy ExceptionData.getFDEs exn.Value.ExceptionFrame
 
-  /// Finds the FDE covering the given address, which is the last FDE beginning
-  /// at or before the address, provided that the address is before its end.
-  let findCoveringFDE (fdes: FDE[]) addr =
-    if Array.isEmpty fdes || fdes[0].PCBegin > addr then
+  /// Finds the FDE covering the given address, along with its CIE, which is
+  /// the last FDE beginning at or before the address, provided that the
+  /// address is before its end.
+  let findCoveringFDE (fdes: (CIE * FDE)[]) addr =
+    if Array.isEmpty fdes || (snd fdes[0]).PCBegin > addr then
       None
     else
       let mutable lo = 0
       let mutable hi = fdes.Length - 1
       while lo < hi do
         let mid = lo + (hi - lo + 1) / 2
-        if fdes[mid].PCBegin <= addr then lo <- mid else hi <- mid - 1
-      if addr < fdes[lo].PCEnd then Some fdes[lo] else None
+        if (snd fdes[mid]).PCBegin <= addr then lo <- mid else hi <- mid - 1
+      if addr < (snd fdes[lo]).PCEnd then Some fdes[lo] else None
+
+  /// Finds the canonical frame address that the given FDE gives the code at
+  /// addr. An FDE without rows keeps the initial state of its CIE throughout.
+  let findCFA (cie: CIE, fde: FDE) addr =
+    match fde.UnwindingInfo.Value with
+    | [] ->
+      Some cie.InitialUnwinding.Value.CFA
+    | rows ->
+      rows
+      |> List.tryFindBack (fun row -> row.Location <= addr)
+      |> Option.map (fun row -> row.CanonicalFrameAddress)
 
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
 
@@ -619,15 +631,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Returns the canonical frame address in effect at the given address as a
   /// (register, offset) pair. The answer is the last unwinding row of the FDE
-  /// covering the address that starts at or before the address; None when no
-  /// FDE covers the address or the CFA is not of the register-plus-offset form.
+  /// covering the address that starts at or before the address, or the
+  /// initial state of its CIE when the FDE has no rows; None when no FDE
+  /// covers the address or the CFA is not of the register-plus-offset form.
   member _.TryFindCFARegOffset(addr: Addr) =
     findCoveringFDE sortedFDEs.Value addr
-    |> Option.bind (fun fde ->
-      fde.UnwindingInfo.Value
-      |> List.tryFindBack (fun row -> row.Location <= addr))
-    |> Option.bind (fun row ->
-      match row.CanonicalFrameAddress with
+    |> Option.bind (fun fde -> findCFA fde addr)
+    |> Option.bind (fun cfa ->
+      match cfa with
       | RegPlusOffset(rid, off) -> Some(rid, off)
       | _ -> None)
 
@@ -635,7 +646,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// describes; None when no FDE covers the address.
   member _.TryFindFDERange(addr: Addr) =
     findCoveringFDE sortedFDEs.Value addr
-    |> Option.map (fun fde -> AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
+    |> Option.map (fun (_, fde) ->
+      AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

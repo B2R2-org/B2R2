@@ -83,6 +83,18 @@ type BinaryBrewTests() =
       fn.CFG.GetSuccEdges callee |> Array.exists (fun e -> e.Label = RetEdge)
     summary.ReturningStatus, summary.UnwindingBytes, returns
 
+  /// Lists the kinds of the edges that leave the block of the given function
+  /// that ends at insAddr, in the order they are declared.
+  let edgesFrom (fn: Function) insAddr =
+    let v =
+      fn.CFG.FindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.LastInstruction.Address = insAddr)
+    fn.CFG.GetSuccEdges v
+    |> Array.map (fun e -> e.Label)
+    |> Array.sort
+    |> Array.toList
+
   /// Makes the status of an x86 function that does not return when its
   /// argument at the given offset on the stack is non-zero.
   let condNoRetOnStack offset =
@@ -375,6 +387,40 @@ type BinaryBrewTests() =
     let expected = NoRet, 0, false
     let actual = summarizeCall fn 0x401227UL
     Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew tail-calls the function a conditional jump enters``() =
+    (* maybe jumps to bump on a condition before it moves the stack pointer,
+       so bump returns to the caller of maybe: the jump calls bump as a tail
+       call, and the code of bump is not part of maybe. *)
+    let fn = (recoverFunctions "elf_x64_condtail")[0x201270UL]
+    let expected = [ InterCJmpFalseEdge; TailCallEdge ]
+    Assert.AreEqual<CFGEdgeKind list>(expected, edgesFrom fn 0x201272UL)
+
+  [<TestMethod>]
+  member _.``BinaryBrew keeps in its function a jump with its frame open``() =
+    (* framed jumps back to framed.cold with a word still pushed, which
+       framed.cold pops before it returns for framed, as GCC splits off the
+       cold part of a function. A symbol names framed.cold a function, yet its
+       code runs in the frame of framed. *)
+    let fn = (recoverFunctions "elf_x64_condtail")[0x20127cUL]
+    let expected = [ InterCJmpTrueEdge; InterCJmpFalseEdge ]
+    Assert.AreEqual<CFGEdgeKind list>(expected, edgesFrom fn 0x201281UL)
+
+  [<TestMethod>]
+  member _.``BinaryBrew loops on a conditional jump back to its entry``() =
+    (* countdown jumps back to its own entry, which loops rather than calls. *)
+    let fn = (recoverFunctions "elf_x64_condtail")[0x201287UL]
+    let expected = [ InterCJmpTrueEdge; InterCJmpFalseEdge ]
+    Assert.AreEqual<CFGEdgeKind list>(expected, edgesFrom fn 0x201289UL)
+
+  [<TestMethod>]
+  member _.``BinaryBrew loops on a jump back to its entry``() =
+    (* drain jumps back to its own entry without a condition, which loops
+       rather than calls, just as the jump of countdown does on one. *)
+    let fn = (recoverFunctions "elf_x64_condtail")[0x20128eUL]
+    let expected = [ InterJmpEdge ]
+    Assert.AreEqual<CFGEdgeKind list>(expected, edgesFrom fn 0x201294UL)
 
   [<TestMethod>]
   member _.``BinaryBrew passes the condition of error on to a wrapper``() =

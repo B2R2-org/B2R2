@@ -435,6 +435,52 @@ module internal CFGRecoveryCommon =
     | Building | Built _ -> true
     | Failed -> false
 
+  /// Finds how deep in its frame the code at the given address runs, which is
+  /// how far its canonical frame address lies above the stack pointer.
+  let tryFindFrameDepth (hdl: BinHandle) (elf: BinFile.ELFBinFile) addr =
+    match elf.TryFindCFARegOffset addr with
+    | Some(rid, offset) when hdl.RegisterFactory.IsStackPointer rid ->
+      Some offset
+    | _ ->
+      None
+
+  /// Checks if the code at the given address runs as deep in its frame as the
+  /// entry of the current function does, which means the frame is torn down.
+  let runsAtEntryDepth (ctx: CFGBuildingContext<_, _>) addr =
+    let hdl = ctx.BinHandle
+    match hdl.File with
+    | :? BinFile.ELFBinFile as elf ->
+      let entryDepth = tryFindFrameDepth hdl elf ctx.FunctionAddress
+      entryDepth.IsSome && entryDepth = tryFindFrameDepth hdl elf addr
+    | _ ->
+      false
+
+  /// Checks if the given address is the entry of a function other than the
+  /// current one. A jump to the entry of the current function loops rather
+  /// than calls it.
+  let isOtherFuncEntry (ctx: CFGBuildingContext<_, _>) target =
+    target <> ctx.FunctionAddress && isFuncEntryPoint ctx target
+
+  /// Checks if the conditional jump at jmpAddr calls the function at target as
+  /// its tail: it leaves for the entry of another function with its own frame
+  /// torn down, so that the callee returns to its caller.
+  let isCondTailCall ctx jmpAddr target =
+    runsAtEntryDepth ctx jmpAddr && isOtherFuncEntry ctx target
+
+  /// Connects the given vertex to the true target of the conditional jump that
+  /// ends it, or calls the function there when the jump is a tail call.
+  let connectTrueTarget ctx cfgRec queue useTCHeuristic srcVertex tpp =
+    let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
+    let jmpAddr = bbl.LastInstruction.Address
+    let target = (tpp: ProgramPoint).Address
+    if useTCHeuristic && isCondTailCall ctx jmpAddr target then
+      let callsite = LeafCallSite jmpAddr
+      let act = MakeTlCall(callsite, target, CalleeInfo.Unknown)
+      handleCall ctx cfgRec srcVertex callsite target act
+    else
+      connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
+      MoveOn
+
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
@@ -443,6 +489,7 @@ module internal CFGRecoveryCommon =
                (actionQueue: CFGActionQueue)
                initPPs =
     let queue = Queue<ProgramPoint>(collection = initPPs)
+    let connectTrue = connectTrueTarget ctx cfgRec queue useTailcallHeuristic
     let mutable result = MoveOn
     while queue.Count > 0 && result = MoveOn do
       let ppoint = queue.Dequeue()
@@ -490,7 +537,7 @@ module internal CFGRecoveryCommon =
         | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
           let target = n.ToUInt64()
           if useTailcallHeuristic then
-            if not <| isFuncEntryPoint ctx target then (* No function exists. *)
+            if not <| isOtherFuncEntry ctx target then
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
             else
               let lastInsAddr = srcData.LastInstruction.Address
@@ -523,7 +570,7 @@ module internal CFGRecoveryCommon =
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tpp = maskedPPoint ctx (lastAddr + tv.ToUInt64())
           let fpp = maskedPPoint ctx (lastAddr + fv.ToUInt64())
-          connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
+          result <- connectTrue srcVertex tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
         | InterCJmp(TrueTarget = BinOp(Op = BinOpType.ADD
                                        Left = PCVar _
@@ -549,7 +596,7 @@ module internal CFGRecoveryCommon =
                     FalseTarget = Num(Value = fv)) ->
           let tpp = maskedPPoint ctx (tv.ToUInt64())
           let fpp = maskedPPoint ctx (fv.ToUInt64())
-          connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
+          result <- connectTrue srcVertex tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
         | InterJmp(Target = e; Kind = InterJmpKind.Base) -> (* Indirect jmp *)
           match tryHandleRelocationBackedCall ctx cfgRec srcVertex true e with
@@ -752,15 +799,6 @@ module internal CFGRecoveryCommon =
     match ctx.BBLFactory.PeekBBL addr with
     | Ok instrs
     | Error instrs -> skipNops instrs addr
-
-  /// Finds how deep in its frame the code at the given address runs, which is
-  /// how far its canonical frame address lies above the stack pointer.
-  let tryFindFrameDepth (hdl: BinHandle) (elf: BinFile.ELFBinFile) addr =
-    match elf.TryFindCFARegOffset addr with
-    | Some(rid, offset) when hdl.RegisterFactory.IsStackPointer rid ->
-      Some offset
-    | _ ->
-      None
 
   /// Judges whether a call returns, given how many bytes shallower in the
   /// frame the code after it runs than the call itself.

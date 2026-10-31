@@ -2117,6 +2117,18 @@ type ELFTests() =
     assertCFA None (file.TryFindCFARegOffset gapStart)
 
   [<TestMethod>]
+  member _.``[ELF] x64 CFA lookup gives an FDE without rows its CIE state``() =
+    let file = parseEhFrameFile ()
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rsp = DWRegister.toRegID isa 7uy
+    let fde =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.find (fun fde -> List.isEmpty fde.UnwindingInfo.Value)
+    assertCFA (Some(rsp, 8)) (file.TryFindCFARegOffset fde.PCBegin)
+    assertCFA (Some(rsp, 8)) (file.TryFindCFARegOffset(fde.PCEnd - 1UL))
+
+  [<TestMethod>]
   member _.``[ELF] x64 FDE range lookup finds the FDE covering an address``() =
     let file = parseEhFrameFile ()
     for cfi in file.ExceptionFrame do
