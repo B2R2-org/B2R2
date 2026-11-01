@@ -87,9 +87,11 @@ module internal CFGRecoveryCommon =
     cfgRec.OnAddVertex(ctx, v)
     if isDuringGapAnalysis ctx then ctx.GapAnalysisVertices.Add(pp) |> ignore
     else ()
-    match ctx.JumpTableRecoveryStatus.TryPeek() with
-    | true, status -> bbl.DominatingJumpTableEntry <- Some status
-    | false, _ -> ()
+    (* The block outlives a rebuild, so it drops what an earlier build set. *)
+    bbl.DominatingJumpTableEntry <-
+      match ctx.JumpTableRecoveryStatus.TryPeek() with
+      | true, status -> Some status
+      | false, _ -> None
     v
 
   let makeAbsVertex ctx (cfgRec: ICFGRecovery<_, _>) csAddr calleeOpt abs =
@@ -932,6 +934,43 @@ module internal CFGRecoveryCommon =
     queue.Push(EndTblRec(jmptbl, idx))
     MoveOn
 
+  /// Checks if the given table starts within the other table at tblAddr, no
+  /// later than the end of its entry at idx, while the two tables belong to
+  /// different indirect branches.
+  let startsByEntryOf (ctx: CFGBuildingContext<_, _>) jmptbl (tblAddr, idx) =
+    match ctx.JumpTables.TryGetValue tblAddr with
+    | true, other when other.InsAddr <> (jmptbl: JmpTableInfo).InsAddr ->
+      let entryEnd = tblAddr + uint64 ((idx + 1) * other.EntrySize)
+      tblAddr <= jmptbl.TableAddress && jmptbl.TableAddress < entryEnd
+    | _ ->
+      false
+
+  /// Finds the entry of another table through which the indirect branch of the
+  /// given table was first reached, if the given table starts within that table
+  /// no later than the end of the entry. Ending that table before the given one
+  /// would drop the very entry that led to it, so the entry is what is wrong.
+  let tryFindSelfDefeatingEntry (ctx: CFGBuildingContext<_, _>) jmptbl =
+    let insAddr = (jmptbl: JmpTableInfo).InsAddr
+    match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
+    | true, v ->
+      v.VData.DominatingJumpTableEntry
+      |> Option.filter (startsByEntryOf ctx jmptbl)
+    | false, _ ->
+      None
+
+  /// Tells the manager that the given entry is bogus, and reloads the function
+  /// if the manager has cut its table short of the entry.
+  let blameEntry ctx (tblAddr, idx) =
+    let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
+#if CFGDEBUG
+    dbglog ctx.ThreadID "JumpTable"
+    <| $"{tblAddr:x}[{idx}] leads to a table within its own"
+#endif
+    if ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx) then
+      StopAndReload
+    else
+      MoveOn (* We ignore this indirect branch. *)
+
   /// Notifies the manager of the given jump table, and follows its decision.
   /// When the table starts within the entries of another, its code may have
   /// folded the smallest index into its address, so it may start right after
@@ -971,7 +1010,9 @@ module internal CFGRecoveryCommon =
       dbglog ctx.ThreadID "JumpTable"
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
-      notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl true
+      match tryFindSelfDefeatingEntry ctx jmptbl with
+      | Some entry -> blameEntry ctx entry
+      | None -> notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl true
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"

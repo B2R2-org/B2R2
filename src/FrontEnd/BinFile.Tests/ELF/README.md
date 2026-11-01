@@ -773,6 +773,153 @@ gap_live:
         .long   0
 ```
 
+## The overrun jump table fixture
+
+A hand-written function whose switch has no range check, so its table is read
+past its last entry. The word after the table points to the last byte of a
+`jmp` whose displacement ends in `0xff`, followed by the padding `nop` that
+starts with `66 2e`. From that byte, the code decodes as a jump through `esi`
+plus `0x2e`, and `esi` still holds the address of the table, so that jump
+reads a table that starts within the first one. Clang's x86-64 code lays out
+the same bytes when the table of the next function follows.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_overrunjmptbl` | `pick` jumps through a twelve-entry table, after which a word points into `pick`, where the bytes decode as a jump through the middle of that table |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib overrun.s -o elf_x86_overrunjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        mov     eax, DWORD PTR [esp+4]
+        mov     esi, OFFSET pick_table
+        mov     eax, DWORD PTR [esi+eax*4]
+        jmp     eax
+.Lp_c0: mov     eax, 1
+        ret
+.Lp_c1: mov     eax, 2
+        ret
+.Lp_c2: mov     eax, 3
+        ret
+.Lp_c3: mov     eax, 4
+        ret
+.Lp_c4: mov     eax, 5
+        ret
+.Lp_c5: mov     eax, 6
+        ret
+.Lp_c6: mov     eax, 7
+        ret
+.Lp_c7: mov     eax, 8
+        ret
+.Lp_c8: mov     eax, 9
+        ret
+.Lp_c9: mov     eax, 10
+        ret
+.Lp_c10:
+        mov     eax, 11
+        ret
+.Lp_c11:
+        .byte   0xe9
+        .long   .Lp_c0 - (.Lp_c11 + 5)
+        .byte   0x66, 0x2e, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00
+        .size   pick, .-pick
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    pick
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+pick_table:
+        .long   .Lp_c0, .Lp_c1, .Lp_c2, .Lp_c3, .Lp_c4, .Lp_c5
+        .long   .Lp_c6, .Lp_c7, .Lp_c8, .Lp_c9, .Lp_c10, .Lp_c11
+        .long   .Lp_c11 + 4
+        .long   0
+```
+
+## The rebuilt jump table fixture
+
+A hand-written function with two switches whose tables lie next to each other.
+The first switch has no range check, so its table is read past its two
+entries, into the second table, whose first entry is the block of the second
+switch. Code reaches that block only after a call, so a recovery that does not
+yet know the call to return reaches the second switch through the first table
+alone, while the next recovery reaches it through the call.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_rebuildjmptbl` | `f` jumps through a two-entry table without a range check, right after which lies the table of a second switch that only the code after a call to `g` reaches |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib rebuild.s -o elf_x86_rebuildjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  f
+        .type   f, @function
+f:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     DWORD PTR [esp+8], 0
+        jne     .Lf_call
+        jmp     DWORD PTR [f_first+eax*4]
+.Lf_t0: mov     eax, 1
+        ret
+.Lf_t1: mov     eax, 2
+        ret
+.Lf_call:
+        call    g
+.Lf_loop:
+        mov     eax, DWORD PTR [esp+8]
+        cmp     eax, 1
+        ja      .Lf_out
+        jmp     DWORD PTR [f_second+eax*4]
+.Lf_s1: mov     eax, 3
+        ret
+.Lf_out:
+        xor     eax, eax
+        ret
+        .size   f, .-f
+
+        .globl  g
+        .type   g, @function
+g:
+        ret
+        .size   g, .-g
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    f
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+f_first:
+        .long   .Lf_t0, .Lf_t1
+f_second:
+        .long   .Lf_loop, .Lf_s1
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional

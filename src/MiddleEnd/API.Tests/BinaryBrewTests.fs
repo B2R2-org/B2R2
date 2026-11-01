@@ -43,6 +43,11 @@ type BinaryBrewTests() =
     let bytes = readZippedBinary name
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64")).Functions
 
+  /// Recovers the functions of the given zipped binary with the given strategy.
+  let recoverFunctionsWith name strategy =
+    let hdl = BinHandle.LoadFileBytes(readZippedBinary name, ISA "x64")
+    BinaryBrew(hdl, ExceptionInfo hdl, strategy).Functions
+
   /// Collects the blocks that the indirect branch of the given jump table
   /// reaches through the table, in address order.
   let jumpTargets (fn: Function) (jmptbl: JmpTableInfo) =
@@ -161,6 +166,24 @@ type BinaryBrewTests() =
         member _.GetPriority action =
           log.Enqueue action
           inner.GetPriority action }
+
+  /// Makes and resets contexts like the default strategy, counting the resets.
+  let countingContexts (resets: int ref) =
+    { new IContextProvidable<DummyContext, DummyContext> with
+        member _.CreateFunctionContext() = DummyContext()
+        member _.ResetFunctionContext _ = resets.Value <- resets.Value + 1
+        member _.CreateGlobalContext() = DummyContext() }
+
+  /// Handles actions like the default strategy, except that it takes no call
+  /// to return until some function is reset.
+  let noReturnUntilReset (resets: int ref) =
+    fun (inner: ICFGBuildingStrategy<_, _>) ctx queue action ->
+      match action with
+      | MakeCall(callSite, callee, info) when resets.Value = 0 ->
+        let action = MakeCall(callSite, callee, { info with Status = NoRet })
+        inner.OnAction(ctx, queue, action)
+      | _ ->
+        inner.OnAction(ctx, queue, action)
 
   /// Handles actions like the default strategy, except that the very first
   /// one asks for the builder to be reloaded, which resets its context.
@@ -352,6 +375,39 @@ type BinaryBrewTests() =
     let live = [ 0x401150UL; 0x401156UL; 0x40115cUL; 0x401162UL ]
     let dead = [ 0x40117cUL; 0x401182UL; 0x401186UL; 0x40118cUL ]
     let expected = [ 0x40012cUL, 4, live; 0x400118UL, 4, dead ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew drops an entry that jumps through its own table``() =
+    (* Nothing bounds the index of pick, so its table is read past its twelve
+       entries. The word after them points to the last byte of a jmp, where
+       the bytes decode as a jump through the middle of the table. Ending the
+       table before that jump would drop the entry that leads to it, so it is
+       the entry that is bogus, and the table keeps its twelve entries. *)
+    let fn = (recoverFunctions "elf_x86_overrunjmptbl")[0x401150UL]
+    let low =
+      [ 0x40115eUL; 0x401164UL; 0x40116aUL; 0x401170UL; 0x401176UL; 0x40117cUL ]
+    let high =
+      [ 0x401182UL; 0x401188UL; 0x40118eUL; 0x401194UL; 0x40119aUL; 0x4011a0UL ]
+    let expected = [ 0x400118UL, 12, low @ high ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew forgets table entries a rebuild no longer reads``() =
+    (* f reaches its second switch after a call, which the first build here
+       takes to never return, so the first table reaches the switch instead,
+       through the entry it reads past its end. That entry takes the blame,
+       and the next build reaches the switch past the call alone, so the entry
+       must not take the blame again, or the builds would never end. *)
+    let resets = ref 0
+    let contexts = countingContexts resets
+    let strategy = wrapStrategy (noReturnUntilReset resets) contexts
+    let fn = (recoverFunctionsWith "elf_x86_rebuildjmptbl" strategy)[0x40112cUL]
+    let first = [ 0x40113eUL; 0x401144UL ]
+    let second = [ 0x40114fUL; 0x40115fUL ]
+    let expected = [ 0x400118UL, 2, first; 0x400120UL, 2, second ]
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
 
   [<TestMethod>]
