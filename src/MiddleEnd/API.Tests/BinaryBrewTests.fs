@@ -342,6 +342,20 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew keeps a gap switch whose case enters live code``() =
+    (* The second switch of gap lies in dead code, which only a gap analysis
+       recovers, and its case 1 jumps into the middle of a block that the
+       function reaches. Scanning case 1 divides that block, which the gap
+       analysis leaves whole, so the jump must not make a block of its own
+       there: the two would overlap, and case 1 would take the blame. *)
+    let fn = (recoverFunctions "elf_x86_gapjmptbl")[0x401140UL]
+    let live = [ 0x401150UL; 0x401156UL; 0x40115cUL; 0x401162UL ]
+    let dead = [ 0x40117cUL; 0x401182UL; 0x401186UL; 0x40118cUL ]
+    let expected = [ 0x40012cUL, 4, live; 0x400118UL, 4, dead ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew starts a folded jump table after one of its own``() =
     (* samefn checks the range of its second switch by a conditional jump
        before a call, so the address of the table has case 4 folded in. That

@@ -698,6 +698,81 @@ skip_table:
         .long   0
 ```
 
+## The gap jump table fixture
+
+A hand-written function whose second switch lies in dead code, after its last
+`ret`, so that only a gap analysis recovers it. One case of that switch jumps
+into the middle of a block that the function reaches, as Clang does at `-Oz`
+to share the code after two `push`es of a small constant. The table of the
+dead switch comes first, so that the table of the live one bounds it.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_gapjmptbl` | `gap` reaches its first switch; case 1 of its second, dead switch jumps into the middle of a block that the first one exits to |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib gap.s -o elf_x86_gapjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  gap
+        .type   gap, @function
+gap:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 3
+        ja      .Lg_join
+        jmp     DWORD PTR [gap_live+eax*4]
+.Lg_l0: mov     eax, 1
+        ret
+.Lg_l1: mov     eax, 2
+        ret
+.Lg_l2: mov     eax, 3
+        ret
+.Lg_l3: mov     eax, 4
+        ret
+.Lg_join:
+        push    0x3e
+.Lg_mid:
+        pop     eax
+        ret
+.Lg_dead:
+        mov     eax, DWORD PTR [esp+8]
+        cmp     eax, 3
+        ja      .Lg_d0
+        jmp     DWORD PTR [gap_dead+eax*4]
+.Lg_d0: mov     eax, 5
+        ret
+.Lg_d1: push    0x75
+        jmp     .Lg_mid
+.Lg_d2: mov     eax, 6
+        ret
+.Lg_d3: mov     eax, 7
+        ret
+        .size   gap, .-gap
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    gap
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+gap_dead:
+        .long   .Lg_d0, .Lg_d1, .Lg_d2, .Lg_d3
+        .long   0
+gap_live:
+        .long   .Lg_l0, .Lg_l1, .Lg_l2, .Lg_l3
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional

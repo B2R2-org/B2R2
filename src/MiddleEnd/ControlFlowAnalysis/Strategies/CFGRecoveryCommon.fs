@@ -234,11 +234,25 @@ module internal CFGRecoveryCommon =
     | Some nextFnAddr -> dstAddr < nextFnAddr
     | None -> true
 
+  /// Checks if the given address lies within a reachable vertex, past its
+  /// start, while a gap analysis runs. A gap analysis keeps reachable vertices
+  /// whole even when a scan divides their blocks, so a vertex at the address
+  /// would overlap the one that holds it.
+  let isWithinReachables (ctx: CFGBuildingContext<_, _>) addr =
+    isDuringGapAnalysis ctx
+    && ctx.Vertices
+       |> Seq.exists (fun (KeyValue(pp, v)) ->
+         let range = v.VData.Internals.Range
+         not v.VData.Internals.IsAbstract
+         && not <| ctx.GapAnalysisVertices.Contains pp
+         && range.Min < addr && addr <= range.Max)
+
   /// Retrieves a vertex (which is either cached or newly created) for the given
   /// program point only if the vertex is valid, i.e., the vertex is within the
-  /// range of the current function. This function is more expensive than
-  /// `getVertex`, but needs to be used when the target program point is not
-  /// guaranteed to be valid.
+  /// range of the current function, and not within a reachable vertex while a
+  /// gap analysis runs. This function is more expensive than `getVertex`, but
+  /// needs to be used when the target program point is not guaranteed to be
+  /// valid.
   let getValidVertex (ctx: CFGBuildingContext<_, _>) cfgRec pp =
     match ctx.Vertices.TryGetValue pp with
     | true, v ->
@@ -246,21 +260,25 @@ module internal CFGRecoveryCommon =
     | false, _ ->
       match ctx.BBLFactory.TryFind pp with
       | Ok bbl ->
-        let fnAddr = ctx.FunctionAddress
         let max = bbl.Internals.Range.Max
-        if isWithinFunction ctx fnAddr max then Ok(makeVertex ctx cfgRec pp bbl)
-        else Error ErrorCase.ItemNotFound
+        if isWithinFunction ctx ctx.FunctionAddress max
+           && not <| isWithinReachables ctx (pp: ProgramPoint).Address then
+          Ok(makeVertex ctx cfgRec pp bbl)
+        else
+          Error ErrorCase.ItemNotFound
       | Error _ ->
         Error ErrorCase.ItemNotFound
 
   /// Checks if an edge that has the given address as a destination goes from
-  /// unreachables to reachables.
+  /// unreachables to reachables, into the middle of a reachable vertex: the
+  /// scan for the edge divides its block there, or an earlier scan has.
   let isIntrudingReachables ctx dstAddr dividedEdges =
     dividedEdges
     |> Seq.exists (fun (srcPP, dstPP) ->
       isDuringGapAnalysis ctx
       && (dstPP: ProgramPoint).Address = dstAddr
       && not <| ctx.GapAnalysisVertices.Contains(srcPP))
+    || isWithinReachables ctx dstAddr
 
   /// Filters out divided edges caused by edges that go from unreachables to
   /// reachables.
