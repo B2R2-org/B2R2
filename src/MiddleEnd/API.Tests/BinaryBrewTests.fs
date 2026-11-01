@@ -412,6 +412,20 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew blames a split block on the entry that made it``() =
+    (* The second table of f is read past its end, into a word that points
+       into a mov, from which the bytes decode into code that runs on to the
+       last case of the first table. Reaching that case later splits the code,
+       but the part before the case still comes from the word, so the word,
+       not the case, takes the blame for overlapping the mov. *)
+    let fn = (recoverFunctions "elf_x86_splitjmptbl")[0x401140UL]
+    let first = [ 0x401159UL; 0x40115fUL; 0x401165UL; 0x40116bUL; 0x40117dUL ]
+    let second = [ 0x401171UL; 0x401177UL ]
+    let expected = [ 0x400128UL, 5, first; 0x400118UL, 2, second ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew starts a folded jump table after one of its own``() =
     (* samefn checks the range of its second switch by a conditional jump
        before a call, so the address of the table has case 4 folded in. That

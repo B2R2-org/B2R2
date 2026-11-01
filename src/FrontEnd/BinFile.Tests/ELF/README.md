@@ -920,6 +920,72 @@ f_second:
         .long   0
 ```
 
+## The split jump table fixture
+
+A hand-written function with two switches, neither with a range check. The
+second table is followed by a word that points one byte into the
+`mov eax, 0x909090` of its first case. From there, the bytes decode as three
+`nop`s and an `add bl, al` that swallows the `ret`, and run on into the last
+case of the first switch, so reaching that case splits the code made from the
+word.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_splitjmptbl` | `f` jumps through a five-entry and a two-entry table; the word after the second points into the middle of a case, from which the code runs on into the last case of the first |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib split.s -o elf_x86_splitjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  f
+        .type   f, @function
+f:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     DWORD PTR [esp+8], 0
+        jne     .Lf_u
+        jmp     DWORD PTR [f_t+eax*4]
+.Lf_u:  jmp     DWORD PTR [f_u+eax*4]
+.Lf_t0: mov     eax, 1
+        ret
+.Lf_t1: mov     eax, 2
+        ret
+.Lf_t2: mov     eax, 3
+        ret
+.Lf_t3: mov     eax, 4
+        ret
+.Lf_u1: mov     eax, 5
+        ret
+.Lf_u0: mov     eax, 0x909090
+        ret
+.Lf_t4: mov     eax, 6
+        ret
+        .size   f, .-f
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        push    0
+        call    f
+        add     esp, 8
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+f_u:
+        .long   .Lf_u0, .Lf_u1
+        .long   .Lf_u0 + 1
+        .long   0
+f_t:
+        .long   .Lf_t0, .Lf_t1, .Lf_t2, .Lf_t3, .Lf_t4
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional

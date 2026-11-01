@@ -199,6 +199,7 @@ module internal CFGRecoveryCommon =
     for (srcPPoint, dstPPoint) in dividedEdges do
       let srcVertex = getVertex ctx cfgRec srcPPoint
       let isSrcRoot = ctx.CFG.Roots |> Array.contains srcVertex
+      let entry = srcVertex.VData.DominatingJumpTableEntry
       let preds, succs = tryRemoveVertexAt ctx cfgRec srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
@@ -206,6 +207,8 @@ module internal CFGRecoveryCommon =
         ()
       else
         let srcVertex = getVertex ctx cfgRec srcPPoint
+        (* The code before the division came from the same entry as before. *)
+        srcVertex.VData.DominatingJumpTableEntry <- entry
         let dstVertex = getVertex ctx cfgRec dstPPoint
         if isSrcRoot then (* If a root was re-added, register this again. *)
           ctx.CFG.AddRoot(srcVertex) |> ignore
