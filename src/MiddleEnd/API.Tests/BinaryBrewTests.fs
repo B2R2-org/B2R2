@@ -412,6 +412,19 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew reads a jump table past its range check``() =
+    (* The check in front of the switch of dead admits five entries, yet its
+       table holds seven, as Clang emits at -O0 when the condition of a loop
+       keeps the last cases of the switch in it out. Those cases are dead, but
+       their entries still belong to the table. *)
+    let fn = (recoverFunctions "elf_x86_deadjmptbl")[0x401138UL]
+    let live = [ 0x401148UL; 0x40114eUL; 0x401154UL; 0x40115aUL; 0x401160UL ]
+    let dead = [ 0x401166UL; 0x40116cUL ]
+    let expected = [ 0x400118UL, 7, live @ dead ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew blames a split block on the entry that made it``() =
     (* The second table of f is read past its end, into a word that points
        into a mov, from which the bytes decode into code that runs on to the

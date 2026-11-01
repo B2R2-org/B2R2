@@ -920,6 +920,68 @@ f_second:
         .long   0
 ```
 
+## The dead jump table fixture
+
+A hand-written function whose table holds seven entries, while the check in
+front of its jump admits only five. Clang emits such a table at `-O0` when a
+switch sits in a loop whose condition keeps the last cases out, and the
+switch, whose default is unreachable, checks nothing itself. The last two
+entries lead to dead cases, yet they belong to the table.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_deadjmptbl` | `dead` jumps through a seven-entry table behind a check that admits five entries |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib dead.s -o elf_x86_deadjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  dead
+        .type   dead, @function
+dead:
+        mov     eax, DWORD PTR [esp+4]
+        cmp     eax, 5
+        jae     .Ld_out
+        jmp     DWORD PTR [dead_table+eax*4]
+.Ld_c0: mov     eax, 1
+        ret
+.Ld_c1: mov     eax, 2
+        ret
+.Ld_c2: mov     eax, 3
+        ret
+.Ld_c3: mov     eax, 4
+        ret
+.Ld_c4: mov     eax, 5
+        ret
+.Ld_c5: mov     eax, 6
+        ret
+.Ld_c6: mov     eax, 7
+        ret
+.Ld_out:
+        xor     eax, eax
+        ret
+        .size   dead, .-dead
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    dead
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+dead_table:
+        .long   .Ld_c0, .Ld_c1, .Ld_c2, .Ld_c3, .Ld_c4, .Ld_c5, .Ld_c6
+        .long   0
+```
+
 ## The split jump table fixture
 
 A hand-written function with two switches, neither with a range check. The
