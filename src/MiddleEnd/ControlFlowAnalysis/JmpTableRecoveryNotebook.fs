@@ -194,10 +194,16 @@ type JmpTableRecoveryNotebook() =
     let newEndPoint = note.StartingPoint + uint64 (idx * note.EntrySize)
     note.ConfirmedEndPoint <- newEndPoint
 
-  /// Gets the potential end point of the jump table.
+  /// Gets the index of the last entry that the potential end point of the jump
+  /// table holds, capped at the largest int for a table bounded by nothing, or
+  /// -1 if the end point lies before the table.
   member _.GetPotentialEndPointIndex tblAddr =
     let note = notes[tblAddr]
-    int (note.PotentialEndPoint - note.StartingPoint) / note.EntrySize
+    if note.PotentialEndPoint < note.StartingPoint then
+      -1
+    else
+      let span = note.PotentialEndPoint - note.StartingPoint
+      int (min (span / uint64 note.EntrySize) (uint64 System.Int32.MaxValue))
 
   /// Sets the potential end point of the jump table by giving the currently
   /// confirmed index.

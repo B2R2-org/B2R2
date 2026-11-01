@@ -60,6 +60,13 @@ type JmpTableRecoveryNotebookTests() =
     Assert.AreEqual<Addr option>(Some 0x400138UL, notes.TryFindHeldEnd folded)
 
   [<TestMethod>]
+  member _.``Notebook caps the end index of an unbounded table``() =
+    let notes = JmpTableRecoveryNotebook()
+    notes.Register(0x2000UL, folded) |> ignore
+    let idx = notes.GetPotentialEndPointIndex folded.TableAddress
+    Assert.AreEqual<int>(System.Int32.MaxValue, idx)
+
+  [<TestMethod>]
   member _.``Notebook keeps a table that starts after a registered one``() =
     let notes = JmpTableRecoveryNotebook()
     notes.Register(0x1000UL, holder) |> ignore
