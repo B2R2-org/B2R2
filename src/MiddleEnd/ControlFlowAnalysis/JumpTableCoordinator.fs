@@ -220,8 +220,10 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
     match builders[fnAddr].NextFunctionAddress with
     | Some nextFnAddr ->
       let nextBuilder = builders[nextFnAddr]
+      (* A hole in the table points to the end of the function, which is where
+         the next function begins if no padding lies between the two. *)
       isFPTab (* Since we are handling a function pointer table, we just go *)
-      || (fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint)
+      || (fnAddr < nextJumpTarget && nextJumpTarget <= nextBuilder.EntryPoint)
     | None ->
       false
 

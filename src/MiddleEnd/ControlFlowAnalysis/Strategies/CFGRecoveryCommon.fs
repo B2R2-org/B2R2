@@ -1043,16 +1043,17 @@ module internal CFGRecoveryCommon =
         false
 
   /// Checks if the given jump table target is a dummy entry, which points to
-  /// the padding between the current function and the next one. Compilers
-  /// fill the entries of unreachable cases with the end of the function, where
-  /// such padding begins.
-  let isDummyJumpTarget (ctx: CFGBuildingContext<_, _>) dstAddr =
-    match ctx.BBLFactory.PeekBBL dstAddr with
+  /// the padding between the current function and the next one, or to the
+  /// next one itself if no padding lies between them. Compilers fill the
+  /// entries of unreachable cases with the end of the function, where such
+  /// padding begins.
+  let isDummyJumpTarget ctx isDstFuncEntry dstAddr =
+    match (ctx: CFGBuildingContext<_, _>).BBLFactory.PeekBBL dstAddr with
     | Ok(ins :: _ as instrs)
-    | Error(ins :: _ as instrs) when ins.IsNop ->
+    | Error(ins :: _ as instrs) when ins.IsNop || isDstFuncEntry ->
       let fnAddr = ctx.FunctionAddress
       match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
-      | Some nextFnAddr when fnAddr < dstAddr && dstAddr < nextFnAddr ->
+      | Some nextFnAddr when fnAddr < dstAddr && dstAddr <= nextFnAddr ->
         isNopRunTo instrs dstAddr nextFnAddr
       | _ ->
         false
@@ -1093,7 +1094,7 @@ module internal CFGRecoveryCommon =
         let callsite = LeafCallSite lastInsAddr
         let act = MakeTlCall(callsite, dstAddr, CalleeInfo.Unknown)
         handleCall ctx cfgRec srcVertex callsite dstAddr act
-    elif isDummyJumpTarget ctx dstAddr then
+    elif isDummyJumpTarget ctx isDstFuncEntry dstAddr then
       (* A hole in the table: it adds no edge, but the entries after it are
          still part of the table, so we move on to the next one. *)
       MoveOn

@@ -1048,6 +1048,65 @@ f_t:
         .long   0
 ```
 
+## The unpadded jump table fixture
+
+A hand-written counterpart of the jump table fixture, without the padding after
+`pick`: a function that Clang emits may end right on the boundary the next one
+is aligned to, leaving no room for any. The holes still point to the end of
+`pick`, which is now where `next` begins.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_nopadjmptbl` | `pick` jumps through a five-entry table whose entries 1 and 3 are dummies pointing to `next`, which begins right where `pick` ends |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib nopad.s -o elf_x86_nopadjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        mov     eax, DWORD PTR [esp+4]
+        jmp     DWORD PTR [pick_t+eax*4]
+.Lp_c0: mov     eax, 10
+        ret
+.Lp_c2: mov     eax, 30
+        ret
+.Lp_c4: mov     eax, 50
+        ret
+.Lp_end:
+        .size   pick, .-pick
+
+        .globl  next
+        .type   next, @function
+next:
+        mov     eax, DWORD PTR [esp+4]
+        lea     eax, [eax+eax*2]
+        ret
+        .size   next, .-next
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    pick
+        mov     DWORD PTR [esp], eax
+        call    next
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+pick_t:
+        .long   .Lp_c0, .Lp_end, .Lp_c2, .Lp_end, .Lp_c4
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional

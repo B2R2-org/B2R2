@@ -256,6 +256,17 @@ type BinaryBrewTests() =
     Assert.AreEqual<int * Addr list>(expected, actual)
 
   [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew reads a jump table past holes at the next function``() =
+    (* Like the dummy entries above, the holes point to the end of pick, but no
+       padding follows pick, so they point right at next. The table still goes
+       on after them. *)
+    let fn = (recoverFunctions "elf_x86_nopadjmptbl")[0x401130UL]
+    let targets = [ 0x40113bUL; 0x401141UL; 0x401147UL ]
+    let expected = [ 0x400118UL, 5, targets ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
   member _.``BinaryBrew starts a nested jump table at its first case``() =
     (* Cases 4 to 9 of pick switch again on the same register, which GCC thus
        knows to hold 4 to 9 there. Instead of checking the range, it folds case
