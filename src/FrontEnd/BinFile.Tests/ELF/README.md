@@ -1835,6 +1835,83 @@ tail:
         .size   tail, .-tail
 ```
 
+## The shared conditionally non-returning fixture
+
+Hand-written functions that reach one call to libc's `error` from two paths
+each, which set the status before they reach it, so the block of the call sets
+none of its own, as when a compiler merges the calls of several paths. Both
+paths of `both` pass one, so the call never returns. `late` passes one on the
+path it takes first, but zero on a path that only its jump table opens, so the
+call returns once the table is read. `late` also ends the code, so what follows
+it is the PLT stub of `error`, an import.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_sharednoret` | `both` and `late` call `error` from a block that sets no status, reached from paths that pass one or, through the jump table of `late`, zero; `late` sits right before the PLT |
+
+```
+gcc -fuse-ld=lld -nostdlib -no-pie sharednoret.s \
+    /lib/x86_64-linux-gnu/libc.so.6 -o elf_x64_sharednoret
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        xor     edi, edi
+        call    both
+        xor     edi, edi
+        xor     esi, esi
+        call    late
+        hlt
+        .size   _start, .-_start
+
+        .globl  both
+        .type   both, @function
+both:
+        test    edi, edi
+        jne     .Lb_jmp
+        mov     edi, 1
+        xor     esi, esi
+.Lb_call:
+        call    error@PLT
+        ret
+.Lb_jmp:
+        mov     edi, 1
+        xor     esi, esi
+        jmp     .Lb_call
+        .size   both, .-both
+
+        .globl  late
+        .type   late, @function
+late:
+        test    esi, esi
+        jne     .Ll_tbl
+        mov     edi, 1
+        xor     esi, esi
+.Ll_call:
+        call    error@PLT
+        ret
+.Ll_tbl:
+        jmp     QWORD PTR [late_t+rdi*8]
+.Ll_c0:
+        xor     edi, edi
+        xor     esi, esi
+        jmp     .Ll_call
+.Ll_c1:
+        ret
+        .size   late, .-late
+
+        .section .rodata
+        .p2align 3
+late_t:
+        .quad   .Ll_c0, .Ll_c1
+        .quad   0
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |
