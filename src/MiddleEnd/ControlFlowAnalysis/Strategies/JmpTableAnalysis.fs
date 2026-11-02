@@ -767,12 +767,30 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | Ok name -> Array.contains name sections
       | Error _ -> false
 
+  /// Checks if the given table holds the addresses of labels of the function
+  /// under analysis, as GNU C builds one out of `&&label`: an indexed table
+  /// whose first entry points into the function. Such a table may lie in any
+  /// section, even one the program can write, since a label is good only
+  /// within its function, so whatever the program writes there is one, too.
+  let isLabelTable (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) jmptbl =
+    let fnAddr = ctx.FunctionAddress
+    match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
+    | Some nextFnAddr when not jmptbl.IsSingleEntry ->
+      match JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl 0 with
+      | Some target -> fnAddr < target && target < nextFnAddr
+      | None -> false
+    | _ ->
+      false
+
+  /// Checks if the found table can be one: it lies in a section that may host
+  /// a jump table, or it holds the labels of the function under analysis.
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
     | Ok info ->
       let file = ctx.BinHandle.File
       let tblAddr = info.TableAddress
       if isInJumpTableSection file tblAddr then result
+      elif isLabelTable ctx info then result
       else Error ErrorCase.InvalidMemoryRead
     | Error e ->
       Error e

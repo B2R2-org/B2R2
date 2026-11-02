@@ -564,6 +564,22 @@ type BinaryBrewTests() =
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
 
   [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew follows tables of labels outside read-only data``() =
+    (* writable jumps through a table of labels in .data, and relro through
+       one in .data.rel.ro, neither of which holds jump tables otherwise. The
+       first entry of each points into the very function that jumps through
+       it, as only the address of a label of that function does. *)
+    let fns = recoverFunctions "elf_x64_labeltbl"
+    let expected =
+      [ 0x34c8UL, 4, [ 0x13b0UL; 0x13b6UL; 0x13bcUL; 0x13c2UL ]
+        0x23f0UL, 3, [ 0x13d5UL; 0x13dbUL; 0x13e1UL ] ]
+    let actual =
+      [ 0x13a0UL; 0x13c8UL ]
+      |> List.collect (fun addr -> jumpTablesOf fns[addr])
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
+
+  [<TestMethod>]
   member _.``BinaryBrew ends an indirect call its next code has unwound``() =
     (* joined pushes two words for the callee of its indirect call, but the
        call frame information says the code after the call runs with them

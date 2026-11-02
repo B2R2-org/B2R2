@@ -1581,6 +1581,94 @@ table:
         .quad   0x1356
 ```
 
+## The label table fixture
+
+GNU C lets a program take the address of a label with `&&label` and jump to
+it with `goto *`, so a table of such addresses dispatches the way a switch
+does. A position-independent executable keeps the table in `.data` if the
+program may write it, as a non-const table at -O0, and in `.data.rel.ro`
+otherwise, neither of which holds switch tables. What gives the table away is
+its first entry, which points into the very function that jumps through it.
+lld leaves every slot zero in the file, so only the relocations fill them.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_labeltbl` | `writable` loads a label out of a four-entry table in `.data` and jumps to it, and `relro` jumps through a three-entry table in `.data.rel.ro` |
+
+```
+clang -fPIE -pie -nostdlib -fuse-ld=lld label.s -o elf_x64_labeltbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        xor     edi, edi
+        call    writable
+        xor     edi, edi
+        call    relro
+        ud2
+        .size   _start, .-_start
+
+        .globl  writable
+        .type   writable, @function
+writable:
+        movsxd  rdi, edi
+        lea     rax, [rip + wtable]
+        mov     rax, QWORD PTR [rax + rdi*8]
+        jmp     rax
+.Lw0:
+        mov     eax, 10
+        ret
+.Lw1:
+        mov     eax, 20
+        ret
+.Lw2:
+        mov     eax, 30
+        ret
+.Lw3:
+        mov     eax, 40
+        ret
+        .size   writable, .-writable
+
+        .globl  relro
+        .type   relro, @function
+relro:
+        movsxd  rdi, edi
+        lea     rax, [rip + rtable]
+        jmp     QWORD PTR [rax + rdi*8]
+.Lr0:
+        mov     eax, 50
+        ret
+.Lr1:
+        mov     eax, 60
+        ret
+.Lr2:
+        mov     eax, 70
+        ret
+        .size   relro, .-relro
+
+        .globl  next
+        .type   next, @function
+next:
+        lea     eax, [rdi + rdi*2]
+        ret
+        .size   next, .-next
+
+        .data
+        .p2align 3
+wtable:
+        .quad   .Lw0, .Lw1, .Lw2, .Lw3
+
+        .section .data.rel.ro, "aw"
+        .p2align 3
+rtable:
+        .quad   .Lr0, .Lr1, .Lr2
+```
+
 ## The indirect call fixture
 
 Hand-written functions whose indirect calls only the call frame information
