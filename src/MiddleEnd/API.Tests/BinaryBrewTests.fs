@@ -552,6 +552,18 @@ type BinaryBrewTests() =
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
 
   [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew reads jump table entries through relocations``() =
+    (* The four entries of the table of pick are zero in the file, and only
+       their relocations say where they point. The word after them points
+       into pick as well, but without a relocation the loader leaves it as it
+       is, so it is no entry. *)
+    let fn = (recoverFunctions "elf_x64_reloctbl")[0x1341UL]
+    let cases = [ 0x134bUL; 0x1351UL; 0x1357UL; 0x135dUL ]
+    let expected = [ 0x310UL, 4, cases ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
   member _.``BinaryBrew ends an indirect call its next code has unwound``() =
     (* joined pushes two words for the callee of its indirect call, but the
        call frame information says the code after the call runs with them

@@ -249,14 +249,20 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
 
   let confirm fnAddr tblAddr idx nextJumpTarget isFPTab =
 #if CFGDEBUG
+    let next = nextJumpTarget |> Option.map (sprintf "%x")
     dbglog ManagerTid "JumpTable success"
-    <| $"{tblAddr:x}[{idx}] @ {fnAddr:x} -> {nextJumpTarget:x}"
+    <| $"{tblAddr:x}[{idx}] @ {fnAddr:x} -> {next}"
 #endif
     hostFunctions.Add fnAddr |> ignore
     notes.SetConfirmedEndPoint(tblAddr, idx)
-    if notes.IsExpandable(tblAddr, idx + 1) then
-      isExpandable fnAddr tblAddr nextJumpTarget isFPTab
-    else
+    match nextJumpTarget with
+    | Some target when notes.IsExpandable(tblAddr, idx + 1) ->
+      isExpandable fnAddr tblAddr target isFPTab
+    | Some _ ->
+      false
+    | None ->
+      (* The slot after the entry holds no entry, so the table ends here. *)
+      notes.SetPotentialEndPointByIndex(tblAddr, idx)
       false
 
   /// Handles a jump table recovery request from a function builder.

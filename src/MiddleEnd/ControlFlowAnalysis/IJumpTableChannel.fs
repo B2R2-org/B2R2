@@ -53,12 +53,14 @@ type IJumpTableChannel =
     -> unit
 
   /// Reports the success of jump table entry recovery to the manager, and gets
-  /// the decision whether to continue the analysis or not.
+  /// the decision whether to continue the analysis or not. The potential next
+  /// target is that of the entry after the recovered one, or None if the slot
+  /// after it holds no entry, which ends the table.
   abstract ReportSuccess:
        fnAddr: Addr
      * tblAddr: Addr
      * idx: int
-     * potentialNextTarget: Addr
+     * potentialNextTarget: Addr option
      * isFunctionPointerTable: bool
     -> bool
 

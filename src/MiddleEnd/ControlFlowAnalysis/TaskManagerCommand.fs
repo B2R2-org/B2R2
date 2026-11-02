@@ -75,6 +75,6 @@ and JumpTableRequest =
   | ReportSuccess of fn: Addr
                    * tbl: Addr
                    * idx: int
-                   * next: Addr
+                   * next: Addr option
                    * isFunctionPointerTable: bool
                    * AgentReplyChannel<bool>

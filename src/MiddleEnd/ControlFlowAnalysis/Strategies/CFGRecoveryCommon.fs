@@ -982,15 +982,11 @@ module internal CFGRecoveryCommon =
       if not isExit then connectRet ctx cfgRec callee |> ignore else ()
     MoveOn
 
-  let readJumpTable (ctx: CFGBuildingContext<_, _>) (jmptbl: JmpTableInfo) idx =
-    let size = jmptbl.EntrySize
-    let addr = jmptbl.TableAddress + uint64 (idx * size)
-    jmptbl.JumpBase + uint64 (ctx.BinHandle.ReadInt(addr, size))
-
-  let pushJmpTblRecoveryAction ctx queue bblAddr jmptbl idx =
-    let targetAddr = readJumpTable ctx jmptbl idx
-    if idx = 0 then ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
-    else ()
+  let pushJmpTblRecoveryAction ctx queue bblAddr jmptbl idx targetAddr =
+    if idx = 0 then
+      (ctx: CFGBuildingContext<_, _>).JumpTables[jmptbl.TableAddress] <- jmptbl
+    else
+      ()
     (queue: CFGActionQueue).Push(StartTblRec(jmptbl, idx, bblAddr, targetAddr))
     queue.Push(EndTblRec(jmptbl, idx))
     MoveOn
@@ -1032,6 +1028,18 @@ module internal CFGRecoveryCommon =
     else
       MoveOn (* We ignore this indirect branch. *)
 
+  /// Starts recovering the given table from its first entry, unless the slot
+  /// of that entry holds none, in which case no table starts there.
+  let startJmpTblRecovery ctx queue bblAddr jmptbl =
+    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
+    match JmpTableInfo.tryReadTarget hdl jmptbl 0 with
+    | Some targetAddr ->
+      pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0 targetAddr
+    | None ->
+      let fnAddr, tblAddr = ctx.FunctionAddress, jmptbl.TableAddress
+      ctx.JumpTableChannel.CancelRecovery(fnAddr, jmptbl.InsAddr, tblAddr)
+      MoveOn (* We ignore this indirect branch. *)
+
   /// Notifies the manager of the given jump table, and follows its decision.
   /// When the table starts within the entries of another, its code may have
   /// folded the smallest index into its address, so it may start right after
@@ -1041,7 +1049,7 @@ module internal CFGRecoveryCommon =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     match ctx.JumpTableChannel.NotifyRecovery(fnAddr, jmptbl) with
     | GoRecovery ->
-      pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
+      startJmpTblRecovery ctx queue bblAddr jmptbl
     | StopRecoveryButReload ->
       StopAndReload
     | StopRecoveryAndContinue ->
@@ -1163,22 +1171,23 @@ module internal CFGRecoveryCommon =
   let sendJmpTblRecoverySuccess ctx queue jmptbl idx =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let tblAddr = jmptbl.TableAddress
-    let nextTarget = readJumpTable ctx jmptbl (idx + 1)
+    let nextTarget = JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl (idx + 1)
     let isFnPointerTbl = jmptbl.IsFunctionPointerTable
     let ch = ctx.JumpTableChannel
-    ch.ReportSuccess(fnAddr, tblAddr, idx, nextTarget, isFnPointerTbl)
-    |> function
-      | true ->
-        let callsiteAddr = jmptbl.InsAddr
-        let callsite = LeafCallSite callsiteAddr
-        let srcVertex = ctx.CallerVertices[callsite]
-        let srcAddr = srcVertex.VData.Internals.BlockAddress
-        pushJmpTblRecoveryAction ctx queue srcAddr jmptbl (idx + 1)
-      | false ->
+    let isExpanding =
+      ch.ReportSuccess(fnAddr, tblAddr, idx, nextTarget, isFnPointerTbl)
+    match nextTarget with
+    | Some targetAddr when isExpanding ->
+      let callsiteAddr = jmptbl.InsAddr
+      let callsite = LeafCallSite callsiteAddr
+      let srcVertex = ctx.CallerVertices[callsite]
+      let srcAddr = srcVertex.VData.Internals.BlockAddress
+      pushJmpTblRecoveryAction ctx queue srcAddr jmptbl (idx + 1) targetAddr
+    | _ ->
 #if CFGDEBUG
-        dbglog ctx.ThreadID "JumpTable" $"No more to add"
+      dbglog ctx.ThreadID "JumpTable" $"No more to add"
 #endif
-        MoveOn
+      MoveOn
 
   let isNoRet (v: IVertex<LowUIRBasicBlock>) =
     v.VData.Internals.AbstractContent.ReturningStatus = NoRet

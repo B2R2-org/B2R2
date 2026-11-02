@@ -1514,6 +1514,73 @@ cross_n2:
         .long   0
 ```
 
+## The relocated jump table fixture
+
+A table of absolute addresses in a position-independent executable needs a
+relocation for each entry, which the loader applies when it picks the base.
+lld leaves such a slot zero in the file, so only the relocation tells where the
+entry points. Conversely, a word that has no relocation is never rebased, so it
+cannot point into the code, whatever number it holds. `-z notext` lets the
+table stay in `.rodata`, which the dynamic relocations would otherwise rule
+out.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_reloctbl` | `pick` jumps through a four-entry table at 0x310 whose entries only `R_X86_64_RELATIVE` relocations fill, and right after it lies a word without a relocation holding 0x1356, the address of the `ret` of case 1 |
+
+```
+clang -fPIE -pie -nostdlib -fuse-ld=lld -Wl,-z,notext reloc.s \
+    -o elf_x64_reloctbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        xor     edi, edi
+        call    pick
+        ud2
+        .size   _start, .-_start
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        lea     rax, [rip + table]
+        jmp     QWORD PTR [rax + rdi*8]
+.Lcase0:
+        mov     eax, 10
+        ret
+.Lcase1:
+        mov     eax, 20
+        ret
+.Lcase2:
+        mov     eax, 30
+        ret
+.Lcase3:
+        mov     eax, 40
+        ret
+        .size   pick, .-pick
+
+        .globl  next
+        .type   next, @function
+next:
+        lea     eax, [rdi + rdi*2]
+        ret
+        .size   next, .-next
+
+        .section .rodata
+        .p2align 3
+table:
+        .quad   .Lcase0
+        .quad   .Lcase1
+        .quad   .Lcase2
+        .quad   .Lcase3
+        .quad   0x1356
+```
+
 ## The indirect call fixture
 
 Hand-written functions whose indirect calls only the call frame information

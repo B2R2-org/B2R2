@@ -13,6 +13,7 @@
     <Compile Include="BBLOverlapTests.fs" />
     <Compile Include="FunctionSummaryTests.fs" />
     <Compile Include="JmpTableRecoveryNotebookTests.fs" />
+    <Compile Include="JmpTableInfoTests.fs" />
     <Compile Include="BinaryBrewTests.fs" />
     <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
