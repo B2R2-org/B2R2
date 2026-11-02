@@ -1138,9 +1138,10 @@ module internal CFGRecoveryCommon =
         (* The first jump table entry was invalid. For example, the target was
            not executable. In this case, we conclude that the indirect jump is
            not using a jump table, and thus, we simply ignore the indirect
-           branch. *)
+           branch, along with the table we took it for. *)
         let insAddr = (jmptbl: JmpTableInfo).InsAddr
         ctx.JumpTableChannel.CancelRecovery(fnAddr, insAddr, tblAddr)
+        ctx.JumpTables.Remove tblAddr |> ignore
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop() |> ignore
         MoveOn

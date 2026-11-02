@@ -1767,6 +1767,50 @@ hooks:
         .quad   f0, f1
 ```
 
+## The data table fixture
+
+An indirect jump can read its target out of what looks like a jump table yet
+is none: the first entry points to no code, so no entry is worth following.
+Here the only entry of the table points to the table itself.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_datatbl` | `pick` jumps through a table in `.rodata` at 0x200180 whose first entry holds 0x200180 |
+
+```
+clang -fuse-ld=lld -static -nostdlib datatbl.s -o elf_x64_datatbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        xor     edi, edi
+        call    pick
+        ud2
+        .size   _start, .-_start
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        jmp     QWORD PTR [rdi*8 + table]
+        .size   pick, .-pick
+
+        .globl  next
+        .type   next, @function
+next:
+        ret
+        .size   next, .-next
+
+        .section .rodata
+        .p2align 3
+table:
+        .quad   table
+```
+
 ## The indirect call fixture
 
 Hand-written functions whose indirect calls only the call frame information

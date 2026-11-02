@@ -599,6 +599,14 @@ type BinaryBrewTests() =
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
 
   [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew drops a table whose first entry is no code``() =
+    (* pick jumps through a table in .rodata whose first entry points to the
+       table itself, so pick uses no jump table, and none is left behind. *)
+    let fn = (recoverFunctions "elf_x64_datatbl")[0x201191UL]
+    Assert.AreEqual<(Addr * int * Addr list) list>([], jumpTablesOf fn)
+
+  [<TestMethod>]
   member _.``BinaryBrew ends an indirect call its next code has unwound``() =
     (* joined pushes two words for the callee of its indirect call, but the
        call frame information says the code after the call runs with them
