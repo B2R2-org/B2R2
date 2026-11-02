@@ -92,11 +92,14 @@ type BBLFactory(hdl: BinHandle,
     if interLeaders.Contains addr then Ok [||]
     else parseBlock blocks [] 0 addr addr null
 
-  let visited = HashSet<Addr>()
-
   /// Collects every block reachable from the given addresses, and answers
   /// whether all of them parsed.
   let parseBlocks blocks addrs =
+    (* Only the addresses of this scan are skipped. An earlier scan leaves a
+       leader for each block it lifted, which tryParse skips, but none where
+       it failed, and skipping such an address would let this scan succeed
+       with no block there. *)
+    let visited = HashSet<Addr>()
     let queue = Queue<Addr>(collection = addrs)
     let mutable parsed = true
     while queue.Count <> 0 do
