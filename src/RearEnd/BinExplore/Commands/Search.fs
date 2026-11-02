@@ -40,10 +40,13 @@ type Search() =
   let search (hdl: BinHandle) pattern =
     BinFileOps.getMemoryMappedRegionsByPermission hdl.File Permission.Readable
     |> Seq.collect (fun reg ->
-      let size = reg.Max - reg.Min + 1UL
-      hdl.ReadBytes(reg.Min, int size)
-      |> ByteArray.findIdxs 0UL pattern
-      |> List.map (fun idx -> idx + reg.Min))
+      let ptr = hdl.File.GetBoundedPointer reg.Min
+      if ptr.CanReadFileBytes then
+        hdl.ReadBytes(ptr, ptr.ReadableAmount)
+        |> ByteArray.findIdxs 0UL pattern
+        |> List.map (fun idx -> idx + reg.Min)
+      else
+        [])
     |> Seq.map toResult
     |> Seq.toList
 
