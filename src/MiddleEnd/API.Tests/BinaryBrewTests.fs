@@ -61,14 +61,17 @@ type BinaryBrewTests() =
     BinaryBrew(hdl, funcId, CFGRecovery()).Functions
 
   /// Collects the blocks that the indirect branch of the given jump table
-  /// reaches through the table, in address order.
+  /// reaches through the table, in address order. Through a table of
+  /// functions, those are the functions it tail-calls.
   let jumpTargets (fn: Function) (jmptbl: JmpTableInfo) =
     let jmp =
       fn.CFG.FindVertexBy(fun v ->
         not v.VData.Internals.IsAbstract
         && v.VData.Internals.LastInstruction.Address = jmptbl.InsAddr)
+    let edgeKind =
+      if jmptbl.IsFunctionPointerTable then TailCallEdge else IndirectJmpEdge
     fn.CFG.GetSuccEdges jmp
-    |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
+    |> Array.filter (fun e -> e.Label = edgeKind)
     |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
     |> Array.sort
     |> Array.toList
@@ -576,6 +579,22 @@ type BinaryBrewTests() =
         0x23f0UL, 3, [ 0x13d5UL; 0x13dbUL; 0x13e1UL ] ]
     let actual =
       [ 0x13a0UL; 0x13c8UL ]
+      |> List.collect (fun addr -> jumpTablesOf fns[addr])
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew trusts a table of functions that stays read-only``() =
+    (* pick tail-calls through a table of functions in .data.rel.ro, which
+       GNU_RELRO keeps read-only once relocation is done, so the table lists
+       exactly the functions the call can reach. hook does the same through a
+       table in .data, which the program can overwrite, so it tells nothing.
+       viaslot jumps through a slot of .got, which GNU_RELRO covers as well,
+       but a single slot is no table: the dynamic linker binds it. *)
+    let fns = recoverFunctions "elf_x64_fptbl"
+    let expected = [ 0x23e8UL, 3, [ 0x13d6UL; 0x13dcUL; 0x13e2UL ] ]
+    let actual =
+      [ 0x13adUL; 0x13baUL; 0x13c7UL ]
       |> List.collect (fun addr -> jumpTablesOf fns[addr])
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, actual)
 

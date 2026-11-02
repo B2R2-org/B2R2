@@ -767,6 +767,18 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | Ok name -> Array.contains name sections
       | Error _ -> false
 
+  /// Checks if the given table has an index and lies where the loader keeps
+  /// it read-only once it has relocated the binary, so that its entries stay
+  /// what the binary holds. A single slot read through a constant address is
+  /// a pointer rather than a table, e.g., one in .got, which the dynamic
+  /// linker binds.
+  let isReadOnlyTable (file: IBinFile) jmptbl =
+    match file with
+    | :? ELFBinFile as elf when not jmptbl.IsSingleEntry ->
+      elf.IsReadOnlyAfterLoading jmptbl.TableAddress
+    | _ ->
+      false
+
   /// Checks if the given table holds the addresses of labels of the function
   /// under analysis, as GNU C builds one out of `&&label`: an indexed table
   /// whose first entry points into the function. Such a table may lie in any
@@ -783,13 +795,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       false
 
   /// Checks if the found table can be one: it lies in a section that may host
-  /// a jump table, or it holds the labels of the function under analysis.
+  /// a jump table, it has an index and the loader keeps it read-only, or it
+  /// holds the labels of the function under analysis.
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
     | Ok info ->
       let file = ctx.BinHandle.File
       let tblAddr = info.TableAddress
       if isInJumpTableSection file tblAddr then result
+      elif isReadOnlyTable file info then result
       elif isLabelTable ctx info then result
       else Error ErrorCase.InvalidMemoryRead
     | Error e ->

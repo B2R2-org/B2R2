@@ -1669,6 +1669,104 @@ rtable:
         .quad   .Lr0, .Lr1, .Lr2
 ```
 
+## The function pointer table fixture
+
+A position-independent executable keeps a constant table of function pointers
+in `.data.rel.ro`, since every entry needs a relocation, and GNU_RELRO makes
+that range read-only once the loader has applied them. A tail call through
+such a table therefore reaches exactly the functions it lists. A table in
+`.data` lists the functions the program starts with, but the program can
+overwrite them, as it does with a hook. GNU_RELRO also covers `.got`, but a
+jump through one of its slots goes wherever the dynamic linker binds the
+slot, as the crt does with `_ITM_deregisterTMCloneTable`. lld leaves no slot
+for an undefined weak symbol in an executable unless told otherwise, hence
+`-z dynamic-undefined-weak`, which keeps the slot and its `GLOB_DAT`
+relocation the way GNU ld does.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_fptbl` | `pick` tail-calls through a three-entry table of functions in `.data.rel.ro`, `hook` through a two-entry one in `.data`, and `viaslot` through the `.got` slot of the undefined weak `missing` |
+
+```
+clang -fPIE -pie -nostdlib -fuse-ld=lld -Wl,-z,dynamic-undefined-weak \
+    fptbl.s -o elf_x64_fptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        xor     edi, edi
+        call    pick
+        xor     edi, edi
+        call    hook
+        call    viaslot
+        ud2
+        .size   _start, .-_start
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        movsxd  rdi, edi
+        lea     rax, [rip + ops]
+        jmp     QWORD PTR [rax + rdi*8]
+        .size   pick, .-pick
+
+        .globl  hook
+        .type   hook, @function
+hook:
+        movsxd  rdi, edi
+        lea     rax, [rip + hooks]
+        jmp     QWORD PTR [rax + rdi*8]
+        .size   hook, .-hook
+
+        .weak   missing
+        .globl  viaslot
+        .type   viaslot, @function
+viaslot:
+        mov     rax, QWORD PTR [rip + missing@GOTPCREL]
+        test    rax, rax
+        je      .Lnone
+        jmp     rax
+.Lnone:
+        ret
+        .size   viaslot, .-viaslot
+
+        .globl  f0
+        .type   f0, @function
+f0:
+        mov     eax, 10
+        ret
+        .size   f0, .-f0
+
+        .globl  f1
+        .type   f1, @function
+f1:
+        mov     eax, 20
+        ret
+        .size   f1, .-f1
+
+        .globl  f2
+        .type   f2, @function
+f2:
+        mov     eax, 30
+        ret
+        .size   f2, .-f2
+
+        .section .data.rel.ro, "aw"
+        .p2align 3
+ops:
+        .quad   f0, f1, f2
+
+        .data
+        .p2align 3
+hooks:
+        .quad   f0, f1
+```
+
 ## The indirect call fixture
 
 Hand-written functions whose indirect calls only the call frame information
