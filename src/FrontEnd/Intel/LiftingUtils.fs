@@ -166,6 +166,12 @@ let isSegReg = function
 
 let isMemOpr (o: Operand) = o.Kind = OperandKind.Mem
 
+/// Tells whether the given segment adds a base to the addresses it covers.
+/// 64-bit mode takes the base of CS, DS, ES, and SS as zero, leaving only FS
+/// and GS a base of their own.
+let private hasSegBase bld seg =
+  not (is64bit bld) || seg = R.FS || seg = R.GS
+
 let private segRegToBase = function
   | R.CS -> R.CSBase
   | R.DS -> R.DSBase
@@ -184,8 +190,8 @@ let private withSegBase bld seg e =
 
 let private ldMem (ins: Instruction) bld oprSize e =
   match Prefix.getSegment ins.Prefixes with
-  | Some s -> withSegBase bld s e
-  | None -> e
+  | Some s when hasSegBase bld s -> withSegBase bld s e
+  | _ -> e
   |> AST.loadLE oprSize
 
 let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =

@@ -370,11 +370,20 @@ type DataFlowTests() =
       else state.GetTerminatorInSSA v |> ignore
     let known = state.SSAVarToVp.Keys |> Seq.head
     (* A variable coming in from outside the function never gets registered,
-       so the lookup must answer None instead of throwing. *)
-    let outside = { known with Identifier = 0 }
+       but it holds what the analysis assumes on entry, which is zero for the
+       base of DS. One that the analysis never defined at all has no value, so
+       the lookup must answer None instead of throwing. *)
+    let dsBase =
+      { known with
+          Kind = SSA.RegVar(64<rt>, Register.toRegID Register.DSBase, "DSBase")
+          Identifier = 0 }
+    let stray = { known with Identifier = System.Int32.MaxValue }
     let hit = state.TryGetAbsValueOfSSAVar known
-    let miss = state.TryGetAbsValueOfSSAVar outside
+    let entry = state.TryGetAbsValueOfSSAVar dsBase
+    let miss = state.TryGetAbsValueOfSSAVar stray
+    let zero = mkConst 0u 64<rt>
     Assert.AreEqual<bool>(true, Option.isSome hit)
+    Assert.AreEqual<ConstantDomain.Lattice option>(Some zero, entry)
     Assert.AreEqual<bool>(true, Option.isNone miss)
 
   [<TestMethod>]

@@ -180,7 +180,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   let rec constantFold findConst findDef e =
     match e with
-    | Var v when v.Identifier <> 0 ->
+    | Var v ->
       match findConst v with
       | ConstantDomain.Const bv ->
         Num bv
