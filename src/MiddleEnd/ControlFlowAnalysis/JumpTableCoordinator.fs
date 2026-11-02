@@ -219,12 +219,16 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
 
   /// Checks if the given target lies within a fragment that carries on the
   /// frame that the indirect branch of the given table runs in, such as the
-  /// cold part that a compiler splits off the function of the branch.
+  /// cold part that a compiler splits off the function of the branch. The FDE
+  /// of such a part either starts mid-frame or, when the function runs without
+  /// a frame, tells the part by where it lies.
   let isWithinFragment fnAddr tblAddr target =
     match builders[fnAddr].Context.BinHandle.File with
     | :? ELFBinFile as elf ->
-      let cfa = elf.TryFindCFARegOffset(notes.GetIndBranchAddress tblAddr)
-      elf.IsWithinFragment target
+      let insAddr = notes.GetIndBranchAddress tblAddr
+      let cfa = elf.TryFindCFARegOffset insAddr
+      let isPart = elf.IsWithinSplitOffPart(insAddr, target)
+      (elf.IsWithinFragment target || isPart)
       && cfa.IsSome
       && cfa = elf.TryFindCFARegOffset target
     | _ ->

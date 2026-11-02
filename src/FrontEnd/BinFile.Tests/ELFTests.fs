@@ -174,16 +174,23 @@ type ELFTests() =
     (expected: Result<BinRelocationValue, ErrorCase>) actual =
     Assert.AreEqual<Result<BinRelocationValue, ErrorCase>>(expected, actual)
 
-  /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
-  /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
-  /// factory. This returns a fresh instance every time, as the laziness tests
-  /// must not observe an instance that another test has already forced.
-  static let parseEhFrameFile () =
-    let fileName = "elf_x64_eh_frame"
+  /// Parses the given x86-64 fixture along with its DWARF CFI, which exception
+  /// parsing reads only with a register factory.
+  static let parseX64FileWithCFI fileName =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     ELFBinFile(fileName, bytes, None, Some regFactory)
+
+  /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
+  /// and an LSDA table in .gcc_except_table. This returns a fresh instance
+  /// every time, as the laziness tests must not observe an instance that
+  /// another test has already forced.
+  static let parseEhFrameFile () = parseX64FileWithCFI "elf_x64_eh_frame"
+
+  /// Functions without a frame of their own that jump to cold parts below
+  /// them, whose FDEs follow theirs and start at the frame state of the CIE.
+  static let x64FramelessColdFile = parseX64FileWithCFI "elf_x64_framelesscold"
 
   /// Checks the (register, offset) pair that a CFA lookup returned.
   static let assertCFA (expected: (RegisterID * int) option) actual =
@@ -2166,6 +2173,21 @@ type ELFTests() =
     let before = fdes.Head.PCBegin - 1UL
     Assert.AreEqual<Addr list>([ 0x1020UL ], fragments)
     Assert.AreEqual<bool>(false, file.IsWithinFragment before)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 split-off part lookup finds the part below its FDE``() =
+    (* The FDE of the cold part of pick (0x401000) follows that of pick, and
+       that of clamp.cold (0x401006) follows that of clamp (0x40103c), each
+       part lying below its function. The FDE of clamp follows that of the
+       cold part of pick in turn, but clamp lies above it, as a function does
+       that merely comes after another. *)
+    let file = x64FramelessColdFile
+    let isSplitOff addr target = file.IsWithinSplitOffPart(addr, target)
+    Assert.AreEqual<bool>(true, isSplitOff 0x401028UL 0x401000UL)
+    Assert.AreEqual<bool>(true, isSplitOff 0x40103eUL 0x401006UL)
+    Assert.AreEqual<bool>(false, isSplitOff 0x40103eUL 0x401000UL)
+    Assert.AreEqual<bool>(false, isSplitOff 0x401001UL 0x40103cUL)
+    Assert.AreEqual<bool>(false, isSplitOff 0x401028UL 0x40102aUL)
 
   [<TestMethod>]
   member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =

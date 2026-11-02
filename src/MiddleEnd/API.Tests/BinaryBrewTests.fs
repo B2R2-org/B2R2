@@ -48,6 +48,18 @@ type BinaryBrewTests() =
     let hdl = BinHandle.LoadFileBytes(readZippedBinary name, ISA "x64")
     BinaryBrew(hdl, ExceptionInfo hdl, strategy).Functions
 
+  /// Recovers the functions of the given zipped binary, taking the given
+  /// addresses for function entries besides those the default identification
+  /// finds.
+  let recoverFunctionsAlsoAt name (entries: Addr[]) =
+    let hdl = BinHandle.LoadFileBytes(readZippedBinary name, ISA "x64")
+    let found =
+      FunctionIdentification(hdl, ExceptionInfo hdl) :> IFunctionIdentifiable
+    let funcId =
+      { new IFunctionIdentifiable with
+          member _.Identify() = Array.append (found.Identify()) entries }
+    BinaryBrew(hdl, funcId, CFGRecovery()).Functions
+
   /// Collects the blocks that the indirect branch of the given jump table
   /// reaches through the table, in address order.
   let jumpTargets (fn: Function) (jmptbl: JmpTableInfo) =
@@ -275,6 +287,48 @@ type BinaryBrewTests() =
     let targets = [ 0x401174UL; 0x401184UL; 0x40118bUL; 0x401192UL ]
     let expected = [ 0x400118UL, 4, targets ]
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew follows a jump table into a frameless cold part``() =
+    (* pick runs without a frame, so the FDE of its cold part restates nothing,
+       as that of a function does not. But the FDE follows that of pick and the
+       part lies below pick, so case 1 belongs to the table like any other. *)
+    let fn = (recoverFunctions "elf_x64_framelesscold")[0x40100eUL]
+    let targets = [ 0x401000UL; 0x40102aUL; 0x401030UL; 0x401036UL ]
+    let expected = [ 0x402000UL, 4, targets ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  member _.``BinaryBrew keeps a frameless cold part in its function``() =
+    (* The cold part of pick is no function of its own, though its FDE looks
+       like that of one, so the range check of pick enters it rather than
+       calls it as its tail. *)
+    let fns = recoverFunctions "elf_x64_framelesscold"
+    let expected = [ InterCJmpTrueEdge; InterCJmpFalseEdge ]
+    Assert.AreEqual<bool>(false, Seq.contains 0x401000UL fns.Addresses)
+    let actual = edgesFrom fns[0x40100eUL] 0x401014UL
+    Assert.AreEqual<CFGEdgeKind list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew keeps a named cold part out of its functions``() =
+    (* A symbol names clamp.cold a function, as GCC names every cold part, but
+       the FDE of clamp.cold follows that of clamp, the part lies below clamp,
+       and clamp jumps into it, so it carries on clamp. *)
+    let fns = recoverFunctions "elf_x64_framelesscold"
+    Assert.AreEqual<bool>(false, Seq.contains 0x401006UL fns.Addresses)
+
+  [<TestMethod>]
+  member _.``BinaryBrew keeps in its function a jump to a named cold part``() =
+    (* clamp runs without a frame, so its jumps to clamp.cold leave as deep in
+       its frame as a tail call does, and here clamp.cold is taken for a
+       function besides. Yet the FDE of clamp.cold follows that of clamp and the
+       part lies below clamp, so both jumps stay in clamp. *)
+    let fns = recoverFunctionsAlsoAt "elf_x64_framelesscold" [| 0x401006UL |]
+    let fn = fns[0x40103cUL]
+    let onCondition = [ InterCJmpTrueEdge; InterCJmpFalseEdge ]
+    Assert.AreEqual<CFGEdgeKind list>(onCondition, edgesFrom fn 0x40103eUL)
+    Assert.AreEqual<CFGEdgeKind list>([ InterJmpEdge ], edgesFrom fn 0x40104cUL)
 
   [<TestMethod>]
   [<Timeout(10000)>]

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Generic
 open System.Collections.Immutable
 open B2R2
 open B2R2.Collections
@@ -110,6 +111,16 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       rows
       |> List.tryFindBack (fun row -> row.Location <= addr)
       |> Option.map (fun row -> row.CanonicalFrameAddress)
+
+  /// Maps the address that each FDE begins at to the position of the FDE in
+  /// .eh_frame, which keeps the order in which the compiler emitted them.
+  let fdePositions =
+    lazy
+      let positions = Dictionary<Addr, int>()
+      exn.Value.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.iteri (fun i fde -> positions.TryAdd(fde.PCBegin, i) |> ignore)
+      positions
 
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
 
@@ -656,6 +667,23 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     match findCoveringFDE sortedFDEs.Value addr with
     | Some(_, fde) -> fde.StartsMidFrame
     | None -> false
+
+  /// Checks if the given target lies in a part that a compiler split off the
+  /// function running at the given address, such as a GCC cold part, telling it
+  /// by where their FDEs lie rather than by how the FDE of the part starts,
+  /// which is no different from that of a function when the function runs
+  /// without a frame. GCC emits the FDE of the part right after that of the
+  /// function, and GNU ld places the part below the function, as it places
+  /// .text.unlikely ahead of .text, whereas a function that merely comes after
+  /// another lies above it.
+  member _.IsWithinSplitOffPart(addr: Addr, target: Addr) =
+    let fdes = sortedFDEs.Value
+    match findCoveringFDE fdes addr, findCoveringFDE fdes target with
+    | Some(_, fde), Some(_, part) when part.PCBegin < fde.PCBegin ->
+      let positions = fdePositions.Value
+      positions[part.PCBegin] = positions[fde.PCBegin] + 1
+    | _ ->
+      false
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

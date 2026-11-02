@@ -484,11 +484,25 @@ module internal CFGRecoveryCommon =
   let isOtherFuncEntry (ctx: CFGBuildingContext<_, _>) target =
     target <> ctx.FunctionAddress && isFuncEntryPoint ctx target
 
+  /// Checks if the jump at jmpAddr enters a part split off the current
+  /// function, such as a GCC cold part, which the FDEs tell even when the
+  /// function runs without a frame and a symbol names the part a function.
+  let entersSplitOffPart (ctx: CFGBuildingContext<_, _>) jmpAddr target =
+    match ctx.BinHandle.File with
+    | :? BinFile.ELFBinFile as elf -> elf.IsWithinSplitOffPart(jmpAddr, target)
+    | _ -> false
+
+  /// Checks if the jump at jmpAddr calls the function at target as its tail: it
+  /// leaves for the entry of another function rather than for a part split off
+  /// the current one.
+  let isTailCall ctx jmpAddr target =
+    isOtherFuncEntry ctx target && not (entersSplitOffPart ctx jmpAddr target)
+
   /// Checks if the conditional jump at jmpAddr calls the function at target as
   /// its tail: it leaves for the entry of another function with its own frame
   /// torn down, so that the callee returns to its caller.
   let isCondTailCall ctx jmpAddr target =
-    runsAtEntryDepth ctx jmpAddr && isOtherFuncEntry ctx target
+    runsAtEntryDepth ctx jmpAddr && isTailCall ctx jmpAddr target
 
   /// Connects the given vertex to the true target of the conditional jump that
   /// ends it, or calls the function there when the jump is a tail call.
@@ -559,11 +573,11 @@ module internal CFGRecoveryCommon =
           jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
         | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
           let target = n.ToUInt64()
+          let lastInsAddr = srcData.LastInstruction.Address
           if useTailcallHeuristic then
-            if not <| isOtherFuncEntry ctx target then
+            if not <| isTailCall ctx lastInsAddr target then
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
             else
-              let lastInsAddr = srcData.LastInstruction.Address
               let callSite = LeafCallSite lastInsAddr
               let act = MakeTlCall(callSite, target, CalleeInfo.Unknown)
               result <- handleCall ctx cfgRec srcVertex callSite target act

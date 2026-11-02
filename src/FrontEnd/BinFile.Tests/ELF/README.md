@@ -1168,6 +1168,111 @@ pick_t:
         .long   0
 ```
 
+## The frameless cold part fixture
+
+Hand-written functions that run without a frame of their own and jump to cold
+parts, the way GCC splits off the unlikely code of a leaf function at `-O2`.
+Such a part starts at the frame state of the CIE, so its FDE restates nothing
+and looks like that of a function; only its place tells it apart. GCC emits
+the FDE of a cold part right after that of its function, but GNU ld places
+`.text.unlikely` ahead of `.text`, so the part lies below the function, as in
+GCC-built binutils binaries. lld would place it after `.text` instead. `pick`
+leaves its cold part unnamed, as a stripped binary does, while `clamp.cold`
+keeps the symbol that GCC gives it.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_framelesscold` | `pick` jumps to its cold part on a range check and through entry 1 of its four-entry table; `clamp` jumps to `clamp.cold` on a condition and without one |
+
+```
+gcc -fuse-ld=bfd -static -nostdlib framelesscold.s -o elf_x64_framelesscold
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+
+        .globl  die
+        .type   die, @function
+die:
+        .cfi_startproc
+        ud2
+        .cfi_endproc
+        .size   die, .-die
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        .cfi_startproc
+        lea     eax, [rdi-1]
+        cmp     eax, 3
+        ja      .Lp_cold
+        lea     rcx, [rip+pick_t]
+        movsxd  rax, DWORD PTR [rcx+rax*4]
+        add     rax, rcx
+        jmp     rax
+.Lp_c0: mov     eax, 10
+        ret
+.Lp_c2: mov     eax, 30
+        ret
+.Lp_c3: mov     eax, 40
+        ret
+        .cfi_endproc
+        .section .text.unlikely
+        .cfi_startproc
+.Lp_cold:
+        push    rax
+        .cfi_def_cfa_offset 16
+        call    die
+        .cfi_endproc
+        .text
+        .size   pick, .-pick
+
+        .globl  clamp
+        .type   clamp, @function
+clamp:
+        .cfi_startproc
+        test    edi, edi
+        js      clamp.cold
+        cmp     edi, 100
+        jg      .Lc_big
+        mov     eax, edi
+        ret
+.Lc_big:
+        jmp     clamp.cold
+        .cfi_endproc
+        .section .text.unlikely
+        .cfi_startproc
+        .type   clamp.cold, @function
+clamp.cold:
+        mov     eax, -1
+        ret
+        .cfi_endproc
+        .text
+        .size   clamp, .-clamp
+        .section .text.unlikely
+        .size   clamp.cold, .-clamp.cold
+
+        .text
+        .globl  _start
+        .type   _start, @function
+_start:
+        .cfi_startproc
+        mov     edi, 2
+        call    pick
+        mov     edi, 7
+        call    clamp
+        ret
+        .cfi_endproc
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+pick_t:
+        .long   .Lp_c0-pick_t, .Lp_cold-pick_t, .Lp_c2-pick_t, .Lp_c3-pick_t
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional
