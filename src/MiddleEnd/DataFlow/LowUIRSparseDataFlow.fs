@@ -312,6 +312,18 @@ type State<'Lattice when 'Lattice: equality>
     let ids = convertDefsToIds defs.Values
     SSA.Phi(var, ids)
 
+  /// Finds the variable point that the given empty SSA variable stands for,
+  /// which getSSAVar makes of a variable coming in from outside the function:
+  /// the fake one of its kind.
+  let tryGetFakeVp (v: SSA.Variable) =
+    match v.Kind with
+    | SSA.RegVar(_, rid, _) -> Some(Regular rid)
+    | SSA.TempVar(_, n) -> Some(Temporary n)
+    | SSA.StackVar(_, offset) -> Some(StackLocal offset)
+    | SSA.MemVar -> Some(Memory None)
+    | SSA.PCVar _ | SSA.GlobalVar _ -> None
+    |> Option.map (fun vk -> { ProgramPoint = ProgramPoint.Fake; VarKind = vk })
+
   let domainSubState =
     let flowQueue = UniqueQueue()
     let defSiteQueue = UniqueQueue()
@@ -514,13 +526,17 @@ type State<'Lattice when 'Lattice: equality>
     | true, defVp -> domainGetAbsValue defVp
     | false, _ -> lattice.Bottom
 
-  /// Tries to get the abstract value of the given SSA variable. It returns
-  /// None for a variable that the analysis never defined, such as one that
-  /// comes in from outside the function.
+  /// Tries to get the abstract value of the given SSA variable. A variable
+  /// that comes in from outside the function holds what the analysis assumes
+  /// on entry. It returns None for a variable that the analysis never defined.
   member _.TryGetAbsValueOfSSAVar v =
     match ssaVarToVp.TryGetValue v with
-    | true, vp -> Some <| domainGetAbsValue vp
-    | false, _ -> None
+    | true, vp ->
+      Some <| domainGetAbsValue vp
+    | false, _ when v.Identifier = 0 ->
+      tryGetFakeVp v |> Option.map domainGetAbsValue
+    | false, _ ->
+      None
 
   /// Resets this state.
   member _.Reset() = reset ()
