@@ -25,6 +25,7 @@
 module B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
 open System.Collections.Generic
+open B2R2.ABI
 open B2R2.MiddleEnd.ControlFlowGraph
 
 [<RequireQualifiedAccess>]
@@ -56,17 +57,19 @@ module internal ELF = begin
                "longjmp" |]
 
   /// A mapping from known conditionally-not-returning function names to the
-  /// index of the argument that determines the return status.
+  /// zero-based index of the argument that determines the return status.
   let private knownCondNoReturnFuncMap =
-    [ ("error", 1)
-      ("error_at_line", 1) ]
+    [ ("error", 0)
+      ("error_at_line", 0) ]
     |> Map.ofList
 
-  let getNoReturnStatusFromKnownFunc (name: string) =
+  /// Gets the status of the known function of the given name, locating the
+  /// argument that decides it by the given calling convention.
+  let getNoReturnStatusFromKnownFunc (cc: CallingConvention) name =
     if knownNoReturnFuncs.Contains name then
       NoRet
     else
       match knownCondNoReturnFuncMap.TryGetValue name with
-      | true, nth -> ConditionalNoRet nth
+      | true, i -> ConditionalNoRet(cc.GetIntArgLocation i)
       | false, _ -> NotNoRet (* For common cases. *)
 end

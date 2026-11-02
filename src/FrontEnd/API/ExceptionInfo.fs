@@ -120,9 +120,14 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
 
   let fnRanges = Dictionary<Addr, Addr>()
 
+  (* A fragment carries on a function that starts elsewhere, so it opens none,
+     though its handlers still guard the code it covers. *)
   let buildExceptionTable acc (frame: BinExceptionFrame) =
     let tbl, isFunc = loopHandlers frame acc
-    if isFunc then fnRanges[frame.FunctionStart] <- frame.FunctionEnd else ()
+    if isFunc && not frame.IsFragment then
+      fnRanges[frame.FunctionStart] <- frame.FunctionEnd
+    else
+      ()
     tbl
 
   let exnTbl =

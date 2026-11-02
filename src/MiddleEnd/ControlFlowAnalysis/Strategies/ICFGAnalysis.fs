@@ -26,22 +26,19 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// The interface for a CFG-based analysis, which is performed on a CFG. This
-/// interface wraps an analysis function, which can be unwrapped and executed
-/// later.
+/// Represents the interface for a CFG-based analysis, which is performed on a
+/// CFG. This interface wraps an analysis function, which can be unwrapped and
+/// executed later.
 type ICFGAnalysis<'Fn> =
-  /// Unwrap the CFG-based analysis (`'Fn`).
+  /// Unwraps the CFG-based analysis (`'Fn`).
   abstract Unwrap: CFGAnalysisEnv<'FnCtx, 'GlCtx> -> 'Fn
 with
   static member inline (<+>) (a: ICFGAnalysis<_>, b: ICFGAnalysis<_>) =
     { new ICFGAnalysis<_> with
         member _.Unwrap env = a.Unwrap env >> b.Unwrap env }
 
-/// The environment for a CFG-based analysis.
-and CFGAnalysisEnv<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+/// Represents the environment for a CFG-based analysis.
+and CFGAnalysisEnv<'FnCtx, 'GlCtx> =
   { Context: CFGBuildingContext<'FnCtx, 'GlCtx> }
 
 module ICFGAnalysis =
@@ -58,10 +55,10 @@ module ICFGAnalysis =
     { new ICFGAnalysis<_> with
         member _.Unwrap env = a.Unwrap env >> fn }
 
-  /// Finalize the CFG-based analysis, which ignores the output of the previous
+  /// Finalizes the CFG-based analysis, which ignores the output of the previous
   /// CFG-based analysis.
   let finalize a = map ignore a
 
-  /// Run the combined CFG-based analysis, which should take `unit` as input and
-  /// returns `unit` as output.
+  /// Runs the combined CFG-based analysis, which should take `unit` as input
+  /// and returns `unit` as output.
   let inline run env (a: ICFGAnalysis<_>): unit = a.Unwrap env ()

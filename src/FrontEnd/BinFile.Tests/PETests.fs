@@ -980,6 +980,15 @@ type PETests() =
     Assert.AreEqual<bool>(false, addrs.Contains 0x14000184bUL)
 
   [<TestMethod>]
+  member _.``[PE] x64 a chained .pdata frame is a fragment``() =
+    let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
+    let isFragmentAt addr =
+      (frames |> ImmutableArray.tryFind (fun f -> f.FunctionStart = addr))
+      |> Option.map (fun f -> f.IsFragment)
+    Assert.AreEqual<bool option>(Some true, isFragmentAt 0x14000184bUL)
+    Assert.AreEqual<bool option>(Some false, isFragmentAt 0x140001840UL)
+
+  [<TestMethod>]
   member _.``[PE] x64 dll exports are symbols``() =
     (* An image keeps no symbol table of its own, so what it exports is the
        only name it gives an address inside it. *)

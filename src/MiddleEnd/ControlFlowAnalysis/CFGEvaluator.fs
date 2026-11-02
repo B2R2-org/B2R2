@@ -83,13 +83,19 @@ let private evalBlock (st: ConcState) pc blk =
   st.PC <- pc
   evalBlockLoop 0 blk (Ok st)
 
-/// Concretely evaluate a basic block from an arbitrarily generated state.
-let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
-  let pc = blk.VData.Internals.PPoint.Address
-  let st = initState hdl pc
+/// Concretely evaluates the given basic blocks in turn, as the control runs
+/// through them, from an arbitrarily generated state.
+let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
+  let st = initState hdl blks[0].VData.Internals.PPoint.Address
   st.SideEffectEventHandler <- fun _ st -> st.AbortInstr()
-  let stmts =
-    blk.VData.Internals.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
-  match evalBlock st pc stmts with
-  | Ok st -> st
-  | Error _ -> Terminator.impossible ()
+  for blk in blks do
+    let pc = blk.VData.Internals.PPoint.Address
+    let stmts =
+      blk.VData.Internals.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
+    match evalBlock st pc stmts with
+    | Ok _ -> ()
+    | Error _ -> Terminator.impossible ()
+  st
+
+/// Concretely evaluates a basic block from an arbitrarily generated state.
+let evalBlockFromScratch hdl blk = evalBlocksFromScratch hdl [| blk |]

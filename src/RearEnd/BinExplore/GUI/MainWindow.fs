@@ -35,10 +35,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 
-type MainWindow<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type MainWindow<'FnCtx, 'GlCtx>
   public(arbiter: Arbiter<'FnCtx, 'GlCtx>, useDarkTheme) as this =
   inherit HostWindow()
 

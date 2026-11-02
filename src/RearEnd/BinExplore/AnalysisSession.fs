@@ -29,10 +29,7 @@ open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents a session that holds the state of the current analysis.
-type AnalysisSession<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+type AnalysisSession<'FnCtx, 'GlCtx>
   public(brewLoader: IBrewLoadable<'FnCtx, 'GlCtx>) =
 
   let binaries = Dictionary<string, BinaryBrew<'FnCtx, 'GlCtx>>()
@@ -72,8 +69,5 @@ type AnalysisSession<'FnCtx, 'GlCtx
     | true, brew -> currentBinary <- brew; Some brew
     | false, _ -> None
 
-and IBrewLoadable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+and IBrewLoadable<'FnCtx, 'GlCtx> =
   abstract LoadBrew: path: string -> BinaryBrew<'FnCtx, 'GlCtx>

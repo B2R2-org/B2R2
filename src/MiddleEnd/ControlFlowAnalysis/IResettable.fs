@@ -24,7 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Interface for resetting the state of an object.
+/// Represents an interface for resetting the state of an object.
 type IResettable =
-  /// Reset the state of the object.
+  /// Resets the state of the object.
   abstract Reset: unit -> unit

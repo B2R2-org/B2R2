@@ -174,16 +174,23 @@ type ELFTests() =
     (expected: Result<BinRelocationValue, ErrorCase>) actual =
     Assert.AreEqual<Result<BinRelocationValue, ErrorCase>>(expected, actual)
 
-  /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
-  /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
-  /// factory. This returns a fresh instance every time, as the laziness tests
-  /// must not observe an instance that another test has already forced.
-  static let parseEhFrameFile () =
-    let fileName = "elf_x64_eh_frame"
+  /// Parses the given x86-64 fixture along with its DWARF CFI, which exception
+  /// parsing reads only with a register factory.
+  static let parseX64FileWithCFI fileName =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     ELFBinFile(fileName, bytes, None, Some regFactory)
+
+  /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
+  /// and an LSDA table in .gcc_except_table. This returns a fresh instance
+  /// every time, as the laziness tests must not observe an instance that
+  /// another test has already forced.
+  static let parseEhFrameFile () = parseX64FileWithCFI "elf_x64_eh_frame"
+
+  /// Functions without a frame of their own that jump to cold parts below
+  /// them, whose FDEs follow theirs and start at the frame state of the CIE.
+  static let x64FramelessColdFile = parseX64FileWithCFI "elf_x64_framelesscold"
 
   /// Checks the (register, offset) pair that a CFA lookup returned.
   static let assertCFA (expected: (RegisterID * int) option) actual =
@@ -1236,6 +1243,16 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x1129UL, relocs.TryComputeRelocationValue 0x4010UL)
 
   [<TestMethod>]
+  member _.``[ELF] x64 read-only after loading test``() =
+    (* .text lies in a segment that is not writable, and .data.rel.ro in one
+       that is, but within the range that GNU_RELRO protects once relocation
+       is done. The variable in .data stays writable. *)
+    let file = x64RelocTargetFile
+    Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x1129UL)
+    Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x3df0UL)
+    Assert.AreEqual<bool>(false, file.IsReadOnlyAfterLoading 0x4010UL)
+
+  [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =
     (* Both the site and the value it resolves to shift with the load base. *)
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
@@ -2117,6 +2134,72 @@ type ELFTests() =
     assertCFA None (file.TryFindCFARegOffset gapStart)
 
   [<TestMethod>]
+  member _.``[ELF] x64 CFA lookup gives an FDE without rows its CIE state``() =
+    let file = parseEhFrameFile ()
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rsp = DWRegister.toRegID isa 7uy
+    let fde =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.find (fun fde -> List.isEmpty fde.UnwindingInfo.Value)
+    assertCFA (Some(rsp, 8)) (file.TryFindCFARegOffset fde.PCBegin)
+    assertCFA (Some(rsp, 8)) (file.TryFindCFARegOffset(fde.PCEnd - 1UL))
+
+  [<TestMethod>]
+  member _.``[ELF] x64 FDE range lookup finds the FDE covering an address``() =
+    let file = parseEhFrameFile ()
+    for cfi in file.ExceptionFrame do
+      for fde in cfi.FDEs do
+        let expected = Some(AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
+        let first = file.TryFindFDERange fde.PCBegin
+        let last = file.TryFindFDERange(fde.PCEnd - 1UL)
+        Assert.AreEqual<AddrRange option>(expected, first)
+        Assert.AreEqual<AddrRange option>(expected, last)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 FDE range lookup finds nothing outside the FDEs``() =
+    let file = parseEhFrameFile ()
+    let fdes =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.sortBy (fun fde -> fde.PCBegin)
+    let first, last = List.head fdes, List.last fdes
+    let hasGap (a: FDE, b: FDE) = a.PCEnd < b.PCBegin
+    let gapStart = (fdes |> List.pairwise |> List.find hasGap |> fst).PCEnd
+    for addr in [ first.PCBegin - 1UL; last.PCEnd; gapStart ] do
+      Assert.AreEqual<AddrRange option>(None, file.TryFindFDERange addr)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 fragment lookup finds the code of only the PLT``() =
+    let file = parseEhFrameFile ()
+    let fdes =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.sortBy (fun fde -> fde.PCBegin)
+    let fragments =
+      fdes
+      |> List.filter (fun fde -> file.IsWithinFragment(fde.PCEnd - 1UL))
+      |> List.map (fun fde -> fde.PCBegin)
+    let before = fdes.Head.PCBegin - 1UL
+    Assert.AreEqual<Addr list>([ 0x1020UL ], fragments)
+    Assert.AreEqual<bool>(false, file.IsWithinFragment before)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 split-off part lookup finds the part below its FDE``() =
+    (* The FDE of the cold part of pick (0x401000) follows that of pick, and
+       that of clamp.cold (0x401006) follows that of clamp (0x40103c), each
+       part lying below its function. The FDE of clamp follows that of the
+       cold part of pick in turn, but clamp lies above it, as a function does
+       that merely comes after another. *)
+    let file = x64FramelessColdFile
+    let isSplitOff addr target = file.IsWithinSplitOffPart(addr, target)
+    Assert.AreEqual<bool>(true, isSplitOff 0x401028UL 0x401000UL)
+    Assert.AreEqual<bool>(true, isSplitOff 0x40103eUL 0x401006UL)
+    Assert.AreEqual<bool>(false, isSplitOff 0x40103eUL 0x401000UL)
+    Assert.AreEqual<bool>(false, isSplitOff 0x401001UL 0x40103cUL)
+    Assert.AreEqual<bool>(false, isSplitOff 0x401028UL 0x40102aUL)
+
+  [<TestMethod>]
   member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let rsp = DWRegister.toRegID isa 7uy
@@ -2141,6 +2224,27 @@ type ELFTests() =
         |> Option.map (fun e -> fde.PCBegin, e.Location))
     Assert.AreEqual<bool>(true, not starts.IsEmpty)
     Assert.AreEqual<bool>(true, starts |> List.forall (fun (b, l) -> b = l))
+
+  [<TestMethod>]
+  member _.``[ELF] x64 only the PLT FDE starts mid-frame``() =
+    (* PLT0 is entered from a stub that has already pushed a relocation index,
+       so the PLT's FDE starts at CFA rsp+16; every other FDE describes a
+       function from its entry. *)
+    let starts =
+      x64EhFrameFile.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.filter (fun fde -> fde.StartsMidFrame)
+      |> List.map (fun fde -> fde.PCBegin)
+      |> List.toArray
+    CollectionAssert.AreEqual([| 0x1020UL |], starts)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 only the PLT frame is a fragment``() =
+    let fragments =
+      (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
+      |> ImmutableArray.choose (fun f ->
+        if f.IsFragment then Some f.FunctionStart else None)
+    CollectionAssert.AreEqual([| 0x1020UL |], fragments)
 
   [<TestMethod>]
   member _.``[ELF] arm32 exidx exception table is parsed``() =

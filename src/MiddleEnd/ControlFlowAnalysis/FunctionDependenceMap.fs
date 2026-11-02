@@ -28,8 +28,8 @@ open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.BinGraph
 
-/// Map from a function (callee) to its caller functions. This is not
-/// thread-safe, and thus should be used only by TaskManager.
+/// Represents a map from a function (callee) to its caller functions. This is
+/// not thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap() =
   /// A temporary call graph that only contains unconfirmed edges.
   let tg = MutableDiGraph<Addr, unit>() :> IMutableDiGraph<Addr, unit>
@@ -100,14 +100,14 @@ type FunctionDependenceMap() =
     |> Array.choose (fun (v: IVertex<Addr>) ->
       if v.VData <> calleeAddr then Some v.VData else None)
 
-  /// Add a dependency between two functions. When the third parameter is true,
+  /// Adds a dependency between two functions. When the third parameter is true,
   /// we only update the temporary graph, and when it is false, we update the
   /// call graph.
   member _.AddDependency(caller, callee, isTemp) =
     if isTemp then addTGDependency (getTGVertex caller) (getTGVertex callee)
     else addCGDependency (getCGVertex caller) (getCGVertex callee)
 
-  /// Remove a function from the temporary graph and return the immediate
+  /// Removes a function from the temporary graph and returns the immediate
   /// callers' addresses of the function excluding the recursive calls.
   member _.RemoveTemporary callee =
     let calleeV = getTGVertex callee
@@ -115,7 +115,7 @@ type FunctionDependenceMap() =
     removeTGVertex calleeV
     preds |> filterOutNonRecursiveCallers callee
 
-  /// Remove a function from the call graph and return the immediate callers'
+  /// Removes a function from the call graph and returns the immediate callers'
   /// addresses of the function excluding the recursive calls.
   member _.RemoveConfirmed callee =
     let calleeV = getCGVertex callee
@@ -123,7 +123,7 @@ type FunctionDependenceMap() =
     removeCGVertex calleeV
     preds |> filterOutNonRecursiveCallers callee
 
-  /// Confirm the temporary dependencies by shifting the dependencies to the
+  /// Confirms the temporary dependencies by shifting the dependencies to the
   /// call graph. This function returns the confirmed callers.
   member this.Confirm callee =
     let calleeV = getCGVertex callee
@@ -134,14 +134,14 @@ type FunctionDependenceMap() =
       addCGDependency callerV calleeV)
     callers
 
-  /// Get the immediate **confirmed** caller functions of the given callee from
+  /// Gets the immediate **confirmed** caller functions of the given callee from
   /// the call graph, but excluding the recursive calls.
   member _.GetConfirmedCallers(callee: Addr) =
     let calleeV = getCGVertex callee
     let preds = cg.GetPreds calleeV
     preds |> filterOutNonRecursiveCallers callee
 
-  /// Return an array of sets of mutually recurive nodes in the temporary
+  /// Returns an array of sets of mutually recursive nodes in the temporary
   /// dependence graph.
   member _.GetCyclicDependencies() =
     SCC.Tarjan.compute tg
@@ -154,7 +154,7 @@ type FunctionDependenceMap() =
       else
         None)
 
-  /// Remove call edges (successors) from the given function from both the
+  /// Removes call edges (successors) from the given function from both the
   /// temporary and regular call graphs.
   member _.RemoveCallEdgesFrom entryAddr =
     let tgV = getTGVertex entryAddr

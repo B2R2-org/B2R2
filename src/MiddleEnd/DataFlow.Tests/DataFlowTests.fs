@@ -117,6 +117,26 @@ type DataFlowTests() =
 
   let cmp vp c = vp, c
 
+  /// Computes constant propagation on sample 7 without the block at 0x1d, then
+  /// adds the block back and computes again, as CFG recovery would.
+  let computeWithLateBlock () =
+    let brew = Binaries.loadOne Binaries.sample7
+    let cfg = brew.Functions[0UL].CFG
+    let late =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0x1DUL)
+    let preds, succs = cfg.GetPredEdges late, cfg.GetSuccEdges late
+    cfg.RemoveVertex late
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let dfa = cp :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    let v = cfg.AddVertex late.VData
+    for e in preds do cfg.AddEdge(e.First, v, e.Label)
+    for e in succs do cfg.AddEdge(v, e.Second, e.Label)
+    cp.State.MarkVertexAsPending v
+    for e in succs do cp.State.MarkVertexAsPending e.Second
+    dfa.Compute cfg |> ignore
+    cp.State
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Reaching Definitions Test 1``() =
@@ -326,6 +346,19 @@ type DataFlowTests() =
 #endif
 
   [<TestMethod>]
+  member _.``Constant Propagation Test 3``() =
+    let brew = Binaries.loadOne Binaries.sample9
+    let cfg = brew.Functions[0UL].CFG
+    (* Gap analysis makes 0x8 a root as well, after which no root dominates
+       0xa alone. Both of its predecessors still clear ECX before it. *)
+    let v8 = cfg.FindVertexBy(fun v -> v.VData.Internals.PPoint.Address = 0x8UL)
+    cfg.AddRoot v8
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let out = state.GetAbsValue(irReg 0xaUL 1 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0u 32<rt>, out)
+
+  [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
@@ -343,6 +376,28 @@ type DataFlowTests() =
     let miss = state.TryGetAbsValueOfSSAVar outside
     Assert.AreEqual<bool>(true, Option.isSome hit)
     Assert.AreEqual<bool>(true, Option.isNone miss)
+
+  [<TestMethod>]
+  member _.``SSA Phi Operand Lookup Test``() =
+    let brew = Binaries.loadOne Binaries.sample10
+    let cfg = brew.Functions[0UL].CFG
+    let at addr =
+      cfg.FindVertexBy(fun v -> v.VData.Internals.PPoint.Address = addr)
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    let state = cp.State
+    let join = at 0xaUL
+    match state.GetTerminatorInSSA join with
+    | SSA.Jmp(SSA.InterJmp(SSA.Var phi)) ->
+      (* Each operand of the phi of ECX is the definition from its own edge. *)
+      let defAddrFrom pred =
+        state.TryGetSSAPhiOperand(phi, at pred, join)
+        |> Option.map (fun v -> state.SSAVarToVp[v].ProgramPoint.Address)
+      let actual = [ defAddrFrom 0x4UL; defAddrFrom 0x8UL ]
+      let expected = [ Some 0x4UL; Some 0x8UL ]
+      Assert.AreEqual<Addr option list>(expected, actual)
+    | terminator ->
+      Assert.Fail $"Unexpected terminator: {terminator}"
 
   [<TestMethod>]
   member _.``Untouched Value Analysis 1``() =
@@ -365,6 +420,23 @@ type DataFlowTests() =
     |> List.iter (fun (vp, ans) ->
       let out = state.GetAbsValue vp
       Assert.AreEqual<UntouchedValueDomain.Lattice>(ans, out))
+
+  [<TestMethod>]
+  member _.``Untouched Value Analysis 2``() =
+    let brew = Binaries.loadOne Binaries.sample8
+    let cfg = brew.Functions[0UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    (* EAX takes the first argument, four bytes above the stack pointer at
+       entry, which the function never writes. *)
+    let arg =
+      StackLocal 4
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    let out = state.GetAbsValue(irReg 0x0UL 1 Register.EAX)
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(arg, out)
 
   [<TestMethod>]
   member _.``Sensitive Constant Propagation EvalExpr 1``() =
@@ -430,6 +502,78 @@ type DataFlowTests() =
     let eax = brew.BinHandle.RegisterFactory.GetRegVar "EAX"
     let out = cp.EvalExpr(spp 0x9UL 2, eax)
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+#endif
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    (* A temporary never outlives its instruction, so a block that starts an
+       instruction has no temporary coming in to join. *)
+    let tempPhis =
+      [ for KeyValue(v, phiInfo) in cp.State.PhiInfos do
+          if v.VData.Internals.PPoint.Position = 0 then
+            yield! Seq.filter VarKind.isTemporary phiInfo.Keys
+          else
+            () ]
+    Assert.AreEqual<VarKind list>([], tempPhis)
+
+#if !EMULATION
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 2``() =
+    let brew = Binaries.loadOne Binaries.sample6
+    let cfg = brew.Functions[0UL].CFG
+    let at addr =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = addr)
+    let taken = cfg.FindEdge(at 0x0UL, at 0x9UL)
+    cfg.RemoveEdge taken
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let dfa = cp :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    cfg.AddEdge(taken.First, taken.Second, taken.Label)
+    cp.State.MarkVertexAsPending taken.Second
+    (* Bringing the taken branch back places a phi at 0x9, a vertex that has
+       already run. The phi must still join both of its operands, including
+       the caller's EAX. *)
+    let state = dfa.Compute cfg
+    let out = state.GetAbsValue(irReg 0x9UL 0 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 3``() =
+    let state = computeWithLateBlock ()
+    (* The late block passes on the 5 from 0x3 only until its own store of 7
+       shows up, so the phi at 0x4b must never join that 5. *)
+    let out = state.GetAbsValue(irStk 0x4BUL 0 -12)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 7u 32<rt>, out)
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Phi Test 4``() =
+    let state = computeWithLateBlock ()
+    (* The late block stops passing on the 5 from 0xb once its own store shows
+       up, but the block at 0x43 still does, so the phi at 0x4b remains a use
+       of that store. *)
+    let uses = state.DefUseMap[irStk 0xBUL 1 -8]
+    Assert.AreEqual<bool>(true, uses.Contains(irStk 0x4BUL 0 -8))
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Removal Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample7
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let dfa = cp :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    let join =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0x4BUL)
+    cp.State.MarkVertexAsRemoval join
+    cfg.RemoveVertex join
+    dfa.Compute cfg |> ignore
+    (* The phi at 0x4b leaves the graph with its vertex, so the store at 0x31
+       is no longer used there. *)
+    let uses = cp.State.DefUseMap[irStk 0x31UL 1 -12]
+    Assert.AreEqual<bool>(false, uses.Contains(irStk 0x4BUL 0 -12))
 #endif
 
   [<TestMethod>]

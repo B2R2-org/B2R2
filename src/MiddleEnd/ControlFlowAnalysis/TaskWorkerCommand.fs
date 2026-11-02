@@ -24,11 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Command to be consumed by task workers.
-type TaskWorkerCommand<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
+/// Represents a command to be consumed by task workers.
+type TaskWorkerCommand<'FnCtx, 'GlCtx> =
   /// Build the CFG using the given builder.
   | BuildCFG of builder: ICFGBuildable<'FnCtx, 'GlCtx>
 

@@ -25,8 +25,10 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 
-/// Jump table information.
+/// Represents jump table information.
 type JmpTableInfo =
   { /// The address of the indirect branch instruction corresponding to the jump
     /// table.
@@ -47,6 +49,48 @@ type JmpTableInfo =
     /// without any index computation (e.g., jmp qword ptr [constant_address]).
     /// If so, we do not expand the entries during jump table analysis.
     IsSingleEntry: bool
+    /// The number of entries, from the first, that the range check right before
+    /// the indirect branch admits, or None if no such check bounds the table
+    /// from its first entry.
+    OwnRangeEntries: int option
     /// Indicates whether the jump table is accessed via a function pointer
     /// table.
     mutable IsFunctionPointerTable: bool }
+
+/// Provides functions to read the entries of a jump table.
+[<RequireQualifiedAccess>]
+module JmpTableInfo =
+  /// Tells whether the entries of the given table are addresses of their own,
+  /// as wide as a pointer, in an ELF binary, where a relocation of a slot says
+  /// what the loader writes into it.
+  let private isRelocatable (file: IBinFile) jmptbl =
+    file.Format = FileFormat.ELFBinary
+    && jmptbl.JumpBase = 0UL
+    && jmptbl.EntrySize = WordSize.toByteWidth file.ISA.WordSize
+
+  /// Tells whether the loader rebases the given binary as a whole, in which
+  /// case every address that the binary holds has a relocation.
+  let private isRebased (file: IBinFile) =
+    file.IsBaseRelative && file.Kind <> BinFileKind.Object
+
+  let private tryReadInt (hdl: BinHandle) jmptbl (addr: Addr) =
+    match hdl.TryReadInt(addr, jmptbl.EntrySize) with
+    | Ok value -> Some(jmptbl.JumpBase + uint64 value)
+    | Error _ -> None
+
+  /// Reads the target of the entry at the given index of the given table, or
+  /// returns None if its slot holds no entry. An entry that is an address
+  /// holds what the relocation of its slot writes, which the file may leave
+  /// out, and in a binary that the loader rebases, a slot without one holds no
+  /// address. A slot that lies past the bytes of the binary holds no entry
+  /// either.
+  let tryReadTarget (hdl: BinHandle) jmptbl idx =
+    let file = hdl.File
+    let addr = jmptbl.TableAddress + uint64 (idx * jmptbl.EntrySize)
+    if isRelocatable file jmptbl then
+      match BinFileOps.tryComputeRelocationValue file addr with
+      | Ok target -> Some target
+      | Error _ when isRebased file -> None
+      | Error _ -> tryReadInt hdl jmptbl addr
+    else
+      tryReadInt hdl jmptbl addr

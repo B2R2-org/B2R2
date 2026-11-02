@@ -25,6 +25,8 @@
 namespace B2R2.FrontEnd.Tests
 
 open System.Collections.Generic
+open System.IO
+open System.IO.Compression
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd
@@ -38,6 +40,20 @@ type ExceptionInfoTests() =
   /// section for the coverage ratio to measure against.
   static let rawHdl =
     BinHandle.LoadRawImage([| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |], isa)
+
+  /// Loads the .eh_frame fixture that lives next to the BinFile tests, a small
+  /// C++ program whose FDEs cover the PLT (0x1020) and main (0x1229) among
+  /// others.
+  static let loadEhFrameFixture () =
+    let name = "elf_x64_eh_frame"
+    let path =
+      System.AppDomain.CurrentDomain.BaseDirectory
+      + "../../../../BinFile.Tests/ELF/" + name + ".zip"
+    use archive = ZipFile.OpenRead path
+    use stream = archive.GetEntry(name).Open()
+    use ms = new MemoryStream()
+    stream.CopyTo ms
+    BinHandle.LoadFileBytes(ms.ToArray(), isa)
 
   /// A window of 0x1000 addresses, used to keep the expected ratios exact.
   static let winLo, winHi = 0x1000UL, 0x1fffUL
@@ -155,3 +171,12 @@ type ExceptionInfoTests() =
     let single = ranges [ winLo, winLo ]
     let oneAddr = ExceptionCoverage.compute winLo winLo single
     Assert.AreEqual<float>(1.0, oneAddr)
+
+  (* PLT0 is entered with a relocation index already pushed, so the PLT's FDE
+     carries on whichever stub jumped there and opens no function, while
+     main's opens one as usual. *)
+  [<TestMethod>]
+  member _.``[ExceptionInfo] fragments open no function test``() =
+    let entries = ExceptionInfo(loadEhFrameFixture ()).FunctionEntryPoints
+    Assert.AreEqual<bool>(false, Array.contains 0x1020UL entries)
+    Assert.AreEqual<bool>(true, Array.contains 0x1229UL entries)

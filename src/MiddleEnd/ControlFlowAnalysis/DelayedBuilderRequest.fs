@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// This is a delayed request that is used to update the status of the CFG
+/// Represents a delayed request that updates the status of the CFG
 /// builder. This is populated only when the builder is running and is consumed
 /// after regular CFGActions are consumed.
 type DelayedBuilderRequest =

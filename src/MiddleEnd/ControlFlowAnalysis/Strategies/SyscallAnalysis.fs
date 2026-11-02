@@ -33,8 +33,8 @@ open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Basic syscall analysis that only analyzes a single basic block that contains
-/// the syscall instruction.
+/// Represents a basic syscall analysis that only analyzes a single basic block
+/// that contains the syscall instruction.
 type SyscallAnalysis() =
   interface ISyscallAnalyzable with
     member _.IsExit(ctx, v) =

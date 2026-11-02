@@ -8,7 +8,9 @@
   Given two directories, every <groundTruthDir>/<case>.json is compared
   against <binaryDir>/<case>; given two files, the one binary is compared
   against the one ground truth. Exits non-zero when any table or target is
-  missed or invented, so it can gate a build as it stands.
+  missed or invented, so it can gate a build as it stands. A function pointer
+  table that the ground truth lacks is not taken as invented but as skipped,
+  as are the targets of one that it lists.
 *)
 
 (* Release, because scoring a hundred binaries is CPU bound; run
@@ -45,7 +47,8 @@ type Table =
 
 /// Represents how one binary scored. Detection counts tables matched by
 /// their indirect branch address; target counts compare the target sets of
-/// the tables that matched.
+/// the tables that matched. Skipped counts the tables that are not scored,
+/// whether the ground truth lists them or not.
 type Score =
   { Case: string
     TableTP: int
@@ -130,9 +133,11 @@ let private load case binPath arch =
         hdl.ISA
       None
 
-/// Recovers CFGs and reports every jump table B2R2 found. CFG recovery writes
-/// progress to the console, which would bury the report, so it is muted for
-/// the duration.
+/// Recovers CFGs and reports every jump table B2R2 found, once for each
+/// indirect branch that jumps through it: the one that recovered the table and
+/// the ones waiting on it, since the ground truth lists them all. CFG recovery
+/// writes progress to the console, which would bury the report, so it is muted
+/// for the duration.
 let private recover (hdl: BinHandle) =
   let saved = Console.Out
   Console.SetOut TextWriter.Null
@@ -142,14 +147,16 @@ let private recover (hdl: BinHandle) =
        below off its absent CFG. *)
     [ for fn in brew.Functions.Sequence do
         for jmptbl in fn.JumpTables do
-          { InsAddr = jmptbl.InsAddr
-            Kind = kindOf jmptbl
-            Targets = targetsOf fn.CFG jmptbl.InsAddr } ]
+          for insAddr in jmptbl.InsAddr :: jmptbl.WaitingInstructions do
+            { InsAddr = insAddr
+              Kind = kindOf jmptbl
+              Targets = targetsOf fn.CFG insAddr } ]
   finally
     Console.SetOut saved
 
-/// Tells whether the targets of a table are scored. Function pointer tables
-/// become tail calls rather than intraprocedural edges, so theirs are not.
+/// Tells whether a table is scored. Function pointer tables become tail calls
+/// rather than intraprocedural edges, so their targets are not, and the
+/// ground truth need not list them, so one it lacks is not invented.
 let private isScored (table: Table) = table.Kind <> "functionPointerTable"
 
 /// Compares the targets of two tables that matched on their branch address,
@@ -167,14 +174,20 @@ let private scoreTargets (score: Score) (expected: Table) (actual: Table) =
 let private byAddr tables =
   tables |> List.map (fun t -> t.InsAddr, t) |> Map.ofList
 
+/// Scores the tables of one binary. A table that the ground truth lacks is
+/// invented if it is scored, and skipped if not.
 let private scoreCase case expected actual =
   let expected, actual = byAddr expected, byAddr actual
   let matched = Map.keys expected |> Seq.filter actual.ContainsKey |> List.ofSeq
+  let unmatched =
+    actual |> Map.filter (fun addr _ -> not (expected.ContainsKey addr))
+  let unscored = unmatched |> Map.filter (fun _ table -> not (isScored table))
   let score =
     { zero case with
         TableTP = List.length matched
-        TableFP = actual.Count - List.length matched
-        TableFN = expected.Count - List.length matched }
+        TableFP = unmatched.Count - unscored.Count
+        TableFN = expected.Count - List.length matched
+        Skipped = unscored.Count }
   matched
   |> List.fold (fun s addr -> scoreTargets s expected[addr] actual[addr]) score
 
@@ -208,7 +221,7 @@ let private diagnose expected actual addr =
   match Map.tryFind addr expected, Map.tryFind addr actual with
   | Some(e: Table), None ->
     Some $"missed table ({e.Kind}, {e.Targets.Count} targets)"
-  | None, Some(a: Table) ->
+  | None, Some(a: Table) when isScored a ->
     Some $"invented table ({a.Kind}, {a.Targets.Count} targets)"
   | Some e, Some a when isScored e && e.Targets <> a.Targets ->
     Some(diffTargets e a)
@@ -258,6 +271,7 @@ let private summarize scores =
   printfn "%d cases scored" (List.length scores)
   printfn "tables   tp %d  fp %d  fn %d  f1 %.4f" tTP tFP tFN (f1 tTP tFP tFN)
   printfn "targets  tp %d  fp %d  fn %d  f1 %.4f" gTP gFP gFN (f1 gTP gFP gFN)
+  printfn "skipped  %d" (sum (_.Skipped))
   tFP + tFN + gFP + gFN
 
 /// Scores every case the ground truth directory holds and prints the totals.

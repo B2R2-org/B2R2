@@ -122,6 +122,7 @@ module PyExceptionTable =
       (* A code object with no bytecode would otherwise wrap around to the
          largest address there is. *)
       FunctionEnd = addr + (max (codeLength co) 1UL) - 1UL
+      IsFragment = false
       PersonalityRoutine = None (* Python dispatches without one. *)
       Handlers = Array.map toHandler entries }
 

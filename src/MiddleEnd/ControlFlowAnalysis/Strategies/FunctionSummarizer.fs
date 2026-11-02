@@ -32,12 +32,10 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Base class for summarizing a function in a lightweight manner. One can
-/// extend this class to implement a more sophisticated function summarizer.
-type FunctionSummarizer<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
+/// Represents a base class for summarizing a function in a lightweight manner.
+/// One can extend this class to implement a more sophisticated function
+/// summarizer.
+type FunctionSummarizer<'FnCtx, 'GlCtx>() =
   let retrieveStackAdjustment (ins: IInstruction) =
     match ins.Immediate() with
     | true, v -> int v
@@ -122,15 +120,15 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
     | _ ->
       [||]
 
-  let computeLiveDefs ctx unwindingAmount clobbered =
-    let hdl = ctx.BinHandle
-    if ctx.IsExternal then
+  let computeLiveDefs hdl callee calleeInfo =
+    let unwindingAmount, clobbered = calleeInfo.Unwinding, calleeInfo.Clobbered
+    if calleeInfo.IsExternal then
       [| yield! intReturnValueDef hdl
          yield! floatReturnValueDef hdl
          yield! callerSavedValueDefs hdl clobbered
          yield! stackPointerDef hdl unwindingAmount |]
     else
-      let liveVarDefs = initializeLiveVarMap hdl ctx.FunctionAddress
+      let liveVarDefs = initializeLiveVarMap hdl callee
       [| if Array.isEmpty liveVarDefs then
            yield! intReturnValueDef hdl
            yield! floatReturnValueDef hdl
@@ -139,20 +137,21 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
            yield! liveVarDefs
          yield! stackPointerDef hdl unwindingAmount |]
 
-  /// Compute how many bytes are unwound by this function.
+  /// Computes how many bytes are unwound by this function.
   abstract ComputeUnwindingAmount:
     ctx: CFGBuildingContext<'FnCtx, 'GlCtx> -> int
 
-  /// Summarize the function using LowUIR.
+  /// Summarizes the function at `callee` using LowUIR, which the function of
+  /// the given context calls with the given instruction.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * callee: Addr
+     * calleeInfo: CalleeInfo
      * IInstruction
-     * unwindingAmount: int
-     * clobbered: Set<RegisterID>
     -> Rundown<LowUIR.Stmt>
 
-  /// This is the simplistic way of counting the unwinding amount. Assuming that
-  /// "ret NN" instructions are used, compute how many bytes are unwound.
+  /// Computes how many bytes are unwound in a simplistic way, assuming that
+  /// "ret NN" instructions are used.
   default _.ComputeUnwindingAmount ctx =
     let mutable amount = 0
     let exits = ctx.CFG.Exits
@@ -174,12 +173,12 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
           ()
     amount
 
-  /// Simply over-approximate the function semantics. Particularly, we are
+  /// Simply over-approximates the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
-  default _.Summarize(ctx, callInstruction, unwindingAmount, clobbered) =
+  default _.Summarize(ctx, callee, calleeInfo, callInstruction) =
     let returnAddress = callInstruction.Address + uint64 callInstruction.Length
     let stmts = (* For abstraction, we check which var can be defined. *)
-      computeLiveDefs ctx unwindingAmount clobbered
+      computeLiveDefs ctx.BinHandle callee calleeInfo
       |> Array.map (fun (dst, src) -> AST.put dst src)
     let regType = ctx.BinHandle.ISA.WordSize |> WordSize.toRegType
     let fallThrough = AST.num <| BitVector(returnAddress, regType)
@@ -187,15 +186,11 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
     Array.append stmts [| jmpToFallThrough |]
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
-    member this.Summarize(ctx, calleeInfo, ins) =
-      let unwindingBytes = calleeInfo.Unwinding
-      FunctionSummary(ctx.FunctionAddress,
-                      unwindingBytes,
-                      this.Summarize(ctx,
-                                     ins,
-                                     unwindingBytes,
-                                     calleeInfo.Clobbered),
-                      ctx.IsExternal,
+    member this.Summarize(ctx, callee, calleeInfo, ins) =
+      FunctionSummary(callee,
+                      calleeInfo.Unwinding,
+                      this.Summarize(ctx, callee, calleeInfo, ins),
+                      calleeInfo.IsExternal,
                       calleeInfo.Status)
 
     member _.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes) =

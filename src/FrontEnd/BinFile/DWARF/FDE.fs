@@ -37,7 +37,12 @@ type internal FDE =
     /// Unwinding entries of this FDE, lazily decoded from its call frame
     /// instructions, as function ranges and LSDA pointers alone do not need
     /// them.
-    UnwindingInfo: Lazy<UnwindingEntry list> }
+    UnwindingInfo: Lazy<UnwindingEntry list>
+    /// Tells whether this FDE starts in the middle of another function's
+    /// frame, as a fragment that a compiler split off the function does,
+    /// rather than at a function entry. Unlike the unwinding entries, this is
+    /// known without decoding them.
+    StartsMidFrame: bool }
 
 /// Resolves the relocation addend to apply at the given (pc-relative-adjusted)
 /// FDE begin address, if a relocation exists there. This is needed for
@@ -96,6 +101,59 @@ module internal FDE =
           CIE.getUnwind [] cfa r [] r isa regs ir cf df rr span 0 loc
         info
 
+  /// Tells whether the call frame instructions of an FDE restate the frame,
+  /// i.e., define the CFA or save a register, before they first advance the
+  /// location. A function entry inherits its frame from the CIE and restates
+  /// nothing there, while a fragment that a compiler split off a function,
+  /// such as a GCC cold part, starts in the middle of that function's frame
+  /// and has to. Only the instructions before the first advance are read, and
+  /// one that cannot be decoded ends the reading, as its operands cannot be
+  /// skipped.
+  let rec startsMidFrame (span: ByteSpan) =
+    if span.IsEmpty then
+      false
+    else
+      let op = span[0]
+      let op = if op &&& 0xc0uy > 0uy then op &&& 0xc0uy else op
+      match CFAInstruction.parse op with
+      | CFAInstruction.DW_CFA_def_cfa
+      | CFAInstruction.DW_CFA_def_cfa_sf
+      | CFAInstruction.DW_CFA_def_cfa_register
+      | CFAInstruction.DW_CFA_def_cfa_offset
+      | CFAInstruction.DW_CFA_def_cfa_offset_sf
+      | CFAInstruction.DW_CFA_def_cfa_expression
+      | CFAInstruction.DW_CFA_offset
+      | CFAInstruction.DW_CFA_offset_extended
+      | CFAInstruction.DW_CFA_offset_extended_sf
+      | CFAInstruction.DW_CFA_val_offset
+      | CFAInstruction.DW_CFA_val_offset_sf
+      | CFAInstruction.DW_CFA_register
+      | CFAInstruction.DW_CFA_expression
+      | CFAInstruction.DW_CFA_val_expression
+      | CFAInstruction.DW_CFA_GNU_negative_offset_extended ->
+        true
+      | CFAInstruction.DW_CFA_nop
+      | CFAInstruction.DW_CFA_restore
+      | CFAInstruction.DW_CFA_remember_state
+      | CFAInstruction.DW_CFA_restore_state ->
+        startsMidFrame (span.Slice 1)
+      (* Marking the return address undefined, as _start does, saves
+         nothing. *)
+      | CFAInstruction.DW_CFA_restore_extended
+      | CFAInstruction.DW_CFA_undefined
+      | CFAInstruction.DW_CFA_same_value
+      | CFAInstruction.DW_CFA_GNU_args_size ->
+        let _, cnt = LEB128.decodeUInt64 (span.Slice 1)
+        startsMidFrame (span.Slice(1 + cnt))
+      | CFAInstruction.DW_CFA_advance_loc
+      | CFAInstruction.DW_CFA_advance_loc1
+      | CFAInstruction.DW_CFA_advance_loc2
+      | CFAInstruction.DW_CFA_advance_loc4
+      | CFAInstruction.DW_CFA_set_loc ->
+        false
+      | _ ->
+        false
+
   let parse cls isa regs mem reader sAddr offset nextOffset resolveReloc cie =
     match cie with
     | Some cie ->
@@ -119,6 +177,7 @@ module internal FDE =
       { PCBegin = b
         PCEnd = e
         LSDAPointer = lsdaPointer
-        UnwindingInfo = info }
+        UnwindingInfo = info
+        StartsMidFrame = startsMidFrame instrs.Span }
     | None ->
       raise CIENotFoundByFDEException

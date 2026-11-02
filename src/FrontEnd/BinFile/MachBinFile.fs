@@ -526,6 +526,7 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       [| for frame in exn.Value.Frames do
            { FunctionStart = frame.FuncStart
              FunctionEnd = frame.FuncEnd - 1UL
+             IsFragment = frame.IsFragment
              PersonalityRoutine = frame.PersonalityRoutine
              Handlers = toExceptionHandlers frame } |]
       |> ImmutableArray.ofArray

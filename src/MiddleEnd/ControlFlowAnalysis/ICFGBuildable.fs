@@ -27,106 +27,67 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 
-/// The interface for building a function.
-type ICFGBuildable<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
-  inherit ILinkage
+/// Represents the interface for building a function that the binary defines.
+/// A function defined outside of the binary is only an IFunctionBuilder, as
+/// there is nothing to build.
+type ICFGBuildable<'FnCtx, 'GlCtx> =
+  inherit IFunctionBuilder
 
-  /// The current state of the function builder.
-  abstract BuilderState: CFGBuilderState
-
-  /// Entry point of the function that is being built.
-  abstract EntryPoint: Addr
-
-  /// The address of the next function if there is any. Otherwise, this is None.
-  abstract NextFunctionAddress: Addr option with get, set
-
-  /// Return the current building context.
+  /// Returns the current building context.
   abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
 
-  /// Currently pending DelayedBuilderRequest(s). This queue can only be
-  /// populated when another builder wants to update the status of this builder
-  /// while it is running. Note that this queue is not thread-safe, and thus, it
-  /// should be accessed only by the task manager.
+  /// Returns the currently pending DelayedBuilderRequest(s). This queue can
+  /// only be populated when another builder wants to update the status of this
+  /// builder while it is running. Note that this queue is not thread-safe, and
+  /// thus, it should be accessed only by the task manager.
   abstract DelayedBuilderRequests: Queue<DelayedBuilderRequest>
 
-  /// Return whether the function has a jump table or not.
-  abstract HasJumpTable: bool
-
-  /// The current activation status of the function builder. The default value
-  /// is Activated, and it can be initially set to Deactivated when the builder
-  /// is created but not scheduled yet.
+  /// Gets or sets the current activation status of the function builder. The
+  /// default value is Activated, and it can be initially set to Deactivated
+  /// when the builder is created but not scheduled yet.
   abstract Activation: CFGBuilderActivation with get, set
 
-  /// Authorize the function builder to start building the function. This will
+  /// Authorizes the function builder to start building the function. This will
   /// change the state of the function builder to `InProgress`, meaning that the
   /// same function will not be scheduled again, and a single worker will soon
   /// start building the function.
   abstract Authorize: unit -> unit
 
-  /// Stop the current building process. This will change the state of the
+  /// Stops the current building process. This will change the state of the
   /// function builder to `Stopped`, meaning that this function can always be
   /// scheduled again later.
   abstract Stop: unit -> unit
 
-  /// Forcefully finish the function building process because of a cyclic
+  /// Forcefully finishes the function building process because of a cyclic
   /// dependency. This will change the state of the function builder to
-  /// `ForceFinished`.
-  abstract ForceFinish: unit -> unit
+  /// `ForceFinished`, and the given information becomes what its callers know
+  /// about it.
+  abstract ForceFinish: CalleeInfo -> unit
 
-  /// Mark the state to be `Verifying`. This means that the function builder is
+  /// Marks the state to be `Verifying`. This means that the function builder is
   /// currently verifying the built function.
   abstract StartVerifying: unit -> unit
 
-  /// Finalize the function building process. This will change the state of the
+  /// Finalizes the function building process. This will change the state of the
   /// function builder to `Finished`, meaning that the function has been built
   /// successfully.
   abstract Finalize: unit -> unit
 
-  /// Re-initialize the function builder. This will change the state of the
+  /// Re-initializes the function builder. This will change the state of the
   /// function builder to `Initialized`, meaning that the function can be
   /// scheduled again. This can only be called during the post-recovery phase.
   abstract ReInitialize: unit -> unit
 
-  /// Mark the state to be invalid. This means that there has been a fatal error
-  /// while building the function.
+  /// Marks the state to be invalid. This means that there has been a fatal
+  /// error while building the function.
   abstract Invalidate: unit -> unit
 
-  /// Build the function CFG using the given strategy.
+  /// Builds the function CFG using the given strategy.
   abstract Build: ICFGBuildingStrategy<'FnCtx, 'GlCtx> -> CFGResult
 
-  /// Reset the current state in order to rebuild the function from scratch.
-  abstract Reset: unit -> unit
-
-  /// Make a new builder with a new agent by copying the current one.
-  abstract MakeNew:
-       Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>
-    -> ICFGBuildable<'FnCtx, 'GlCtx>
-
-  /// Convert this builder to a function.
-  abstract ToFunction: unit -> Function
-
-and CFGBuilderState =
-  /// Initialized but not started.
-  | Initialized
-  /// Currently building.
-  | InProgress
-  /// Stopped and will be resumed later.
-  | Stopped
-  /// Error occurred so this builder is invalid. We can re-authorize this
-  /// builder later, but converting this builder to a function will fail.
-  | Invalid
-  /// Forcefully finished due to cyclic dependency. This builder has a
-  /// under-approximated CFG because every unknown callee is considered
-  /// non-returning.
-  | ForceFinished
-  /// Waiting for the builder to be finzlied, while performing some
-  /// verification.
-  | Verifying
-  /// Finished building and everything has been valid.
-  | Finished
+  /// Resets the current state in order to rebuild the function from scratch.
+  /// The given provider resets the user context.
+  abstract Reset: IContextProvidable<'FnCtx, 'GlCtx> -> unit
 
 and CFGBuilderActivation =
   /// The builder has been once scheduled (i.e., activated).
@@ -136,60 +97,56 @@ and CFGBuilderActivation =
   /// interested in building this function at all).
   | Deactivated
 
-/// A strategy that defines how CFGActions are handled to build a function. This
-/// interface will be accessed in parallel by multiple threads, so every
-/// operation should be thread-safe. Note that CFGBuildingContext as well as
-/// 'FnCtx are only accessed by a single thread, though.
-and ICFGBuildingStrategy<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)> =
-  /// Return the prioritizer to use for the CFG actions.
+/// Represents a strategy that defines how CFGActions are handled to build a
+/// function. This interface will be accessed in parallel by multiple threads,
+/// so every operation should be thread-safe. Note that a CFGBuildingContext,
+/// including its 'FnCtx, is only accessed by one thread at a time: the worker
+/// building the function, or the manager while nobody builds it. Other
+/// functions learn about it only through CalleeStatus.
+and ICFGBuildingStrategy<'FnCtx, 'GlCtx> =
+  inherit IContextProvidable<'FnCtx, 'GlCtx>
+
+  /// Returns the prioritizer that orders the CFG actions. Every action queue
+  /// is fixed to it when created, so all actions of a function share one order.
   abstract ActionPrioritizer: IPrioritizable
 
-  /// Whether to allow basic block overlap or not while building a CFG.
-  abstract AllowBBLOverlap: bool
-
-  /// Return the recovery targets to build.
+  /// Returns the recovery targets to build.
   abstract RecoveryTargets: RecoveryTargets
 
-  /// This is a callback that is called for every CFGAction generated for a
-  /// function. Each action may discover a new basic block, add a new edge, etc.
-  /// This function returns a CFGResult that indicates whether the function
-  /// building should continue, postpone, or exit with an error.
+  /// Handles every CFGAction generated for a function. Each action may discover
+  /// a new basic block, add a new edge, etc. This function returns a CFGResult
+  /// that indicates whether the function building should continue, postpone, or
+  /// exit with an error.
   abstract OnAction:
        CFGBuildingContext<'FnCtx, 'GlCtx>
      * CFGActionQueue
      * CFGAction
     -> CFGResult
 
-  /// This is a callback that is called when a new function builder is created.
+  /// Handles the creation of a new function builder.
   abstract OnCreate:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     -> unit
 
-  /// This is a callback that is called when all CFGActions are processed, i.e.,
-  /// when CFGActionQueue is empty.
+  /// Handles the end of the building, i.e., when all CFGActions are processed
+  /// and CFGActionQueue is empty.
   abstract OnFinish:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     -> CFGResult
 
-  /// This is a callback that is called when a cyclic dependency is detected
-  /// from the TaskManager. The array of dependent functions is passed as an
-  /// argument, and this function returns the function builder that should be
-  /// built first. When the given array is empty, this function will raise an
-  /// exception.
+  /// Handles a cyclic dependency detected by the TaskManager. The array of
+  /// dependent functions is passed as an argument, and this function returns
+  /// the function builder that should be built first. When the given array is
+  /// empty, this function will raise an exception.
   abstract OnCyclicDependency:
        (Addr * ICFGBuildable<'FnCtx, 'GlCtx>)[]
     -> ICFGBuildable<'FnCtx, 'GlCtx>
 
-  /// This is a callback that is called when all function builders are done
-  /// building. This function returns a list of candidate functions to analyze
-  /// based on the given list of function builders. When it returns an empty
-  /// array, it means that there are no candidates to analyze, and the recovery
-  /// process is done.
-  abstract FindCandidatesForPostProcessing:
-    ICFGBuildable<'FnCtx, 'GlCtx>[] -> Addr[]
+  /// Finds candidate functions to analyze based on the given list of function
+  /// builders, once all function builders are done building. When it returns an
+  /// empty array, it means that there are no candidates to analyze, and the
+  /// recovery process is done.
+  abstract FindCandidatesForPostProcessing: IFunctionBuilder[] -> Addr[]
 
 /// Represents the recovery targets to build. This is used for filtering the
 /// candidates to build, and it is defined as part of the strategy because some

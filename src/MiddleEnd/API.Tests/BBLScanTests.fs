@@ -60,3 +60,15 @@ type BBLScanTests() =
     match bblFactory.ScanBBLs [| 0x0UL |] with
     | Ok _ -> Assert.AreEqual<int>(1, bblFactory.Count)
     | Error e -> Assert.Fail $"Unexpected failure: {e}"
+
+  (* A failed scan leaves no block where it could not parse, so a later scan
+     of that address has to fail as well. Passing it would tell the caller
+     that a block is there, and the caller then looks the block up. *)
+  [<TestMethod>]
+  member _.``Scan Of An Unparsable Address Fails Every Time``() =
+    let bblFactory = BBLFactory(hdl, instrs)
+    let outOfRange = 0x1000UL
+    bblFactory.ScanBBLs [| outOfRange |] |> ignore
+    match bblFactory.ScanBBLs [| outOfRange |] with
+    | Ok _ -> Assert.Fail "Expected the scan to fail again"
+    | Error e -> Assert.AreEqual<ErrorCase>(ErrorCase.ParsingFailure, e)

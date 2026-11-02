@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// Represents a function identification startegy. This is used to find
+/// Represents a function identification strategy. This is used to find
 /// candidate functions to analyze.
 type IFunctionIdentifiable =
   /// Finds a list of candidate functions to analyze. It returns a list of

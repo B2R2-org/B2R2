@@ -33,8 +33,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<AutoOpen>]
 module private SRetAnalysisHelper =
-  /// Intel32SRetAnalysis is instantiated only for an x86-32 ISA, so
-  /// every native instruction reaching these helpers must be Intel-specific.
+  /// Casts the given instruction to an Intel instruction. Intel32SRetAnalysis
+  /// is instantiated only for an x86-32 ISA, so every native instruction
+  /// reaching these helpers must be Intel-specific.
   let inline toIntelInstruction (ins: BinLifter.IInstruction) =
     ins :?> Intel.Instruction
 
@@ -111,7 +112,7 @@ module private SRetAnalysisHelper =
       | Some isStackAddress ->
         isStackAddress
       | None ->
-        let preds = ctx.CFG.GetPreds vertex
+        let preds = (ctx: CFGBuildingContext<_, _>).CFG.GetPreds vertex
         (* Follow only a short, unambiguous provenance chain. If any incoming
            path disagrees or lacks evidence, do not classify the value as a
            stack-derived return buffer. *)
@@ -124,7 +125,7 @@ module private SRetAnalysisHelper =
     | Some isStackAddress ->
       isStackAddress
     | None ->
-      let preds = ctx.CFG.GetPreds caller
+      let preds = (ctx: CFGBuildingContext<_, _>).CFG.GetPreds caller
       not (Array.isEmpty preds)
       && Array.forall (isStackAddressFromPredecessors ctx 2 Set.empty reg) preds
 
@@ -145,12 +146,12 @@ module private SRetAnalysisHelper =
         false
 
 /// Decides whether an x86-32 indirect call passes a hidden sret argument.
-type Intel32SRetAnalysis<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
+type Intel32SRetAnalysis<'FnCtx, 'GlCtx>() =
 
   interface ISRetAnalyzable<'FnCtx, 'GlCtx> with
+    /// Checks if the given indirect call passes a hidden sret pointer that the
+    /// callee pops from the stack.
+    ///
     /// An sret (structure-return) argument is a hidden pointer to caller-owned
     /// storage where a callee writes a value that cannot be returned directly
     /// in registers. In the x86-32 compiler pattern handled here, this pointer
@@ -189,15 +190,12 @@ type Intel32SRetAnalysis<'FnCtx, 'GlCtx
       | _ ->
         false
 
-/// Conservatively assumes that an unknown indirect call is not an sret call,
-/// i.e., that its callee pops no additional argument bytes. Conventional
-/// compiler ABIs generally use caller cleanup for indirect calls, while x86-64
-/// passes most arguments in registers and does not use callee-popped argument
-/// counts.
-type SRetAnalysis<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>() =
+/// Represents an sret analysis that conservatively assumes that an unknown
+/// indirect call is not an sret call, i.e., that its callee pops no additional
+/// argument bytes. Conventional compiler ABIs generally use caller cleanup for
+/// indirect calls, while x86-64 passes most arguments in registers and does not
+/// use callee-popped argument counts.
+type SRetAnalysis<'FnCtx, 'GlCtx>() =
 
   interface ISRetAnalyzable<'FnCtx, 'GlCtx> with
     /// Assumes that an unknown indirect call is not an sret call.

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Generic
 open System.Collections.Immutable
 open B2R2
 open B2R2.Collections
@@ -82,22 +83,44 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let exn = lazy ExceptionData.parse toolBox shdrs.Value rfOpt relocs.Value
 
-  /// Holds the FDEs sorted by the address they begin at, so that the FDE
-  /// covering a given address can be found by binary search.
+  /// Holds the FDEs, each with its CIE, sorted by the address they begin at,
+  /// so that the FDE covering a given address can be found by binary search.
   let sortedFDEs = lazy ExceptionData.getFDEs exn.Value.ExceptionFrame
 
-  /// Finds the FDE covering the given address, which is the last FDE beginning
-  /// at or before the address, provided that the address is before its end.
-  let findCoveringFDE (fdes: FDE[]) addr =
-    if Array.isEmpty fdes || fdes[0].PCBegin > addr then
+  /// Finds the FDE covering the given address, along with its CIE, which is
+  /// the last FDE beginning at or before the address, provided that the
+  /// address is before its end.
+  let findCoveringFDE (fdes: (CIE * FDE)[]) addr =
+    if Array.isEmpty fdes || (snd fdes[0]).PCBegin > addr then
       None
     else
       let mutable lo = 0
       let mutable hi = fdes.Length - 1
       while lo < hi do
         let mid = lo + (hi - lo + 1) / 2
-        if fdes[mid].PCBegin <= addr then lo <- mid else hi <- mid - 1
-      if addr < fdes[lo].PCEnd then Some fdes[lo] else None
+        if (snd fdes[mid]).PCBegin <= addr then lo <- mid else hi <- mid - 1
+      if addr < (snd fdes[lo]).PCEnd then Some fdes[lo] else None
+
+  /// Finds the canonical frame address that the given FDE gives the code at
+  /// addr. An FDE without rows keeps the initial state of its CIE throughout.
+  let findCFA (cie: CIE, fde: FDE) addr =
+    match fde.UnwindingInfo.Value with
+    | [] ->
+      Some cie.InitialUnwinding.Value.CFA
+    | rows ->
+      rows
+      |> List.tryFindBack (fun row -> row.Location <= addr)
+      |> Option.map (fun row -> row.CanonicalFrameAddress)
+
+  /// Maps the address that each FDE begins at to the position of the FDE in
+  /// .eh_frame, which keeps the order in which the compiler emitted them.
+  let fdePositions =
+    lazy
+      let positions = Dictionary<Addr, int>()
+      exn.Value.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.iteri (fun i fde -> positions.TryAdd(fde.PCBegin, i) |> ignore)
+      positions
 
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
 
@@ -435,6 +458,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
            for fde in cfi.FDEs do
              { FunctionStart = fde.PCBegin
                FunctionEnd = fde.PCEnd - 1UL
+               IsFragment = fde.StartsMidFrame
                PersonalityRoutine = personality
                Handlers = toExceptionHandlers fde } |]
       |> ImmutableArray.ofArray
@@ -618,17 +642,54 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Returns the canonical frame address in effect at the given address as a
   /// (register, offset) pair. The answer is the last unwinding row of the FDE
-  /// covering the address that starts at or before the address; None when no
-  /// FDE covers the address or the CFA is not of the register-plus-offset form.
+  /// covering the address that starts at or before the address, or the
+  /// initial state of its CIE when the FDE has no rows; None when no FDE
+  /// covers the address or the CFA is not of the register-plus-offset form.
   member _.TryFindCFARegOffset(addr: Addr) =
     findCoveringFDE sortedFDEs.Value addr
-    |> Option.bind (fun fde ->
-      fde.UnwindingInfo.Value
-      |> List.tryFindBack (fun row -> row.Location <= addr))
-    |> Option.bind (fun row ->
-      match row.CanonicalFrameAddress with
+    |> Option.bind (fun fde -> findCFA fde addr)
+    |> Option.bind (fun cfa ->
+      match cfa with
       | RegPlusOffset(rid, off) -> Some(rid, off)
       | _ -> None)
+
+  /// Returns the range of code that the FDE covering the given address
+  /// describes; None when no FDE covers the address.
+  member _.TryFindFDERange(addr: Addr) =
+    findCoveringFDE sortedFDEs.Value addr
+    |> Option.map (fun (_, fde) ->
+      AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
+
+  /// Checks if the FDE covering the given address starts mid-frame, which makes
+  /// the code it covers a fragment of a function that starts elsewhere, such as
+  /// the cold part that a compiler splits off a function.
+  member _.IsWithinFragment(addr: Addr) =
+    match findCoveringFDE sortedFDEs.Value addr with
+    | Some(_, fde) -> fde.StartsMidFrame
+    | None -> false
+
+  /// Checks if the given target lies in a part that a compiler split off the
+  /// function running at the given address, such as a GCC cold part, telling it
+  /// by where their FDEs lie rather than by how the FDE of the part starts,
+  /// which is no different from that of a function when the function runs
+  /// without a frame. GCC emits the FDE of the part right after that of the
+  /// function, and GNU ld places the part below the function, as it places
+  /// .text.unlikely ahead of .text, whereas a function that merely comes after
+  /// another lies above it.
+  member _.IsWithinSplitOffPart(addr: Addr, target: Addr) =
+    let fdes = sortedFDEs.Value
+    match findCoveringFDE fdes addr, findCoveringFDE fdes target with
+    | Some(_, fde), Some(_, part) when part.PCBegin < fde.PCBegin ->
+      let positions = fdePositions.Value
+      positions[part.PCBegin] = positions[fde.PCBegin] + 1
+    | _ ->
+      false
+
+  /// Checks if the given address keeps what the loader writes there: it lies
+  /// in a segment that is not writable, or in the range that GNU_RELRO makes
+  /// read-only once relocation is done. The program can overwrite any other
+  /// address, e.g., a variable in .data.
+  member _.IsReadOnlyAfterLoading(addr: Addr) = isReadOnlyAfterLoading addr
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

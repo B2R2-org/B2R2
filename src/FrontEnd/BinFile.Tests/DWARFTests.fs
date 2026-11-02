@@ -98,15 +98,34 @@ type DWARFTests() =
     let expected = RegPlusOffset(rsp, n)
     Assert.AreEqual<CanonicalFrameAddress>(expected, row.CanonicalFrameAddress)
 
+  /// Tells whether the given call frame instructions of an FDE start in the
+  /// middle of a frame.
+  static let startsMidFrame (bytes: byte[]) =
+    FDE.startsMidFrame (ReadOnlySpan bytes)
+
+  let [<Literal>] DWCFANop = 0x00uy
+
   let [<Literal>] DWCFAOffsetExtended = 0x05uy
 
   let [<Literal>] DWCFAUndefined = 0x07uy
+
+  let [<Literal>] DWCFADefCFA = 0x0cuy
 
   let [<Literal>] DWCFADefCFAOffset = 0x0euy
 
   let [<Literal>] DWCFAExpression = 0x10uy
 
   let [<Literal>] DWCFAValExpression = 0x16uy
+
+  (* DW_CFA_GNU_window_save, which AArch64 reuses as negate_ra_state; B2R2
+     does not decode it. *)
+  let [<Literal>] DWCFAGNUWindowSave = 0x2duy
+
+  (* The two below carry their operand, a delta or a register, in the low six
+     bits. *)
+  let [<Literal>] DWCFAAdvanceLoc = 0x40uy
+
+  let [<Literal>] DWCFAOffset = 0x80uy
 
   [<TestMethod>]
   member _.``[DWARF] string value ends past its terminator``() =
@@ -203,3 +222,40 @@ type DWARFTests() =
     let rbx = NormalReg(DWRegister.toRegID isa 3uy)
     let saved = Map.tryFind rbx row.Rule
     Assert.AreEqual<UnwindingAction option>(Some(Offset -16L), saved)
+
+  [<TestMethod>]
+  member _.``[DWARF] FDE that first advances starts at an entry``() =
+    (* push rbp: the CFA moves only once the push has executed. *)
+    let bytes = [| DWCFAAdvanceLoc ||| 1uy; DWCFADefCFAOffset; 0x10uy |]
+    Assert.AreEqual<bool>(false, startsMidFrame bytes)
+
+  [<TestMethod>]
+  member _.``[DWARF] FDE that restates the frame starts mid-frame``() =
+    (* A cold part entered with 40 bytes pushed and rbx saved at CFA-56. *)
+    let bytes = [| DWCFADefCFAOffset; 0x30uy; DWCFAOffset ||| 3uy; 0x07uy |]
+    Assert.AreEqual<bool>(true, startsMidFrame bytes)
+
+  [<TestMethod>]
+  member _.``[DWARF] FDE that rebases the CFA starts mid-frame``() =
+    (* A cold part of a function that keeps its frame in rbp: CFA = rbp+16. *)
+    let bytes = [| DWCFADefCFA; 0x06uy; 0x10uy |]
+    Assert.AreEqual<bool>(true, startsMidFrame bytes)
+
+  [<TestMethod>]
+  member _.``[DWARF] FDE that only gives up rip starts at an entry``() =
+    (* _start marks the return address undefined, which saves nothing. *)
+    let bytes = [| DWCFAUndefined; 0x10uy; DWCFAAdvanceLoc ||| 4uy |]
+    Assert.AreEqual<bool>(false, startsMidFrame bytes)
+
+  [<TestMethod>]
+  member _.``[DWARF] FDE without instructions starts at an entry``() =
+    let nops = [| DWCFANop; DWCFANop; DWCFANop |]
+    Assert.AreEqual<bool>(false, startsMidFrame [||])
+    Assert.AreEqual<bool>(false, startsMidFrame nops)
+
+  [<TestMethod>]
+  member _.``[DWARF] FDE stops at an instruction it cannot decode``() =
+    (* The operands of an unknown instruction cannot be skipped, so what
+       follows it is never read, and the FDE is taken to start at an entry. *)
+    let bytes = [| DWCFAGNUWindowSave; DWCFADefCFAOffset; 0x10uy |]
+    Assert.AreEqual<bool>(false, startsMidFrame bytes)

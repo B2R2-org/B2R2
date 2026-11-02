@@ -32,14 +32,11 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// The main builder for an internal function. This is responsible for building
-/// the function CFG while maintaining its internal state. By "internal", we
-/// mean that the function is defined within the target binary as opposed to
-/// external (library) functions.
-type InternalFnCFGBuilder<'FnCtx, 'GlCtx
-  when 'FnCtx :> IResettable
-  and 'FnCtx: (new: unit -> 'FnCtx)
-  and 'GlCtx: (new: unit -> 'GlCtx)>
+/// Represents the main builder for an internal function. This is responsible
+/// for building the function CFG while maintaining its internal state. By
+/// "internal", we mean that the function is defined within the target binary as
+/// opposed to external (library) functions.
+type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
   public(ctx, nextFnAddr, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
@@ -49,9 +46,9 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
 
   let delayedBuilderRequests = Queue<DelayedBuilderRequest>()
 
-  let mutable hasJumpTable = false
-
   let mutable activation = Activated
+
+  let mutable calleeInfo = CalleeInfo.Unknown
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
@@ -61,38 +58,15 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
           manager.PostAndReply(fun _ ch ->
             AddDependency(caller, callee, ch))
 
-        member _.GetNonReturningStatus(addr) =
-          manager.PostAndReply(fun _ ch -> GetNonReturningStatus(addr, ch))
+        member _.GetCalleeStatus(addr) =
+          manager.PostAndReply(fun _ ch -> GetCalleeStatus(addr, ch))
 
-        member _.GetBuildingContext(addr) =
-          manager.PostAndReply(fun _ ch -> GetBuildingContext(addr, ch))
-
-        member _.GetExternalBuildingContext(reference, name) =
+        member _.GetExternalCalleeStatus(reference, name) =
           manager.PostAndReply(fun _ ch ->
-            GetExternalBuildingContext(reference, name, ch))
+            GetExternalCalleeStatus(reference, name, ch))
 
         member _.GetNextFunctionAddress(addr) =
           manager.PostAndReply(fun _ ch -> GetNextFunctionAddress(addr, ch))
-
-        member _.NotifyJumpTableRecovery(fnAddr, tblInfo) =
-          manager.PostAndReply(fun _ ch ->
-            NotifyJumpTableRecovery(fnAddr, tblInfo, ch))
-
-        member _.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx) =
-          manager.PostAndReply(fun _ ch ->
-            NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx, ch))
-
-        member _.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr) =
-          manager.Post <| CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
-
-        member _.ReportJumpTableSuccess(fnAddr,
-                                        tblAddr,
-                                        idx,
-                                        nextAddr,
-                                        isFPTab) =
-          hasJumpTable <- true
-          manager.PostAndReply(fun _ ch ->
-            ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab, ch))
 
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>
@@ -104,6 +78,23 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
         member _.UpdateGlobalContext(updater) =
           manager.Post <| UpdateGlobalContext updater }
 
+  let jumpTableChannel =
+    let post req = manager.Post <| JumpTable req
+    let ask req = manager.PostAndReply(fun _ ch -> JumpTable(req ch))
+    { new IJumpTableChannel with
+        member _.NotifyRecovery(fnAddr, jmptbl) =
+          ask (fun ch -> NotifyRecovery(fnAddr, jmptbl, ch))
+
+        member _.NotifyBogusEntry(fnAddr, tblAddr, idx) =
+          ask (fun ch -> NotifyBogusEntry(fnAddr, tblAddr, idx, ch))
+
+        member _.CancelRecovery(fnAddr, insAddr, tblAddr) =
+          post <| CancelRecovery(fnAddr, insAddr, tblAddr)
+
+        member _.ReportSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab) =
+          ask (fun ch ->
+            ReportSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab, ch)) }
+
   let rec build (strategy: ICFGBuildingStrategy<_, _>) queue =
     if (queue: CFGActionQueue).IsEmpty() then
       strategy.OnFinish ctx
@@ -114,47 +105,25 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
       match strategy.OnAction(ctx, queue, action) with
       | MoveOn -> build strategy queue
       | MoveOnButReloadCallers _ -> Terminator.impossible ()
-      | Wait -> queue.Push(strategy.ActionPrioritizer, action); Wait
+      | Wait -> queue.Push action; Wait
       | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e
 
   do ctx.ManagerChannel <- managerChannel
 
-  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager, irBlkOptimizer) =
+  do ctx.JumpTableChannel <- jumpTableChannel
+
+  new(hdl, exnInfo, instrs, entryPoint, manager, irBlkOptimizer, strategy) =
     let name =
-      match BinFileOps.tryResolveName hdl.File entryPoint with
+      match BinFileOps.tryResolveName (hdl: BinHandle).File entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
-    let cfg = LowUIRCFG.create Mutable
-    let bblFactory = BBLFactory(hdl, instrs, irBlkOptimizer)
-    let fnCtx = new 'FnCtx()
+    let factory = BBLFactory(hdl, instrs, irBlkOptimizer)
+    let strategy = strategy :> ICFGBuildingStrategy<'FnCtx, 'GlCtx>
+    let fnCtx = strategy.CreateFunctionContext()
+    let prio = strategy.ActionPrioritizer
     let ctx =
-      { FunctionAddress = entryPoint
-        FunctionName = name
-        BinHandle = hdl
-        ExnInfo = exnInfo
-        Vertices = Dictionary()
-        GapAnalysisVertices = HashSet()
-        CFG = cfg
-        CP = ConstantPropagation(hdl, cfg.Vertices)
-        BBLFactory = bblFactory
-        NonReturningStatus = UnknownNoRet
-        JumpTableRecoveryStatus = Stack()
-        JumpTables = Dictionary()
-        GapToAnalyze = None
-        GapBlacklist = HashSet()
-        Callers = HashSet()
-        IntraCallTable = IntraCallTable()
-        VisitedPPoints = HashSet()
-        ActionQueue = CFGActionQueue()
-        PendingCallActions = Dictionary()
-        CallerVertices = Dictionary()
-        UnwindingBytes = 0
-        ClobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
-        UserContext = fnCtx
-        IsExternal = false
-        ManagerChannel = null
-        ThreadID = -1 }
+      CFGBuildingContext(hdl, exnInfo, entryPoint, name, factory, fnCtx, prio)
     InternalFnCFGBuilder(ctx, None, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
@@ -168,9 +137,11 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
 
     member _.Context with get() = ctx
 
-    member _.DelayedBuilderRequests with get() = delayedBuilderRequests
+    member _.CalleeInfo with get() = calleeInfo
 
-    member _.HasJumpTable with get() = hasJumpTable
+    member _.Callers with get() = ctx.Callers
+
+    member _.DelayedBuilderRequests with get() = delayedBuilderRequests
 
     member _.Activation with get() = activation and set(v) = activation <- v
 
@@ -184,7 +155,9 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
       assert (state = InProgress)
       state <- Stopped
 
-    member _.ForceFinish() = state <- ForceFinished
+    member _.ForceFinish info =
+      state <- ForceFinished
+      calleeInfo <- info
 
     member _.StartVerifying() =
       assert (state = InProgress)
@@ -193,6 +166,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
     member _.Finalize() =
       assert (state = Verifying)
       state <- Finished
+      calleeInfo <- ctx.ToCalleeInfo()
 
     member _.ReInitialize() =
       assert (state = Finished || state = ForceFinished)
@@ -201,15 +175,14 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
     member _.Invalidate() = state <- Invalid
 
     member _.Build strategy =
-      ctx.ActionQueue.Push(strategy.ActionPrioritizer, InitiateCFG)
+      ctx.ActionQueue.Push InitiateCFG
       build strategy ctx.ActionQueue
 
-    member _.Reset() =
+    member _.Reset contexts =
       state <- Initialized
       delayedBuilderRequests.Clear()
       ctx.Reset()
-
-    member _.MakeNew(manager) = InternalFnCFGBuilder(ctx, nextFnAddr, manager)
+      contexts.ResetFunctionContext ctx.UserContext
 
     member _.ToFunction() =
       assert (state = Finished)

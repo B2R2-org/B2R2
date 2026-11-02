@@ -29,20 +29,24 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// The interface for syscall stub analysis. This is to know whether the given
-/// syscall instruction is an exit syscall or not. Since this analysis runs in
-/// the middle of the CFG building, it should be solely based on the LowUIRCFG,
-/// not the SSACFG.
+/// Represents the interface for syscall stub analysis. This is to know whether
+/// the given syscall instruction is an exit syscall or not. Since this analysis
+/// runs in the middle of the CFG building, it should be solely based on the
+/// LowUIRCFG, not the SSACFG.
 type ISyscallAnalyzable =
-  /// Is the given syscall instruction located at the target vertex an exit
-  /// syscall?
+  /// Checks if the given syscall instruction located at the target vertex is an
+  /// exit syscall.
   abstract IsExit:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-     * TargetVertex: IVertex<LowUIRBasicBlock>
+     * targetVertex: IVertex<LowUIRBasicBlock>
     -> bool
 
+  /// Makes a function summary that abstracts the syscall instruction located at
+  /// the target vertex. The CFG connects the summary to the target vertex as
+  /// the callee of the syscall, and the summary never returns when `isExit` is
+  /// true, i.e., when the syscall is an exit syscall.
   abstract MakeAbstract:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-     * TargetVertex: IVertex<LowUIRBasicBlock>
-     * IsExit: bool
+     * targetVertex: IVertex<LowUIRBasicBlock>
+     * isExit: bool
     -> FunctionSummary<LowUIR.Stmt>
