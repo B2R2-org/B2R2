@@ -685,6 +685,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | _ ->
       false
 
+  /// Checks if the given address keeps what the loader writes there: it lies
+  /// in a segment that is not writable, or in the range that GNU_RELRO makes
+  /// read-only once relocation is done. The program can overwrite any other
+  /// address, e.g., a variable in .data.
+  member _.IsReadOnlyAfterLoading(addr: Addr) = isReadOnlyAfterLoading addr
+
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 

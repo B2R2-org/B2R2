@@ -1243,6 +1243,16 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x1129UL, relocs.TryComputeRelocationValue 0x4010UL)
 
   [<TestMethod>]
+  member _.``[ELF] x64 read-only after loading test``() =
+    (* .text lies in a segment that is not writable, and .data.rel.ro in one
+       that is, but within the range that GNU_RELRO protects once relocation
+       is done. The variable in .data stays writable. *)
+    let file = x64RelocTargetFile
+    Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x1129UL)
+    Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x3df0UL)
+    Assert.AreEqual<bool>(false, file.IsReadOnlyAfterLoading 0x4010UL)
+
+  [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =
     (* Both the site and the value it resolves to shift with the load base. *)
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
