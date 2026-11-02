@@ -209,6 +209,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     member _.OnAddEdge(ctx, _srcVertex, dstVertex, _edgeKind) =
       if not options.UseSSA then markVertexAsPendingForAnalysis ctx dstVertex
       else ()
+      rejudgeConditionalCall ctx dstVertex
 
     member _.OnRemoveVertex(ctx, vertex) =
       markVertexAsRemovalForAnalysis ctx vertex

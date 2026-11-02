@@ -804,12 +804,56 @@ module internal CFGRecoveryCommon =
       | NotNoRet ->
         connectCallWithFT ctx cfgRec caller callee calleeInfo
       | ConditionalNoRet loc ->
-        if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller loc then
+        let hdl = ctx.BinHandle
+        if CondAwareNoretAnalysis.passesNonZero hdl ctx.CFG caller loc then
           connectCallWithoutFT ctx cfgRec caller callee calleeInfo
         else
           connectCallWithFT ctx cfgRec caller callee calleeInfo
       | UnknownNoRet ->
         Terminator.impossible ()
+
+  /// Checks if the call that the abstract vertex at the given program point
+  /// stands for has been judged never to return from its conditionally
+  /// non-returning callee, and yet the given caller may now pass the callee
+  /// an argument that lets it return.
+  let mayReturnAfterAll (ctx: CFGBuildingContext<_, _>) caller absPp =
+    match ctx.Vertices.TryGetValue absPp with
+    | true, absV ->
+      match absV.VData.Internals.AbstractContent.ReturningStatus with
+      | ConditionalNoRet loc ->
+        let hdl, g = ctx.BinHandle, ctx.CFG
+        g.GetSuccEdges absV |> Array.forall (fun e -> e.Label <> RetEdge)
+        && not (CondAwareNoretAnalysis.passesNonZero hdl g caller loc)
+      | _ ->
+        false
+    | false, _ ->
+      false
+
+  /// Judges the call ending the given vertex again once the vertex gains a
+  /// predecessor, if the call has been judged never to return because every
+  /// predecessor it had passed a non-zero argument to a conditionally
+  /// non-returning callee. The new predecessor may pass zero, in which case
+  /// the call gets made again, so that it returns.
+  let rejudgeConditionalCall ctx (v: IVertex<LowUIRBasicBlock>) =
+    let vData = v.VData.Internals
+    if vData.IsAbstract || not vData.LastInstruction.IsCall then
+      ()
+    else
+      let callsite = LeafCallSite vData.LastInstruction.Address
+      let callTable = (ctx: CFGBuildingContext<_, _>).IntraCallTable
+      match callTable.TryGetCallee callsite with
+      | true, RegularCallee callee ->
+        let absPp = getCalleePPoint callsite (Some callee)
+        if mayReturnAfterAll ctx v absPp then
+          match ctx.ManagerChannel.GetCalleeStatus callee with
+          | Built info ->
+            ctx.ActionQueue.Push(MakeCall(callsite, callee, info))
+          | _ ->
+            ()
+        else
+          ()
+      | _ ->
+        ()
 
   let rec skipNops (instrs: IInstruction list) addr =
     match instrs with

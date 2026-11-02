@@ -680,6 +680,27 @@ type BinaryBrewTests() =
     Assert.AreEqual<NonReturningStatus>(expected, fn.NoRet)
 
   [<TestMethod>]
+  member _.``BinaryBrew ends a shared call on the status every path passes``() =
+    (* Both paths of both set the status of error to one before they reach
+       the call, whose block sets none, so the call never returns. *)
+    let fn = (recoverFunctions "elf_x64_sharednoret")[0x201389UL]
+    let rdi = Intel.Register.toRegID Intel.Register.RDI
+    let expected = ConditionalNoRet(ArgLocation.Reg rdi), 0, false
+    let actual = summarizeCall fn 0x201394UL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
+  member _.``BinaryBrew returns from a shared call when a path passes zero``() =
+    (* late sets the status to one on the path it takes first, but its jump
+       table later opens a path that sets zero for the same call, which thus
+       returns. *)
+    let fn = (recoverFunctions "elf_x64_sharednoret")[0x2013a3UL]
+    let rdi = Intel.Register.toRegID Intel.Register.RDI
+    let expected = ConditionalNoRet(ArgLocation.Reg rdi), 0, true
+    let actual = summarizeCall fn 0x2013aeUL
+    Assert.AreEqual<NonReturningStatus * int * bool>(expected, actual)
+
+  [<TestMethod>]
   member _.``BinaryBrew recovers functions while the thread pool is stuck``() =
     (* The workers block on replies from the manager, so if handing over a
        request or a reply ever waited for a pool thread, a pool that stops

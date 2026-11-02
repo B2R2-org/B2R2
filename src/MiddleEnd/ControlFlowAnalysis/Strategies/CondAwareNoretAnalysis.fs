@@ -62,14 +62,25 @@ module private CondAwareNoretAnalysisHelper =
     | None ->
       false
 
-  /// Locally analyzes the given basic block and checks if the argument at the
-  /// given location, which the call ending the block passes, is non-zero.
-  let hasNonZero hdl caller loc =
-    let st = CFGEvaluator.evalBlockFromScratch hdl caller
+  /// Locally analyzes the given basic blocks, through which the control runs
+  /// in turn, and checks if the argument at the given location, which the call
+  /// ending the last block passes, is non-zero.
+  let hasNonZero hdl blks loc =
+    let st = CFGEvaluator.evalBlocksFromScratch hdl blks
     match loc with
     | ArgLocation.Reg rid -> hasNonZeroInRegister st rid
     | ArgLocation.Stack layout -> hasNonZeroOnStack hdl st layout
     | ArgLocation.RegPair _ -> false
+
+  /// Checks if every predecessor of the given caller, none of which may be a
+  /// call it returns from, sets the argument at the given location to a
+  /// non-zero one that the call ending the caller passes.
+  let hasNonZeroFromPreds hdl (g: IDiGraph<_, _>) caller loc =
+    let preds = g.GetPreds caller
+    not (Array.isEmpty preds)
+    && preds |> Array.forall (fun (pred: IVertex<LowUIRBasicBlock>) ->
+      not pred.VData.Internals.IsAbstract
+      && hasNonZero hdl [| pred; caller |] loc)
 
   [<return: Struct>]
   let (|Zero|_|) e =
@@ -341,7 +352,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         ConditionalNoRet callerLoc
       | None ->
         let caller = g.GetPreds v |> Seq.exactlyOne
-        if hasNonZero ctx.BinHandle caller loc then NoRet else NotNoRet
+        if hasNonZero ctx.BinHandle [| caller |] loc then NoRet else NotNoRet
     else
       NoRet
 
@@ -530,4 +541,13 @@ module CondAwareNoretAnalysis =
   /// Locally analyzes the given basic block and checks if the argument at the
   /// given location, which the call ending the block passes, is non-zero.
   let hasNonZero hdl caller loc =
-    CondAwareNoretAnalysisHelper.hasNonZero hdl caller loc
+    CondAwareNoretAnalysisHelper.hasNonZero hdl [| caller |] loc
+
+  /// Checks if the call ending the given caller in the given CFG passes a
+  /// non-zero argument at the given location, however the control reaches it.
+  /// A caller that sets no argument of its own leaves it to its predecessors,
+  /// as when a compiler merges the calls of several paths into one, so the
+  /// answer holds only while no other predecessor joins them.
+  let passesNonZero hdl g caller loc =
+    CondAwareNoretAnalysisHelper.hasNonZero hdl [| caller |] loc
+    || CondAwareNoretAnalysisHelper.hasNonZeroFromPreds hdl g caller loc
