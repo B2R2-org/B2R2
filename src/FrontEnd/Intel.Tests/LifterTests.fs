@@ -366,6 +366,14 @@ type LifterTests() =
           "ijmp 0x1122334455667788:I64" |]
 
   [<TestMethod>]
+  member _.``[X64] NOTRACK JMP ignores the base of DS (1)``() =
+    (* NOTRACK is the DS prefix, whose base 64-bit mode takes as zero, so the
+       jump reads the same entry that a plain one does. *)
+    testX64 "3eff24cd08604000" (* notrack jmp qword ptr [rcx*8+0x406008] *)
+    <| [| "(8) {"
+          "ijmp [((RCX << 0x3:I64) + 0x406008:I64)]:I64" |]
+
+  [<TestMethod>]
   member _.``[X64] APX AADD adds atomically and sets no flag (1)``() =
     testX64 "62f47c08fc03" (* aadd dword ptr [rbx], eax *)
     <| [| "(6) {"
