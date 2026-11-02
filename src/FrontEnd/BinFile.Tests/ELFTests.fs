@@ -2153,6 +2153,21 @@ type ELFTests() =
       Assert.AreEqual<AddrRange option>(None, file.TryFindFDERange addr)
 
   [<TestMethod>]
+  member _.``[ELF] x64 fragment lookup finds the code of only the PLT``() =
+    let file = parseEhFrameFile ()
+    let fdes =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.sortBy (fun fde -> fde.PCBegin)
+    let fragments =
+      fdes
+      |> List.filter (fun fde -> file.IsWithinFragment(fde.PCEnd - 1UL))
+      |> List.map (fun fde -> fde.PCBegin)
+    let before = fdes.Head.PCBegin - 1UL
+    Assert.AreEqual<Addr list>([ 0x1020UL ], fragments)
+    Assert.AreEqual<bool>(false, file.IsWithinFragment before)
+
+  [<TestMethod>]
   member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let rsp = DWRegister.toRegID isa 7uy

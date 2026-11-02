@@ -649,6 +649,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     |> Option.map (fun (_, fde) ->
       AddrRange.create fde.PCBegin (fde.PCEnd - 1UL))
 
+  /// Checks if the FDE covering the given address starts mid-frame, which makes
+  /// the code it covers a fragment of a function that starts elsewhere, such as
+  /// the cold part that a compiler splits off a function.
+  member _.IsWithinFragment(addr: Addr) =
+    match findCoveringFDE sortedFDEs.Value addr with
+    | Some(_, fde) -> fde.StartsMidFrame
+    | None -> false
+
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
