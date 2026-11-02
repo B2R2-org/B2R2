@@ -267,6 +267,16 @@ type BinaryBrewTests() =
     Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
 
   [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``BinaryBrew follows a jump table into a cold part``() =
+    (* Case 1 of pick lies in a cold part below pick, which carries on the frame
+       of pick from its jump, so it belongs to the table like any other case. *)
+    let fn = (recoverFunctions "elf_x86_coldjmptbl")[0x401176UL]
+    let targets = [ 0x401174UL; 0x401184UL; 0x40118bUL; 0x401192UL ]
+    let expected = [ 0x400118UL, 4, targets ]
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
   member _.``BinaryBrew starts a nested jump table at its first case``() =
     (* Cases 4 to 9 of pick switch again on the same register, which GCC thus
        knows to hold 4 to 9 there. Instead of checking the range, it folds case

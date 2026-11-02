@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.FrontEnd.BinFile
 
 /// Represents the manager-side coordinator of jump table recovery. Jump tables
 /// can be shared or overlapped by multiple functions, so this arbitrates them
@@ -216,7 +217,20 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
 #endif
     notes.Unregister(tblAddr, fnAddr) |> ignore
 
-  let isExpandable fnAddr nextJumpTarget isFPTab =
+  /// Checks if the given target lies within a fragment that carries on the
+  /// frame that the indirect branch of the given table runs in, such as the
+  /// cold part that a compiler splits off the function of the branch.
+  let isWithinFragment fnAddr tblAddr target =
+    match builders[fnAddr].Context.BinHandle.File with
+    | :? ELFBinFile as elf ->
+      let cfa = elf.TryFindCFARegOffset(notes.GetIndBranchAddress tblAddr)
+      elf.IsWithinFragment target
+      && cfa.IsSome
+      && cfa = elf.TryFindCFARegOffset target
+    | _ ->
+      false
+
+  let isExpandable fnAddr tblAddr nextJumpTarget isFPTab =
     match builders[fnAddr].NextFunctionAddress with
     | Some nextFnAddr ->
       let nextBuilder = builders[nextFnAddr]
@@ -224,6 +238,7 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
          the next function begins if no padding lies between the two. *)
       isFPTab (* Since we are handling a function pointer table, we just go *)
       || (fnAddr < nextJumpTarget && nextJumpTarget <= nextBuilder.EntryPoint)
+      || isWithinFragment fnAddr tblAddr nextJumpTarget
     | None ->
       false
 
@@ -235,7 +250,7 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
     hostFunctions.Add fnAddr |> ignore
     notes.SetConfirmedEndPoint(tblAddr, idx)
     if notes.IsExpandable(tblAddr, idx + 1) then
-      isExpandable fnAddr nextJumpTarget isFPTab
+      isExpandable fnAddr tblAddr nextJumpTarget isFPTab
     else
       false
 

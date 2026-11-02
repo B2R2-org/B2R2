@@ -1107,6 +1107,67 @@ pick_t:
         .long   0
 ```
 
+## The cold jump table fixture
+
+A hand-written function whose table sends one case to a cold part below the
+function, the way GCC splits off the unlikely code of a function at `-O2`. The
+cold part has its own FDE, which starts mid-frame: it carries on the frame of
+`pick` from the jump. GNU as would move a frame state set at the very start of
+an FDE into a CIE of its own, so a `.cfi_escape` keeps it in the FDE, where
+GCC-built binutils binaries have it.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x86_coldjmptbl` | `pick` jumps through a four-entry table whose entry 1 points to a cold part below `pick`, whose FDE starts mid-frame |
+
+```
+gcc -m32 -fuse-ld=lld -static -nostdlib cold.s -o elf_x86_coldjmptbl
+```
+
+```asm
+        .intel_syntax noprefix
+        .text
+        .cfi_startproc
+        .cfi_escape 0x0e, 0x10
+.Lp_c1: ud2
+        .cfi_endproc
+
+        .globl  pick
+        .type   pick, @function
+pick:
+        .cfi_startproc
+        sub     esp, 12
+        .cfi_def_cfa_offset 16
+        mov     eax, DWORD PTR [esp+16]
+        jmp     DWORD PTR [pick_t+eax*4]
+.Lp_c0: mov     eax, 10
+        jmp     .Lp_ret
+.Lp_c2: mov     eax, 30
+        jmp     .Lp_ret
+.Lp_c3: mov     eax, 40
+.Lp_ret:
+        add     esp, 12
+        .cfi_def_cfa_offset 4
+        ret
+        .cfi_endproc
+        .size   pick, .-pick
+
+        .globl  _start
+        .type   _start, @function
+_start:
+        push    0
+        call    pick
+        add     esp, 4
+        ret
+        .size   _start, .-_start
+
+        .section .rodata
+        .p2align 2
+pick_t:
+        .long   .Lp_c0, .Lp_c1, .Lp_c2, .Lp_c3
+        .long   0
+```
+
 ## The folded jump table fixture
 
 Hand-written functions that switch on a register whose range a conditional
