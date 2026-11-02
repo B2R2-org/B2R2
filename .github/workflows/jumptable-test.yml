@@ -2,10 +2,11 @@ name: jumptable-test
 
 # Scores B2R2's jump table recovery against the JumpTableBench ground truth,
 # so that a middle-end change that loses a table or invents one shows up as a
-# failing check rather than as a quietly worse CFG. The architectures are a
-# matrix because they are independent measurements: which one regressed is the
-# first thing worth knowing, and running them side by side costs one
-# architecture's wall clock rather than the sum.
+# failing check rather than as a quietly worse CFG. The configurations, an
+# architecture and a compiler each, are a matrix because they are independent
+# measurements: which one regressed is the first thing worth knowing, and
+# running them side by side costs one configuration's wall clock rather than
+# the sum.
 
 on:
   push:
@@ -18,7 +19,7 @@ env:
   # One tag pins all three pieces -- the binaries, the ground truth and the
   # checksums -- so upgrading the dataset is a reviewable commit here instead
   # of a silent shift in what the check measures.
-  DATASET_TAG: v0.1
+  DATASET_TAG: v0.3
 
 jobs:
   score:
@@ -29,9 +30,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch:
-        - x86
-        - x64
+        config:
+        - x86-gcc
+        - x86-clang
+        - x64-gcc
+        - x64-clang
 
     steps:
     - uses: actions/checkout@v5
@@ -50,7 +53,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     # Release, because that is the output the script references and scoring a
-    # hundred binaries per architecture is CPU bound. It reads the build of
+    # few hundred binaries per configuration is CPU bound. It reads the build of
     # this commit rather than a published package, which is the whole point of
     # scoring per push.
     - name: Build
@@ -66,17 +69,16 @@ jobs:
         tar -xzf dataset.tar.gz --strip-components=1 -C dataset
     - name: Download binaries
       env:
-        ARCH: ${{ matrix.arch }}
+        CONFIG: ${{ matrix.config }}
       run: |
-        curl -sSLf \
-          "$DATASET_REPO/releases/download/$DATASET_TAG/binaries-$ARCH.tar.gz" \
-          -o binaries.tar.gz
+        release="$DATASET_REPO/releases/download/$DATASET_TAG"
+        curl -sSLf "$release/binaries-$CONFIG.tar.gz" -o binaries.tar.gz
         tar -xzf binaries.tar.gz -C dataset
     # The checksums come from git and the binaries from the release, which is
     # what makes this worth doing: a replaced release asset fails against the
     # hash recorded in history. --ignore-missing is for the other
-    # architectures this job never downloaded, and it still fails when nothing
-    # at all matched, which is what catches a wrong extraction path.
+    # configurations this job never downloaded, and it still fails when
+    # nothing at all matched, which is what catches a wrong extraction path.
     - name: Verify checksums
       working-directory: dataset
       run: sha256sum --ignore-missing -c SHA256SUMS
@@ -84,10 +86,10 @@ jobs:
     # dataset itself did not line up and nothing was scored.
     - name: Score
       env:
-        ARCH: ${{ matrix.arch }}
+        CONFIG: ${{ matrix.config }}
       run: >
         dotnet fsi .github/jumptable-test.fsx
-        "dataset/binaries/$ARCH" "dataset/ground-truth/$ARCH"
+        "dataset/binaries/$CONFIG" "dataset/ground-truth/$CONFIG"
 
   notify-failure:
 
