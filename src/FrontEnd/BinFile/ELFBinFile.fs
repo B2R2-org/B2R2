@@ -691,6 +691,15 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// address, e.g., a variable in .data.
   member _.IsReadOnlyAfterLoading(addr: Addr) = isReadOnlyAfterLoading addr
 
+  /// Returns the trampoline of the PLT entry that covers the given address,
+  /// which is where the import table lists the entry; None when no PLT entry
+  /// covers it. A call may enter an entry past its trampoline: GNU ld starts
+  /// the ARM entry of an import that Thumb code tail-calls with a Thumb stub,
+  /// which a call that switches to ARM skips.
+  member _.TryFindTrampoline(addr: Addr) =
+    NoOverlapIntervalMap.tryFindByAddr addr plt.Value
+    |> Option.bind _.TrampolineAddress
+
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
