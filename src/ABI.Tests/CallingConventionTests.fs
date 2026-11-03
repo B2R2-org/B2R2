@@ -169,6 +169,21 @@ type CallingConventionTests() =
     Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.D16))
     Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.D31))
 
+  (* The VFP variant of AAPCS passes floats in D0 to D7 and returns one in D0,
+     whose low half is S0; the base standard leaves them to the core
+     registers. *)
+  [<TestMethod>]
+  member _.``AAPCS passes floats in VFP registers only when hard-float``() =
+    let arm r = ARM32.Register.toRegID r
+    let d0, d7 = arm ARM32.Register.D0, arm ARM32.Register.D7
+    let hard = CallingConvention.create OS.Linux (ISA "armhf")
+    let soft = CallingConvention.create OS.Linux (ISA "armel")
+    Assert.AreEqual<RegisterID>(d0, hard.FloatArgRegister 0)
+    Assert.AreEqual<RegisterID>(d7, hard.FloatArgRegister 7)
+    Assert.AreEqual<RegisterID>(d0, hard.FloatReturnRegister)
+    Assert.AreEqual<int>(0, soft.FloatArgs.Length)
+    Assert.AreEqual<RegisterID>(arm ARM32.Register.R0, soft.FloatReturnRegister)
+
   [<TestMethod>]
   member _.``x64 System V passes floats in XMM independently``() =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)

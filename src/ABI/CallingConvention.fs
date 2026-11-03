@@ -178,16 +178,28 @@ module CallingConvention =
     [ for i in first .. last ->
         arm32 (enum<ARM32.Register>(int ARM32.Register.D0 + i)) ]
 
-  let private linuxARM32 () = (* AAPCS (EABI); soft-float via core regs *)
+  /// Returns where AAPCS passes floats and where it returns one. The VFP
+  /// variant passes them in D0 to D7 and returns one in D0, whose low half is
+  /// S0; the base standard leaves them to the core registers.
+  let private aapcsFloats (isa: ISA) =
+    match isa.ARMFloatABI with
+    | ARMFloatABI.Hard ->
+      let d0 = ArgLocation.Reg(arm32 ARM32.Register.D0)
+      [| for d in vfpDoubles 0 7 -> ArgLocation.Reg d |], d0
+    | _ ->
+      [||], ArgLocation.Reg(arm32 ARM32.Register.R0)
+
+  let private linuxARM32 isa = (* AAPCS (EABI), in either variant *)
+    let floatArgs, floatReturn = aapcsFloats isa
     { IntArgs =
         [| ArgLocation.Reg(arm32 ARM32.Register.R0)
            ArgLocation.Reg(arm32 ARM32.Register.R1)
            ArgLocation.Reg(arm32 ARM32.Register.R2)
            ArgLocation.Reg(arm32 ARM32.Register.R3)
            ArgLocation.Stack { FirstOffset = 0; SlotSize = 4 } |]
-      FloatArgs = [||]
+      FloatArgs = floatArgs
       IntReturnLocation = ArgLocation.Reg(arm32 ARM32.Register.R0)
-      FloatReturnLocation = ArgLocation.Reg(arm32 ARM32.Register.R0)
+      FloatReturnLocation = floatReturn
       ArgClassification = Independent
       CalleeSavedRegisters = (* R9 (SB) is the platform's; GNU/Linux keeps it *)
         set [ arm32 ARM32.Register.R4
@@ -780,11 +792,11 @@ module CallingConvention =
        Mach-O targets, so these reuse the builders we model Linux-first. *)
     | OS.MacOSX, X86 -> linuxX86 ()
     | OS.MacOSX, X64 -> linuxX64 ()
-    | OS.MacOSX, ARM32 -> linuxARM32 ()
+    | OS.MacOSX, ARM32 -> linuxARM32 isa
     | OS.MacOSX, AArch64 -> linuxAArch64 ()
     (* Linux and any unknown OS (e.g. a raw image) also follow System V. *)
     | _, X86 -> linuxX86 ()
-    | _, ARM32 -> linuxARM32 ()
+    | _, ARM32 -> linuxARM32 isa
     | _, AArch64 -> linuxAArch64 ()
     | _, MIPS -> linuxMIPS ()
     | _, PPC32 -> linuxPPC32 ()

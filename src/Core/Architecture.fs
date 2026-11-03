@@ -81,6 +81,23 @@ and ARM32Mode =
   | Thumb = 1
 
 /// <summary>
+/// Represents how a 32-bit ARM ISA passes floating-point arguments and results
+/// across a call, which AAPCS lets a platform choose. Each value is the bit it
+/// takes in an ISA's flags.
+///
+/// Unlike everything else in the flags, the decoder never reads this: both
+/// ways run the same instructions. It sits in the ISA because a binary states
+/// it in the same header that names the ISA, and Debian names its ports for
+/// it, armel and armhf.
+/// </summary>
+and ARMFloatABI =
+  /// The base standard, which passes them in the core registers whether or
+  /// not there is a VFP unit (GCC's soft and softfp).
+  | Soft = 0
+  /// The VFP variant, which passes them in the VFP registers (GCC's hard).
+  | Hard = 2
+
+/// <summary>
 /// Represents which version of the ARM architecture an ARM ISA means.
 ///
 /// "ARMv8" is not one instruction set: each version adds instructions that the

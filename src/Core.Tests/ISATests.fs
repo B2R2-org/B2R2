@@ -122,13 +122,46 @@ type ISATests() =
   [<TestMethod>]
   member _.``The names of one ARM32 ISA all mean it``() =
     let aliases =
-      [ "armv7", [ "armv7le"; "armel"; "armhf"; "arm32"; "arm" ]
+      [ "armv7", [ "armv7le"; "armel"; "arm32"; "arm" ]
+        "armv7+hf", [ "armhf" ]
         "thumb", [ "t32" ]
         "thumbbe", [ "t32be" ]
         "aarch32", [ "armv8a32" ] ]
     for name, others in aliases do
       for other in others do
         Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  /// Any 32-bit ARM ISA can pass its floats either way, so the suffix saying it
+  /// uses the VFP registers goes on any of their names, after the version and
+  /// the extensions where there are some. A name without it says nothing, and
+  /// that means the base standard.
+  [<TestMethod>]
+  member _.``An ARM32 name ending in +hf passes floats in VFP registers``() =
+    let names =
+      [ for name, _, _, _ in arm32 -> name ]
+      @ [ for name, _, _ in armv7Versions -> name ]
+    for name in names do
+      let hard, soft = ISA(name + "+hf"), ISA name
+      Assert.AreEqual<ARMFloatABI>(ARMFloatABI.Hard, hard.ARMFloatABI, name)
+      Assert.AreEqual<ARMFloatABI>(ARMFloatABI.Soft, soft.ARMFloatABI, name)
+      Assert.AreEqual<string>(name + "+hf", hard.ToString(), name)
+
+  /// The decoder reads nothing of how floats are passed, so saying it changes
+  /// nothing of what the rest of the name says.
+  [<TestMethod>]
+  member _.``The float ABI leaves what an ARM32 ISA reads alone``() =
+    let isa = ISA "thumb-v7ve+simd+hf"
+    Assert.AreEqual<ARM32Mode>(ARM32Mode.Thumb, isa.ARM32Mode)
+    Assert.AreEqual<ARMArchVersion>(ARMArchVersion.V7VE, isa.ARMArchVersion)
+    Assert.AreEqual<ARMv7Extension>(ARMv7Extension.SIMD, isa.ARMv7Extensions)
+
+  /// Only 32-bit ARM chooses by name how it passes floats, so the suffix on
+  /// any other name names no ISA.
+  [<TestMethod>]
+  member _.``Only a 32-bit ARM name takes +hf``() =
+    for name in [ "x86+hf"; "aarch64+hf"; "mips32+hf" ] do
+      Assert.ThrowsExactly<InvalidISAException>(fun () -> ISA name |> ignore)
+      |> ignore
 
   [<TestMethod>]
   member _.``An AArch64 name says which version it means``() =
