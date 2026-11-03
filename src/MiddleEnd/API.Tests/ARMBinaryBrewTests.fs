@@ -247,3 +247,31 @@ type ARMBinaryBrewTests() =
       :> IIncrementalFunctionIdentifiable
     let found = identification.IdentifyMore recovered
     CollectionAssert.Contains(found, 0x10330UL)
+
+  (* GNU ld starts the ARM PLT entry of qsort with a Thumb stub, which
+     sort_tail tail-calls, and main calls 0x48c past the stub with a blx. The
+     call is to the import all the same, not to a function at 0x48c. *)
+  [<TestMethod>]
+  member _.``A call past a Thumb PLT stub calls the import``() =
+    let bytes = readZippedBinary "elf_thumb_pltstub"
+    let fns = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "armv7")).Functions
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x48cUL)
+    let callee = fns[0x4a4UL].Callees[LeafCallSite 0x4ccUL]
+    Assert.AreEqual<CalleeKind>(RegularCallee 0x488UL, callee)
+
+  (* main passes cmp to qsort by the call that skips the stub, which proves
+     cmp a function as much as a call to the stub would. *)
+  [<TestMethod>]
+  member _.``A call past a Thumb PLT stub proves its callback``() =
+    let bytes = readZippedBinary "elf_thumb_pltstub"
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "armv7")
+    let onlyMain =
+      { new IFunctionIdentifiable with
+          member _.Identify() = [| 0x4a5UL |] }
+    let recovered =
+      BinaryBrew(hdl, onlyMain, CFGRecovery()).Functions.Sequence
+      |> Seq.toArray
+    let identification =
+      ARM32FunctionIdentification(hdl, ExceptionInfo hdl)
+      :> IIncrementalFunctionIdentifiable
+    CollectionAssert.Contains(identification.IdentifyMore recovered, 0x609UL)

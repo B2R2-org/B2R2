@@ -537,26 +537,38 @@ module internal CFGRecoveryCommon =
   let isCondTailCall ctx jmpAddr target =
     runsAtEntryDepth ctx jmpAddr && isTailCall ctx jmpAddr target
 
+  /// Returns the address of the function that a call or a jump to the given
+  /// target enters: the trampoline of the PLT entry that covers the target,
+  /// which a call that switches Thumb code to ARM enters past the Thumb stub
+  /// starting it, or else the target itself.
+  let toCalleeAddr (ctx: CFGBuildingContext<_, _>) target =
+    match ctx.BinHandle.File with
+    | :? BinFile.ELFBinFile as elf ->
+      elf.TryFindTrampoline target |> Option.defaultValue target
+    | _ ->
+      target
+
   /// Connects the given vertex to the true target of the conditional jump that
   /// ends it, or calls the function there when the jump is a tail call.
   let connectTrueTarget ctx cfgRec queue useTCHeuristic srcVertex tpp =
     let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
     let jmpAddr = bbl.LastInstruction.Address
-    let target = (tpp: ProgramPoint).Address
-    if useTCHeuristic && isCondTailCall ctx jmpAddr target then
+    let callee = toCalleeAddr ctx (tpp: ProgramPoint).Address
+    if useTCHeuristic && isCondTailCall ctx jmpAddr callee then
       let callsite = LeafCallSite jmpAddr
-      let act = MakeTlCall(callsite, target, CalleeInfo.Unknown)
-      handleCall ctx cfgRec srcVertex callsite target act
+      let act = MakeTlCall(callsite, callee, CalleeInfo.Unknown)
+      handleCall ctx cfgRec srcVertex callsite callee act
     else
       connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
       MoveOn
 
-  /// Calls the function at target from the call that ends the given vertex.
+  /// Calls the function that the call ending the given vertex enters at target.
   let handleDirectCall ctx cfgRec srcVertex target =
     let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
     let callsite = LeafCallSite bbl.LastInstruction.Address
-    let act = MakeCall(callsite, target, CalleeInfo.Unknown)
-    handleCall ctx cfgRec srcVertex callsite target act
+    let callee = toCalleeAddr ctx target
+    let act = MakeCall(callsite, callee, CalleeInfo.Unknown)
+    handleCall ctx cfgRec srcVertex callsite callee act
 
   /// Matches the kind of a call that switches 32-bit ARM to the other
   /// instruction set, telling the one the callee starts in.
@@ -636,12 +648,13 @@ module internal CFGRecoveryCommon =
           let target = n.ToUInt64()
           let lastInsAddr = srcData.LastInstruction.Address
           if useTailcallHeuristic then
-            if not <| isTailCall ctx lastInsAddr target then
+            let callee = toCalleeAddr ctx target
+            if not <| isTailCall ctx lastInsAddr callee then
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
             else
               let callSite = LeafCallSite lastInsAddr
-              let act = MakeTlCall(callSite, target, CalleeInfo.Unknown)
-              result <- handleCall ctx cfgRec srcVertex callSite target act
+              let act = MakeTlCall(callSite, callee, CalleeInfo.Unknown)
+              result <- handleCall ctx cfgRec srcVertex callSite callee act
           else
             jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
         | InterJmp(Target = BinOp(Op = BinOpType.ADD

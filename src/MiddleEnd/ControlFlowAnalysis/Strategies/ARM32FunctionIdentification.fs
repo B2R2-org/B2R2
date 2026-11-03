@@ -205,6 +205,17 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       for succ in cfg.GetSuccs v do propagate knownsAt work succ out
     calls.Values
 
+  /// Returns the address of the function that a call to the given target
+  /// enters, as the recovery takes it: the trampoline of the PLT entry that
+  /// covers the target, which a call that switches Thumb code to ARM enters
+  /// past the Thumb stub starting it, or else the target itself.
+  let toCalleeAddr target =
+    match file with
+    | :? ELFBinFile as elf ->
+      elf.TryFindTrampoline target |> Option.defaultValue target
+    | _ ->
+      target
+
   /// Returns the constant that the argument of the given index holds as the
   /// call starts, if the argument is passed in a register.
   let tryArgOf (site: CallSite) idx =
@@ -228,7 +239,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let prove (externals: Dictionary<Addr, string>) (site: CallSite) =
     match site.Instruction.DirectBranchTarget() with
     | true, target ->
-      match externals.TryGetValue target with
+      match externals.TryGetValue(toCalleeAddr target) with
       | true, name ->
         ELF.getCallbackArgsOfKnownFunc name |> List.choose (tryArgOf site)
       | false, _ ->
