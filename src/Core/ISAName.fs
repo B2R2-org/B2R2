@@ -173,24 +173,40 @@ module private ARMVersion =
     baseName + "-" + fst verName
     + String.concat "" [ for n, _ in named -> "+" + n ]
 
-/// Reads what a canonical ISA name means, or UnknownISA when it is not a
-/// name this knows.
-let parse (isaName: string) =
+/// The suffix a 32-bit ARM name ends in when its ISA passes floats in the VFP
+/// registers, after the version and the extensions where there are some.
+let [<Literal>] private HardFloat = "+hf"
+
+let private isARM32 arch wordSize =
+  arch = Architecture.ARMv7
+  || (arch = Architecture.ARMv8 && wordSize = WordSize.Bit32)
+
+(* How floats are passed is only a 32-bit ARM ISA's to choose, so the suffix
+   saying so names nothing on any other. *)
+let private withHardFloat (arch, endian, wordSize, flags) =
+  if isARM32 arch wordSize then
+    arch, endian, wordSize, flags ||| int ARMFloatABI.Hard
+  else
+    ISADefaults.ofArch Architecture.UnknownISA
+
+let private parseBase name =
   (* The three MIPS encodings sit in the same flags word as the release, so
      a name that says both hands over both. Named here because the arms
      below are one line each. *)
   let umips = int MIPSISAMode.MicroMIPS
   let umips6 = int MIPSRelease.R6 ||| int MIPSISAMode.MicroMIPS
   let m16 = int MIPSISAMode.MIPS16
-  match isaName.ToLowerInvariant() with
+  match name with
   | ARMVersion.Versioned(arch, endian, wordSize, flags) ->
     arch, endian, wordSize, flags
   | "x86" | "i386" ->
     ISADefaults.ofArchWordSize Architecture.Intel WordSize.Bit32
   | "x64" | "x86-64" | "amd64" ->
     ISADefaults.ofArchWordSize Architecture.Intel WordSize.Bit64
-  | "armv7" | "armv7le" | "armel" | "armhf" | "arm32" | "arm" ->
+  | "armv7" | "armv7le" | "armel" | "arm32" | "arm" ->
     ISADefaults.ofArch Architecture.ARMv7
+  | "armhf" ->
+    withHardFloat (ISADefaults.ofArch Architecture.ARMv7)
   | "armv7be" ->
     ISADefaults.ofArchEndian Architecture.ARMv7 Endian.Big
   | "thumb" | "t32" ->
@@ -349,6 +365,16 @@ let parse (isaName: string) =
   | _ ->
     ISADefaults.ofArch Architecture.UnknownISA
 
+/// Reads what a canonical ISA name means, or UnknownISA when it is not a
+/// name this knows.
+let parse (isaName: string) =
+  let name = isaName.ToLowerInvariant()
+  if name.EndsWith HardFloat then
+    parseBase (name.Substring(0, name.Length - HardFloat.Length))
+    |> withHardFloat
+  else
+    parseBase name
+
 (* A version is part of what an ARM ISA reads, so a name that left it out
    would read back as every encoding rather than the version's. *)
 let private armName baseName arch flags =
@@ -378,9 +404,7 @@ let private mipsName endian wordSize flags =
        read back as a different ISA. The Release 6 arm never had that. *)
     "mips" + width + rel + (if le then "le" elif w64 then "be" else "")
 
-/// Returns the name an ISA prints as, which is one that reads back as the
-/// same ISA.
-let print arch endian wordSize flags =
+let private printBase arch endian wordSize flags =
   let thumb = ISAFlags.arm32Mode flags = ARM32Mode.Thumb
   match arch, endian, wordSize with
   | Architecture.Intel, _, WordSize.Bit32 ->
@@ -476,3 +500,10 @@ let print arch endian wordSize flags =
     "cil"
   | _ ->
     raise InvalidISAException
+
+/// Returns the name an ISA prints as, which is one that reads back as the
+/// same ISA.
+let print arch endian wordSize flags =
+  let name = printBase arch endian wordSize flags
+  let hard = ISAFlags.armFloatABI flags = ARMFloatABI.Hard
+  if hard && isARM32 arch wordSize then name + HardFloat else name

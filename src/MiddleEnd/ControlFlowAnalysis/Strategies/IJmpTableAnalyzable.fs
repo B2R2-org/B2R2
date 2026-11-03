@@ -35,7 +35,6 @@ type IJmpTableAnalyzable<'FnCtx, 'GlCtx> =
   abstract Identify:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * insAddr: Addr
-     * blkAddr: Addr
     -> Result<JmpTableInfo, ErrorCase>
 
   /// Checks if the indirect branch of the given table selects the entry at the

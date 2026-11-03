@@ -51,10 +51,7 @@ type BinaryBrew<'FnCtx, 'GlCtx>
 
   let numThreads = max 1 (Environment.ProcessorCount / 2)
 
-  let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
-
-  let builders =
-    CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer, cfgBuilder)
+  let builders = CFGBuilderTable(hdl, exnInfo, irBlkOptimizer, cfgBuilder)
 
   let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
     builders.Values
@@ -97,8 +94,9 @@ type BinaryBrew<'FnCtx, 'GlCtx>
   /// Exception information.
   member _.ExceptionInfo with get() = exnInfo
 
-  /// Get the instruction at the given address.
-  member _.Instructions with get() = instrs
+  /// Get the instruction at the given address, in the instruction set that
+  /// functions start in unless something says otherwise.
+  member _.Instructions with get() = builders.Instructions
 
   member _.Builders with get() = builders
 

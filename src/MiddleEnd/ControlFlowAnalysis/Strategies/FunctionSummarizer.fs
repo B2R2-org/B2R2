@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
@@ -74,16 +75,26 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
         let rt = regFactory.GetRegType rid
         regVar, AST.undef rt "caller-saved" |]
 
+  /// Returns how many bytes of the stack the return address of a call takes,
+  /// which the return pops. A link register takes none.
+  let returnAddressSize (hdl: BinHandle) rt =
+    match hdl.Conventions.Calling.ReturnAddressLocation with
+    | OnStack -> RegType.toByteWidth rt |> int64
+    | InRegister _ -> 0L
+
+  /// Makes the definition that moves the stack pointer past what the callee
+  /// pops, if it pops anything.
   let stackPointerDef (hdl: BinHandle) unwindingAmount =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterFactory.GetRegType sp
-      let sp = hdl.RegisterFactory.GetRegVar sp
-      let retAddrSize = RegType.toByteWidth rt |> int64
-      let adj = int64 unwindingAmount
-      let shiftAmount = BitVector(retAddrSize + adj, rt)
-      let e = AST.binop BinOpType.ADD sp (AST.num shiftAmount)
-      [| (sp, e) |]
+      let shift = returnAddressSize hdl rt + int64 unwindingAmount
+      if shift = 0L then
+        [||]
+      else
+        let sp = hdl.RegisterFactory.GetRegVar sp
+        let e = AST.binop BinOpType.ADD sp (AST.num (BitVector(shift, rt)))
+        [| (sp, e) |]
     | None ->
       [||]
 

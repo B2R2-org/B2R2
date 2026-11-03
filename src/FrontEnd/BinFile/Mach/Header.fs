@@ -138,11 +138,7 @@ module internal Header =
     else 0UL
 
   let private toISA hdr =
-    let cputype = hdr.CPUType
-    let cpusubtype = hdr.CPUSubType
-    let arch, wordSize = CPUType.toArchWordSizeTuple cputype cpusubtype
-    let endian = magicToEndian hdr.Magic
-    ISA(arch, endian, wordSize)
+    CPUType.toISA hdr.CPUType hdr.CPUSubType (magicToEndian hdr.Magic)
 
   /// Parse the Mach-O file format header, and return a Toolbox.
   let parse bytes baseAddrOpt isa =
@@ -172,9 +168,7 @@ module internal Header =
   let getISA bytes isa =
     if Header.IsFat bytes then
       let fatArch = Fat.parseArch bytes isa
-      let arch, wordSize =
-        CPUType.toArchWordSizeTuple fatArch.CPUType fatArch.CPUSubType
-      Ok(ISA(arch, Endian.Little, wordSize))
+      Ok(CPUType.toISA fatArch.CPUType fatArch.CPUSubType Endian.Little)
     else
       let struct (offset, _) = computeMachBounds bytes isa
       if isMach bytes offset then

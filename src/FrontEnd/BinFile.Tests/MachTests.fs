@@ -522,6 +522,20 @@ type MachTests() =
     Assert.AreEqual(WordSize.Bit64, isa.WordSize)
     Assert.AreEqual(Endian.Little, isa.Endian)
 
+  /// Apple passes floats in the core registers on 32-bit ARM, except on the
+  /// Apple Watch, whose armv7k (CPU subtype 12) passes them in the VFP
+  /// registers.
+  [<TestMethod>]
+  member _.``[Mach] ARM float ABI test``() =
+    let floatABIOf (subtype: int) =
+      let name = "mach_arm32_thumb"
+      let bytes = ZIPReader.readBytes MachBinary (name + ".zip") name
+      System.BitConverter.GetBytes(subtype).CopyTo(bytes, 8)
+      let isa = ISA(Architecture.ARMv7, Endian.Little, WordSize.Bit32)
+      (MachBinFile(name, bytes, isa, None, None) :> IBinFile).ISA.ARMFloatABI
+    Assert.AreEqual(ARMFloatABI.Soft, floatABIOf 9)
+    Assert.AreEqual(ARMFloatABI.Hard, floatABIOf 12)
+
   [<TestMethod>]
   member _.``[Mach] ARM64 EntryPoint test``() =
     Assert.AreEqual(Some 0x100000478UL, (arm64File :> IBinFile).EntryPoint)

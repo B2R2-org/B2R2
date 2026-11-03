@@ -51,7 +51,9 @@ type SSALifter() =
       let spValue = bv.ToUInt64()
       let offset = Constants.InitialStackPointer - spValue |> int
       let intraCallTable = (ctx: CFGBuildingContext<_, _>).IntraCallTable
-      let pred = ssaCFG.GetPreds v |> Seq.exactlyOne
+      (* A call that switches instruction sets reaches its callee from a vertex
+         for each of them, but they all end with the call. *)
+      let pred = ssaCFG.GetPreds v |> Seq.head
       let stmts = pred.VData.Internals.Statements
       let lastPP, _ = stmts[stmts.Length - 1]
       let lastInsAddr = lastPP.Address

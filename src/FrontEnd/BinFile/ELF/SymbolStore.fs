@@ -244,10 +244,25 @@ module private SymbolTables =
       let symbols = lazy (parseSymbols toolBox shdrs verTbl txtSec layout)
       (tbls: Dictionary<int, Lazy<Symbol[]>>)[layout.Symbols.SecNum] <- symbols
 
-  let addToSymbolMap (map: Dictionary<Addr, Symbol>) (symbols: Symbol[]) =
-    for sym in symbols do
-      if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
+  /// Checks if the given symbol is a Thumb function of 32-bit ARM, which sets
+  /// the lowest bit of its value to tell its encoding, so its code starts one
+  /// byte below the value.
+  let isThumbFunction machine (sym: Symbol) =
+    machine = MachineType.EM_ARM
+    && Symbol.IsFunction sym
+    && sym.Addr % 2UL = 1UL
+
+  /// Adds the given symbols to the address to symbol map, keeping a Thumb
+  /// function at the address where its code starts as well. A mapping symbol
+  /// marks where an encoding starts and names nothing there, so it is left out
+  /// for the symbol that does.
+  let addToSymbolMap machine (map: Dictionary<Addr, Symbol>) symbols =
+    for sym in (symbols: Symbol[]) do
+      if sym.MappingSymbol <> MappingSymbol.None then
+        ()
+      elif sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
         map[sym.Addr] <- sym
+        if isThumbFunction machine sym then map[sym.Addr - 1UL] <- sym else ()
       else
         ()
 
@@ -313,7 +328,7 @@ type internal SymbolStore internal(toolBox, shdrs, dynTables: DynamicTables) =
       let map = Dictionary<Addr, Symbol>()
       for layout in Array.append staticLayouts dynamicLayouts do
         let tbl = symbolTables[layout.Symbols.SecNum]
-        SymbolTables.addToSymbolMap map tbl.Value
+        SymbolTables.addToSymbolMap toolBox.Header.MachineType map tbl.Value
       map
 
   /// Symbols added by the other parsers, e.g., the PLT parser. They take

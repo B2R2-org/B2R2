@@ -42,13 +42,12 @@ type ICFGRecovery<'FnCtx, 'GlCtx> =
 /// during CFG recovery.
 and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx> =
   /// Handles an indirect jump that no relocation resolves during the CFG
-  /// building. It takes the building context, the program point being visited,
-  /// and the vertex that ends with the jump. Returning None lets the building
-  /// go on as is; returning Some result overrides the building result, which
-  /// stops the building unless the result is MoveOn.
+  /// building. It takes the building context and the vertex that ends with the
+  /// jump. Returning None lets the building go on as is; returning Some result
+  /// overrides the building result, which stops the building unless the result
+  /// is MoveOn.
   abstract AnalyzeIndirectJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    * ProgramPoint
     * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
 
@@ -58,7 +57,6 @@ and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx> =
   /// the same way.
   abstract AnalyzeIndirectCondJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    * ProgramPoint
     * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
 

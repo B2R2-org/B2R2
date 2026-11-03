@@ -616,6 +616,12 @@ let aluWritePC bld (ins: Instruction) isUnconditional addr =
   if ins.IsThumb then append bld { branchWritePC addr InterJmpKind.Base }
   else bxWritePC bld isUnconditional addr
 
+/// ALUWritePC() as the last write of an instruction, which its jump ends,
+/// unless a condition that fails goes on past the instruction.
+let endWithALUWritePC bld ins isUnconditional addr =
+  aluWritePC bld ins isUnconditional addr
+  if isUnconditional then NoEndMark else EndMark
+
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
 let loadWritePC bld isUnconditional result =

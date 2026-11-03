@@ -169,6 +169,30 @@ module internal Header =
   let private getELFFlags span (reader: IBinReader) cls =
     reader.ReadUInt32(span = span, offset = selectByWordSize cls 36 48)
 
+  /// The part of an ARM image's processor-specific flags naming the EABI
+  /// version it follows, which binutils calls EF_ARM_EABIMASK.
+  let [<Literal>] private ARMEABIMask = 0xff000000u
+
+  /// The value that field takes under EABI version 5.
+  let [<Literal>] private ARMEABIVer5 = 0x05000000u
+
+  /// The bit an ARM image's processor-specific flags carry when it passes
+  /// floats in the VFP registers, which binutils calls EF_ARM_ABI_FLOAT_HARD.
+  /// Its counterpart EF_ARM_ABI_FLOAT_SOFT says the base standard, which is
+  /// what an image saying neither means as well.
+  let [<Literal>] private ARMABIFloatHard = 0x400u
+
+  /// The ISA of an ARM image, whose processor-specific flags say how it passes
+  /// floats. Before EABI version 5 the bit saying so meant other things, so it
+  /// is read under that version alone.
+  let private getARMISA span (reader: IBinReader) cls =
+    let flags = getELFFlags span reader cls
+    let isEABI5 = flags &&& ARMEABIMask = ARMEABIVer5
+    let floatABI =
+      if isEABI5 && flags &&& ARMABIFloatHard <> 0u then ARMFloatABI.Hard
+      else ARMFloatABI.Soft
+    ISA(Architecture.ARMv7, reader.Endianness, WordSize.Bit32, int floatABI)
+
   /// The bit a MIPS image's processor-specific flags carry when it holds
   /// microMIPS code, which binutils calls EF_MIPS_ARCH_ASE_MICROMIPS. It sits
   /// apart from the architecture level because it is not one: microMIPS is
@@ -249,7 +273,7 @@ module internal Header =
     | MachineType.EM_X86_64 ->
       ISA(Architecture.Intel, WordSize.Bit64)
     | MachineType.EM_ARM ->
-      ISA(Architecture.ARMv7, reader.Endianness, WordSize.Bit32)
+      getARMISA span reader cls
     | MachineType.EM_AARCH64 ->
       ISA(Architecture.ARMv8, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_MIPS

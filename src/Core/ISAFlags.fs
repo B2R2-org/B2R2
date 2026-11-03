@@ -34,6 +34,11 @@ module internal B2R2.ISAFlags
 /// lowest bit.
 let arm32Mode flags: ARM32Mode = LanguagePrimitives.EnumOfValue(flags &&& 1)
 
+/// Reads how a 32-bit ARM ISA passes floats, which sits in the bit above the
+/// instruction set.
+let armFloatABI flags: ARMFloatABI =
+  LanguagePrimitives.EnumOfValue(flags &&& 2)
+
 /// Reads the version an ARM ISA means, which sits above the instruction
 /// set.
 let armArchVersion flags: ARMArchVersion =

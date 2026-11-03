@@ -4937,6 +4937,45 @@ type LifterTests() =
     Assert.AreEqual(w + 24u, run.Reg Register.SP)
 
   /// <summary>
+  /// LoadWritePC (A2.3.2) through POP, LDM and LDR: pop {r4, pc}, popne {r4,
+  /// pc}, pop {pc}, ldm r1, {r2, pc}, ldr pc, [r1], and pop {r4, pc} in Thumb.
+  /// A load into the PC ends the instruction with a jump, which nothing may
+  /// follow, not even the mark that ends an instruction falling through.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A2.3.2 LoadWritePC ends with a jump``() =
+    let loads =
+      [ false, "e8bd8010"
+        false, "18bd8010"
+        false, "e49df004"
+        false, "e8918004"
+        false, "e591f000"
+        true, "bd10" ]
+    for isThumb, hex in loads do
+      match Array.last (liftedBy isThumb hex) with
+      | InterJmp _ -> ()
+      | stmt -> Assert.Fail $"{hex} ends with {stmt}"
+
+  /// <summary>
+  /// ALUWritePC (A2.3.2) through ADD and MOV: add pc, r1, r0, mov pc, lr,
+  /// addls pc, pc, r0, lsl #2, and mov pc, lr in Thumb. A write to the PC ends
+  /// the instruction with a jump, which nothing may follow, unless a failed
+  /// condition goes on past the instruction from the label it skips to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A2.3.2 ALUWritePC ends with a jump``() =
+    let writes =
+      [ false, "e081f000"
+        false, "e1a0f00e"
+        false, "908ff100"
+        true, "46f7" ]
+    for isThumb, hex in writes do
+      let stmts = liftedBy isThumb hex
+      match stmts[stmts.Length - 2..] with
+      | [| _; InterJmp _ |] | [| LMark _; IEMark _ |] -> ()
+      | tail -> Assert.Fail $"{hex} ends with %A{tail}"
+
+  /// <summary>
   /// A8.8.134 PUSH: push {r2, r3}. This checks that it stores R2 then R3 below
   /// SP and moves SP down by eight. It is not a value test because it moves SP,
   /// which the run itself stands on.

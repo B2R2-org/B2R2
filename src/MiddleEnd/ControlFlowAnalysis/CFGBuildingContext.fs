@@ -66,7 +66,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let pendingCallActions = Dictionary<Addr, List<CFGAction>>()
 
-  let callerVertices = Dictionary<CallSite, IVertex<LowUIRBasicBlock>>()
+  let callerVertices = Dictionary<CallSite, List<IVertex<LowUIRBasicBlock>>>()
 
   let mutable unwindingBytes = 0
 
@@ -78,8 +78,18 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable threadID = -1
 
+  let mutable entryMode = ARM32Mode.ARM
+
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
+
+  /// The instruction set that the function starts in and keeps, as it can only
+  /// switch to the other one by calling or jumping out of itself. Only 32-bit
+  /// ARM has a choice, and every other ISA reads its one instruction set under
+  /// the name of ARM.
+  member _.EntryMode
+    with get(): ARM32Mode = entryMode
+     and internal set v = entryMode <- v
 
   /// Function name.
   member _.FunctionName with get(): string = name
@@ -153,7 +163,9 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// waiting for the callee to be built.
   member internal _.PendingCallActions with get() = pendingCallActions
 
-  /// From a call site of a caller vertex to the caller vertex itself.
+  /// From a call site to the vertices that end with its call. A call ends one
+  /// vertex, unless it switches instruction sets, which leaves one vertex for
+  /// each instruction set that it may go to.
   member internal _.CallerVertices with get() = callerVertices
 
   /// The number of unwinding bytes of the stack when this function returns.
@@ -382,6 +394,14 @@ and IManagerAccessible<'FnCtx, 'GlCtx> =
   /// built.
   abstract StartBuilding:
        addr: Addr
+    -> unit
+
+  /// Notes the instruction set that the function at the given address starts
+  /// in, which a call switching instruction sets says. A builder already made
+  /// for the function, or an earlier note, wins.
+  abstract NoteEntryMode:
+       addr: Addr
+     * mode: ARM32Mode
     -> unit
 
   /// Updates the dependency between two functions and returns the current

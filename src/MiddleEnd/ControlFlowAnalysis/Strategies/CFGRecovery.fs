@@ -81,12 +81,12 @@ module private CFGRecovery =
       dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
 #endif
       connectSyscallEdge ctx syscallAnalysis cfgRec callsiteAddr isExit
-    | MakeIndEdges(bblAddr, insAddr) ->
+    | MakeIndEdges insAddr ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeIndEdges)
-      <| $"{bblAddr:x} @ {ctx.FunctionAddress:x}"
+      <| $"{insAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-      recoverIndirectBranches ctx jmptblAnalysis queue insAddr bblAddr
+      recoverIndirectBranches ctx jmptblAnalysis queue insAddr
     | WaitForCallee calleeAddr ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof WaitForCallee)
@@ -107,7 +107,7 @@ module private CFGRecovery =
         dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
 #endif
         Wait (* yet resolved *)
-    | StartTblRec(jmptbl, idx, srcAddr, dstAddr) ->
+    | StartTblRec(jmptbl, idx, dstAddr) ->
 #if CFGDEBUG
       let fnAddr = ctx.FunctionAddress
       dbglog ctx.ThreadID (nameof StartTblRec)
@@ -115,7 +115,7 @@ module private CFGRecovery =
 #endif
       assert (if not jmptbl.IsSingleEntry then true else idx = 0)
       ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
-      recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr
+      recoverJumpTableEntry ctx cfgRec idx jmptbl dstAddr
     | EndTblRec(jmptbl, idx) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof EndTblRec)
@@ -177,14 +177,14 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
     member _.CreateGlobalContext() = new 'GlCtx()
 
-    member _.AnalyzeIndirectJump(ctx, pp, srcVertex) =
+    member _.AnalyzeIndirectJump(ctx, srcVertex) =
       let insAddr = srcVertex.VData.Internals.LastInstruction.Address
       let callsite = LeafCallSite insAddr
       addCallerVertex ctx callsite srcVertex
-      pushAction ctx <| MakeIndEdges(pp.Address, insAddr)
+      pushAction ctx <| MakeIndEdges insAddr
       None
 
-    member _.AnalyzeIndirectCondJump(_, _, _) = None
+    member _.AnalyzeIndirectCondJump(_, _) = None
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx

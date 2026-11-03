@@ -122,6 +122,12 @@ type ISA(arch, endian, wordSize, flags) =
   member _.ARM32Mode with get(): ARM32Mode =
     ISAFlags.arm32Mode flags
 
+  /// How a 32-bit ARM ISA passes floats across a call, which is the base
+  /// standard's way unless the flags say otherwise. Only the calling convention
+  /// reads it, and it says nothing about any other architecture.
+  member _.ARMFloatABI with get(): ARMFloatABI =
+    ISAFlags.armFloatABI flags
+
   /// <summary>
   /// Which version of the ARM architecture an ARM ISA means, which is Any --
   /// every encoding the front end knows -- unless the flags say otherwise.

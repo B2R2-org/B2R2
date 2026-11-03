@@ -558,8 +558,7 @@ module private EVMCFGRecovery =
 #endif
         let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
         let callsite = LeafCallSite lastAddr
-        if not <| ctx.CallerVertices.ContainsKey callsite then ()
-        else ctx.CallerVertices[callsite] <- dstVertex
+        replaceCallerVertex ctx callsite dstVertex
         connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
         for e in preds do
           connectEdge ctx cfgRec e.First srcVertex e.Label
@@ -775,7 +774,7 @@ module private EVMCFGRecovery =
     |> toCFGResult
 
   let handleCall (ctx: CFGBuildingContext<_, _>) cfgRec cs callee calleeInfo =
-    let caller = ctx.CallerVertices[cs]
+    let caller = getCallerVertex ctx cs
     let callsite = fromBBLToCallSite caller.VData.Internals
     let absPp = ProgramPoint(callsite, callee, 0)
     let act = ExpandCFG [ absPp ]
@@ -1000,10 +999,10 @@ type EVMCFGRecovery(fnCallback) as this =
       | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
       | _ -> MoveOn
 
-    member _.AnalyzeIndirectJump(ctx, _pp, srcV) =
+    member _.AnalyzeIndirectJump(ctx, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this srcV)
 
-    member _.AnalyzeIndirectCondJump(ctx, _pp, srcV) =
+    member _.AnalyzeIndirectCondJump(ctx, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterCJmp ctx this srcV)
 
     member _.OnAddVertex(ctx, v) =

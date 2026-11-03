@@ -447,6 +447,14 @@ type ELFTests() =
   /// fixture below carries, so the plain EM_SPARC is stated the same way.
   static let sparcV8Header = elf32Header Endian.Big 0x02us
 
+  /// An ARM header with the given processor-specific flags, which are where
+  /// an ARM image says how it passes floats.
+  static let armHeader flags =
+    let bytes = elf32Header Endian.Little 0x28us
+    let span = System.Span(bytes, 0x24, 4)
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(span, flags)
+    bytes
+
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
     |> Seq.map (fun reloc -> reloc.RelOffset, reloc.RelSymbol.Value.SymName)
@@ -1412,6 +1420,21 @@ type ELFTests() =
     Assert.AreEqual(Some DataMode, Map.tryFind 0x10194UL markers)
 
   [<TestMethod>]
+  member _.``[ELF] arm32 mapping symbols name nothing test``() =
+    (* A mapping symbol marks where an encoding starts, so an address resolves
+       to what starts there: the Thumb function _start, whose value sets the
+       lowest bit, at the address where its code starts, main where $a marks
+       it, and the import whose PLT entry starts where $a marks it. A fresh
+       instance has not parsed its PLT yet. *)
+    let file = parseFile "elf_arm32"
+    let assertName expected addr =
+      let actual = tryResolveName file addr
+      Assert.AreEqual<Result<string, ErrorCase>>(Ok expected, actual)
+    assertName "_start" 0x10354UL
+    assertName "main" 0x10330UL
+    assertName "__libc_start_main" 0x10300UL
+
+  [<TestMethod>]
   member _.``[ELF] aarch64 mapping symbols mark the encoding test``() =
     let markers = markersOf aarch64File
     Assert.AreEqual(Some A64Mode, Map.tryFind 0x4005c0UL markers)
@@ -1716,6 +1739,22 @@ type ELFTests() =
        to fail the file. *)
     let kind = ELF.RelocationKind(ELF.MachineType.EM_TI_C6000, 4UL)
     Assert.AreEqual<string>("RELOC_0x4", RelocKind.ToString kind)
+
+  /// EABI version 5 gave two bits of e_flags to how an image passes floats,
+  /// which earlier versions used for other things, so they are read under
+  /// version 5 alone. An image saying nothing means the base standard.
+  [<TestMethod>]
+  member _.``[ELF] arm32 float ABI test``() =
+    let floatABIOf flags =
+      match ELF.Header.getISA (armHeader flags) with
+      | Ok isa -> isa.ARMFloatABI
+      | Error _ -> Assert.Fail(); ARMFloatABI.Soft
+    let fixture = (arm32File :> IBinFile).ISA.ARMFloatABI
+    Assert.AreEqual(ARMFloatABI.Hard, fixture)
+    Assert.AreEqual(ARMFloatABI.Hard, floatABIOf 0x05000400u)
+    Assert.AreEqual(ARMFloatABI.Soft, floatABIOf 0x05000200u)
+    Assert.AreEqual(ARMFloatABI.Soft, floatABIOf 0x05000000u)
+    Assert.AreEqual(ARMFloatABI.Soft, floatABIOf 0x04000400u)
 
   [<TestMethod>]
   member _.``[ELF] TI C6000 ISA test``() =
@@ -2549,14 +2588,13 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] x64 exec name resolution via PLT parsing test``() =
     (* The PLT is parsed only after a symbol lookup has missed, and parsing it
-       registers the imported symbol at its trampoline address. The entry's
-       table address is the GOT slot, not the trampoline, so the first lookup
-       still fails while the next one finds the freshly added symbol. This
-       starts from a fresh instance, as a shared one may have forced the PLT
-       already. *)
+       registers the imported symbol at its trampoline address. The first
+       lookup finds the name in the PLT entry that starts at the address, and
+       the next one finds the symbol that the parsing registered, so both
+       resolve alike. This starts from a fresh instance, as a shared one may
+       have forced the PLT already. *)
     let file = parseFile "elf_x64_exec"
-    let notFound: Result<string, ErrorCase> = Error ErrorCase.ItemNotFound
-    Assert.AreEqual<Result<string, ErrorCase>>(notFound,
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "write",
                                                tryResolveName file 0x401040UL)
     Assert.AreEqual<Result<string, ErrorCase>>(Ok "write",
                                                tryResolveName file 0x401040UL)
