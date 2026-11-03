@@ -180,3 +180,70 @@ type ARMBinaryBrewTests() =
           member _.IdentifyMore _ = [| 0x10355UL |] }
     let fns = BinaryBrew(hdl, identification, CFGRecovery()).Functions
     CollectionAssert.AreEqual([| true |], instructionSetsOf fns[0x10354UL])
+
+  (* Only the pointer that the call loads leads to the function at 0x14, and
+     the call proves that a function starts there. *)
+  [<TestMethod>]
+  member _.``An indirect call proves its constant target a function``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "04309fe5" (* ldr r3, [pc, #4] *)
+        "33ff2fe1" (* blx r3 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "14000000" (* .word 0x14 *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL |], Seq.toArray fns.Addresses)
+
+  (* A call through the link register writes the return address there as it
+     jumps, so what the call proves is what the register held before, not the
+     address after the call. *)
+  [<TestMethod>]
+  member _.``A call through LR proves what LR held before the call``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "04e09fe5" (* ldr lr, [pc, #4] *)
+        "3eff2fe1" (* blx lr *)
+        "1080bde8" (* pop {r4, pc} *)
+        "14000000" (* .word 0x14 *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL |], Seq.toArray fns.Addresses)
+
+  (* GNU C lets a program take the address of a label, which this code stores
+     but never calls, so nothing proves that a function starts at 0xc. *)
+  [<TestMethod>]
+  member _.``A code address stored but never called proves nothing``() =
+    let code =
+      [ "04308fe2" (* add r3, pc, #4 *)
+        "003080e5" (* str r3, [r0] *)
+        "1eff2fe1" (* bx lr *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    CollectionAssert.AreEqual([| 0x0UL |], Seq.toArray fns.Addresses)
+
+  (* _start passes main to __libc_start_main, which calls it, while only a GOT
+     slot refers to main otherwise. *)
+  [<TestMethod>]
+  member _.``__libc_start_main proves main a function``() =
+    let hdl = BinHandle.LoadFileBytes(readZippedBinary "elf_arm32", ISA "armv7")
+    let onlyStart =
+      { new IFunctionIdentifiable with
+          member _.Identify() = [| 0x10355UL |] }
+    let recovered =
+      BinaryBrew(hdl, onlyStart, CFGRecovery()).Functions.Sequence
+      |> Seq.toArray
+    let identification =
+      ARM32FunctionIdentification(hdl, ExceptionInfo hdl)
+      :> IIncrementalFunctionIdentifiable
+    let found = identification.IdentifyMore recovered
+    CollectionAssert.Contains(found, 0x10330UL)
