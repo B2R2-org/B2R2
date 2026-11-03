@@ -1930,9 +1930,10 @@ let pop ins bld =
       sp := (AST.undef 32<rt> "UNKNOWN")
     if (numOfReg >>> 15 &&& 1u) = 1u then
       loadNative bld 32<rt> addr |> loadWritePC bld isUnconditional
+      putEndLabelForBranch bld lblIgnore ins
+      return NoEndMark
     else
-      ()
-    putEndLabelForBranch bld lblIgnore ins
+      putEndLabel bld lblIgnore
   }
 
 let parseOprOfLDM (ins: Instruction) bld =
@@ -2001,9 +2002,10 @@ let ldm opcode (ins: Instruction) bld wbackop =
       ()
     if (numOfReg >>> 15 &&& 1u) = 1u then
       loadPC bld ins isUnconditional addr
+      putEndLabelForBranch bld lblIgnore ins
+      return NoEndMark
     else
-      ()
-    putEndLabel bld lblIgnore
+      putEndLabel bld lblIgnore
   }
 
 let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
@@ -2088,9 +2090,13 @@ let ldr ins bld size ext =
       basereg := taddr
     | None ->
       data := loadNative bld size addr |> ext 32<rt>
-    if rt = getPC bld then loadWritePC bld isUnconditional data
-    else append bld { rt := data }
-    putEndLabel bld lblIgnore
+    if rt = getPC bld then
+      loadWritePC bld isUnconditional data
+      putEndLabelForBranch bld lblIgnore ins
+      return NoEndMark
+    else
+      rt := data
+      putEndLabel bld lblIgnore
   }
 
 let parseMemOfLDRD ins bld = function

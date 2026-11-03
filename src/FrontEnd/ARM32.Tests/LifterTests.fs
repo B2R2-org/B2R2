@@ -4937,6 +4937,26 @@ type LifterTests() =
     Assert.AreEqual(w + 24u, run.Reg Register.SP)
 
   /// <summary>
+  /// LoadWritePC (A2.3.2) through POP, LDM and LDR: pop {r4, pc}, popne {r4,
+  /// pc}, pop {pc}, ldm r1, {r2, pc}, ldr pc, [r1], and pop {r4, pc} in Thumb.
+  /// A load into the PC ends the instruction with a jump, which nothing may
+  /// follow, not even the mark that ends an instruction falling through.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A2.3.2 LoadWritePC ends with a jump``() =
+    let loads =
+      [ false, "e8bd8010"
+        false, "18bd8010"
+        false, "e49df004"
+        false, "e8918004"
+        false, "e591f000"
+        true, "bd10" ]
+    for isThumb, hex in loads do
+      match Array.last (liftedBy isThumb hex) with
+      | InterJmp _ -> ()
+      | stmt -> Assert.Fail $"{hex} ends with {stmt}"
+
+  /// <summary>
   /// A8.8.134 PUSH: push {r2, r3}. This checks that it stores R2 then R3 below
   /// SP and moves SP down by eight. It is not a value test because it moves SP,
   /// which the run itself stands on.
