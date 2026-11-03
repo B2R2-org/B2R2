@@ -63,9 +63,36 @@ module internal CFGRecoveryCommon =
           | EndTblRec _ -> 0
           | EndGapAnalysis -> -1 }
 
-  let addCallerVertex (ctx: CFGBuildingContext<_, _>) callsiteAddr vertex =
-    if ctx.CallerVertices.ContainsKey callsiteAddr then ()
-    else ctx.CallerVertices.Add(callsiteAddr, vertex) |> ignore
+  /// Notes that the vertex ends with the call at the call site, unless a vertex
+  /// that starts where it does was noted first.
+  let addCallerVertex (ctx: CFGBuildingContext<_, _>) callsite vertex =
+    let pp = (vertex: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
+    match ctx.CallerVertices.TryGetValue callsite with
+    | true, vs when vs.Exists(fun v -> v.VData.Internals.PPoint = pp) -> ()
+    | true, vs -> vs.Add vertex
+    | false, _ -> ctx.CallerVertices[callsite] <- List [ vertex ]
+
+  /// Returns a vertex that ends with the call at the call site: the one noted
+  /// first, when the call switches instruction sets. They all end with the
+  /// same instruction.
+  let getCallerVertex (ctx: CFGBuildingContext<_, _>) callsite =
+    ctx.CallerVertices[callsite][0]
+
+  /// Replaces the vertex that ended with the call at the call site until a
+  /// division removed it from the CFG with the given vertex, which ends with
+  /// the call now. A block divided more than once in a scan has had its vertex
+  /// replaced by then, so the start of the vertex does not tell which it was.
+  let replaceCallerVertex (ctx: CFGBuildingContext<_, _>) callsite vertex =
+    let isRemoved (v: IVertex<LowUIRBasicBlock>) =
+      match ctx.Vertices.TryGetValue v.VData.Internals.PPoint with
+      | true, current -> not (obj.ReferenceEquals(current, v))
+      | false, _ -> true
+    match ctx.CallerVertices.TryGetValue callsite with
+    | true, vs ->
+      let idx = vs.FindIndex isRemoved
+      if idx < 0 then () else vs[idx] <- vertex
+    | false, _ ->
+      ()
 
   let scanBBLs (ctx: CFGBuildingContext<_, _>) entryPoints =
     ctx.ScanBBLs entryPoints
@@ -219,8 +246,7 @@ module internal CFGRecoveryCommon =
 #endif
         let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
         let callsite = LeafCallSite lastAddr
-        if not <| ctx.CallerVertices.ContainsKey callsite then ()
-        else ctx.CallerVertices[callsite] <- dstVertex
+        replaceCallerVertex ctx callsite dstVertex
         connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
         for e in preds do
           connectEdge ctx cfgRec e.First srcVertex e.Label
@@ -659,7 +685,8 @@ module internal CFGRecoveryCommon =
           | None ->
             cfgRec.AnalyzeIndirectJump(ctx, ppoint, srcVertex)
             |> Option.iter (fun r -> result <- r)
-        | InterJmp(Target = e; Kind = InterJmpKind.IsCall) -> (* Ind call *)
+        | InterJmp(Target = e; Kind = InterJmpKind.IsCall)
+        | InterJmp(Target = e; Kind = ModeSwitchingCall _) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
           match tryHandleRelocationBackedCall ctx cfgRec srcVertex false e with
@@ -772,8 +799,8 @@ module internal CFGRecoveryCommon =
       let absV = getAbsVertex ctx cfgRec (LeafCallSite callsiteAddr) None abs
       (* Necessary to lookup the caller again as bbls could be divided *)
       let callsite = LeafCallSite(callsiteAddr)
-      let caller = ctx.CallerVertices[callsite]
-      connectEdge ctx cfgRec caller absV ExceptionFallThroughEdge
+      for caller in ctx.CallerVertices[callsite] do
+        connectEdge ctx cfgRec caller absV ExceptionFallThroughEdge
       scanBBLsAndConnect ctx cfgRec absV landingPad ExceptionFallThroughEdge
     | None ->
       Ok()
@@ -809,7 +836,7 @@ module internal CFGRecoveryCommon =
                       callee
                       calleeInfo
                       isTailCall =
-    let caller = (ctx: CFGBuildingContext<_, _>).CallerVertices[callsiteAddr]
+    let caller = getCallerVertex ctx callsiteAddr
     if isTailCall then
       let lastIns = caller.VData.Internals.LastInstruction
       getFunctionSummary ctx cfgRec.Summarizer lastIns callee calleeInfo
@@ -977,8 +1004,10 @@ module internal CFGRecoveryCommon =
     | NoRet -> Ok()
     | _ -> connectRet ctx cfgRec (absV, retAddr)
 
+  /// Connects every vertex that ends with the indirect call at the call site to
+  /// the one callee of the call, whichever instruction set the call goes to.
   let connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr =
-    let caller = (ctx: CFGBuildingContext<_, _>).CallerVertices[callsiteAddr]
+    let caller = getCallerVertex ctx callsiteAddr
     let callIns = caller.VData.Internals.LastInstruction
     let callSiteAddr = callIns.Address
     let callSite = LeafCallSite callSiteAddr
@@ -986,13 +1015,14 @@ module internal CFGRecoveryCommon =
     let abs =
       computeIndirectCalleeAbstraction ctx sretAnalysis summarizer caller
     let absV = getAbsVertex ctx cfgRec callSite None abs
-    connectEdge ctx cfgRec caller absV CallEdge
+    for caller in ctx.CallerVertices[callsiteAddr] do
+      connectEdge ctx cfgRec caller absV CallEdge
     connectIndirectRet ctx cfgRec absV (callSiteAddr + uint64 callIns.Length)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec callIns.Address)
     |> toCFGResult
 
   let connectSyscallEdge ctx syscallAnalysis cfgRec callsiteAddr isExit =
-    let caller = (ctx: CFGBuildingContext<_, _>).CallerVertices[callsiteAddr]
+    let caller = getCallerVertex ctx callsiteAddr
     (syscallAnalysis: ISyscallAnalyzable).MakeAbstract(ctx, caller, isExit)
     |> connectAbsVertex ctx cfgRec caller 0UL false
     |> fun callee ->
@@ -1026,8 +1056,8 @@ module internal CFGRecoveryCommon =
   let tryFindSelfDefeatingEntry (ctx: CFGBuildingContext<_, _>) jmptbl =
     let insAddr = (jmptbl: JmpTableInfo).InsAddr
     match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
-    | true, v ->
-      v.VData.DominatingJumpTableEntry
+    | true, vs ->
+      vs[0].VData.DominatingJumpTableEntry
       |> Option.filter (startsByEntryOf ctx jmptbl)
     | false, _ ->
       None
@@ -1198,7 +1228,7 @@ module internal CFGRecoveryCommon =
     | Some targetAddr when isExpanding ->
       let callsiteAddr = jmptbl.InsAddr
       let callsite = LeafCallSite callsiteAddr
-      let srcVertex = ctx.CallerVertices[callsite]
+      let srcVertex = getCallerVertex ctx callsite
       let srcAddr = srcVertex.VData.Internals.BlockAddress
       pushJmpTblRecoveryAction ctx queue srcAddr jmptbl (idx + 1) targetAddr
     | _ ->

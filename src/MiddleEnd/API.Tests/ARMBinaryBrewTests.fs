@@ -28,7 +28,9 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Tests the recovery of 32-bit ARM binaries, whose functions each start in
 /// one of two instruction sets.
@@ -77,3 +79,26 @@ type ARMBinaryBrewTests() =
     let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
     CollectionAssert.AreEqual([| false |], instructionSetsOf fns[0x0UL])
     CollectionAssert.AreEqual([| true |], instructionSetsOf fns[0x10UL])
+
+  (* A BLX through a register goes to the instruction set that the lowest bit
+     of the register names, so it ends in a call for each of the two. Both are
+     the one call, which returns to the instruction after the BLX. *)
+  [<TestMethod>]
+  member _.``Both ways of a BLX through a register make one call``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "33ff2fe1" (* blx r3 *)
+        "1080bde8" (* pop {r4, pc} *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let cfg = fns[0x0UL].CFG
+    let callee = cfg.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    let addrOfCall (v: IVertex<LowUIRBasicBlock>) =
+      v.VData.Internals.LastInstruction.Address
+    let addrOfBlock (v: IVertex<LowUIRBasicBlock>) =
+      v.VData.Internals.BlockAddress
+    let callers = cfg.GetPreds callee |> Array.map addrOfCall
+    let returns = cfg.GetSuccs callee |> Array.map addrOfBlock
+    CollectionAssert.AreEqual([| 0x4UL; 0x4UL |], callers)
+    CollectionAssert.AreEqual([| 0x8UL |], returns)

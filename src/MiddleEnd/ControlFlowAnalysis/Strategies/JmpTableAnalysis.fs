@@ -637,7 +637,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// Finds the vertex that ends with the indirect branch at insAddr.
   let tryFindIndBranchVertex (ctx: CFGBuildingContext<_, _>) insAddr =
     match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
-    | true, v -> Some v
+    | true, vs -> Some vs[0]
     | false, _ -> None
 
   /// Finds the jump table entry through which the indirect branch of the given

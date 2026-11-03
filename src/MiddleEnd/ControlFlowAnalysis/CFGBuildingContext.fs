@@ -66,7 +66,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let pendingCallActions = Dictionary<Addr, List<CFGAction>>()
 
-  let callerVertices = Dictionary<CallSite, IVertex<LowUIRBasicBlock>>()
+  let callerVertices = Dictionary<CallSite, List<IVertex<LowUIRBasicBlock>>>()
 
   let mutable unwindingBytes = 0
 
@@ -153,7 +153,9 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// waiting for the callee to be built.
   member internal _.PendingCallActions with get() = pendingCallActions
 
-  /// From a call site of a caller vertex to the caller vertex itself.
+  /// From a call site to the vertices that end with its call. A call ends one
+  /// vertex, unless it switches instruction sets, which leaves one vertex for
+  /// each instruction set that it may go to.
   member internal _.CallerVertices with get() = callerVertices
 
   /// The number of unwinding bytes of the stack when this function returns.

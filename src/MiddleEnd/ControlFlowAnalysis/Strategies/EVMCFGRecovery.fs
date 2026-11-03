@@ -558,8 +558,7 @@ module private EVMCFGRecovery =
 #endif
         let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
         let callsite = LeafCallSite lastAddr
-        if not <| ctx.CallerVertices.ContainsKey callsite then ()
-        else ctx.CallerVertices[callsite] <- dstVertex
+        replaceCallerVertex ctx callsite dstVertex
         connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
         for e in preds do
           connectEdge ctx cfgRec e.First srcVertex e.Label
@@ -775,7 +774,7 @@ module private EVMCFGRecovery =
     |> toCFGResult
 
   let handleCall (ctx: CFGBuildingContext<_, _>) cfgRec cs callee calleeInfo =
-    let caller = ctx.CallerVertices[cs]
+    let caller = getCallerVertex ctx cs
     let callsite = fromBBLToCallSite caller.VData.Internals
     let absPp = ProgramPoint(callsite, callee, 0)
     let act = ExpandCFG [ absPp ]
