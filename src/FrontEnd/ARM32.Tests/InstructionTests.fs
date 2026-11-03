@@ -47,3 +47,21 @@ type InstructionTests() =
     Assert.AreEqual<bool>(true, isRET false "e8bd8010") (* pop {r4, pc} *)
     Assert.AreEqual<bool>(true, isRET false "e49df004") (* pop {pc} *)
     Assert.AreEqual<bool>(false, isRET false "e12fff13") (* bx r3 *)
+
+  (* An instruction that computes or loads the PC branches, whichever form it
+     takes, and a block has to end with it; reading the PC does not branch, as
+     add r1, pc, #4 does. *)
+  [<TestMethod>]
+  member _.``[ARMv7] writes to the PC are branches test``() =
+    let branches =
+      [ false, "e081f000" (* add pc, r1, r0 *)
+        false, "e1a0f00e" (* mov pc, lr *)
+        false, "e8918004" (* ldm r1, {r2, pc} *)
+        true, "4487" (* add pc, r0 *)
+        true, "46f7" (* mov pc, lr *) ]
+    let missed =
+      branches
+      |> List.filter (fun (isThumb, hex) -> not (parse isThumb hex).IsBranch)
+      |> List.map snd
+    Assert.AreEqual<string>("", String.concat " " missed)
+    Assert.AreEqual<bool>(false, (parse false "e28f1004").IsBranch)

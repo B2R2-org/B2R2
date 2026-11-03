@@ -51,6 +51,21 @@ type Instruction
     | OneOperand(OprMemory(LiteralMode _)) -> true
     | _ -> false
 
+  /// Tells whether this computes the PC as its destination, which ALUWritePC
+  /// turns into a branch.
+  let isALUWriteToPC () =
+    match op with
+    | Op.ADC | Op.ADD | Op.ADDW | Op.ADR | Op.AND | Op.ASR | Op.BIC | Op.EOR
+    | Op.LSL | Op.LSR | Op.MOV | Op.MVN | Op.ORN | Op.ORR | Op.ROR | Op.RRX
+    | Op.RSB | Op.RSC | Op.SBC | Op.SUB | Op.SUBW ->
+      match opr with
+      | TwoOperands(OprReg R.PC, _)
+      | ThreeOperands(OprReg R.PC, _, _)
+      | FourOperands(OprReg R.PC, _, _, _) -> true
+      | _ -> false
+    | _ ->
+      false
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -124,12 +139,12 @@ type Instruction
         match this.Operands with
         | OneOperand(OprRegList regs) -> List.contains R.PC regs
         | _ -> false
-      | Op.ADD ->
+      | Op.LDM | Op.LDMDA | Op.LDMDB | Op.LDMIA | Op.LDMIB ->
         match this.Operands with
-        | FourOperands(OprReg R.PC, _, _, _) -> true
+        | TwoOperands(_, OprRegList regs) -> List.contains R.PC regs
         | _ -> false
       | _ ->
-        false
+        isALUWriteToPC ()
 
     member this.IsModeChanging =
       match this.Opcode with
