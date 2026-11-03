@@ -105,14 +105,16 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     | true, builder ->
       tryAsBuildable builder
     | false, _ ->
+      let mode = entryModeOf addr
       let builder =
         InternalFnCFGBuilder(hdl,
                              exnInfo,
-                             instrsOf (entryModeOf addr),
+                             instrsOf mode,
                              addr,
                              managerMsgbox,
                              irBlkOptimizer,
                              strategy) :> ICFGBuildable<'FnCtx, 'GlCtx>
+      builder.Context.EntryMode <- mode
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
       Some builder

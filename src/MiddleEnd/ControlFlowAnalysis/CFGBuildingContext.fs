@@ -78,8 +78,18 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable threadID = -1
 
+  let mutable entryMode = ARM32Mode.ARM
+
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
+
+  /// The instruction set that the function starts in and keeps, as it can only
+  /// switch to the other one by calling or jumping out of itself. Only 32-bit
+  /// ARM has a choice, and every other ISA reads its one instruction set under
+  /// the name of ARM.
+  member _.EntryMode
+    with get(): ARM32Mode = entryMode
+     and internal set v = entryMode <- v
 
   /// Function name.
   member _.FunctionName with get(): string = name

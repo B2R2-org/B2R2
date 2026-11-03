@@ -999,10 +999,10 @@ type EVMCFGRecovery(fnCallback) as this =
       | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
       | _ -> MoveOn
 
-    member _.AnalyzeIndirectJump(ctx, _pp, srcV) =
+    member _.AnalyzeIndirectJump(ctx, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this srcV)
 
-    member _.AnalyzeIndirectCondJump(ctx, _pp, srcV) =
+    member _.AnalyzeIndirectCondJump(ctx, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterCJmp ctx this srcV)
 
     member _.OnAddVertex(ctx, v) =

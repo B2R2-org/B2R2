@@ -102,3 +102,39 @@ type ARMBinaryBrewTests() =
     let returns = cfg.GetSuccs callee |> Array.map addrOfBlock
     CollectionAssert.AreEqual([| 0x4UL; 0x4UL |], callers)
     CollectionAssert.AreEqual([| 0x8UL |], returns)
+
+  (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
+     so it ends in a jump for each instruction set. A switch only ever jumps
+     within its function, which stays in ARM, and the jump that does is the
+     one to read the table from. Clang lays the table of offsets right after
+     the jump. A raw image has no sections to tell where a table may lie, but
+     one whose first target falls before the next function holds labels of
+     its own function, so the function calls another one placed after it. *)
+  [<TestMethod>]
+  member _.``A jump table is read through the jump that stays in ARM``() =
+    let code =
+      [ "0c0000eb" (* bl 0x38 *)
+        "030050e3" (* cmp r0, #3 *)
+        "0800008a" (* bhi 0x30 *)
+        "04108fe2" (* add r1, pc, #4 *)
+        "000191e7" (* ldr r0, [r1, r0, lsl #2] *)
+        "00f081e0" (* add pc, r1, r0 *)
+        "10000000" (* .word 0x10 *)
+        "14000000" (* .word 0x14 *)
+        "18000000" (* .word 0x18 *)
+        "1c000000" (* .word 0x1c *)
+        "0000a0e3" (* mov r0, #0 *)
+        "0100a0e3" (* mov r0, #1 *)
+        "0200a0e3" (* mov r0, #2 *)
+        "1eff2fe1" (* bx lr *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let cfg = fns[0x0UL].CFG
+    let targets =
+      cfg.Edges
+      |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
+      |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
+      |> Array.sort
+    CollectionAssert.AreEqual([| 0x28UL; 0x2cUL; 0x30UL; 0x34UL |], targets)

@@ -96,9 +96,24 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | [] ->
       Error ErrorCase.ItemNotFound
 
-  let findIndBranchExprFromIRCFG (g: LowUIRCFG) state addr =
+  /// Finds the vertex that ends with the indirect branch at insAddr. The
+  /// address of its block does not tell which vertex it is, since a branch
+  /// that may switch instruction sets ends in a vertex for each of them.
+  let tryFindIndBranchVertex (ctx: CFGBuildingContext<_, _>) insAddr =
+    match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
+    | true, vs -> Some vs[0]
+    | false, _ -> None
+
+  /// Finds the program point of the vertex that ends with the indirect branch
+  /// at insAddr, which the recovery noted when it reached the branch.
+  let findIndBranchPPoint ctx insAddr =
+    match tryFindIndBranchVertex ctx insAddr with
+    | Some v -> Ok v.VData.Internals.PPoint
+    | None -> Error ErrorCase.ItemNotFound
+
+  let findIndBranchExprFromIRCFG (g: LowUIRCFG) state pp =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    let v = g.FindVertexBy(fun v -> v.VData.Internals.BlockAddress = addr)
+    let v = g.FindVertexBy(fun v -> v.VData.Internals.PPoint = pp)
     let stmExtractor (v: IVertex<LowUIRBasicBlock>) =
       if v.VData.Internals.IsAbstract then None
       else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
@@ -118,9 +133,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | _ ->
         None)
 
-  let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
+  let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) pp =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    let v = ssaCFG.FindVertexBy(fun v -> v.VData.Internals.BlockAddress = addr)
+    let v = ssaCFG.FindVertexBy(fun v -> v.VData.Internals.PPoint = pp)
     let stmExtractor (v: IVertex<SSABasicBlock>) =
       if v.VData.Internals.IsAbstract then None
       else Some v.VData.Internals.LastStmt
@@ -591,9 +606,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           StartsAt = startsAt findDef domGuards jmptbl o }
     jmptbl, Option.map guard origin
 
-  let analyzeSymbolicallyWithIRCFG ctx state insAddr bblAddr =
+  let analyzeSymbolicallyWithIRCFG ctx state insAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
-    match findIndBranchExprFromIRCFG cfg state bblAddr with
+    let found =
+      findIndBranchPPoint ctx insAddr
+      |> Result.bind (findIndBranchExprFromIRCFG cfg state)
+    match found with
     | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromIRCFG state
       let findDef = findDefFromIRCFG state
@@ -623,8 +641,11 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | None ->
       e
 
-  let analyzeSymbolicallyWithSSACFG ctx ssaCFG state insAddr bblAddr =
-    match findIndBranchExprFromSSACFG ssaCFG bblAddr with
+  let analyzeSymbolicallyWithSSACFG ctx ssaCFG state insAddr =
+    let found =
+      findIndBranchPPoint ctx insAddr
+      |> Result.bind (findIndBranchExprFromSSACFG ssaCFG)
+    match found with
     | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromSSACFG state
       let findDef = findDefFromSSACFG state
@@ -633,12 +654,6 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e
-
-  /// Finds the vertex that ends with the indirect branch at insAddr.
-  let tryFindIndBranchVertex (ctx: CFGBuildingContext<_, _>) insAddr =
-    match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
-    | true, vs -> Some vs[0]
-    | false, _ -> None
 
   /// Finds the jump table entry through which the indirect branch of the given
   /// table was first reached, if the entry belongs to another table. Returns
@@ -655,20 +670,16 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   /// Analyzes the indirect branch of the given table again, finding how its
   /// index selects its entries.
-  let tryFindIndexOrigin ctx analyze (jmptbl: JmpTableInfo) =
-    match tryFindIndBranchVertex ctx jmptbl.InsAddr with
-    | Some v ->
-      match analyze jmptbl.InsAddr v.VData.Internals.BlockAddress with
-      | Ok(_, origin) -> origin
-      | Error _ -> None
-    | None ->
-      None
+  let tryFindIndexOrigin analyze (jmptbl: JmpTableInfo) =
+    match analyze jmptbl.InsAddr with
+    | Ok(_, origin) -> origin
+    | Error _ -> None
 
   /// Computes the value that the variable indexing the given table holds when
   /// the entry at entryAddr is taken, along with the variable. The range check
   /// of the table must admit both that entry and the one at addr.
-  let tryComputeIndexValue ctx analyze (jmptbl: JmpTableInfo) entryAddr addr =
-    match tryFindIndexOrigin ctx analyze jmptbl with
+  let tryComputeIndexValue analyze (jmptbl: JmpTableInfo) entryAddr addr =
+    match tryFindIndexOrigin analyze jmptbl with
     | Some o when o.Admits entryAddr && o.Admits addr ->
       Some(o.Root, (entryAddr - o.ZeroAddr) / int64 jmptbl.EntrySize)
     | _ ->
@@ -687,7 +698,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match origin, tryFindEnclosingEntry ctx jmptbl with
     | Some o, Some(outer, entryAddr) ->
       let tblAddr = int64 jmptbl.TableAddress
-      match tryComputeIndexValue ctx analyze outer entryAddr tblAddr with
+      match tryComputeIndexValue analyze outer entryAddr tblAddr with
       | Some(root, value) when root = o.Root ->
         let start = o.ZeroAddr + value * int64 jmptbl.EntrySize
         if start > tblAddr then
@@ -749,8 +760,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   /// Identifies the jump table of the indirect branch at insAddr, using the
   /// given analysis of indirect branches for its enclosing branch as well.
-  let identify ctx analyze insAddr bblAddr =
-    analyze insAddr bblAddr
+  let identify ctx analyze insAddr =
+    analyze insAddr
     |> Result.map (fun (jmptbl, origin) ->
       let jmptbl = rebase ctx analyze (jmptbl, origin)
       let file = (ctx: CFGBuildingContext<_, _>).BinHandle.File
@@ -826,12 +837,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       analyzeSymbolicallyWithIRCFG ctx cp.State
 
   interface IJmpTableAnalyzable<'FnCtx, 'GlCtx> with
-    member _.Identify(ctx, insAddr, bblAddr) =
+    member _.Identify(ctx, insAddr) =
       let analyze = prepareAnalysis ctx
-      identify ctx analyze insAddr bblAddr
+      identify ctx analyze insAddr
       |> checkValidity ctx
 
     member _.ConfirmStart(ctx, jmptbl, addr) =
-      match tryFindIndexOrigin ctx (prepareAnalysis ctx) jmptbl with
+      match tryFindIndexOrigin (prepareAnalysis ctx) jmptbl with
       | Some o -> o.StartsAt(int64 addr)
       | None -> false

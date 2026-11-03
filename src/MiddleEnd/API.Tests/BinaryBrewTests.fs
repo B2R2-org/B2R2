@@ -930,6 +930,7 @@ type BinaryBrewTests() =
         "CP"
         "Callers"
         "ClobberedRegs"
+        "EntryMode"
         "ExnInfo"
         "FunctionAddress"
         "FunctionName"

@@ -50,13 +50,14 @@ type CFGAction =
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
   | MakeSyscall of callSite: CallSite * exit: bool
-  /// Create edges for an indirect branch. We find the possible targets of the
-  /// indirect branch and connect them with the given basic block.
-  | MakeIndEdges of bbl: Addr * ins: Addr
+  /// Create edges for the indirect branch at the given address. We find the
+  /// possible targets of the branch and connect them with the vertex that ends
+  /// with it.
+  | MakeIndEdges of ins: Addr
   /// Wait for the callee to be resolved.
   | WaitForCallee of calleeAddr: Addr
   /// Start recovering a jump table entry (only single entry at a time).
-  | StartTblRec of tbl: JmpTableInfo * idx: int * src: Addr * dst: Addr
+  | StartTblRec of tbl: JmpTableInfo * idx: int * dst: Addr
   /// Report the recovery result of a jump table entry. This will always be
   /// followed by a `StartTblRec` action to denote the end of the recovery.
   | EndTblRec of tbl: JmpTableInfo * idx: int

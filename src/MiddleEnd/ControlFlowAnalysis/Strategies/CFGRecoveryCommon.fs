@@ -78,6 +78,13 @@ module internal CFGRecoveryCommon =
   let getCallerVertex (ctx: CFGBuildingContext<_, _>) callsite =
     ctx.CallerVertices[callsite][0]
 
+  /// Tries to return a vertex that ends with the call at the call site, as
+  /// getCallerVertex does.
+  let tryGetCallerVertex (ctx: CFGBuildingContext<_, _>) callsite =
+    match ctx.CallerVertices.TryGetValue callsite with
+    | true, vs -> Some vs[0]
+    | false, _ -> None
+
   /// Replaces the vertex that ended with the call at the call site until a
   /// division removed it from the CFG with the given vertex, which ends with
   /// the call now. A block divided more than once in a scan has had its vertex
@@ -562,6 +569,16 @@ module internal CFGRecoveryCommon =
     else
       ValueNone
 
+  /// Matches the kind of a jump that switches 32-bit ARM to the instruction
+  /// set that the function is in already. Of the two jumps that a branch which
+  /// may switch ends in, this is the only one that can stay in the function.
+  [<return: Struct>]
+  let (|SameModeJump|_|) (ctx: CFGBuildingContext<_, _>) kind =
+    match ctx.EntryMode with
+    | ARM32Mode.Thumb when kind = InterJmpKind.SwitchToThumb -> ValueSome()
+    | ARM32Mode.ARM when kind = InterJmpKind.SwitchToARM -> ValueSome()
+    | _ -> ValueNone
+
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
@@ -678,12 +695,16 @@ module internal CFGRecoveryCommon =
           let fpp = maskedPPoint ctx (fv.ToUInt64())
           result <- connectTrue srcVertex tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
-        | InterJmp(Target = e; Kind = InterJmpKind.Base) -> (* Indirect jmp *)
+        | InterJmp(Kind = SameModeJump ctx)
+          when srcData.LastInstruction.IsRET ->
+          ()
+        | InterJmp(Target = e; Kind = InterJmpKind.Base)
+        | InterJmp(Target = e; Kind = SameModeJump ctx) -> (* Indirect jmp *)
           match tryHandleRelocationBackedCall ctx cfgRec srcVertex true e with
           | Some r ->
             result <- r
           | None ->
-            cfgRec.AnalyzeIndirectJump(ctx, ppoint, srcVertex)
+            cfgRec.AnalyzeIndirectJump(ctx, srcVertex)
             |> Option.iter (fun r -> result <- r)
         | InterJmp(Target = e; Kind = InterJmpKind.IsCall)
         | InterJmp(Target = e; Kind = ModeSwitchingCall _) -> (* Ind call *)
@@ -696,7 +717,7 @@ module internal CFGRecoveryCommon =
             addCallerVertex ctx callsite srcVertex
             actionQueue.Push(MakeIndCall(callsite))
         | InterCJmp _ -> (* Indirect cond jumps *)
-          cfgRec.AnalyzeIndirectCondJump(ctx, ppoint, srcVertex)
+          cfgRec.AnalyzeIndirectCondJump(ctx, srcVertex)
           |> Option.iter (fun r -> result <- r)
         | SideEffect(Effect = Interrupt 0x80) | SideEffect(Effect = SysCall) ->
           let callsiteAddr = srcData.LastInstruction.Address
@@ -1029,12 +1050,12 @@ module internal CFGRecoveryCommon =
       if not isExit then connectRet ctx cfgRec callee |> ignore else ()
     MoveOn
 
-  let pushJmpTblRecoveryAction ctx queue bblAddr jmptbl idx targetAddr =
+  let pushJmpTblRecoveryAction ctx queue jmptbl idx targetAddr =
     if idx = 0 then
       (ctx: CFGBuildingContext<_, _>).JumpTables[jmptbl.TableAddress] <- jmptbl
     else
       ()
-    (queue: CFGActionQueue).Push(StartTblRec(jmptbl, idx, bblAddr, targetAddr))
+    (queue: CFGActionQueue).Push(StartTblRec(jmptbl, idx, targetAddr))
     queue.Push(EndTblRec(jmptbl, idx))
     MoveOn
 
@@ -1055,12 +1076,9 @@ module internal CFGRecoveryCommon =
   /// would drop the very entry that led to it, so the entry is what is wrong.
   let tryFindSelfDefeatingEntry (ctx: CFGBuildingContext<_, _>) jmptbl =
     let insAddr = (jmptbl: JmpTableInfo).InsAddr
-    match ctx.CallerVertices.TryGetValue(LeafCallSite insAddr) with
-    | true, vs ->
-      vs[0].VData.DominatingJumpTableEntry
-      |> Option.filter (startsByEntryOf ctx jmptbl)
-    | false, _ ->
-      None
+    tryGetCallerVertex ctx (LeafCallSite insAddr)
+    |> Option.bind (fun v -> v.VData.DominatingJumpTableEntry)
+    |> Option.filter (startsByEntryOf ctx jmptbl)
 
   /// Tells the manager that the given entry is bogus, and reloads the function
   /// if the manager has cut its table short of the entry.
@@ -1077,11 +1095,11 @@ module internal CFGRecoveryCommon =
 
   /// Starts recovering the given table from its first entry, unless the slot
   /// of that entry holds none, in which case no table starts there.
-  let startJmpTblRecovery ctx queue bblAddr jmptbl =
+  let startJmpTblRecovery ctx queue jmptbl =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     match JmpTableInfo.tryReadTarget hdl jmptbl 0 with
     | Some targetAddr ->
-      pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0 targetAddr
+      pushJmpTblRecoveryAction ctx queue jmptbl 0 targetAddr
     | None ->
       let fnAddr, tblAddr = ctx.FunctionAddress, jmptbl.TableAddress
       ctx.JumpTableChannel.CancelRecovery(fnAddr, jmptbl.InsAddr, tblAddr)
@@ -1092,11 +1110,11 @@ module internal CFGRecoveryCommon =
   /// folded the smallest index into its address, so it may start right after
   /// those entries instead. We move it there once, if the conditional jumps on
   /// every path to its indirect branch say so, and ignore the branch if not.
-  let rec notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl canMove =
+  let rec notifyRecovery ctx jmptblAnalysis queue jmptbl canMove =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     match ctx.JumpTableChannel.NotifyRecovery(fnAddr, jmptbl) with
     | GoRecovery ->
-      startJmpTblRecovery ctx queue bblAddr jmptbl
+      startJmpTblRecovery ctx queue jmptbl
     | StopRecoveryButReload ->
       StopAndReload
     | StopRecoveryAndContinue ->
@@ -1109,18 +1127,15 @@ module internal CFGRecoveryCommon =
         <| $"{jmptbl.InsAddr:x}: moved to [{tableEnd:x}]"
 #endif
         let jmptbl = { jmptbl with TableAddress = tableEnd }
-        notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl false
+        notifyRecovery ctx jmptblAnalysis queue jmptbl false
       else
         MoveOn (* We ignore this indirect branch. *)
     | Overlapping _ ->
       MoveOn
 
-  let recoverIndirectBranches ctx
-                              (jmptblAnalysis: IJmpTableAnalyzable<_, _>)
-                              queue
-                              insAddr
-                              bblAddr =
-    match jmptblAnalysis.Identify(ctx, insAddr, bblAddr) with
+  let recoverIndirectBranches ctx jmptblAnalysis queue insAddr =
+    let analysis: IJmpTableAnalyzable<_, _> = jmptblAnalysis
+    match analysis.Identify(ctx, insAddr) with
     | Ok(jmptbl) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable"
@@ -1128,7 +1143,7 @@ module internal CFGRecoveryCommon =
 #endif
       match tryFindSelfDefeatingEntry ctx jmptbl with
       | Some entry -> blameEntry ctx entry
-      | None -> notifyRecovery ctx jmptblAnalysis queue bblAddr jmptbl true
+      | None -> notifyRecovery ctx jmptblAnalysis queue jmptbl true
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"
@@ -1173,8 +1188,9 @@ module internal CFGRecoveryCommon =
     | _ ->
       false
 
-  let recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr =
-    let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
+  let recoverJumpTableEntry ctx cfgRec idx jmptbl dstAddr =
+    let callsite = LeafCallSite (jmptbl: JmpTableInfo).InsAddr
+    let srcVertex = getCallerVertex ctx callsite
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let isDstFuncEntry = isFuncEntryPoint ctx dstAddr
     if idx = 0 && isDstFuncEntry then jmptbl.IsFunctionPointerTable <- true
@@ -1226,11 +1242,7 @@ module internal CFGRecoveryCommon =
       ch.ReportSuccess(fnAddr, tblAddr, idx, nextTarget, isFnPointerTbl)
     match nextTarget with
     | Some targetAddr when isExpanding ->
-      let callsiteAddr = jmptbl.InsAddr
-      let callsite = LeafCallSite callsiteAddr
-      let srcVertex = getCallerVertex ctx callsite
-      let srcAddr = srcVertex.VData.Internals.BlockAddress
-      pushJmpTblRecoveryAction ctx queue srcAddr jmptbl (idx + 1) targetAddr
+      pushJmpTblRecoveryAction ctx queue jmptbl (idx + 1) targetAddr
     | _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"No more to add"
@@ -1284,22 +1296,19 @@ module internal CFGRecoveryCommon =
   /// Copies the recovered edges to other indirect branches that use the same
   /// jump table. The table owner performs the actual recovery only once.
   let connectDelayedJumpTableEdges ctx (cfgRec: ICFGRecovery<_, _>) =
-    let tryFindVertexByInstruction addr =
-      (ctx: CFGBuildingContext<_, _>).CFG.TryFindVertexBy(fun v ->
-        not v.VData.Internals.IsAbstract
-        && v.VData.Internals.Range.IsIncluding addr)
+    let tryFindIndBranchVertex addr = tryGetCallerVertex ctx (LeafCallSite addr)
     for jmptbl in ctx.JumpTables.Values do
       match jmptbl.WaitingInstructions with
       | [] ->
         ()
       | waitingInstructions ->
-        match tryFindVertexByInstruction jmptbl.InsAddr with
+        match tryFindIndBranchVertex jmptbl.InsAddr with
         | None ->
           ()
         | Some originalVertex ->
           let recoveredEdges = ctx.CFG.GetSuccEdges originalVertex
           for insAddr in waitingInstructions do
-            match tryFindVertexByInstruction insAddr with
+            match tryFindIndBranchVertex insAddr with
             | None ->
               ()
             | Some waitingVertex ->
