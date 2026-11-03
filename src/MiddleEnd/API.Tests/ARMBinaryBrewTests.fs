@@ -43,6 +43,19 @@ type ARMBinaryBrewTests() =
     let hdl = BinHandle.LoadFileBytes(readZippedBinary "elf_arm32", ISA "armv7")
     BinaryBrew(hdl).Functions
 
+  /// Recovers the functions of the binary as if it were stripped: the
+  /// identification for ARM knows only the entry point up front and finds the
+  /// rest in what the recovery builds.
+  static let recoverStripped (hdl: BinHandle) =
+    let arm32 =
+      ARM32FunctionIdentification(hdl, ExceptionInfo hdl)
+      :> IIncrementalFunctionIdentifiable
+    let identification =
+      { new IIncrementalFunctionIdentifiable with
+          member _.Identify() = [| Option.get hdl.File.EntryPoint |]
+          member _.IdentifyMore recovered = arm32.IdentifyMore recovered }
+    BinaryBrew(hdl, identification, CFGRecovery()).Functions
+
   /// Returns which instruction sets the instructions of the function are in,
   /// telling Thumb by true.
   static let instructionSetsOf (fn: Function) =
@@ -275,3 +288,77 @@ type ARMBinaryBrewTests() =
       ARM32FunctionIdentification(hdl, ExceptionInfo hdl)
       :> IIncrementalFunctionIdentifiable
     CollectionAssert.Contains(identification.IdentifyMore recovered, 0x609UL)
+
+  (* Only .fini_array leads to __do_global_dtors_aux, by a pointer that the
+     loader relocates, and the function saves the link register first. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A relocated pointer to code saving registers is a function``() =
+    let bytes = readZippedBinary "elf_arm32_exidx"
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x6ccUL)
+
+  (* frame_dummy only jumps to register_tm_clones, saving nothing, but it lies
+     right below the literal pool of __do_global_dtors_aux, which a function
+     ends with and a label does not. The pool is known once the recovery has
+     built that function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A relocated pointer to code below a literal is a function``() =
+    let bytes = readZippedBinary "elf_arm32_exidx"
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x70cUL)
+
+  (* A binary that the loader leaves where it is linked relocates nothing, and
+     .fini_array holds the address of __do_global_dtors_aux as it is. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer that fixed-base data holds can name a function``() =
+    let bytes = readZippedBinary "elf_arm32"
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x103fcUL)
+
+  (* With .fini_array pointing at 0x685 instead, the pointer names the bx lr
+     that follows a bx r3 in deregister_tm_clones, as Clang lays out a label
+     that returns right after the dispatch of the one above it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code right after a dispatch is no function``() =
+    let bytes = readZippedBinary "elf_arm32_exidx"
+    System.BitConverter.GetBytes(0x685u).CopyTo(bytes, 0xea4)
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x684UL)
+
+  (* Until the loader binds an import, its GOT slot holds the address of the
+     code that binds it, which starts the PLT and is no function: the slots of
+     this binary that hold 0x102ec. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``The code that binds imports is no function``() =
+    let bytes = readZippedBinary "elf_arm32"
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x102ecUL)
+
+  (* With .fini_array cleared, only .rodata holds the address of
+     __do_global_dtors_aux, among small numbers rather than other addresses, as
+     a number that happens to look like a code address sits. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A lone code address among fixed-base numbers is no pointer``() =
+    let bytes = readZippedBinary "elf_arm32"
+    System.BitConverter.GetBytes(0u).CopyTo(bytes, 0xf14)
+    System.BitConverter.GetBytes(0x103fdu).CopyTo(bytes, 0x4b0)
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x103fcUL)
+
+  (* The address of __do_global_dtors_aux sits next to that of a string this
+     time, as a structure holds a function with its name. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A code address next to another address is a pointer``() =
+    let bytes = readZippedBinary "elf_arm32"
+    System.BitConverter.GetBytes(0u).CopyTo(bytes, 0xf14)
+    System.BitConverter.GetBytes(0x103fdu).CopyTo(bytes, 0x4b0)
+    System.BitConverter.GetBytes(0x104bcu).CopyTo(bytes, 0x4b4)
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x103fcUL)

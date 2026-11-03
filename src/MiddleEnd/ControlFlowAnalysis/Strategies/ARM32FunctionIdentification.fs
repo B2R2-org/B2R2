@@ -50,11 +50,13 @@ type private CallSite =
     Values: Map<RegisterID, uint64> }
 
 /// Represents the function identification for 32-bit ARM. It takes what the
-/// binary tells, as FunctionIdentification does, and then a code address only
-/// once recovered code calls it: as an argument that an external function is
-/// known to call, as __libc_start_main calls main, or as the constant target
-/// of an indirect call. A code address that is merely stored somewhere may name
-/// a label, whose address GNU C lets a program take, but no call targets one.
+/// binary tells, as FunctionIdentification does, and then finds more in what
+/// the recovery builds. A code address that recovered code calls starts a
+/// function: as an argument that an external function is known to call, as
+/// __libc_start_main calls main, or as the constant target of an indirect
+/// call. A code address that the data of the binary holds may name a label
+/// instead, whose address GNU C lets a program take, so it starts a function
+/// only once the code there shows one starting, as ARM32EntryEvidence tells.
 type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -247,13 +249,28 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | false, _ ->
       Option.toList (tryTargetOf site)
 
+  /// Lists the address ranges of the sections that link the binary to others,
+  /// such as a PLT.
+  let linkageRanges =
+    BinFileOps.getSections file
+    |> Seq.filter (fun s -> s.Kind = DynamicLinkageSection && s.Size > 0UL)
+    |> Seq.map (fun s -> AddrRange.create s.Address (s.Address + s.Size - 1UL))
+    |> Seq.toArray
+
+  /// Tells whether the address lies in code that links the binary to others,
+  /// which serves imports rather than starting functions: an entry of the
+  /// import table, or the code that binds such entries as the PLT starts.
+  let isInLinkage addr =
+    BinFileOps.isInImportTable file addr
+    || linkageRanges |> Array.exists (fun r -> r.IsIncluding addr)
+
   /// Tells whether a call to the given address enters code of this binary in
   /// an instruction set that a function can start in: Thumb as the lowest bit
   /// says, or ARM at a word.
   let isCodePointer (v: uint64) =
     let addr = v &&& ~~~1UL
     file.IsExecutableAddr addr
-    && not (BinFileOps.isInImportTable file addr)
+    && not (isInLinkage addr)
     && (v &&& 1UL = 1UL || v &&& 3UL = 0UL)
 
   /// Returns the names of the external functions by the addresses that calls
@@ -266,15 +283,87 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       else ()
     names
 
+  /// Names the sections that hold nothing but pointers.
+  let pointerSectionNames =
+    set [ ".fini_array"
+          ".got"
+          ".init_array"
+          ".preinit_array" ]
+
+  /// Names the sections that hold pointers among other data.
+  let dataSectionNames =
+    set [ ".data"
+          ".data.rel.ro"
+          ".rodata" ]
+
+  /// Returns the values that the loader writes where it relocates the binary.
+  let relocatedValues () =
+    match file.Relocations with
+    | Some relocs ->
+      relocs.Relocations
+      |> Seq.choose (fun reloc ->
+        relocs.TryComputeRelocationValue reloc.Address |> Result.toOption)
+    | None ->
+      Seq.empty
+
+  /// Returns the words that the section holds.
+  let readWords (section: BinSection) =
+    if section.Size < 4UL then
+      [||]
+    else
+      [| section.Address .. 4UL .. section.Address + section.Size - 4UL |]
+      |> Array.map (fun addr -> hdl.TryReadUInt(addr, 4))
+      |> Array.map (Result.defaultValue 0UL)
+
+  /// Tells whether a word next to the one at the given index is an address of
+  /// the binary. Pointers sit together, in tables and in structures, while a
+  /// number that happens to look like a code address sits among numbers.
+  let hasAddressNext (words: uint64[]) idx =
+    [ idx - 1; idx + 1 ]
+    |> List.exists (fun i ->
+      i >= 0 && i < words.Length && file.IsValidAddr words[i])
+
+  /// Returns the words of the section that may be pointers.
+  let pointersIn (section: BinSection) =
+    if pointerSectionNames.Contains section.Name then
+      readWords section
+    elif dataSectionNames.Contains section.Name then
+      let words = readWords section
+      words
+      |> Array.indexed
+      |> Array.filter (fun (idx, _) -> hasAddressNext words idx)
+      |> Array.map snd
+    else
+      [||]
+
+  /// Returns the words that the data sections of the binary may point with.
+  let storedValues () =
+    BinFileOps.getSections file |> Seq.collect pointersIn
+
+  /// Lists the code addresses that the data of the binary holds, in the form
+  /// that Identify gives. A binary that the loader relocates has one wherever a
+  /// relocation writes one, and nowhere else, while one that stays where it is
+  /// linked has its pointers in its data sections as they are.
+  let dataPointers =
+    let values =
+      if file.IsBaseRelative then relocatedValues () else storedValues ()
+    values
+    |> Seq.map (fun v -> v &&& wordMask)
+    |> Seq.filter isCodePointer
+    |> Seq.distinct
+    |> Seq.toArray
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() = metadata.Identify()
 
     member _.IdentifyMore recovered =
       let externals = namesOfExternals recovered
+      let evidence = ARM32EntryEvidence(hdl, recovered, toCalleeAddr)
       recovered
       |> Seq.filter (fun fn -> not fn.IsExternal)
       |> Seq.collect findCalls
       |> Seq.collect (prove externals)
       |> Seq.filter isCodePointer
+      |> Seq.append (Array.filter evidence.IsLikelyEntry dataPointers)
       |> Seq.distinct
       |> Seq.toArray
