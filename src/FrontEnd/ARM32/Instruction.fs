@@ -189,6 +189,7 @@ type Instruction
     member this.IsRET =
       match this.Opcode, this.Operands with
       | Op.POP, OneOperand(OprRegList regs) when List.contains R.PC regs -> true
+      | Op.BX, OneOperand(OprReg R.LR) -> true
       | _ -> false
 
     member _.IsPush = Terminator.futureFeature ()
