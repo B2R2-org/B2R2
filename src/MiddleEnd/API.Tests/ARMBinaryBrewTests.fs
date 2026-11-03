@@ -63,6 +63,13 @@ type ARMBinaryBrewTests() =
     let start = mixedFunctions[0x10354UL]
     CollectionAssert.AreEqual([| true |], instructionSetsOf start)
 
+  (* The symbol of a Thumb function sets the lowest bit of its value, while the
+     function starts at the even address below, where $t marks the encoding
+     and names nothing. *)
+  [<TestMethod>]
+  member _.``A Thumb function takes the name of its symbol``() =
+    Assert.AreEqual<string>("_start", mixedFunctions[0x10354UL].Name)
+
   (* A BLX with an immediate always switches instruction sets, so the function
      it calls starts in the other one: here an ARM function calls a Thumb one
      that only returns. *)

@@ -1420,6 +1420,21 @@ type ELFTests() =
     Assert.AreEqual(Some DataMode, Map.tryFind 0x10194UL markers)
 
   [<TestMethod>]
+  member _.``[ELF] arm32 mapping symbols name nothing test``() =
+    (* A mapping symbol marks where an encoding starts, so an address resolves
+       to what starts there: the Thumb function _start, whose value sets the
+       lowest bit, at the address where its code starts, main where $a marks
+       it, and the import whose PLT entry starts where $a marks it. A fresh
+       instance has not parsed its PLT yet. *)
+    let file = parseFile "elf_arm32"
+    let assertName expected addr =
+      let actual = tryResolveName file addr
+      Assert.AreEqual<Result<string, ErrorCase>>(Ok expected, actual)
+    assertName "_start" 0x10354UL
+    assertName "main" 0x10330UL
+    assertName "__libc_start_main" 0x10300UL
+
+  [<TestMethod>]
   member _.``[ELF] aarch64 mapping symbols mark the encoding test``() =
     let markers = markersOf aarch64File
     Assert.AreEqual(Some A64Mode, Map.tryFind 0x4005c0UL markers)
