@@ -215,8 +215,10 @@ let adc isSetFlags ins bld =
     else
       let result = tmpVar bld 32<rt>
       result := addWithCarryOnlyResult src1 src2 (getCarryFlag bld)
-      if dst = getPC bld then aluWritePC bld ins isUnconditional result
-      else append bld { dst := result }
+      if dst = getPC bld then
+        return endWithALUWritePC bld ins isUnconditional result
+      else
+        dst := result
     putEndLabel bld lblIgnore
   }
 
@@ -280,8 +282,10 @@ let add isSetFlags ins bld =
     else
       let result = tmpVar bld 32<rt>
       result := addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>)
-      if dst = getPC bld then aluWritePC bld ins isUnconditional result
-      else append bld { dst := result }
+      if dst = getPC bld then
+        return endWithALUWritePC bld ins isUnconditional result
+      else
+        dst := result
     (* Outside the `else`, where every sibling in this file puts it. It sat
        inside, and Op.ADDS always takes the flag-setting arm -- so a
        conditional ADDS emitted its cjmp to the skip label and never marked
@@ -650,8 +654,10 @@ let sub isSetFlags ins bld =
       let result = tmpVar bld 32<rt>
       result :=
         addWithCarryOnlyResult src1 (AST.not src2) (AST.num1 32<rt>)
-      if dst = getPC bld then aluWritePC bld ins isUnconditional result
-      else append bld { dst := result }
+      if dst = getPC bld then
+        return endWithALUWritePC bld ins isUnconditional result
+      else
+        dst := result
     putEndLabel bld lblIgnore
   }
 
@@ -791,7 +797,7 @@ let logicalAnd isSetFlags (ins: Instruction) bld =
     let result = tmpVar bld 32<rt>
     result := src1 .& src2
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -822,7 +828,7 @@ let mov isSetFlags ins bld =
     else
       append bld { result := src }
     if dst = pc then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -842,7 +848,7 @@ let eor isSetFlags (ins: Instruction) bld =
     let result = tmpVar bld 32<rt>
     result := src1 <+> src2
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -888,8 +894,10 @@ let rsb isSetFlags ins bld =
       let result = tmpVar bld 32<rt>
       result :=
         addWithCarryOnlyResult (AST.not src1) src2 (AST.num1 32<rt>)
-      if dst = getPC bld then aluWritePC bld ins isUnconditional result
-      else append bld { dst := result }
+      if dst = getPC bld then
+        return endWithALUWritePC bld ins isUnconditional result
+      else
+        dst := result
     putEndLabel bld lblIgnore
   }
 
@@ -938,8 +946,10 @@ let sbc isSetFlags ins bld =
       let result = tmpVar bld 32<rt>
       result :=
         addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag bld)
-      if dst = getPC bld then aluWritePC bld ins isUnconditional result
-      else append bld { dst := result }
+      if dst = getPC bld then
+        return endWithALUWritePC bld ins isUnconditional result
+      else
+        dst := result
     putEndLabel bld lblIgnore
   }
 
@@ -979,8 +989,10 @@ let rsc isSetFlags ins bld =
       let result = tmpVar bld 32<rt>
       result :=
         addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag bld)
-      if dst = getPC bld then aluWritePC bld ins isUnconditional result
-      else append bld { dst := result }
+      if dst = getPC bld then
+        return endWithALUWritePC bld ins isUnconditional result
+      else
+        dst := result
     putEndLabel bld lblIgnore
   }
 
@@ -992,7 +1004,7 @@ let orr isSetFlags (ins: Instruction) bld =
     let result = tmpVar bld 32<rt>
     result := src1 .| src2
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -1010,7 +1022,7 @@ let orn isSetFlags (ins: Instruction) bld =
     let result = tmpVar bld 32<rt>
     result := src1 .| AST.not src2
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -1028,7 +1040,7 @@ let bic isSetFlags (ins: Instruction) bld =
     let result = tmpVar bld 32<rt>
     result := src1 .& (AST.not src2)
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -1088,7 +1100,7 @@ let mvn isSetFlags ins bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     result := AST.not src
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -1161,7 +1173,7 @@ let shiftInstr isSetFlags ins typ bld =
     (* The amount register can be the destination: take the carry first. *)
     if isSetFlags then carry := carryOut else ()
     if dst = getPC bld then
-      aluWritePC bld ins isUnconditional result
+      return endWithALUWritePC bld ins isUnconditional result
     else
       dst := result
       if isSetFlags then
@@ -2618,8 +2630,10 @@ let adr ins bld =
     let rd, result = parseOprOfADR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if rd = getPC bld then aluWritePC bld ins isUnconditional result
-    else append bld { rd := result }
+    if rd = getPC bld then
+      return endWithALUWritePC bld ins isUnconditional result
+    else
+      rd := result
     putEndLabel bld lblIgnore
   }
 

@@ -4957,6 +4957,25 @@ type LifterTests() =
       | stmt -> Assert.Fail $"{hex} ends with {stmt}"
 
   /// <summary>
+  /// ALUWritePC (A2.3.2) through ADD and MOV: add pc, r1, r0, mov pc, lr,
+  /// addls pc, pc, r0, lsl #2, and mov pc, lr in Thumb. A write to the PC ends
+  /// the instruction with a jump, which nothing may follow, unless a failed
+  /// condition goes on past the instruction from the label it skips to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A2.3.2 ALUWritePC ends with a jump``() =
+    let writes =
+      [ false, "e081f000"
+        false, "e1a0f00e"
+        false, "908ff100"
+        true, "46f7" ]
+    for isThumb, hex in writes do
+      let stmts = liftedBy isThumb hex
+      match stmts[stmts.Length - 2..] with
+      | [| _; InterJmp _ |] | [| LMark _; IEMark _ |] -> ()
+      | tail -> Assert.Fail $"{hex} ends with %A{tail}"
+
+  /// <summary>
   /// A8.8.134 PUSH: push {r2, r3}. This checks that it stores R2 then R3 below
   /// SP and moves SP down by eight. It is not a value test because it moves SP,
   /// which the run itself stands on.
