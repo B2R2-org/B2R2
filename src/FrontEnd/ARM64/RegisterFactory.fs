@@ -199,6 +199,39 @@ type RegisterFactory(isa: ISA) =
   let d30 = v30a
   let d31 = v31a
 
+  let v0 = AST.concat v0b v0a
+  let v1 = AST.concat v1b v1a
+  let v2 = AST.concat v2b v2a
+  let v3 = AST.concat v3b v3a
+  let v4 = AST.concat v4b v4a
+  let v5 = AST.concat v5b v5a
+  let v6 = AST.concat v6b v6a
+  let v7 = AST.concat v7b v7a
+  let v8 = AST.concat v8b v8a
+  let v9 = AST.concat v9b v9a
+  let v10 = AST.concat v10b v10a
+  let v11 = AST.concat v11b v11a
+  let v12 = AST.concat v12b v12a
+  let v13 = AST.concat v13b v13a
+  let v14 = AST.concat v14b v14a
+  let v15 = AST.concat v15b v15a
+  let v16 = AST.concat v16b v16a
+  let v17 = AST.concat v17b v17a
+  let v18 = AST.concat v18b v18a
+  let v19 = AST.concat v19b v19a
+  let v20 = AST.concat v20b v20a
+  let v21 = AST.concat v21b v21a
+  let v22 = AST.concat v22b v22a
+  let v23 = AST.concat v23b v23a
+  let v24 = AST.concat v24b v24a
+  let v25 = AST.concat v25b v25a
+  let v26 = AST.concat v26b v26a
+  let v27 = AST.concat v27b v27a
+  let v28 = AST.concat v28b v28a
+  let v29 = AST.concat v29b v29a
+  let v30 = AST.concat v30b v30a
+  let v31 = AST.concat v31b v31a
+
   let s0 = AST.xtlo 32<rt> v0a
   let s1 = AST.xtlo 32<rt> v1a
   let s2 = AST.xtlo 32<rt> v2a
@@ -626,6 +659,38 @@ type RegisterFactory(isa: ISA) =
       | R.SP -> sp
       | R.WSP -> wsp
       | R.PC -> pc
+      | R.V0 -> v0
+      | R.V1 -> v1
+      | R.V2 -> v2
+      | R.V3 -> v3
+      | R.V4 -> v4
+      | R.V5 -> v5
+      | R.V6 -> v6
+      | R.V7 -> v7
+      | R.V8 -> v8
+      | R.V9 -> v9
+      | R.V10 -> v10
+      | R.V11 -> v11
+      | R.V12 -> v12
+      | R.V13 -> v13
+      | R.V14 -> v14
+      | R.V15 -> v15
+      | R.V16 -> v16
+      | R.V17 -> v17
+      | R.V18 -> v18
+      | R.V19 -> v19
+      | R.V20 -> v20
+      | R.V21 -> v21
+      | R.V22 -> v22
+      | R.V23 -> v23
+      | R.V24 -> v24
+      | R.V25 -> v25
+      | R.V26 -> v26
+      | R.V27 -> v27
+      | R.V28 -> v28
+      | R.V29 -> v29
+      | R.V30 -> v30
+      | R.V31 -> v31
       | R.D0 -> d0
       | R.D1 -> d1
       | R.D2 -> d2
