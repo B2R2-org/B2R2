@@ -59,6 +59,11 @@ type Instruction
   /// Operation size.
   member _.OprSize with get(): RegType = oprSize
 
+  member private this.AddBranchTargetIfExist addrs =
+    match (this :> IInstruction).DirectBranchTarget() with
+    | false, _ -> addrs
+    | true, target -> Array.append addrs [| target |]
+
   interface IInstruction with
 
     member _.Address with get() = addr
@@ -183,7 +188,15 @@ type Instruction
       | FiveOperands(_, _, _, _, OprImm c) -> v <- c; true
       | _ -> false
 
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
+    member this.GetNextInstrAddrs() =
+      let ins = this :> IInstruction
+      let fallThrough = [| addr + uint64 nb |]
+      if ins.IsCall || ins.IsCondBranch then
+        this.AddBranchTargetIfExist fallThrough
+      elif ins.IsBranch || ins.IsExit then
+        this.AddBranchTargetIfExist [||]
+      else
+        fallThrough
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 

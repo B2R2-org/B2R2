@@ -11,6 +11,7 @@
     <Compile Include="IRRunner.fs" />
     <Compile Include="A64Machine.fs" />
     <Compile Include="LifterTests.fs" />
+    <Compile Include="InstructionTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
