@@ -172,31 +172,42 @@ module CallingConvention =
               intel Intel.Register.R11 ]
       ReturnAddressLocation = OnStack }
 
+  /// Returns the VFP doublewords from D(first) to D(last). AAPCS sorts them the
+  /// same whichever variant passes the floats, so no variant names them twice.
+  let private vfpDoubles first last =
+    [ for i in first .. last ->
+        arm32 (enum<ARM32.Register>(int ARM32.Register.D0 + i)) ]
+
   let private linuxARM32 () = (* AAPCS (EABI); soft-float via core regs *)
     { IntArgs =
         [| ArgLocation.Reg(arm32 ARM32.Register.R0)
            ArgLocation.Reg(arm32 ARM32.Register.R1)
            ArgLocation.Reg(arm32 ARM32.Register.R2)
            ArgLocation.Reg(arm32 ARM32.Register.R3)
-           ArgLocation.Reg(arm32 ARM32.Register.R4)
-           ArgLocation.Reg(arm32 ARM32.Register.R5) |]
+           ArgLocation.Stack { FirstOffset = 0; SlotSize = 4 } |]
       FloatArgs = [||]
       IntReturnLocation = ArgLocation.Reg(arm32 ARM32.Register.R0)
       FloatReturnLocation = ArgLocation.Reg(arm32 ARM32.Register.R0)
       ArgClassification = Independent
-      CalleeSavedRegisters =
+      CalleeSavedRegisters = (* R9 (SB) is the platform's; GNU/Linux keeps it *)
         set [ arm32 ARM32.Register.R4
               arm32 ARM32.Register.R5
               arm32 ARM32.Register.R6
               arm32 ARM32.Register.R7
               arm32 ARM32.Register.R8
+              arm32 ARM32.Register.SB
               arm32 ARM32.Register.SL
-              arm32 ARM32.Register.FP ]
+              arm32 ARM32.Register.FP
+              yield! vfpDoubles 8 15 ]
       CallerSavedRegisters =
         set [ arm32 ARM32.Register.R0
               arm32 ARM32.Register.R1
               arm32 ARM32.Register.R2
-              arm32 ARM32.Register.R3 ]
+              arm32 ARM32.Register.R3
+              arm32 ARM32.Register.IP
+              arm32 ARM32.Register.LR
+              yield! vfpDoubles 0 7
+              yield! vfpDoubles 16 31 ]
       ReturnAddressLocation = InRegister(arm32 ARM32.Register.LR) }
 
   let private linuxAArch64 () = (* AAPCS64 *)

@@ -134,6 +134,41 @@ type CallingConventionTests() =
       InRegister lr, cc.ReturnAddressLocation
     )
 
+  (* AAPCS passes the first four words in R0 to R3 and the rest on the stack,
+     the first of them right at the stack pointer, as BL pushes nothing. *)
+  [<TestMethod>]
+  member _.``AAPCS passes four words in registers and then on the stack``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv7)
+    let r3 = ARM32.Register.toRegID ARM32.Register.R3
+    let slot = ArgLocation.Stack { FirstOffset = 0; SlotSize = 4 }
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg r3, cc.GetIntArgLocation 3)
+    Assert.AreEqual<ArgLocation>(slot, cc.GetIntArgLocation 4)
+
+  (* IP is free for the veneers and PLT entries that a linker puts in front of
+     a callee, and LR takes the return address, so neither survives a call. R9
+     is a platform register, which GNU/Linux has the callee keep. *)
+  [<TestMethod>]
+  member _.``AAPCS clobbers IP and LR across a call and keeps R9``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv7)
+    let arm r = ARM32.Register.toRegID r
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.IP))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.LR))
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm ARM32.Register.SB))
+
+  (* AAPCS sorts the VFP registers alike whichever variant passes the floats:
+     D8 to D15 survive a call, and the rest do not, D16 to D31 included on the
+     units that have them. *)
+  [<TestMethod>]
+  member _.``AAPCS keeps D8 to D15 across a call and clobbers the rest``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv7)
+    let arm r = ARM32.Register.toRegID r
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm ARM32.Register.D8))
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm ARM32.Register.D15))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.D0))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.D7))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.D16))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm ARM32.Register.D31))
+
   [<TestMethod>]
   member _.``x64 System V passes floats in XMM independently``() =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
