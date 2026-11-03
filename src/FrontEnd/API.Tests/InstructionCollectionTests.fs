@@ -72,6 +72,23 @@ type InstructionCollectionTests() =
     instrs.Completion.Wait()
     Assert.AreEqual<string>("nop", (instrs.Find 0x1fffUL).Disasm())
 
+  (* Parsing on demand runs on a unit of each thread's own, which used to come
+     fresh from BinHandle and so read the instruction set BinHandle picks
+     rather than the one of the unit the collector sweeps with. *)
+  [<TestMethod>]
+  member _.``[InstructionCollection] on-demand parsing keeps the mode test``() =
+    let code = ByteArray.ofHexString "1eff2fe1" (* bx lr *)
+    let hdl = BinHandle.LoadRawImage(code, ISA "thumb")
+    let unit = hdl.NewLiftingUnit()
+    unit.IsThumb <- false
+    let collector: IInstructionCollectable =
+      LinearSweepInstructionCollector(hdl, unit)
+    match collector.ParseInstructionCandidate 0UL with
+    | Ok(OnlyOne ins) ->
+      Assert.AreEqual<bool>(false, (ins :?> ARM32.Instruction).IsThumb)
+    | _ ->
+      Assert.Fail()
+
   [<TestMethod>]
   member _.``[InstructionCollection] find at a bad address raises test``() =
     let instrs = newCollection ()

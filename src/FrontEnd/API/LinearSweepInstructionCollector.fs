@@ -33,9 +33,15 @@ open B2R2.FrontEnd.BinFile
 type LinearSweepInstructionCollector(hdl: BinHandle, liftingUnit: LiftingUnit) =
   (* On-demand parsing can run on any thread while the sweep is in flight, and a
      LiftingUnit is not thread-safe, so each thread keeps its own instead of
-     building one per call. *)
-  let onDemandUnits =
-    new ThreadLocal<LiftingUnit>(fun () -> hdl.NewLiftingUnit())
+     building one per call. Each reads the encoding the given unit reads, which
+     need not be the one BinHandle picks. *)
+  let newOnDemandUnit () =
+    let unit = hdl.NewLiftingUnit()
+    unit.IsThumb <- liftingUnit.IsThumb
+    unit.ISAMode <- liftingUnit.ISAMode
+    unit
+
+  let onDemandUnits = new ThreadLocal<LiftingUnit>(newOnDemandUnit)
 
   let rec update updateFn (token: CancellationToken) (ptr: BinFilePointer) =
     if ptr.CanReadFileBytes && not token.IsCancellationRequested then
