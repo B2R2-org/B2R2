@@ -30,6 +30,7 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Tests the recovery of 32-bit ARM binaries, whose functions each start in
@@ -145,3 +146,37 @@ type ARMBinaryBrewTests() =
       |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
       |> Array.sort
     CollectionAssert.AreEqual([| 0x28UL; 0x2cUL; 0x30UL; 0x34UL |], targets)
+
+  (* Only a pointer leads to the second function, so the identification finds
+     it in what the recovery has built rather than up front. It keeps naming
+     the function once it is built, which must not keep the recovery going. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function found in what the recovery built is recovered``() =
+    let code =
+      [ "0000a0e3" (* mov r0, #0 *)
+        "1eff2fe1" (* bx lr *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let hdl = BinHandle.LoadRawImage(code, ISA "armv7")
+    let identification =
+      { new IIncrementalFunctionIdentifiable with
+          member _.Identify() = [| 0x0UL |]
+          member _.IdentifyMore _ = [| 0x8UL |] }
+    let fns = BinaryBrew(hdl, identification, CFGRecovery()).Functions
+    CollectionAssert.AreEqual([| 0x0UL; 0x8UL |], Seq.toArray fns.Addresses)
+
+  (* The identification gives a Thumb function by its odd address, as the
+     binary does, also when it finds the function after the recovery. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A Thumb function found after the recovery starts in Thumb``() =
+    let hdl = BinHandle.LoadFileBytes(readZippedBinary "elf_arm32", ISA "armv7")
+    let identification =
+      { new IIncrementalFunctionIdentifiable with
+          member _.Identify() = [| 0x10330UL |]
+          member _.IdentifyMore _ = [| 0x10355UL |] }
+    let fns = BinaryBrew(hdl, identification, CFGRecovery()).Functions
+    CollectionAssert.AreEqual([| true |], instructionSetsOf fns[0x10354UL])

@@ -32,7 +32,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          taskStream: TaskWorkerCommandStream<'FnCtx, 'GlCtx>,
-         dependenceMap: FunctionDependenceMap) =
+         dependenceMap: FunctionDependenceMap,
+         identification: IIncrementalFunctionIdentifiable option) =
 
   /// Globally maintained context. This context can only be accessed through a
   /// Command.
@@ -45,6 +46,14 @@ type TaskScheduler<'FnCtx, 'GlCtx>
 
   /// Errors that broke the scheduler itself, which abort the whole recovery.
   let fatalErrors = List<exn>()
+
+  /// Whether the identification may still find functions in what has been
+  /// built. Gap analysis waits until it finds no more, since a gap may hold
+  /// such a function.
+  let mutable isIdentifying = Option.isSome identification
+
+  /// Functions with a jump table that finished while gap analysis waited.
+  let functionsAwaitingGaps = HashSet<Addr>()
 
   let mutable msgbox: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>> | null = null
 
@@ -242,12 +251,85 @@ type TaskScheduler<'FnCtx, 'GlCtx>
           ()
       )
 
+  /// Asks the identification for more functions in what has been built,
+  /// keeping those that no builder starts at yet: a function that is built or
+  /// failed to be needs no second start.
+  let identifyMore (identification: IIncrementalFunctionIdentifiable) =
+    builders.Values
+    |> Array.filter (fun builder -> builder.BuilderState = Finished)
+    |> Array.map (fun builder -> builder.ToFunction())
+    |> identification.IdentifyMore
+    |> Array.map builders.RegisterEntry
+    |> Array.filter (fun addr -> Result.isError (builders.TryGetBuilder addr))
+    |> Array.distinct
+
+  /// Finds the functions to build once every builder is done: those that the
+  /// strategy asks for and, while it identifies, those that the identification
+  /// finds.
+  let findMoreCandidates () =
+    let candidates = strategy.FindCandidatesForPostProcessing builders.Values
+    match identification with
+    | Some identification when isIdentifying ->
+      Array.append candidates (identifyMore identification)
+    | _ ->
+      candidates
+
+  /// Finds the first gap of the function that is worth analyzing, if any. Only
+  /// a function with a jump table has one, as its table may reach code that
+  /// nothing else leads to.
+  let tryFindGap (builder: ICFGBuildable<_, _>) =
+    if builder.Context.JumpTables.Count > 0 then
+      let gaps = builder.Context.AnalyzeGap builder.NextFunctionAddress
+#if CFGDEBUG
+      if List.isEmpty gaps then
+        dbglog ManagerTid "Gap" $"none @ {builder.EntryPoint:x}"
+      else
+        gaps
+        |> List.iter (fun gap ->
+          dbglog ManagerTid "Gap" $"{gap} @ {builder.EntryPoint:x}")
+#endif
+      gaps
+      |> List.map (fun range -> range.Min)
+      |> List.filter (not << builder.Context.GapBlacklist.Contains)
+      |> List.sort
+      |> List.tryHead
+    else
+      None
+
+  /// Reopens a function that finished while gap analysis waited to analyze its
+  /// first gap, telling whether it has one.
+  let resumeGapAnalysis addr =
+    let builder = builders[addr]
+    if builder.BuilderState <> Finished then
+      false
+    else
+      match tryFindGap builder with
+      | Some gap ->
+        builder.ReInitialize()
+        startGapAnalysis builder gap
+        scheduleCFGBuilding addr
+        true
+      | None ->
+        false
+
+  /// Stops identifying and resumes the gap analyses that waited for it,
+  /// telling whether any of them started.
+  let stopIdentifying () =
+    isIdentifying <- false
+    let resumed =
+      functionsAwaitingGaps
+      |> Seq.toArray
+      |> Array.fold (fun any addr -> resumeGapAnalysis addr || any) false
+    functionsAwaitingGaps.Clear()
+    resumed
+
   let terminateIfAllDone () =
     match builders.GetTerminationStatus() with
     | AllDone ->
-      match strategy.FindCandidatesForPostProcessing builders.Values with
+      match findMoreCandidates () with
       | [||] ->
-        terminateWorkers ()
+        if isIdentifying && stopIdentifying () then ()
+        else terminateWorkers ()
       | nextCandidates ->
         nextCandidates |> Array.iter (msgbox.Post << StartBuilding)
 #if CFGDEBUG
@@ -338,36 +420,23 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       <| NotifyCalleeChange(calleeAddr, calleeInfo)
 
   /// Analyzes gaps and returns true if there was a meaningful gap to analyze so
-  /// that we have to resume the building process.
+  /// that we have to resume the building process. While the identification
+  /// may still find functions, a function with a jump table waits for it.
   let analyzeGaps (builder: ICFGBuildable<_, _>) =
-    let nextFnAddrOpt = builder.NextFunctionAddress
-    if builder.Context.JumpTables.Count > 0 then
-      let gaps = builder.Context.AnalyzeGap(nextFnAddrOpt)
-      if List.isEmpty gaps then
-#if CFGDEBUG
-        dbglog ManagerTid "Gap" $"none @ {builder.EntryPoint:x}"
-#endif
-        false
+    if isIdentifying then
+      if builder.Context.JumpTables.Count > 0 then
+        functionsAwaitingGaps.Add builder.EntryPoint |> ignore
       else
-#if CFGDEBUG
-        gaps
-        |> List.iter (fun gap ->
-          dbglog ManagerTid "Gap" $"{gap} @ {builder.EntryPoint:x}")
-#endif
-        gaps
-        |> List.map (fun range -> range.Min)
-        |> List.filter (not << builder.Context.GapBlacklist.Contains)
-        |> List.sort
-        |> List.tryHead
-        |> function
-          | None ->
-            false
-          | Some(addr) ->
-            startGapAnalysis builder addr
-            scheduleCFGBuilding builder.EntryPoint
-            true
+        ()
+      false
     else
-      false (* Since there's no jmp table, no need to analyze gaps. *)
+      match tryFindGap builder with
+      | Some addr ->
+        startGapAnalysis builder addr
+        scheduleCFGBuilding builder.EntryPoint
+        true
+      | None ->
+        false
 
   /// Finalizes a callee that has been successfully built. It propagates the
   /// success to its callers who are waiting for the builder.
@@ -508,6 +577,9 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       | UpdateGlobalContext updater ->
         try globalCtx <- updater globalCtx
         with e -> abort e
+
+  new(builders, strategy, taskStream, dependenceMap) =
+    TaskScheduler(builders, strategy, taskStream, dependenceMap, None)
 
   /// Functions whose recovery raised an unexpected exception. This is only
   /// valid after the scheduler has stopped.

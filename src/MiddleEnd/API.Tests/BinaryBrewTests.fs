@@ -466,6 +466,36 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew analyzes gaps once identification finds no more``() =
+    (* The second switch of gap lies in dead code, which only a gap analysis
+       recovers. A gap may hold a function that the identification is yet to
+       find in what has been built, so the analysis waits until it finds no
+       more, and then recovers the switch all the same. *)
+    let bytes = readZippedBinary "elf_x86_gapjmptbl"
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "x64")
+    let found =
+      FunctionIdentification(hdl, ExceptionInfo hdl) :> IFunctionIdentifiable
+    let seen = ResizeArray()
+    let identification =
+      { new IIncrementalFunctionIdentifiable with
+          member _.Identify() = found.Identify()
+          member _.IdentifyMore fns =
+            fns
+            |> Array.filter (fun fn -> fn.EntryPoint = 0x401140UL)
+            |> Array.iter (fun fn -> seen.Add(jumpTablesOf fn))
+            [||] }
+    let strategy = CFGRecovery(hdl.ISA, CFGRecoveryOptions.Default)
+    let fn = BinaryBrew(hdl, identification, strategy).Functions[0x401140UL]
+    let live = [ 0x401150UL; 0x401156UL; 0x40115cUL; 0x401162UL ]
+    let dead = [ 0x40117cUL; 0x401182UL; 0x401186UL; 0x40118cUL ]
+    let beforeGaps = [ 0x40012cUL, 4, live ]
+    let expected = [ 0x40012cUL, 4, live; 0x400118UL, 4, dead ]
+    Assert.AreEqual<int>(1, seen.Count)
+    Assert.AreEqual<(Addr * int * Addr list) list>(beforeGaps, seen[0])
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew drops an entry that jumps through its own table``() =
     (* Nothing bounds the index of pick, so its table is read past its twelve
        entries. The word after them points to the last byte of a jmp, where

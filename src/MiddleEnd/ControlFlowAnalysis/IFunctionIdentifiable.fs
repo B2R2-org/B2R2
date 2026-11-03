@@ -32,3 +32,17 @@ type IFunctionIdentifiable =
   /// Finds a list of candidate functions to analyze. It returns a list of
   /// addresses of the candidate functions.
   abstract Identify: unit -> Addr[]
+
+/// Represents a function identification strategy that also finds functions in
+/// what the recovery has built, such as those that only a pointer leads to.
+/// The recovery holds back its gap analysis until this finds no more, since a
+/// gap may hold a function yet to be found.
+and IIncrementalFunctionIdentifiable =
+  inherit IFunctionIdentifiable
+
+  /// Finds more candidate functions in the given functions, which the recovery
+  /// has built from every candidate found so far, along with the external
+  /// functions it knows of. It returns their addresses, in the form that
+  /// Identify does, and an empty array once it finds no more. The functions
+  /// are valid only during the call.
+  abstract IdentifyMore: recovered: Function[] -> Addr[]

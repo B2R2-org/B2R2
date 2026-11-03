@@ -15,13 +15,13 @@
     <Compile Include="IResettable.fs" />
     <Compile Include="IContextProvidable.fs" />
     <Compile Include="ILinkage.fs" />
-    <Compile Include="IFunctionIdentifiable.fs" />
     <Compile Include="IntraCallTable.fs" />
     <Compile Include="CFGEvaluator.fs" />
     <Compile Include="ClobberedRegisters.fs" />
     <Compile Include="IJumpTableChannel.fs" />
     <Compile Include="CFGBuildingContext.fs" />
     <Compile Include="Function.fs" />
+    <Compile Include="IFunctionIdentifiable.fs" />
     <Compile Include="TaskManagerCommand.fs" />
     <Compile Include="DelayedBuilderRequest.fs" />
     <Compile Include="IFunctionBuilder.fs" />

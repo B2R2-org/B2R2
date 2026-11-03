@@ -58,9 +58,20 @@ type BinaryBrew<'FnCtx, 'GlCtx>
     |> Array.filter (fun builder -> builder.BuilderState = Finished)
     |> FunctionCollection
 
+  /// The identification as one that also finds functions in what the recovery
+  /// builds, if it is one.
+  let incrementalIdentification =
+    match funcID with
+    | :? IIncrementalFunctionIdentifiable as incremental -> Some incremental
+    | _ -> None
+
   let recoverFunctions () =
     let candidates = funcID.Identify()
-    let manager = TaskManager<'FnCtx, 'GlCtx>(builders, cfgBuilder, numThreads)
+    let manager =
+      TaskManager<'FnCtx, 'GlCtx>(builders,
+                                  cfgBuilder,
+                                  numThreads,
+                                  incrementalIdentification)
     manager.StartAndWait candidates
     buildersToFunctions builders, manager.Failures, manager.GlobalContext
 
