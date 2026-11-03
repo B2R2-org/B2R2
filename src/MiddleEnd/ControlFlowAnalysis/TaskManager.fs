@@ -94,7 +94,7 @@ type TaskManager<'FnCtx, 'GlCtx>
   let getInitialRecoveryAddrs candidates =
     match strategy.RecoveryTargets with
     | All -> candidates
-    | Specific addrs -> addrs
+    | Specific addrs -> Array.map builders.RegisterEntry addrs
 
 #if CFGDEBUG
   do initLogger numThreads
@@ -107,6 +107,7 @@ type TaskManager<'FnCtx, 'GlCtx>
   member _.GlobalContext with get(): 'GlCtx = scheduler.GlobalContext
 
   member _.StartAndWait candidates =
+    let candidates = Array.map builders.RegisterEntry candidates
     let targetAddrs = getInitialRecoveryAddrs candidates
     createBuilders candidates targetAddrs
     startBuildingCFGs targetAddrs

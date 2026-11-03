@@ -469,6 +469,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
         | _ ->
           ()
       | AddDependency(caller, callee, ch) ->
+        builders.InheritEntryMode(callee, caller)
         let builder = builders.TryGetBuilder callee
         match builder with
         | Ok(:? ICFGBuildable<'FnCtx, 'GlCtx> as builder)

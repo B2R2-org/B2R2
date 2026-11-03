@@ -15,6 +15,7 @@
     <Compile Include="JmpTableRecoveryNotebookTests.fs" />
     <Compile Include="JmpTableInfoTests.fs" />
     <Compile Include="BinaryBrewTests.fs" />
+    <Compile Include="ARMBinaryBrewTests.fs" />
     <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
 
