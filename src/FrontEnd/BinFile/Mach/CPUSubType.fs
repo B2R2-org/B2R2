@@ -24,6 +24,8 @@
 
 namespace B2R2.FrontEnd.BinFile.Mach
 
+open B2R2
+
 /// Represents the exact model of a CPU.
 type internal CPUSubType =
   | MIPSAll = 0
@@ -31,6 +33,7 @@ type internal CPUSubType =
   | MIPSR2600 = 2
   | MIPSR2800 = 3
   | MIPSR2000A = 4
+  | ARMV7K = 12
 
 [<RequireQualifiedAccess>]
 module internal CPUSubType =
@@ -41,3 +44,10 @@ module internal CPUSubType =
     | CPUSubType.MIPSR2800
     | CPUSubType.MIPSR2000A -> (* MIPS32R2 *) true
     | _ -> false
+
+  /// Returns how 32-bit ARM of the given subtype passes floats across a call.
+  /// Apple passes them in the core registers, except on armv7k, the Apple
+  /// Watch, which passes them in the VFP registers.
+  let toARMFloatABI = function
+    | CPUSubType.ARMV7K -> ARMFloatABI.Hard
+    | _ -> ARMFloatABI.Soft

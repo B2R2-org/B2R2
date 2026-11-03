@@ -66,3 +66,13 @@ module internal CPUType =
       Architecture.MIPS, WordSize.Bit32
     | _ ->
       raise InvalidISAException
+
+  /// Returns the ISA of the given CPU type and subtype in the given byte order.
+  let toISA cputype subtype endian =
+    let arch, wordSize = toArchWordSizeTuple cputype subtype
+    match cputype with
+    | CPUType.ARM ->
+      let floatABI = CPUSubType.toARMFloatABI subtype
+      ISA(arch, endian, wordSize, int floatABI)
+    | _ ->
+      ISA(arch, endian, wordSize)

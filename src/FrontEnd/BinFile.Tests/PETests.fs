@@ -81,6 +81,14 @@ type PETests() =
   static let managedISA flags =
     (PEBinFile("", withCorFlags flags, None, [||]) :> IBinFile).ISA
 
+  /// Reads back the ISA of the x86 executable rewritten to name the given
+  /// machine, whose field opens the COFF header right after the signature.
+  static let machineISA (machine: Machine) =
+    let bytes = ZIPReader.readBytes PEBinary "pe_x86.zip" "pe_x86.exe"
+    let coffHeader = BitConverter.ToInt32(bytes, 0x3c) + 4
+    BitConverter.GetBytes(uint16 machine).CopyTo(bytes, coffHeader)
+    (PEBinFile("", bytes, None, [||]) :> IBinFile).ISA
+
   /// A minimal x64 console executable (no PDB), used as the canonical fixture
   /// for metadata, section, and address-space tests.
   static let x64File = parseFile "pe_x64"
@@ -410,6 +418,18 @@ type PETests() =
     Assert.AreEqual(Architecture.Intel, isa.Arch)
     Assert.AreEqual(WordSize.Bit32, isa.WordSize)
     Assert.AreEqual(Endian.Little, isa.Endian)
+
+  /// Windows on ARM runs Thumb-2 alone and passes floats in the VFP registers,
+  /// while Windows CE on ARM passes them in the core registers.
+  [<TestMethod>]
+  member _.``[PE] ARM ISA test``() =
+    let nt = machineISA Machine.ArmThumb2
+    Assert.AreEqual(Architecture.ARMv7, nt.Arch)
+    Assert.AreEqual(ARM32Mode.Thumb, nt.ARM32Mode)
+    Assert.AreEqual(ARMFloatABI.Hard, nt.ARMFloatABI)
+    let ce = machineISA Machine.Arm
+    Assert.AreEqual(ARM32Mode.ARM, ce.ARM32Mode)
+    Assert.AreEqual(ARMFloatABI.Soft, ce.ARMFloatABI)
 
   [<TestMethod>]
   member _.``[PE] pure IL assembly ISA test``() =

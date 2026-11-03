@@ -201,10 +201,17 @@ let makeRegionTable (secs: SectionHeader[]) baseAddr =
       FileSize = uint64 sec.SizeOfRawData })
   |> BinRegionTable
 
+/// Returns the ISA of Windows on ARM, which runs Thumb-2 alone and passes
+/// floats in the VFP registers.
+let private windowsOnARMISA () =
+  let flags = int ARM32Mode.Thumb ||| int ARMFloatABI.Hard
+  ISA(Architecture.ARMv7, Endian.Little, WordSize.Bit32, flags)
+
 let peMachineToISA = function
   | Machine.I386 -> ISA(Architecture.Intel, WordSize.Bit32)
   | Machine.Amd64 | Machine.IA64 -> ISA(Architecture.Intel, WordSize.Bit64)
   | Machine.Arm -> ISA(Architecture.ARMv7, WordSize.Bit32)
+  | Machine.ArmThumb2 -> windowsOnARMISA ()
   | Machine.Arm64 -> ISA(Architecture.ARMv8, WordSize.Bit64)
   | _ -> raise InvalidISAException
 
