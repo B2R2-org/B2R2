@@ -206,7 +206,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           Ok sym.SymName
         | Error e ->
           match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
-          | Some entry when entry.TableAddress = addr -> Ok entry.Name
+          | Some entry when entry.TrampolineAddress = Some addr -> Ok entry.Name
           | _ -> Error e }
 
   let functionAddrs =

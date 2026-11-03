@@ -2573,14 +2573,13 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] x64 exec name resolution via PLT parsing test``() =
     (* The PLT is parsed only after a symbol lookup has missed, and parsing it
-       registers the imported symbol at its trampoline address. The entry's
-       table address is the GOT slot, not the trampoline, so the first lookup
-       still fails while the next one finds the freshly added symbol. This
-       starts from a fresh instance, as a shared one may have forced the PLT
-       already. *)
+       registers the imported symbol at its trampoline address. The first
+       lookup finds the name in the PLT entry that starts at the address, and
+       the next one finds the symbol that the parsing registered, so both
+       resolve alike. This starts from a fresh instance, as a shared one may
+       have forced the PLT already. *)
     let file = parseFile "elf_x64_exec"
-    let notFound: Result<string, ErrorCase> = Error ErrorCase.ItemNotFound
-    Assert.AreEqual<Result<string, ErrorCase>>(notFound,
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "write",
                                                tryResolveName file 0x401040UL)
     Assert.AreEqual<Result<string, ErrorCase>>(Ok "write",
                                                tryResolveName file 0x401040UL)
