@@ -54,6 +54,9 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
         member _.StartBuilding(addr) = manager.Post <| StartBuilding addr
 
+        member _.NoteEntryMode(addr, mode) =
+          manager.Post <| NoteEntryMode(addr, mode)
+
         member _.AddDependency(caller, callee) =
           manager.PostAndReply(fun _ ch ->
             AddDependency(caller, callee, ch))

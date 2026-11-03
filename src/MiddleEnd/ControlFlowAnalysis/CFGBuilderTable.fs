@@ -209,6 +209,12 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     | _ ->
       None
 
+  /// Notes the instruction set that the function at the given address starts
+  /// in, unless a builder or a note for the function came first.
+  let noteEntryMode addr mode =
+    if builders.ContainsKey addr || entryModes.ContainsKey addr then ()
+    else entryModes[addr] <- mode
+
   (* Load external function builders from the import (PLT/linkage) table. *)
   do match hdl.File.ImportTable with
      | Some tbl -> loadFromImportTable hdl.File tbl
@@ -235,12 +241,16 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     | None ->
       addr
 
+  /// Notes the instruction set that the function at the given address starts
+  /// in, which a call switching instruction sets says, unless a builder or a
+  /// note for the function came first.
+  member _.NoteEntryMode(addr, mode) = noteEntryMode addr mode
+
   /// Notes that the callee starts in the instruction set of its caller, as a
   /// call that does not switch instruction sets says, unless a builder or a
   /// note for the callee came first.
   member _.InheritEntryMode(callee, caller) =
-    if builders.ContainsKey callee || entryModes.ContainsKey callee then ()
-    else entryModes[callee] <- entryModeOf caller
+    noteEntryMode callee (entryModeOf caller)
 
   /// Returns the current termination status of all function builders.
   member _.GetTerminationStatus() =

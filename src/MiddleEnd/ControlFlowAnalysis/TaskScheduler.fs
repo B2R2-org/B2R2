@@ -468,6 +468,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
           assignCFGBuildingTaskNow builder
         | _ ->
           ()
+      | NoteEntryMode(addr, mode) ->
+        builders.NoteEntryMode(addr, mode)
       | AddDependency(caller, callee, ch) ->
         builders.InheritEntryMode(callee, caller)
         let builder = builders.TryGetBuilder callee

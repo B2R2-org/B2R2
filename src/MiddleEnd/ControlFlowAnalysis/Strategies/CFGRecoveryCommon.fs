@@ -518,6 +518,24 @@ module internal CFGRecoveryCommon =
       connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
       MoveOn
 
+  /// Calls the function at target from the call that ends the given vertex.
+  let handleDirectCall ctx cfgRec srcVertex target =
+    let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
+    let callsite = LeafCallSite bbl.LastInstruction.Address
+    let act = MakeCall(callsite, target, CalleeInfo.Unknown)
+    handleCall ctx cfgRec srcVertex callsite target act
+
+  /// Matches the kind of a call that switches 32-bit ARM to the other
+  /// instruction set, telling the one the callee starts in.
+  [<return: Struct>]
+  let (|ModeSwitchingCall|_|) (kind: InterJmpKind) =
+    if kind = (InterJmpKind.IsCall ||| InterJmpKind.SwitchToThumb) then
+      ValueSome ARM32Mode.Thumb
+    elif kind = (InterJmpKind.IsCall ||| InterJmpKind.SwitchToARM) then
+      ValueSome ARM32Mode.ARM
+    else
+      ValueNone
+
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
@@ -593,11 +611,10 @@ module internal CFGRecoveryCommon =
           let act = MakeCall(callsite, target, CalleeInfo.Unknown)
           result <- handleCall ctx cfgRec srcVertex callsite target act
         | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.IsCall) ->
-          let lastInsAddr = srcData.LastInstruction.Address
-          let callsite = LeafCallSite lastInsAddr
-          let target = n.ToUInt64()
-          let act = MakeCall(callsite, target, CalleeInfo.Unknown)
-          result <- handleCall ctx cfgRec srcVertex callsite target act
+          result <- handleDirectCall ctx cfgRec srcVertex (n.ToUInt64())
+        | InterJmp(Target = Num(Value = n); Kind = ModeSwitchingCall mode) ->
+          ctx.ManagerChannel.NoteEntryMode(n.ToUInt64(), mode)
+          result <- handleDirectCall ctx cfgRec srcVertex (n.ToUInt64())
         | InterCJmp(TrueTarget = BinOp(Op = BinOpType.ADD
                                        Left = PCVar _
                                        Right = Num(Value = tv))

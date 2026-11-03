@@ -384,6 +384,14 @@ and IManagerAccessible<'FnCtx, 'GlCtx> =
        addr: Addr
     -> unit
 
+  /// Notes the instruction set that the function at the given address starts
+  /// in, which a call switching instruction sets says. A builder already made
+  /// for the function, or an earlier note, wins.
+  abstract NoteEntryMode:
+       addr: Addr
+     * mode: ARM32Mode
+    -> unit
+
   /// Updates the dependency between two functions and returns the current
   /// status of the callee.
   abstract AddDependency:

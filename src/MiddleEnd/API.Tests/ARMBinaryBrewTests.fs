@@ -60,3 +60,20 @@ type ARMBinaryBrewTests() =
   member _.``A Thumb function is read in Thumb at its even address``() =
     let start = mixedFunctions[0x10354UL]
     CollectionAssert.AreEqual([| true |], instructionSetsOf start)
+
+  (* A BLX with an immediate always switches instruction sets, so the function
+     it calls starts in the other one: here an ARM function calls a Thumb one
+     that only returns. *)
+  [<TestMethod>]
+  member _.``A BLX makes its callee start in the other instruction set``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "010000fa" (* blx 0x10 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "00f020e3" (* nop *)
+        "7047" (* bx lr, in Thumb *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    CollectionAssert.AreEqual([| false |], instructionSetsOf fns[0x0UL])
+    CollectionAssert.AreEqual([| true |], instructionSetsOf fns[0x10UL])

@@ -32,6 +32,9 @@ type TaskManagerCommand<'FnCtx, 'GlCtx> =
   /// Start building a CFG for a function at the given address using the given
   /// operation mode.
   | StartBuilding of Addr
+  /// Note the instruction set that the function at the given address starts
+  /// in, for a builder yet to be made.
+  | NoteEntryMode of Addr * ARM32Mode
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr
                    * callee: Addr
