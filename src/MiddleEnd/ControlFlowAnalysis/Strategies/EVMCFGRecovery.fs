@@ -44,6 +44,10 @@ module private EVMCFGRecovery =
 
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
+  let rules =
+    CFGRecoveryRules<EVMFuncUserContext, EVMGlobalContext>()
+    :> ICFGRecoveryRules<_, _>
+
   /// Checks that the given address is a function, built or being built.
   let ensureFunction (ctx: CFGBuildingContext<EVMFuncUserContext, _>) addr =
     match ctx.ManagerChannel.GetCalleeStatus addr with
@@ -651,7 +655,7 @@ module private EVMCFGRecovery =
       let callSite = fromBBLToCallSite srcBlk
       let calleeInfo = makeCalleeInfo status
       let act = MakeCall(callSite, dstAddr, calleeInfo)
-      Some <| handleCall ctx cfgRec srcV callSite dstAddr act
+      Some <| handleCall ctx cfgRec rules srcV callSite dstAddr act
 
   let handleDirectJmpWithVars ctx cfgRec state srcV dstVars edge =
     match constantFoldSSAVars state dstVars with
@@ -724,7 +728,7 @@ module private EVMCFGRecovery =
             let cs = fromBBLToCallSite v.VData
             let info = { CalleeInfo.Unknown with Status = NoRet }
             let act = MakeCall(cs, callee, info) (* treat as NoRet *)
-            let ret = handleCall ctx cfgRec v cs callee act
+            let ret = handleCall ctx cfgRec rules v cs callee act
             if isFailedBuilding ctx callee then
               Some <| FailStop ErrorCase.FailedToRecoverCFG
             else
@@ -882,7 +886,7 @@ module private EVMCFGRecovery =
       let pp = ProgramPoint(fnAddr, 0)
       match scanBBLs ctx [ fnAddr ] with
       | Ok _ ->
-        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
+        buildCFG ctx cfgRec rules syscallAnalysis useTCHeuristic queue [| pp |]
       | Error e ->
         FailStop e
     | ExpandCFG pps ->
@@ -893,7 +897,7 @@ module private EVMCFGRecovery =
 #endif
       pps
       |> List.filter (not << (isInvalidProgramPoint ctx))
-      |> buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue
+      |> buildCFG ctx cfgRec rules syscallAnalysis useTCHeuristic queue
     | MakeCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeCall)

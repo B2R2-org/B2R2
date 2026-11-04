@@ -33,6 +33,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
 module private CFGRecovery =
   let onAction (ctx: CFGBuildingContext<_, _>)
                cfgRec
+               rules
                queue
                syscallAnalysis
                jmptblAnalysis
@@ -48,7 +49,7 @@ module private CFGRecovery =
       let pp = ProgramPoint(fnAddr, 0)
       match scanBBLs ctx [ fnAddr ] with
       | Ok _ ->
-        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
+        buildCFG ctx cfgRec rules syscallAnalysis useTCHeuristic queue [| pp |]
       | Error e ->
         FailStop e
     | ExpandCFG pps ->
@@ -57,7 +58,7 @@ module private CFGRecovery =
       dbglog ctx.ThreadID (nameof ExpandCFG)
       <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif
-      buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue pps
+      buildCFG ctx cfgRec rules syscallAnalysis useTCHeuristic queue pps
     | MakeCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeCall)
@@ -75,7 +76,7 @@ module private CFGRecovery =
       dbglog ctx.ThreadID (nameof MakeIndCall)
       <| $"{callsiteAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-      connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr
+      connectIndirectCallEdge ctx sretAnalysis cfgRec rules callsiteAddr
     | MakeSyscall(callsiteAddr, isExit) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
@@ -115,7 +116,7 @@ module private CFGRecovery =
 #endif
       assert (if not jmptbl.IsSingleEntry then true else idx = 0)
       ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
-      recoverJumpTableEntry ctx cfgRec idx jmptbl dstAddr
+      recoverJumpTableEntry ctx cfgRec rules idx jmptbl dstAddr
     | EndTblRec(jmptbl, idx) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof EndTblRec)
@@ -144,7 +145,7 @@ module private CFGRecovery =
         let v = getVertex ctx cfgRec pp
         ctx.CFG.AddRoot(v)
         recoverNoReturnFallThroughEdge ctx v
-        buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [ pp ]
+        buildCFG ctx cfgRec rules syscallAnalysis useTCHeuristic queue [ pp ]
       | Error e ->
         FailStop e
     | EndGapAnalysis ->
@@ -163,6 +164,22 @@ type CFGRecovery<'FnCtx, 'GlCtx
          syscallAnalysis: ISyscallAnalyzable,
          postAnalysis: ICFGAnalysis<_>,
          options: CFGRecoveryOptions) as this =
+
+  let defaultRules = CFGRecoveryRules<'FnCtx, 'GlCtx>()
+
+  let intelRules = IntelCFGRecoveryRules<'FnCtx, 'GlCtx>()
+
+  let arm32Rules = ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>()
+
+  /// Returns the rules for the architecture of the binary that the given
+  /// context builds a function of. The binary tells, rather than the ISA that
+  /// the strategy may be made with, as a strategy made without one serves a
+  /// binary of any architecture.
+  let rulesOf (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
+    match ctx.BinHandle.ISA with
+    | Intel -> intelRules :> ICFGRecoveryRules<_, _>
+    | ARM32 -> arm32Rules :> ICFGRecoveryRules<_, _>
+    | _ -> defaultRules :> ICFGRecoveryRules<_, _>
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
     member _.Summarizer with get() = summarizer
@@ -189,6 +206,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     member _.OnAction(ctx, queue, action) =
       onAction ctx
                this
+               (rulesOf ctx)
                queue
                syscallAnalysis
                jmptblAnalysis
@@ -198,7 +216,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
     member _.OnCreate _ctx = ()
 
-    member _.OnFinish ctx = onFinish ctx this postAnalysis
+    member _.OnFinish ctx = onFinish ctx this (rulesOf ctx) postAnalysis
 
     member _.OnCyclicDependency deps = onCyclicDependency deps
 

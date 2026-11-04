@@ -723,6 +723,15 @@ type BinaryBrewTests() =
     Assert.AreEqual<CFGEdgeKind list>(expected, edgesFrom fn 0x201294UL)
 
   [<TestMethod>]
+  member _.``BinaryBrew takes a call to the next pop as a read of the PC``() =
+    (* 32-bit x86 code reads the PC by calling the instruction right after the
+       call, which pops the address that the call pushes. No function starts
+       there, so the call only goes on within its function. *)
+    let code = [| 0xe8uy; 0uy; 0uy; 0uy; 0uy; 0x5buy; 0xc3uy |]
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "x86")).Functions
+    Assert.AreEqual<CFGEdgeKind list>([ InterJmpEdge ], edgesFrom fns[0UL] 0UL)
+
+  [<TestMethod>]
   member _.``BinaryBrew passes the condition of error on to a wrapper``() =
     (* wrap hands its first argument to error as the status, so it returns
        when, and only when, that argument is zero. *)

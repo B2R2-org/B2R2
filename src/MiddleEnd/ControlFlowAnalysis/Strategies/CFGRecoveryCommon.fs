@@ -160,19 +160,6 @@ module internal CFGRecoveryCommon =
     getCalleePPoint callsiteAddr (Some calleeAddr)
     |> (ctx: CFGBuildingContext<_, _>).Vertices.ContainsKey
 
-  let isGetPCThunk (ctx: CFGBuildingContext<_, _>) srcBBL calleeAddr =
-    if ctx.BinHandle.ISA.IsX86 then
-      let ins = (srcBBL: ILowUIRBasicBlock).LastInstruction
-      let nextAddr = ins.Address + uint64 ins.Length
-      if calleeAddr = nextAddr then
-        match ctx.BBLFactory.PeekBBL calleeAddr with
-        | Ok bbl -> bbl[0].IsPop (* Call to pop *)
-        | Error _ -> false
-      else
-        false
-    else
-      false
-
   let isStaticallyLinked (ctx: CFGBuildingContext<_, _>) =
     Option.isNone ctx.BinHandle.File.InterpreterPath
 
@@ -370,13 +357,14 @@ module internal CFGRecoveryCommon =
         |> pushAction ctx
     MoveOn
 
-  let handleCall ctx cfgRec srcVertex callsite calleeAddr action =
+  let handleCall ctx cfgRec rules srcVertex callsite calleeAddr action =
     let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     (* When a caller node is split into multiple nodes, we can detect the same
        abs-vertex multiple times. So we'd better check duplicates here. *)
     if doesAbsVertexExist ctx callsite calleeAddr then
       MoveOn
-    elif isGetPCThunk ctx srcBBL calleeAddr then
+    elif (rules: ICFGRecoveryRules<_, _>).IsGetPCThunk(ctx, srcBBL, calleeAddr)
+    then
       scanBBLsAndConnect ctx cfgRec srcVertex calleeAddr InterJmpEdge
       |> toCFGResult
     (* If an address 0 is encountered (i.e., call 0) and the binary is
@@ -394,7 +382,7 @@ module internal CFGRecoveryCommon =
 
   /// Resolves a call whose target is loaded from a PC-relative relocation
   /// slot.
-  let tryHandleRelocationBackedCall ctx cfgRec srcVertex isTailCall e =
+  let tryHandleRelocationBackedCall ctx cfgRec rules srcVertex isTailCall e =
     let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     let ppoint = srcBBL.PPoint
     match e with
@@ -427,7 +415,7 @@ module internal CFGRecoveryCommon =
             MakeTlCall(callsite, target, CalleeInfo.Unknown)
           else
             MakeCall(callsite, target, CalleeInfo.Unknown)
-        Some(handleCall ctx cfgRec srcVertex callsite target action)
+        Some(handleCall ctx cfgRec rules srcVertex callsite target action)
       | Error _ ->
         None
     | _ ->
@@ -491,84 +479,28 @@ module internal CFGRecoveryCommon =
     | Building | Built _ -> true
     | Failed -> false
 
-  /// Finds how deep in its frame the code at the given address runs, which is
-  /// how far its canonical frame address lies above the stack pointer.
-  let tryFindFrameDepth (hdl: BinHandle) (elf: BinFile.ELFBinFile) addr =
-    match elf.TryFindCFARegOffset addr with
-    | Some(rid, offset) when hdl.RegisterFactory.IsStackPointer rid ->
-      Some offset
-    | _ ->
-      None
-
-  /// Checks if the code at the given address runs as deep in its frame as the
-  /// entry of the current function does, which means the frame is torn down.
-  let runsAtEntryDepth (ctx: CFGBuildingContext<_, _>) addr =
-    let hdl = ctx.BinHandle
-    match hdl.File with
-    | :? BinFile.ELFBinFile as elf ->
-      let entryDepth = tryFindFrameDepth hdl elf ctx.FunctionAddress
-      entryDepth.IsSome && entryDepth = tryFindFrameDepth hdl elf addr
-    | _ ->
-      false
-
-  /// Checks if the given address is the entry of a function other than the
-  /// current one. A jump to the entry of the current function loops rather
-  /// than calls it.
-  let isOtherFuncEntry (ctx: CFGBuildingContext<_, _>) target =
-    target <> ctx.FunctionAddress && isFuncEntryPoint ctx target
-
-  /// Checks if the jump at jmpAddr enters a part split off the current
-  /// function, such as a GCC cold part, which the FDEs tell even when the
-  /// function runs without a frame and a symbol names the part a function.
-  let entersSplitOffPart (ctx: CFGBuildingContext<_, _>) jmpAddr target =
-    match ctx.BinHandle.File with
-    | :? BinFile.ELFBinFile as elf -> elf.IsWithinSplitOffPart(jmpAddr, target)
-    | _ -> false
-
-  /// Checks if the jump at jmpAddr calls the function at target as its tail: it
-  /// leaves for the entry of another function rather than for a part split off
-  /// the current one.
-  let isTailCall ctx jmpAddr target =
-    isOtherFuncEntry ctx target && not (entersSplitOffPart ctx jmpAddr target)
-
-  /// Checks if the conditional jump at jmpAddr calls the function at target as
-  /// its tail: it leaves for the entry of another function with its own frame
-  /// torn down, so that the callee returns to its caller.
-  let isCondTailCall ctx jmpAddr target =
-    runsAtEntryDepth ctx jmpAddr && isTailCall ctx jmpAddr target
-
-  /// Returns the address of the function that a call or a jump to the given
-  /// target enters: the trampoline of the PLT entry that covers the target,
-  /// which a call that switches Thumb code to ARM enters past the Thumb stub
-  /// starting it, or else the target itself.
-  let toCalleeAddr (ctx: CFGBuildingContext<_, _>) target =
-    match ctx.BinHandle.File with
-    | :? BinFile.ELFBinFile as elf ->
-      elf.TryFindTrampoline target |> Option.defaultValue target
-    | _ ->
-      target
-
   /// Connects the given vertex to the true target of the conditional jump that
   /// ends it, or calls the function there when the jump is a tail call.
-  let connectTrueTarget ctx cfgRec queue useTCHeuristic srcVertex tpp =
+  let connectTrueTarget ctx cfgRec rules queue useTCHeuristic srcVertex tpp =
     let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
     let jmpAddr = bbl.LastInstruction.Address
-    let callee = toCalleeAddr ctx (tpp: ProgramPoint).Address
-    if useTCHeuristic && isCondTailCall ctx jmpAddr callee then
+    let target = (tpp: ProgramPoint).Address
+    let callee = (rules: ICFGRecoveryRules<_, _>).ToCalleeAddr(ctx, target)
+    if useTCHeuristic && rules.IsCondTailCall(ctx, jmpAddr, callee) then
       let callsite = LeafCallSite jmpAddr
       let act = MakeTlCall(callsite, callee, CalleeInfo.Unknown)
-      handleCall ctx cfgRec srcVertex callsite callee act
+      handleCall ctx cfgRec rules srcVertex callsite callee act
     else
       connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
       MoveOn
 
   /// Calls the function that the call ending the given vertex enters at target.
-  let handleDirectCall ctx cfgRec srcVertex target =
+  let handleDirectCall ctx cfgRec rules srcVertex target =
     let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
     let callsite = LeafCallSite bbl.LastInstruction.Address
-    let callee = toCalleeAddr ctx target
+    let callee = (rules: ICFGRecoveryRules<_, _>).ToCalleeAddr(ctx, target)
     let act = MakeCall(callsite, callee, CalleeInfo.Unknown)
-    handleCall ctx cfgRec srcVertex callsite callee act
+    handleCall ctx cfgRec rules srcVertex callsite callee act
 
   /// Matches the kind of a call that switches 32-bit ARM to the other
   /// instruction set, telling the one the callee starts in.
@@ -594,12 +526,14 @@ module internal CFGRecoveryCommon =
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
+               (rules: ICFGRecoveryRules<_, _>)
                (syscallAnalysis: ISyscallAnalyzable)
                useTailcallHeuristic
                (actionQueue: CFGActionQueue)
                initPPs =
     let queue = Queue<ProgramPoint>(collection = initPPs)
-    let connectTrue = connectTrueTarget ctx cfgRec queue useTailcallHeuristic
+    let connectTrue =
+      connectTrueTarget ctx cfgRec rules queue useTailcallHeuristic
     let mutable result = MoveOn
     while queue.Count > 0 && result = MoveOn do
       let ppoint = queue.Dequeue()
@@ -648,13 +582,14 @@ module internal CFGRecoveryCommon =
           let target = n.ToUInt64()
           let lastInsAddr = srcData.LastInstruction.Address
           if useTailcallHeuristic then
-            let callee = toCalleeAddr ctx target
-            if not <| isTailCall ctx lastInsAddr callee then
+            let callee = rules.ToCalleeAddr(ctx, target)
+            if not <| rules.IsTailCall(ctx, lastInsAddr, callee) then
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
             else
               let callSite = LeafCallSite lastInsAddr
               let act = MakeTlCall(callSite, callee, CalleeInfo.Unknown)
-              result <- handleCall ctx cfgRec srcVertex callSite callee act
+              result <-
+                handleCall ctx cfgRec rules srcVertex callSite callee act
           else
             jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
         | InterJmp(Target = BinOp(Op = BinOpType.ADD
@@ -665,12 +600,12 @@ module internal CFGRecoveryCommon =
           let callsite = LeafCallSite lastInsAddr
           let target = lastInsAddr + n.ToUInt64()
           let act = MakeCall(callsite, target, CalleeInfo.Unknown)
-          result <- handleCall ctx cfgRec srcVertex callsite target act
+          result <- handleCall ctx cfgRec rules srcVertex callsite target act
         | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.IsCall) ->
-          result <- handleDirectCall ctx cfgRec srcVertex (n.ToUInt64())
+          result <- handleDirectCall ctx cfgRec rules srcVertex (n.ToUInt64())
         | InterJmp(Target = Num(Value = n); Kind = ModeSwitchingCall mode) ->
           ctx.ManagerChannel.NoteEntryMode(n.ToUInt64(), mode)
-          result <- handleDirectCall ctx cfgRec srcVertex (n.ToUInt64())
+          result <- handleDirectCall ctx cfgRec rules srcVertex (n.ToUInt64())
         | InterCJmp(TrueTarget = BinOp(Op = BinOpType.ADD
                                        Left = PCVar _
                                        Right = Num(Value = tv))
@@ -713,7 +648,9 @@ module internal CFGRecoveryCommon =
           ()
         | InterJmp(Target = e; Kind = InterJmpKind.Base)
         | InterJmp(Target = e; Kind = SameModeJump ctx) -> (* Indirect jmp *)
-          match tryHandleRelocationBackedCall ctx cfgRec srcVertex true e with
+          let resolved =
+            tryHandleRelocationBackedCall ctx cfgRec rules srcVertex true e
+          match resolved with
           | Some r ->
             result <- r
           | None ->
@@ -723,7 +660,9 @@ module internal CFGRecoveryCommon =
         | InterJmp(Target = e; Kind = ModeSwitchingCall _) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
-          match tryHandleRelocationBackedCall ctx cfgRec srcVertex false e with
+          let resolved =
+            tryHandleRelocationBackedCall ctx cfgRec rules srcVertex false e
+          match resolved with
           | Some r ->
             result <- r
           | None ->
@@ -947,103 +886,6 @@ module internal CFGRecoveryCommon =
       | _ ->
         ()
 
-  let rec skipNops (instrs: IInstruction list) addr =
-    match instrs with
-    | ins :: rest when ins.IsNop -> skipNops rest (addr + uint64 ins.Length)
-    | _ -> addr
-
-  /// Finds the first instruction from the given address on that is not a nop,
-  /// skipping the padding that a compiler may put after a call.
-  let skipPadding (ctx: CFGBuildingContext<_, _>) addr =
-    match ctx.BBLFactory.PeekBBL addr with
-    | Ok instrs
-    | Error instrs -> skipNops instrs addr
-
-  /// Judges whether a call returns, given how many bytes shallower in the
-  /// frame the code after it runs than the call itself.
-  let judgeByPoppedBytes (hdl: BinHandle) popped =
-    if popped = 0 || popped = WordSize.toByteWidth hdl.ISA.WordSize then
-      NotNoRet, popped
-    else
-      NoRet, 0
-
-  /// Judges whether the call at callAddr returns, comparing how deep in their
-  /// frame it and the code at nextAddr run.
-  let judgeByFrameDepth hdl elf callAddr nextAddr =
-    let callDepth = tryFindFrameDepth hdl elf callAddr
-    match callDepth, tryFindFrameDepth hdl elf nextAddr with
-    | Some c, Some n -> Some(judgeByPoppedBytes hdl (c - n))
-    | _ -> None
-
-  /// Judges from the call frame information whether the given indirect call
-  /// returns, along with how many bytes its callee pops when it does. The code
-  /// after a call that returns, past any padding, lies in the frame of the
-  /// call and runs as deep in it as the call, less what the callee pops, which
-  /// is a word at most: a hidden sret pointer. Code anywhere else is not where
-  /// the call returns to, so the call never does. Returns None when the
-  /// information does not tell.
-  let tryJudgeReturnByCFA (ctx: CFGBuildingContext<_, _>) (ins: IInstruction) =
-    let hdl = ctx.BinHandle
-    match hdl.File with
-    | :? BinFile.ELFBinFile as elf ->
-      let nextAddr = skipPadding ctx (ins.Address + uint64 ins.Length)
-      match elf.TryFindFDERange ins.Address with
-      | Some frame when frame.IsIncluding nextAddr ->
-        judgeByFrameDepth hdl elf ins.Address nextAddr
-      | Some _ ->
-        Some(NoRet, 0)
-      | None ->
-        None
-    | _ ->
-      None
-
-  /// Returns the address of the literal that the given instruction loads, out
-  /// of the pool that 32-bit ARM code keeps among its instructions, if it loads
-  /// one. An ADR takes the address of what lies there, which may as well be
-  /// code, rather than reading it.
-  let tryFindLoadedLiteral (ins: IInstruction) =
-    match ins with
-    | :? ARM32.Instruction as arm
-      when arm.Opcode = ARM32.Opcode.LDR || arm.Opcode = ARM32.Opcode.VLDR ->
-      match ins.MemoryDereferences() with
-      | true, [| addr |] -> Some addr
-      | _ -> None
-    | _ ->
-      None
-
-  /// Checks if the given instruction loads the literal at the given address.
-  let loadsLiteralAt addr ins = tryFindLoadedLiteral ins = Some addr
-
-  /// Checks if the block that ends with the given vertex loads the literal at
-  /// the given address. The lifter splits an instruction that branches within
-  /// itself, such as a BLX that picks the instruction set by the register it
-  /// calls through, so such a block is several vertices that all end with its
-  /// last instruction.
-  let blockLoadsLiteralAt (g: LowUIRCFG) addr (v: IVertex<LowUIRBasicBlock>) =
-    let lastAddr = v.VData.Internals.LastInstruction.Address
-    let visited = HashSet [ v ]
-    let isUnvisitedPart (p: IVertex<LowUIRBasicBlock>) =
-      not p.VData.Internals.IsAbstract
-      && p.VData.Internals.LastInstruction.Address = lastAddr
-      && visited.Add p
-    let rec loads (v: IVertex<LowUIRBasicBlock>) =
-      Array.exists (loadsLiteralAt addr) v.VData.Internals.Instructions
-      || Array.exists (fun p -> isUnvisitedPart p && loads p) (g.GetPreds v)
-    loads v
-
-  /// Judges from what the function loads whether the given indirect call
-  /// returns. A compiler lays a literal pool only where control never comes,
-  /// so a call right before a literal that the code loads never returns: one
-  /// that its block loads, or one that an earlier build of the function found
-  /// loaded elsewhere. Returns None when neither tells.
-  let tryJudgeReturnByLiteral (ctx: CFGBuildingContext<_, _>) caller =
-    let blk = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
-    let callIns = blk.LastInstruction
-    let nextAddr = callIns.Address + uint64 callIns.Length
-    if ctx.CallsBeforeLiterals.Contains callIns.Address then Some(NoRet, 0)
-    elif blockLoadsLiteralAt ctx.CFG nextAddr caller then Some(NoRet, 0)
-    else None
-
   /// Computes how many bytes the callee of the given indirect call pops on
   /// return, which is a word when the call passes a hidden sret pointer.
   let computeSRetUnwinding ctx (sretAnalysis: ISRetAnalyzable<_, _>) caller =
@@ -1062,18 +904,17 @@ module internal CFGRecoveryCommon =
                     status)
 
   /// Computes the summary of the callee of the given indirect call, which the
-  /// call frame information decides when it tells, a literal that the call
-  /// runs into next, and the sret analysis otherwise.
+  /// rules decide when they tell, and the sret analysis otherwise.
   let computeIndirectCalleeAbstraction
      ctx
+     (rules: ICFGRecoveryRules<_, _>)
      (sretAnalysis: ISRetAnalyzable<_, _>)
      (summarizer: IFunctionSummarizable<_, _>)
      (caller: IVertex<LowUIRBasicBlock>) =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     let callIns = caller.VData.Internals.LastInstruction
     let status, unwindingBytes =
-      tryJudgeReturnByCFA ctx callIns
-      |> Option.orElseWith (fun () -> tryJudgeReturnByLiteral ctx caller)
+      rules.TryJudgeIndirectReturn(ctx, caller)
       |> Option.defaultWith (fun () ->
         NotNoRet, computeSRetUnwinding ctx sretAnalysis caller)
     summarizer.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes)
@@ -1088,14 +929,14 @@ module internal CFGRecoveryCommon =
 
   /// Connects every vertex that ends with the indirect call at the call site to
   /// the one callee of the call, whichever instruction set the call goes to.
-  let connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr =
+  let connectIndirectCallEdge ctx sretAnalysis cfgRec rules callsiteAddr =
     let caller = getCallerVertex ctx callsiteAddr
     let callIns = caller.VData.Internals.LastInstruction
     let callSiteAddr = callIns.Address
     let callSite = LeafCallSite callSiteAddr
     let summarizer = (cfgRec: ICFGRecovery<_, _>).Summarizer
     let abs =
-      computeIndirectCalleeAbstraction ctx sretAnalysis summarizer caller
+      computeIndirectCalleeAbstraction ctx rules sretAnalysis summarizer caller
     let absV = getAbsVertex ctx cfgRec callSite None abs
     for caller in ctx.CallerVertices[callsiteAddr] do
       connectEdge ctx cfgRec caller absV CallEdge
@@ -1249,7 +1090,7 @@ module internal CFGRecoveryCommon =
     | _ ->
       false
 
-  let recoverJumpTableEntry ctx cfgRec idx jmptbl dstAddr =
+  let recoverJumpTableEntry ctx cfgRec rules idx jmptbl dstAddr =
     let callsite = LeafCallSite (jmptbl: JmpTableInfo).InsAddr
     let srcVertex = getCallerVertex ctx callsite
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
@@ -1284,7 +1125,7 @@ module internal CFGRecoveryCommon =
         let lastInsAddr = srcVertex.VData.Internals.LastInstruction.Address
         let callsite = LeafCallSite lastInsAddr
         let act = MakeTlCall(callsite, dstAddr, CalleeInfo.Unknown)
-        handleCall ctx cfgRec srcVertex callsite dstAddr act
+        handleCall ctx cfgRec rules srcVertex callsite dstAddr act
     elif isDummyJumpTarget ctx isDstFuncEntry dstAddr then
       (* A hole in the table: it adds no edge, but the entries after it are
          still part of the table, so we move on to the next one. *)
@@ -1387,64 +1228,6 @@ module internal CFGRecoveryCommon =
     | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
     | _ -> MoveOn
 
-  /// Checks if the indirect call at the given call site is taken to return.
-  let isTakenToReturn (ctx: CFGBuildingContext<_, _>) callsite =
-    match ctx.Vertices.TryGetValue(getCalleePPoint callsite None) with
-    | true, absV ->
-      absV.VData.Internals.AbstractContent.ReturningStatus <> NoRet
-    | false, _ ->
-      false
-
-  /// Returns the instruction at the given call site if it is a call in 32-bit
-  /// ARM that is taken to return, unless it has been found right before a
-  /// literal already: the call frame information may still say that such a
-  /// call returns, and finding it again would rebuild the function forever.
-  let tryGetReturningARMCall (ctx: CFGBuildingContext<_, _>) callsite =
-    let ins = (getCallerVertex ctx callsite).VData.Internals.LastInstruction
-    match ins with
-    | :? ARM32.Instruction when ins.IsCall && isTakenToReturn ctx callsite ->
-      if ctx.CallsBeforeLiterals.Contains ins.Address then None else Some ins
-    | _ ->
-      None
-
-  /// Returns the address of the literal that the given instruction loads
-  /// whenever it runs. A literal mostly holds a small number, whose top bits
-  /// read as the condition EQ, so a load that runs on a condition may be a
-  /// literal decoded as code rather than code.
-  let tryFindAlwaysLoadedLiteral (ins: IInstruction) =
-    match ins with
-    | :? ARM32.Instruction as arm
-      when arm.Condition = ARM32.Condition.AL
-           || arm.Condition = ARM32.Condition.UN ->
-      tryFindLoadedLiteral ins
-    | _ ->
-      None
-
-  /// Collects the addresses of the literals that the function loads.
-  let collectLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
-    ctx.CFG.Vertices
-    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
-    |> Array.collect (fun v -> v.VData.Internals.Instructions)
-    |> Array.choose tryFindAlwaysLoadedLiteral
-    |> HashSet
-
-  /// Finds the indirect calls of the function that are taken to return while
-  /// the function loads the literal right after them.
-  let findCallsBeforeLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
-    let calls =
-      ctx.CallerVertices.Keys
-      |> Seq.choose (tryGetReturningARMCall ctx)
-      |> Seq.toArray
-    if Array.isEmpty calls then
-      [||]
-    else
-      let literals = collectLoadedLiterals ctx
-      let isBeforeLiteral (ins: IInstruction) =
-        literals.Contains(ins.Address + uint64 ins.Length)
-      calls
-      |> Array.filter isBeforeLiteral
-      |> Array.map (fun ins -> ins.Address)
-
   /// Finalizes the recovery, unless the function runs into the next one
   /// through a jump table entry that turns out bogus, which rebuilds it.
   let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
@@ -1468,14 +1251,10 @@ module internal CFGRecoveryCommon =
     | _ ->
       finalizeRecovery ctx cfgRec postAnalysis
 
-  let onFinish (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
+  let onFinish (ctx: CFGBuildingContext<_, _>) cfgRec rules postAnalysis =
     assert (ctx.JumpTableRecoveryStatus.Count = 0)
-    match findCallsBeforeLoadedLiterals ctx with
-    | [||] ->
-      checkOverlap ctx cfgRec postAnalysis
-    | calls ->
-      ctx.CallsBeforeLiterals.UnionWith calls
-      StopAndReload
+    if (rules: ICFGRecoveryRules<_, _>).RequiresRebuild ctx then StopAndReload
+    else checkOverlap ctx cfgRec postAnalysis
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
     let sorted = deps |> Array.sortBy fst
