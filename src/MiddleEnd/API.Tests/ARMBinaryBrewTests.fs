@@ -65,6 +65,13 @@ type ARMBinaryBrewTests() =
     |> Array.map (fun ins -> (ins :?> ARM32.Instruction).IsThumb)
     |> Array.distinct
 
+  /// Returns where the indirect jumps of the function go, in order.
+  static let indirectJumpTargetsOf (fn: Function) =
+    fn.CFG.Edges
+    |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
+    |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
+    |> Array.sort
+
   [<TestMethod>]
   member _.``An ARM function is read in ARM``() =
     let main = mixedFunctions[0x10330UL]
@@ -152,13 +159,101 @@ type ARMBinaryBrewTests() =
       |> String.concat ""
       |> ByteArray.ofHexString
     let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
-    let cfg = fns[0x0UL].CFG
-    let targets =
-      cfg.Edges
-      |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
-      |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
-      |> Array.sort
+    let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x28UL; 0x2cUL; 0x30UL; 0x34UL |], targets)
+
+  (* GCC keeps the table away from the code and reads where it lies out of the
+     literal pool of the function. The ADD to the PC that jumps scales each
+     entry by four, so a byte counts the words from the instruction after the
+     next one, and the index needs no scaling of its own. *)
+  [<TestMethod>]
+  member _.``A GCC table of bytes is scaled by the add to the PC``() =
+    let code =
+      [ "0e0000eb" (* bl 0x40 *)
+        "2c309fe5" (* ldr r3, [pc, #0x2c] *)
+        "03308fe0" (* add r3, pc, r3 *)
+        "030050e3" (* cmp r0, #3 *)
+        "0700008a" (* bhi 0x34 *)
+        "0000d3e7" (* ldrb r0, [r3, r0] *)
+        "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+        "00f020e3" (* nop *)
+        "0000a0e3" (* mov r0, #0 *)
+        "1eff2fe1" (* bx lr *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *)
+        "0200a0e3" (* mov r0, #2 *)
+        "1eff2fe1" (* bx lr *)
+        "2c000000" (* .word 0x2c, from the PC of the add to the table *)
+        "00020405" (* .byte 0, 2, 4, 5 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x20UL; 0x28UL; 0x30UL; 0x34UL |], targets)
+
+  (* A load of a halfword in ARM cannot scale its index, so GCC doubles the
+     index with an ADD first. Here two cases lie before the jump, and their
+     entries are negative, which ldrsh reads as such. *)
+  [<TestMethod>]
+  member _.``A GCC table of halfwords reads a doubled index``() =
+    let code =
+      [ "110000eb" (* bl 0x4c *)
+        "030000ea" (* b 0x18 *)
+        "0000a0e3" (* mov r0, #0 *)
+        "1eff2fe1" (* bx lr *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *)
+        "20309fe5" (* ldr r3, [pc, #0x20] *)
+        "03308fe0" (* add r3, pc, r3 *)
+        "030050e3" (* cmp r0, #3 *)
+        "0400008a" (* bhi 0x3c *)
+        "000080e0" (* add r0, r0, r0 *)
+        "f00093e1" (* ldrsh r0, [r3, r0] *)
+        "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+        "00f020e3" (* nop *)
+        "0200a0e3" (* mov r0, #2 *)
+        "1eff2fe1" (* bx lr *)
+        "20000000" (* .word 0x20, from the PC of the add to the table *)
+        "f4fff6ff" (* .short -12, -10 *)
+        "00000100" (* .short 0, 1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x8UL; 0x10UL; 0x38UL; 0x3cUL |], targets)
+
+  (* GCC may also add the index to the table first and then load the halfword
+     at the index past that, which doubles the index all the same. *)
+  [<TestMethod>]
+  member _.``A GCC table of halfwords reads an index added twice``() =
+    let code =
+      [ "110000eb" (* bl 0x4c *)
+        "030000ea" (* b 0x18 *)
+        "0000a0e3" (* mov r0, #0 *)
+        "1eff2fe1" (* bx lr *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *)
+        "20309fe5" (* ldr r3, [pc, #0x20] *)
+        "03308fe0" (* add r3, pc, r3 *)
+        "030050e3" (* cmp r0, #3 *)
+        "0400008a" (* bhi 0x3c *)
+        "003083e0" (* add r3, r3, r0 *)
+        "f00093e1" (* ldrsh r0, [r3, r0] *)
+        "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+        "00f020e3" (* nop *)
+        "0200a0e3" (* mov r0, #2 *)
+        "1eff2fe1" (* bx lr *)
+        "20000000" (* .word 0x20, from the PC of the add to the table *)
+        "f4fff6ff" (* .short -12, -10 *)
+        "00000100" (* .short 0, 1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x8UL; 0x10UL; 0x38UL; 0x3cUL |], targets)
 
   (* Only a pointer leads to the second function, so the identification finds
      it in what the recovery has built rather than up front. It keeps naming

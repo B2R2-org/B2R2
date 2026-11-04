@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -454,6 +455,72 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       Error ErrorCase.ItemNotFound
 
+  /// Matches an entry that the code extends and then shifts to the left before
+  /// adding it to the base, as GCC for ARM adds an entry to the PC, giving
+  /// whether the extension is signed, the shift, and the load of the entry.
+  let (|ShiftedEntry|_|) = function
+    | BinOp(BinOpType.SHL, _, Cast(kind, _, Load(_, t, memExpr)), Num n)
+      when kind = CastKind.SignExt || kind = CastKind.ZeroExt ->
+      let signed = kind = CastKind.SignExt
+      Some(signed, n.ToInt32(), t, memExpr)
+    | _ ->
+      None
+
+  /// Finds the expression that computes the given one, following the copies
+  /// through which ARM moves a value, which go via a temporary.
+  let rec findComputation findDef e =
+    match e with
+    | Var v ->
+      match findDef v with
+      | Some(Def(_, d)) ->
+        match simplify d with
+        | Var _ as copied -> findComputation findDef copied
+        | computed -> computed
+      | _ ->
+        e
+    | _ ->
+      e
+
+  /// Rewrites the address of a byte or halfword entry, whose index ARM cannot
+  /// scale within the load, so that the index is scaled as isJmpTable expects.
+  /// For a byte, tbl + i becomes tbl + (i << 0), the table being the side that
+  /// folds to a constant and the index the side that does not. For a halfword,
+  /// whose index the code adds twice, tbl + (i + i) and (tbl + i) + i become
+  /// tbl + (i << 1).
+  let scaleNarrowIndex findConst findDef t memExpr =
+    let isConst e =
+      match constantFold findConst findDef e with
+      | Num _ -> true
+      | _ -> false
+    (* The address has the width of the index, which a temporary or a stack
+       slot of the data flow does not tell. *)
+    let shl rt idx (n: uint64) =
+      BinOp(BinOpType.SHL, rt, idx, Num(BitVector(n, rt)))
+    let tryScaleHalf rt tbl idx =
+      match findComputation findDef idx, findComputation findDef tbl with
+      | BinOp(BinOpType.ADD, _, i1, i2), _ when i1 = i2 ->
+        Some(tbl, shl rt i1 1UL)
+      | _, BinOp(BinOpType.ADD, _, inner, i) when i = idx ->
+        Some(inner, shl rt idx 1UL)
+      | _, BinOp(BinOpType.ADD, _, i, inner) when i = idx ->
+        Some(inner, shl rt idx 1UL)
+      | _ ->
+        None
+    let tryScale rt tbl idx =
+      if t = 8<rt> && isConst tbl && not (isConst idx) then
+        Some(tbl, shl rt idx 0UL)
+      elif t = 16<rt> then
+        tryScaleHalf rt tbl idx
+      else
+        None
+    match memExpr with
+    | BinOp(BinOpType.ADD, rt, e1, e2) ->
+      match tryScale rt e1 e2 |> Option.orElse (tryScale rt e2 e1) with
+      | Some(tbl, idx) -> BinOp(BinOpType.ADD, rt, tbl, idx)
+      | None -> memExpr
+    | _ ->
+      memExpr
+
   let detect expandPhi findConst findDef iAddr = function
     | BinOp(BinOpType.ADD, _, Num b, Load(_, t, memExpr))
     | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
@@ -463,6 +530,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         extractTblInfo findConst findDef iAddr (Num b) memExpr t false
       elif isSingleEntryJmpTable memExpr then
         extractTblInfo findConst findDef iAddr (Num b) memExpr t true
+      else
+        Error ErrorCase.ItemNotFound
+    | BinOp(BinOpType.ADD, _, Num b, ShiftedEntry(signed, shift, t, memExpr))
+    | BinOp(BinOpType.ADD, _, ShiftedEntry(signed, shift, t, memExpr), Num b) ->
+      let memExpr = scaleNarrowIndex findConst findDef t memExpr
+      if isJmpTable expandPhi findConst findDef t memExpr then
+        extractTblInfo findConst findDef iAddr (Num b) memExpr t false
+        |> Result.map (fun (jmptbl, origin) ->
+          { jmptbl with EntryShift = shift; IsSignedEntry = signed }, origin)
       else
         Error ErrorCase.ItemNotFound
     | BinOp(BinOpType.ADD, _, (Load(_, _, e1) as m1), (Load(_, t, e2) as m2)) ->
@@ -608,6 +684,44 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           StartsAt = startsAt findDef domGuards jmptbl o }
     jmptbl, Option.map guard origin
 
+  /// Checks if only the loader writes to the given address, so that the code
+  /// reads there what the binary holds, unless a relocation applies.
+  let isLoaderOnly (file: IBinFile) addr =
+    match file with
+    | :? ELFBinFile as elf -> elf.IsReadOnlyAfterLoading addr
+    | _ -> file.IsExecutableAddr addr
+
+  /// Reads the word that the binary holds at the given address, where only the
+  /// loader writes and no relocation does, e.g., the offset to a table in the
+  /// literal pool of ARM code.
+  let tryReadLoaderOnlyWord (hdl: BinHandle) addr =
+    let file = hdl.File
+    let rt = WordSize.toRegType file.ISA.WordSize
+    let isRelocated = BinFileOps.isRelocationAddr file addr
+    if isLoaderOnly file addr && not isRelocated then
+      match hdl.TryReadUInt(addr, RegType.toByteWidth rt) with
+      | Ok value -> Some(BitVector(value, rt))
+      | Error _ -> None
+    else
+      None
+
+  /// Finds the constant that the given variable holds, as the given function
+  /// finds it, or else as the binary holds it, if the variable is memory that
+  /// only the loader writes. The data flow names memory at a constant address
+  /// as a stack slot, at its offset from the initial stack pointer, and leaves
+  /// unknown what it holds before the function writes it.
+  let findConstOrLoaded hdl findConst (v: Variable) =
+    match findConst v, v.Kind with
+    | ConstantDomain.Const _ as c, _ ->
+      c
+    | c, StackVar(_, offset) when v.Identifier = 0 ->
+      let addr = Constants.InitialStackPointer + uint64 (int64 offset)
+      tryReadLoaderOnlyWord hdl addr
+      |> Option.map ConstantDomain.Const
+      |> Option.defaultValue c
+    | c, _ ->
+      c
+
   let analyzeSymbolicallyWithIRCFG ctx state insAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
     let found =
@@ -615,7 +729,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       |> Result.bind (findIndBranchExprFromIRCFG cfg state)
     match found with
     | Ok(exp, guards, domGuards) ->
-      let findConst = findConstFromIRCFG state
+      let fromCP = findConstFromIRCFG state
+      let findConst = findConstOrLoaded ctx.BinHandle fromCP
       let findDef = findDefFromIRCFG state
       let fnAddr = ctx.FunctionAddress
       findSymbPattern expandPhiFromIRCFG findConst findDef fnAddr insAddr 0 exp
