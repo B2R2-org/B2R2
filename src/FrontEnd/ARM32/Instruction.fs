@@ -309,7 +309,7 @@ type Instruction
       elif ins.IsBranch then
         if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
         else this.AddBranchTargetIfExist [||]
-      elif this.Opcode = Opcode.HLT then
+      elif this.Opcode = Opcode.HLT || this.Opcode = Opcode.UDF then
         [||]
       else
         acc

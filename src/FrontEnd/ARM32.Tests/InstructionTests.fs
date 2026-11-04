@@ -65,3 +65,12 @@ type InstructionTests() =
       |> List.map snd
     Assert.AreEqual<string>("", String.concat " " missed)
     Assert.AreEqual<bool>(false, (parse false "e28f1004").IsBranch)
+
+  (* GCC puts a UDF where control never arrives, such as a case of a switch
+     that cannot happen, and lays data right after it, so nothing after it is
+     code to follow, just as nothing is after a UD2 of Intel. *)
+  [<TestMethod>]
+  member _.``[ARMv7] undefined instructions have no successors test``() =
+    let successors isThumb hex = (parse isThumb hex).GetNextInstrAddrs()
+    CollectionAssert.AreEqual(Array.empty<Addr>, successors false "e7f000f0")
+    CollectionAssert.AreEqual(Array.empty<Addr>, successors true "de00")
