@@ -22,14 +22,50 @@
   SOFTWARE.
 *)
 
+
 namespace B2R2.FrontEnd.PPC
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+
+/// The BO field of a conditional branch, as the Power ISA lays it out: bit 4
+/// (0x10) skips the CR test, bit 3 (0x8) names the CR value that takes the
+/// branch, bit 2 (0x4) skips the CTR decrement and bit 1 (0x2) takes the
+/// branch when CTR reaches zero. 0b1z1zz is "branch always".
+module private BO =
+  let [<Literal>] NoCRTest = 0x10UL
+
+  let [<Literal>] CRTrue = 0x8UL
+
+  let [<Literal>] NoCTRDec = 0x4UL
+
+  let [<Literal>] CTRZero = 0x2UL
+
+  let [<Literal>] Always = NoCRTest ||| NoCTRDec
+
+  let isAlways bo = (bo &&& Always) = Always
+
+  /// Whether the branch is taken when its predicate holds: the CR bit where
+  /// it is tested, and CTR <> 0 where only the counter is.
+  let isOnTrue bo =
+    if (bo &&& NoCRTest) = 0UL then (bo &&& CRTrue) <> 0UL
+    else (bo &&& CTRZero) = 0UL
 
 /// Represents an instruction for PPC.
 type Instruction
   internal(addr, numBytes, op, opr, oprSize, ea, lifter: ILiftable) =
+
+  /// The BO field, which every B-form and XL-form branch carries first; the
+  /// I-form branches have none and always go.
+  let bo () =
+    match opr with
+    | TwoOperands(OprImm bo, _) | ThreeOperands(OprImm bo, _, _) -> bo
+    | _ -> BO.Always
+
+  /// Wraps a relative target at the address width of the processor.
+  let wrap target =
+    target &&& (UInt64.MaxValue >>> (64 - RegType.toBitWidth oprSize))
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -57,49 +93,119 @@ type Instruction
 
     member _.IsBranch =
       match op with
+      | Opcode.B | Opcode.BA | Opcode.BL | Opcode.BLA
+      | Opcode.BC | Opcode.BCA | Opcode.BCL | Opcode.BCLA
+      | Opcode.BCLR | Opcode.BCLRL | Opcode.BCCTR | Opcode.BCCTRL
+      | Opcode.BCTAR | Opcode.BCTARL -> true
       | _ -> false
 
     member _.IsModeChanging = false
 
-    member _.IsDirectBranch = Terminator.futureFeature ()
+    member _.IsDirectBranch =
+      match op with
+      | Opcode.B | Opcode.BA | Opcode.BL | Opcode.BLA
+      | Opcode.BC | Opcode.BCA | Opcode.BCL | Opcode.BCLA -> true
+      | _ -> false
 
-    member _.IsIndirectBranch = Terminator.futureFeature ()
+    member _.IsIndirectBranch =
+      match op with
+      | Opcode.BCLR | Opcode.BCLRL | Opcode.BCCTR | Opcode.BCCTRL
+      | Opcode.BCTAR | Opcode.BCTARL -> true
+      | _ -> false
 
-    member _.IsCondBranch = Terminator.futureFeature ()
+    member this.IsCondBranch =
+      (this :> IInstruction).IsBranch && not (BO.isAlways (bo ()))
 
-    member _.IsCJmpOnTrue = Terminator.futureFeature ()
+    member this.IsCJmpOnTrue =
+      (this :> IInstruction).IsCondBranch && BO.isOnTrue (bo ())
 
-    member _.IsCall = Terminator.futureFeature ()
+    member _.IsCall =
+      match op with
+      | Opcode.BL | Opcode.BLA | Opcode.BCL | Opcode.BCLA
+      | Opcode.BCLRL | Opcode.BCCTRL | Opcode.BCTARL -> true
+      | _ -> false
 
-    member _.IsRET = Terminator.futureFeature ()
+    member _.IsRET = op = Opcode.BCLR
 
-    member _.IsPush = Terminator.futureFeature ()
+    member _.IsPush = false
 
-    member _.IsPop = Terminator.futureFeature ()
+    member _.IsPop = false
 
-    member _.IsInterrupt = Terminator.futureFeature ()
+    member _.IsInterrupt =
+      match op with
+      | Opcode.SC | Opcode.SCV -> true
+      | _ -> false
 
-    member _.IsExit = Terminator.futureFeature ()
+    member _.IsExit =
+      match op with
+      | Opcode.RFI | Opcode.TRAP -> true
+      | _ -> false
 
-    member _.IsNop = Terminator.futureFeature ()
+    member _.IsNop = op = Opcode.NOP
 
     member _.IsInlinedAssembly = false
 
-    member _.IsTerminator _ = Terminator.futureFeature ()
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member _.DirectBranchTarget(_addr: byref<Addr>) =
-      Terminator.futureFeature ()
+    member _.DirectBranchTarget(target: byref<Addr>) =
+      match op, opr with
+      (* The parser resolves an I-form target, relative or absolute. *)
+      | (Opcode.B | Opcode.BA | Opcode.BL | Opcode.BLA), OneOperand(OprImm a) ->
+        target <- a
+        true
+      | (Opcode.BC | Opcode.BCL), ThreeOperands(_, _, OprAddr disp) ->
+        target <- wrap (addr + disp)
+        true
+      | (Opcode.BCA | Opcode.BCLA), ThreeOperands(_, _, OprAddr a) ->
+        target <- a
+        true
+      | _ ->
+        false
 
-    member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
-      Terminator.futureFeature ()
+    member _.IndirectTrampolineAddr(_addr: byref<Addr>) = false
 
-    member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
+    member _.MemoryDereferences(_: byref<Addr[]>) = false
 
-    member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
+    member _.Immediate(v: byref<int64>) =
+      match opr with
+      | OneOperand(OprImm c)
+      | TwoOperands(OprImm c, _)
+      | TwoOperands(_, OprImm c)
+      | ThreeOperands(OprImm c, _, _)
+      | ThreeOperands(_, OprImm c, _)
+      | ThreeOperands(_, _, OprImm c) ->
+        v <- int64 c
+        true
+      | _ ->
+        false
 
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
+    member this.GetNextInstrAddrs() =
+      let ins = this :> IInstruction
+      let fallThrough = addr + uint64 numBytes
+      let mutable target = 0UL
+      if ins.IsExit then
+        [||]
+      elif not ins.IsBranch then
+        [| fallThrough |]
+      elif ins.DirectBranchTarget &target then
+        if ins.IsCondBranch then [| target; fallThrough |] else [| target |]
+      elif ins.IsCondBranch then
+        [| fallThrough |]
+      else
+        [||]
 
-    member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
+    member _.InterruptNum(num: byref<int64>) =
+      match op, opr with
+      | Opcode.SC, _ ->
+        num <- 0L
+        true
+      | Opcode.SCV, OneOperand(OprImm lev) ->
+        num <- int64 lev
+        true
+      | _ ->
+        false
 
     member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
