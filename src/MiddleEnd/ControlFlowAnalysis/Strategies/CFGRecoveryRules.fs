@@ -178,6 +178,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// again.
   abstract RequiresRebuild: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
+  /// Finds the functions to build again among the given builders, once all of
+  /// them are done building.
+  abstract FindFunctionsToRebuild: IFunctionBuilder[] -> Addr[]
+
   /// Returns the target itself.
   default _.ToCalleeAddr(_, target) = target
 
@@ -200,6 +204,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Finds nothing in a built function that calls for building it again.
   default _.RequiresRebuild _ = false
 
+  /// Finds none.
+  default _.FindFunctionsToRebuild _ = [||]
+
   interface ICFGRecoveryRules<'FnCtx, 'GlCtx> with
     member this.ToCalleeAddr(ctx, target) = this.ToCalleeAddr(ctx, target)
 
@@ -216,3 +223,6 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       this.TryJudgeIndirectReturn(ctx, caller)
 
     member this.RequiresRebuild ctx = this.RequiresRebuild ctx
+
+    member this.FindFunctionsToRebuild builders =
+      this.FindFunctionsToRebuild builders

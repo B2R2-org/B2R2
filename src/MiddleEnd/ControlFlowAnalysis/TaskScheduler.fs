@@ -323,15 +323,35 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     functionsAwaitingGaps.Clear()
     resumed
 
+  /// Builds again the functions that the strategy revises once every builder
+  /// is done, telling whether there are any.
+  let rebuildRevised () =
+    match strategy with
+    | :? ICFGRevisingStrategy<'FnCtx, 'GlCtx> as revising ->
+      let addrs = revising.FindFunctionsToRebuild builders.Values
+      for addr in addrs do
+#if CFGDEBUG
+        dbglog ManagerTid "Revise" $"{addr:x}"
+#endif
+        restartBuilder builders[addr]
+      not (Array.isEmpty addrs)
+    | _ ->
+      false
+
+  /// Builds the functions that turn up once every builder is done, or ends the
+  /// recovery when none does.
+  let buildMoreOrTerminate () =
+    match findMoreCandidates () with
+    | [||] ->
+      if isIdentifying && stopIdentifying () then ()
+      else terminateWorkers ()
+    | nextCandidates ->
+      nextCandidates |> Array.iter (msgbox.Post << StartBuilding)
+
   let terminateIfAllDone () =
     match builders.GetTerminationStatus() with
     | AllDone ->
-      match findMoreCandidates () with
-      | [||] ->
-        if isIdentifying && stopIdentifying () then ()
-        else terminateWorkers ()
-      | nextCandidates ->
-        nextCandidates |> Array.iter (msgbox.Post << StartBuilding)
+      if not (rebuildRevised ()) then buildMoreOrTerminate () else ()
 #if CFGDEBUG
       dbglog ManagerTid "Termination" "All done."
 #endif

@@ -234,6 +234,20 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
     member _.FindCandidatesForPostProcessing _ = [||]
 
+  interface ICFGRevisingStrategy<'FnCtx, 'GlCtx> with
+    (* Without the heuristic, no jump calls a function, so building a function
+       again would follow the same jumps within it. *)
+    member _.FindFunctionsToRebuild builders =
+      let tryContextOf (builder: IFunctionBuilder) =
+        match builder with
+        | :? ICFGBuildable<'FnCtx, 'GlCtx> as built -> Some built.Context
+        | _ -> None
+      match Array.tryPick tryContextOf builders with
+      | Some ctx when options.UseTailcallHeuristic ->
+        (rulesOf ctx).FindFunctionsToRebuild builders
+      | _ ->
+        [||]
+
   new() = CFGRecovery(CFGRecoveryOptions.Default)
 
   new(options: CFGRecoveryOptions) =

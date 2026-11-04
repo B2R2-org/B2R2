@@ -26,6 +26,9 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open B2R2
+open B2R2.BinIR
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
@@ -151,15 +154,49 @@ module private ARM32CFGRecoveryRules =
       |> Array.filter isBeforeLiteral
       |> Array.map (fun ins -> ins.Address)
 
+  /// Checks if the building followed the jump that ends the given vertex
+  /// within its function, rather than took it for a tail call.
+  let isFollowedWithin (ctx: CFGBuildingContext<_, _>) v =
+    ctx.CFG.GetSuccEdges v |> Array.exists (fun e -> e.Label = InterJmpEdge)
+
+  /// Checks if the given vertex ends with a jump that the building followed
+  /// within its function to where a function of the given entries starts, as
+  /// none started there yet.
+  let jumpsWithinToEntry entries ctx (v: IVertex<LowUIRBasicBlock>) =
+    match v.VData.Internals.Terminator with
+    | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
+      let callee = toCalleeAddr ctx (n.ToUInt64())
+      callee <> ctx.FunctionAddress
+      && (entries: HashSet<Addr>).Contains callee
+      && isFollowedWithin ctx v
+    | _ ->
+      false
+
+  /// Checks if the function that the given builder has built took for its own
+  /// the code of a function of the given entries.
+  let swallowsEntry entries (builder: ICFGBuildable<_, _>) =
+    let ctx = builder.Context
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      not v.VData.Internals.IsAbstract && jumpsWithinToEntry entries ctx v)
+
 /// Represents the rules of the CFG recovery for 32-bit ARM. Besides the rules
 /// of every architecture, a call that switches Thumb code to ARM enters a PLT
 /// entry past the Thumb stub that starts it, and a call right before a literal
 /// that the code loads never returns, as a compiler lays a literal pool only
-/// where control never comes.
+/// where control never comes. Functions come to light as calls reach them, so
+/// a function may turn out to start in code that another one has taken for
+/// its own, which is then built again.
 type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.ToCalleeAddr(ctx, target) = toCalleeAddr ctx target
+
+  /// Takes a jump to the entry of another function for a tail call. Code of
+  /// 32-bit ARM keeps each function in one piece, so no jump enters a part that
+  /// the current function splits off.
+  override _.IsTailCall(ctx, _, target) =
+    target <> ctx.FunctionAddress && isFuncEntryPoint ctx target
 
   override _.TryJudgeIndirectReturn(ctx, caller) =
     base.TryJudgeIndirectReturn(ctx, caller)
@@ -172,3 +209,22 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     | calls ->
       ctx.CallsBeforeLiterals.UnionWith calls
       true
+
+  /// Finds the functions that took the code of another function for their
+  /// own: they followed a jump to it before any call told that a function
+  /// starts there. Built again, they call it as their tail.
+  override _.FindFunctionsToRebuild builders =
+    let entries =
+      builders
+      |> Array.filter (fun builder -> builder.BuilderState <> Invalid)
+      |> Array.map (fun builder -> builder.EntryPoint)
+      |> HashSet
+    let isSwallower (builder: IFunctionBuilder) =
+      match builder with
+      | :? ICFGBuildable<'FnCtx, 'GlCtx> as built ->
+        built.BuilderState = Finished && swallowsEntry entries built
+      | _ ->
+        false
+    builders
+    |> Array.filter isSwallower
+    |> Array.map (fun builder -> builder.EntryPoint)

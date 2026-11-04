@@ -210,6 +210,35 @@ type ARMBinaryBrewTests() =
     let expected = ConditionalNoRet(ArgLocation.Reg r0)
     Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
+  (* f jumps to x before anything tells that x is a function, so its building
+     follows the jump within f. Only once f returns does main call g, which
+     calls x and so makes it a function, after which f is built again to call
+     x as its tail rather than keep a copy of it. *)
+  [<TestMethod>]
+  member _.``A jump to code that a later call proves calls it as a tail``() =
+    let code =
+      [ "10402de9" (* main: push {r4, lr} *)
+        "010000eb" (* bl f *)
+        "020000eb" (* bl g *)
+        "1080bde8" (* pop {r4, pc} *)
+        "0100a0e3" (* f: mov r0, #1 *)
+        "020000ea" (* b x *)
+        "10402de9" (* g: push {r4, lr} *)
+        "000000eb" (* bl x *)
+        "1080bde8" (* pop {r4, pc} *)
+        "010080e2" (* x: add r0, r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let cfg = fns[0x10UL].CFG
+    let jump =
+      cfg.FindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.LastInstruction.Address = 0x14UL)
+    let kinds = cfg.GetSuccEdges jump |> Array.map _.Label
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps
      within its function, which stays in ARM, and the jump that does is the

@@ -81,3 +81,8 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   /// tells so, it notes in the context what the next building is to take
   /// instead.
   abstract RequiresRebuild: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
+  /// Finds the functions to build again among the given builders, once all of
+  /// them are done building, as what the recovery has found since tells their
+  /// CFGs otherwise.
+  abstract FindFunctionsToRebuild: IFunctionBuilder[] -> Addr[]
