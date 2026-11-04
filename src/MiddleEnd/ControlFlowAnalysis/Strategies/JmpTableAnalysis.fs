@@ -55,11 +55,13 @@ type private IndexOrigin =
 type JmpTableAnalysis<'FnCtx, 'GlCtx>
   public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
-  /// Gets the condition of the conditional jump that ends the given vertex, as
-  /// stmExtractor gives it in an SSA form.
+  /// Gets the condition of the conditional jump that ends the given vertex,
+  /// whether it jumps out of its instruction or within it, as stmExtractor
+  /// gives it in an SSA form.
   let tryGetCondition stmExtractor v =
     match stmExtractor v with
     | Some(Jmp(InterCJmp(cond, t, f))) when t <> f -> Some cond
+    | Some(Jmp(IntraCJmp(cond, t, f))) when t <> f -> Some cond
     | _ -> None
 
   /// Collects the guards on the edges into the given vertex, one per edge, or
@@ -79,14 +81,30 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     let dom = Dominance.LengauerTarjanDominance.create g df
     Guard.collectDominating (tryGetCondition stmExtractor) g dom v
 
+  /// Finds the vertex where the instruction that ends the given vertex starts,
+  /// following the edges within the instruction back from the vertex, as far
+  /// as they are the only ones in. An ARM jump that may switch instruction
+  /// sets ends in a way of its own for each of them.
+  let rec findInstructionStart (g: IDiGraph<_, _>) v =
+    match g.GetPreds v with
+    | [| pred |] ->
+      match g.FindEdge(pred, v).Label with
+      | IntraJmpEdge | IntraCJmpTrueEdge | IntraCJmpFalseEdge ->
+        findInstructionStart g pred
+      | _ ->
+        v
+    | _ ->
+      v
+
   let rec findJumpExpr stmExtractor tryGetPhiOperand (g: IDiGraph<_, _>) vFst =
     function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
       | Some(Jmp(InterJmp jmpExpr)) ->
-        (* The guards on the edges into v are where the branch checks its
-           range. *)
-        let guards = collectGuards stmExtractor tryGetPhiOperand g v
+        (* The guards on the edges into the instruction are where the branch
+           checks its range. *)
+        let start = findInstructionStart g v
+        let guards = collectGuards stmExtractor tryGetPhiOperand g start
         Ok(jmpExpr, guards, lazy collectDominatingGuards stmExtractor g v)
       | _ ->
         let vs =

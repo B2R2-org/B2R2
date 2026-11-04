@@ -255,6 +255,33 @@ type ARMBinaryBrewTests() =
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x8UL; 0x10UL; 0x38UL; 0x3cUL |], targets)
 
+  (* Each entry of a GCC table counts words from the jump, so the bytes after
+     the table in .rodata send the jump into its function as well, and only
+     the range check ends the table. ARM branches on a condition within one
+     instruction, and jumps out of one of its two ways, which the check then
+     guards. Here main becomes a switch, and the start of .rodata its table,
+     followed by four bytes that could be entries. *)
+  [<TestMethod>]
+  member _.``A range check ends the table of a GCC switch in ARM``() =
+    let bytes = readZippedBinary "elf_arm32"
+    let patch (offset: int) (hex: string) =
+      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+    [ "10309fe5" (* ldr r3, [pc, #0x10] *)
+      "03308fe0" (* add r3, pc, r3 *)
+      "030050e3" (* cmp r0, #3 *)
+      "0300008a" (* bhi 0x10350 *)
+      "0000d3e7" (* ldrb r0, [r3, r0] *)
+      "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+      "ec000000" (* .word 0xec, from the PC of the add to the table *)
+      "1eff2fe1" (* bx lr *)
+      "1eff2fe1" (* bx lr *) ]
+    |> String.concat ""
+    |> patch 0x330
+    patch 0x428 "0001010001000100" (* .byte 0, 1, 1, 0, then 1, 0, 1, 0 *)
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "armv7")
+    let tables = BinaryBrew(hdl).Functions[0x10330UL].JumpTables
+    CollectionAssert.AreEqual([| 4 |], tables |> Array.map _.NumEntries)
+
   (* Only a pointer leads to the second function, so the identification finds
      it in what the recovery has built rather than up front. It keeps naming
      the function once it is built, which must not keep the recovery going. *)

@@ -77,3 +77,21 @@ type JmpTableInfoTests() =
     let read tbl = JmpTableInfo.tryReadTarget hdl tbl 0
     Assert.AreEqual<Addr option>(Some 0x1380UL, read unsigned)
     Assert.AreEqual<Addr option>(Some 0xf80UL, read signed)
+
+  (* Whatever a shifted entry holds sends the jump close by, so the bytes after
+     the table pass for more of its entries, and only the range check tells
+     where it ends. A table of other entries goes on past its range check. *)
+  [<TestMethod>]
+  member _.``JmpTableInfo ends a shifted table at its range check``() =
+    let hdl = BinHandle.LoadRawImage([| 0x0uy; 0x1uy |], ISA "armv7")
+    let shifted =
+      { jmptbl with
+          JumpBase = 0x1000UL
+          EntrySize = 1
+          EntryShift = 2
+          IsSignedEntry = false
+          OwnRangeEntries = Some 1 }
+    let unshifted = { shifted with EntryShift = 0 }
+    let read tbl = JmpTableInfo.tryReadTarget hdl tbl 1
+    Assert.AreEqual<Addr option>(None, read shifted)
+    Assert.AreEqual<Addr option>(Some 0x1001UL, read unshifted)
