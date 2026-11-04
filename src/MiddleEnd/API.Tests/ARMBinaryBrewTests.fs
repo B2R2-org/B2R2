@@ -143,6 +143,26 @@ type ARMBinaryBrewTests() =
     CollectionAssert.AreEqual([| 0x4UL; 0x4UL |], callers)
     CollectionAssert.AreEqual([| 0x8UL |], returns)
 
+  (* libbfd calls the fatal callback of the linker through a pointer, and GCC
+     lays the literal pool that the code reads the message from right after
+     the call, as the callback never returns. A compiler puts no pool where
+     control comes, so the call does not return to the word it loads. *)
+  [<TestMethod>]
+  member _.``A BLX right before a literal it loads never returns``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "00009fe5" (* ldr r0, [pc, #0] *)
+        "33ff2fe1" (* blx r3 *)
+        "98890500" (* .word 0x58998, a muleq to decode *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let cfg = fns[0x0UL].CFG
+    let callee = cfg.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    CollectionAssert.AreEqual([||], cfg.GetSuccs callee)
+
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps
      within its function, which stays in ARM, and the jump that does is the

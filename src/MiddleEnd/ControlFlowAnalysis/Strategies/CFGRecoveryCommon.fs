@@ -997,6 +997,48 @@ module internal CFGRecoveryCommon =
     | _ ->
       None
 
+  /// Checks if the given instruction loads the literal at the given address,
+  /// out of the pool that 32-bit ARM code keeps among its instructions. An ADR
+  /// takes the address of what lies there, which may as well be code, rather
+  /// than reading it.
+  let loadsLiteralAt addr (ins: IInstruction) =
+    match ins with
+    | :? ARM32.Instruction as arm
+      when arm.Opcode = ARM32.Opcode.LDR || arm.Opcode = ARM32.Opcode.VLDR ->
+      match ins.MemoryDereferences() with
+      | true, [| target |] -> target = addr
+      | _ -> false
+    | _ ->
+      false
+
+  /// Checks if the block that ends with the given vertex loads the literal at
+  /// the given address. The lifter splits an instruction that branches within
+  /// itself, such as a BLX that picks the instruction set by the register it
+  /// calls through, so such a block is several vertices that all end with its
+  /// last instruction.
+  let blockLoadsLiteralAt (g: LowUIRCFG) addr (v: IVertex<LowUIRBasicBlock>) =
+    let lastAddr = v.VData.Internals.LastInstruction.Address
+    let visited = HashSet [ v ]
+    let isUnvisitedPart (p: IVertex<LowUIRBasicBlock>) =
+      not p.VData.Internals.IsAbstract
+      && p.VData.Internals.LastInstruction.Address = lastAddr
+      && visited.Add p
+    let rec loads (v: IVertex<LowUIRBasicBlock>) =
+      Array.exists (loadsLiteralAt addr) v.VData.Internals.Instructions
+      || Array.exists (fun p -> isUnvisitedPart p && loads p) (g.GetPreds v)
+    loads v
+
+  /// Judges from what its block loads whether the given indirect call returns.
+  /// A compiler lays a literal pool only where control never comes, so a call
+  /// right before a literal that the code loads never returns. Returns None
+  /// when the block loads no literal right after the call.
+  let tryJudgeReturnByLiteral (ctx: CFGBuildingContext<_, _>) caller =
+    let blk = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
+    let callIns = blk.LastInstruction
+    let nextAddr = callIns.Address + uint64 callIns.Length
+    if blockLoadsLiteralAt ctx.CFG nextAddr caller then Some(NoRet, 0)
+    else None
+
   /// Computes how many bytes the callee of the given indirect call pops on
   /// return, which is a word when the call passes a hidden sret pointer.
   let computeSRetUnwinding ctx (sretAnalysis: ISRetAnalyzable<_, _>) caller =
@@ -1015,8 +1057,8 @@ module internal CFGRecoveryCommon =
                     status)
 
   /// Computes the summary of the callee of the given indirect call, which the
-  /// call frame information decides when it tells, and the sret analysis
-  /// otherwise.
+  /// call frame information decides when it tells, a literal that the call
+  /// runs into next, and the sret analysis otherwise.
   let computeIndirectCalleeAbstraction
      ctx
      (sretAnalysis: ISRetAnalyzable<_, _>)
@@ -1026,6 +1068,7 @@ module internal CFGRecoveryCommon =
     let callIns = caller.VData.Internals.LastInstruction
     let status, unwindingBytes =
       tryJudgeReturnByCFA ctx callIns
+      |> Option.orElseWith (fun () -> tryJudgeReturnByLiteral ctx caller)
       |> Option.defaultWith (fun () ->
         NotNoRet, computeSRetUnwinding ctx sretAnalysis caller)
     summarizer.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes)
