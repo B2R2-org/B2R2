@@ -107,6 +107,26 @@ type SSAExprEvaluatorTests() =
     Assert.AreEqual<bool option list>(expected, actual)
 
   [<TestMethod>]
+  member _.``SSAExprEvaluator compares temporaries as wide as defined``() =
+    (* cmp r2, #3 in ARM copies r2 into a temporary, subtracts 3 from it into
+       another, and compares the two, neither of which the IR data flow gives
+       a width. Their definitions do: bhi falls through for 0 to 3. *)
+    let edi = var 32<rt> Register.EDI 1
+    let copy = { Kind = TempVar(0<rt>, 1); Identifier = 2 }
+    let diff = { Kind = TempVar(0<rt>, 3); Identifier = 3 }
+    let cf, zf = var 1<rt> Register.CF 4, var 1<rt> Register.ZF 5
+    let defs =
+      [ Def(copy, Var edi)
+        Def(diff, binop BinOpType.SUB (Var copy) (num 3UL))
+        Def(cf, relop RelOpType.LE (Var diff) (Var copy))
+        Def(zf, relop RelOpType.EQ (Var diff) (num 0UL)) ]
+    let notZf = UnOp(UnOpType.NOT, 1<rt>, Var zf)
+    let cond = BinOp(BinOpType.AND, 1<rt>, Var cf, notZf)
+    let actual = evaluateAll defs edi cond [ 0L; 3L; 4L ]
+    let expected = [ Some false; Some false; Some true ]
+    Assert.AreEqual<bool option list>(expected, actual)
+
+  [<TestMethod>]
   member _.``SSAExprEvaluator knows no slot read at another width``() =
     (* mov [rsp+0x70], rax spills eight bytes, and cmp dword [rsp+0x70], 9
        reads back four of them, which four depending on the byte order. *)

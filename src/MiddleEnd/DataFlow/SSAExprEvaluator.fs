@@ -26,7 +26,8 @@
 /// Provides a way to evaluate an SSA expression while one variable, the root,
 /// holds a given value, following the definitions of the other variables it
 /// reads. A temporary or a stack slot of the IR data flow carries no width, so
-/// such a variable takes the width of the expression that reads it.
+/// such a variable takes the width of the expression that reads it, or, when a
+/// comparison reads two of them, that of their definitions.
 module B2R2.MiddleEnd.DataFlow.SSAExprEvaluator
 
 open B2R2
@@ -47,6 +48,29 @@ let private widthOf e =
 let private widthAt rt e =
   let w = widthOf e
   if w = 0<rt> then rt else w
+
+/// Finds the width of the given expression, or, for a variable that carries
+/// none, that of its definition, which is zero if that carries none either.
+let private widthByDef findDef e =
+  match e with
+  | Var v when widthOf e = 0<rt> ->
+    match findDef v with
+    | Some(Def(_, d)) -> widthOf d
+    | _ -> 0<rt>
+  | _ ->
+    widthOf e
+
+/// Finds the width at which a comparison reads the given operands: the wider
+/// of theirs, or, if neither carries one, that of their definitions when the
+/// two agree.
+let private widthOfOperands findDef e1 e2 =
+  match max (widthOf e1) (widthOf e2) with
+  | w when w > 0<rt> ->
+    w
+  | _ ->
+    match widthByDef findDef e1, widthByDef findDef e2 with
+    | w1, w2 when w1 = w2 -> w1
+    | _ -> 0<rt>
 
 /// Keeps the given value if it is not a constant, or if its width satisfies the
 /// given condition. A variable that carries no width takes the width of its
@@ -82,7 +106,7 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
   | BinOp(op, t, e1, e2) ->
     ConstantDomain.evalBinOp op (eval t e1) (eval t e2)
   | RelOp(op, _, e1, e2) ->
-    match max (widthOf e1) (widthOf e2) with
+    match widthOfOperands findDef e1 e2 with
     | t when t > 0<rt> -> ConstantDomain.evalRelOp op (eval t e1) (eval t e2)
     | _ -> ConstantDomain.NotAConst
   | UnOp(op, t, e) ->
