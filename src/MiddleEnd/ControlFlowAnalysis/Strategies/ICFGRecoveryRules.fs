@@ -33,9 +33,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// Represents the rules that the CFG recovery follows where architectures
 /// differ: where a call enters its callee, whether a jump calls a function as
 /// its tail, whether a call calls a function at all, whether an indirect call
-/// returns, and whether a function needs building again. Workers share the
-/// rules, so the rules keep no state; what a function has to remember lives in
-/// its context.
+/// returns, which entries of a jump table are holes, and whether a function
+/// needs building again. Workers share the rules, so the rules keep no state;
+/// what a function has to remember lives in its context.
 type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   /// Returns the address of the function that a call or a jump to the given
   /// target enters.
@@ -75,6 +75,15 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * IVertex<LowUIRBasicBlock>
     -> (NonReturningStatus * int) option
+
+  /// Checks if the entries of a jump table that point to the given target are
+  /// holes, which lead to no code. A compiler points the entries of the cases
+  /// that never come to the end of their function, and what lies there besides
+  /// padding differs by architecture.
+  abstract IsJumpTableHole:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * target: Addr
+    -> bool
 
   /// Checks if the function that the given context has built needs building
   /// again, as its code refutes what the building took for granted. Before it

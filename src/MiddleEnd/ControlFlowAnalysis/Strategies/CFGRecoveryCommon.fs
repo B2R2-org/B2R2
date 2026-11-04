@@ -1090,6 +1090,13 @@ module internal CFGRecoveryCommon =
     | _ ->
       false
 
+  /// Checks if the entries of a jump table that point to the given target are
+  /// holes, which add no edge: the target is the padding at the end of the
+  /// function, or what the rules of the architecture take for a hole.
+  let isHoleTarget ctx rules isDstFuncEntry dstAddr =
+    isDummyJumpTarget ctx isDstFuncEntry dstAddr
+    || (rules: ICFGRecoveryRules<_, _>).IsJumpTableHole(ctx, dstAddr)
+
   let recoverJumpTableEntry ctx cfgRec rules idx jmptbl dstAddr =
     let callsite = LeafCallSite (jmptbl: JmpTableInfo).InsAddr
     let srcVertex = getCallerVertex ctx callsite
@@ -1126,7 +1133,7 @@ module internal CFGRecoveryCommon =
         let callsite = LeafCallSite lastInsAddr
         let act = MakeTlCall(callsite, dstAddr, CalleeInfo.Unknown)
         handleCall ctx cfgRec rules srcVertex callsite dstAddr act
-    elif isDummyJumpTarget ctx isDstFuncEntry dstAddr then
+    elif isHoleTarget ctx rules isDstFuncEntry dstAddr then
       (* A hole in the table: it adds no edge, but the entries after it are
          still part of the table, so we move on to the next one. *)
       MoveOn

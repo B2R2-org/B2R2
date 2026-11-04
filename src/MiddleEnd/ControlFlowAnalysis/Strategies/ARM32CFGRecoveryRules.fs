@@ -53,18 +53,22 @@ module private ARM32CFGRecoveryRules =
   /// of the pool that 32-bit ARM code keeps among its instructions, if it loads
   /// one. An ADR takes the address of what lies there, which may as well be
   /// code, rather than reading it.
-  let tryFindLoadedLiteral (ins: IInstruction) =
-    match ins with
-    | :? ARM32.Instruction as arm
-      when arm.Opcode = ARM32.Opcode.LDR || arm.Opcode = ARM32.Opcode.VLDR ->
-      match ins.MemoryDereferences() with
+  let tryFindLoadedLiteral (ins: ARM32.Instruction) =
+    if ins.Opcode = ARM32.Opcode.LDR || ins.Opcode = ARM32.Opcode.VLDR then
+      match (ins :> IInstruction).MemoryDereferences() with
       | true, [| addr |] -> Some addr
       | _ -> None
-    | _ ->
+    else
       None
 
   /// Checks if the given instruction loads the literal at the given address.
   let loadsLiteralAt addr ins = tryFindLoadedLiteral ins = Some addr
+
+  /// Returns the instructions of the given vertex, which are all of 32-bit
+  /// ARM, as these rules see no other code.
+  let instructionsOf (v: IVertex<LowUIRBasicBlock>) =
+    v.VData.Internals.Instructions
+    |> Array.map (fun ins -> ins :?> ARM32.Instruction)
 
   /// Checks if the block that ends with the given vertex loads the literal at
   /// the given address. The lifter splits an instruction that branches within
@@ -79,7 +83,7 @@ module private ARM32CFGRecoveryRules =
       && p.VData.Internals.LastInstruction.Address = lastAddr
       && visited.Add p
     let rec loads (v: IVertex<LowUIRBasicBlock>) =
-      Array.exists (loadsLiteralAt addr) v.VData.Internals.Instructions
+      Array.exists (loadsLiteralAt addr) (instructionsOf v)
       || Array.exists (fun p -> isUnvisitedPart p && loads p) (g.GetPreds v)
     loads v
 
@@ -96,6 +100,23 @@ module private ARM32CFGRecoveryRules =
     elif blockLoadsLiteralAt ctx.CFG nextAddr caller then Some(NoRet, 0)
     else None
 
+  /// Returns the address of the literal that the given instruction loads
+  /// whenever it runs. A literal mostly holds a small number, whose top bits
+  /// read as the condition EQ, so a load that runs on a condition may be a
+  /// literal decoded as code rather than code.
+  let tryFindAlwaysLoadedLiteral (ins: ARM32.Instruction) =
+    match ins.Condition with
+    | ARM32.Condition.AL | ARM32.Condition.UN -> tryFindLoadedLiteral ins
+    | _ -> None
+
+  /// Checks if the function loads the literal at the given address, as far as
+  /// it has been built.
+  let isLoadedLiteral (ctx: CFGBuildingContext<_, _>) addr =
+    let loads ins = tryFindAlwaysLoadedLiteral ins = Some addr
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      not v.VData.Internals.IsAbstract && Array.exists loads (instructionsOf v))
+
   /// Checks if the indirect call at the given call site is taken to return.
   let isTakenToReturn (ctx: CFGBuildingContext<_, _>) callsite =
     match ctx.Vertices.TryGetValue(getCalleePPoint callsite None) with
@@ -104,36 +125,22 @@ module private ARM32CFGRecoveryRules =
     | false, _ ->
       false
 
-  /// Returns the instruction at the given call site if it is a call in 32-bit
-  /// ARM that is taken to return, unless it has been found right before a
-  /// literal already: the call frame information may still say that such a
-  /// call returns, and finding it again would rebuild the function forever.
+  /// Returns the instruction at the given call site if it is a call that is
+  /// taken to return, unless it has been found right before a literal already:
+  /// the call frame information may still say that such a call returns, and
+  /// finding it again would rebuild the function forever.
   let tryGetReturningARMCall (ctx: CFGBuildingContext<_, _>) callsite =
     let ins = (getCallerVertex ctx callsite).VData.Internals.LastInstruction
-    match ins with
-    | :? ARM32.Instruction when ins.IsCall && isTakenToReturn ctx callsite ->
+    if ins.IsCall && isTakenToReturn ctx callsite then
       if ctx.CallsBeforeLiterals.Contains ins.Address then None else Some ins
-    | _ ->
-      None
-
-  /// Returns the address of the literal that the given instruction loads
-  /// whenever it runs. A literal mostly holds a small number, whose top bits
-  /// read as the condition EQ, so a load that runs on a condition may be a
-  /// literal decoded as code rather than code.
-  let tryFindAlwaysLoadedLiteral (ins: IInstruction) =
-    match ins with
-    | :? ARM32.Instruction as arm
-      when arm.Condition = ARM32.Condition.AL
-           || arm.Condition = ARM32.Condition.UN ->
-      tryFindLoadedLiteral ins
-    | _ ->
+    else
       None
 
   /// Collects the addresses of the literals that the function loads.
   let collectLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
     ctx.CFG.Vertices
     |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
-    |> Array.collect (fun v -> v.VData.Internals.Instructions)
+    |> Array.collect instructionsOf
     |> Array.choose tryFindAlwaysLoadedLiteral
     |> HashSet
 
@@ -182,11 +189,12 @@ module private ARM32CFGRecoveryRules =
 
 /// Represents the rules of the CFG recovery for 32-bit ARM. Besides the rules
 /// of every architecture, a call that switches Thumb code to ARM enters a PLT
-/// entry past the Thumb stub that starts it, and a call right before a literal
-/// that the code loads never returns, as a compiler lays a literal pool only
-/// where control never comes. Functions come to light as calls reach them, so
-/// a function may turn out to start in code that another one has taken for
-/// its own, which is then built again.
+/// entry past the Thumb stub that starts it, while a call right before a
+/// literal that the code loads never returns, and a jump table entry to such a
+/// literal is a hole, as a compiler lays a literal pool only where control
+/// never comes. Functions come to light as calls reach them, so a function may
+/// turn out to start in code that another one has taken for its own, which is
+/// then built again.
 type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -201,6 +209,14 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   override _.TryJudgeIndirectReturn(ctx, caller) =
     base.TryJudgeIndirectReturn(ctx, caller)
     |> Option.orElseWith (fun () -> tryJudgeReturnByLiteral ctx caller)
+
+  /// Takes a target for a hole if the function loads a literal there. Clang
+  /// points the entries of the cases that never come to the end of the
+  /// function, where 32-bit ARM code keeps its literal pool. A target where
+  /// the function has built a block already is code.
+  override _.IsJumpTableHole(ctx, target) =
+    not (ctx.Vertices.ContainsKey(ProgramPoint(target, 0)))
+    && isLoadedLiteral ctx target
 
   override _.RequiresRebuild ctx =
     match findCallsBeforeLoadedLiterals ctx with
