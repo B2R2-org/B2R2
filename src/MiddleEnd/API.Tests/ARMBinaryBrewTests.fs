@@ -72,6 +72,18 @@ type ARMBinaryBrewTests() =
     |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
     |> Array.sort
 
+  /// Returns how many entries each jump table of main has, once main becomes
+  /// the given code and .rodata starts with the given bytes.
+  static let countEntriesInPatchedMain code rodata =
+    let bytes = readZippedBinary "elf_arm32"
+    let patch (offset: int) (hex: string) =
+      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+    patch 0x330 (String.concat "" code)
+    patch 0x428 rodata
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "armv7")
+    BinaryBrew(hdl).Functions[0x10330UL].JumpTables
+    |> Array.map _.NumEntries
+
   [<TestMethod>]
   member _.``An ARM function is read in ARM``() =
     let main = mixedFunctions[0x10330UL]
@@ -263,24 +275,40 @@ type ARMBinaryBrewTests() =
      followed by four bytes that could be entries. *)
   [<TestMethod>]
   member _.``A range check ends the table of a GCC switch in ARM``() =
-    let bytes = readZippedBinary "elf_arm32"
-    let patch (offset: int) (hex: string) =
-      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
-    [ "10309fe5" (* ldr r3, [pc, #0x10] *)
-      "03308fe0" (* add r3, pc, r3 *)
-      "030050e3" (* cmp r0, #3 *)
-      "0300008a" (* bhi 0x10350 *)
-      "0000d3e7" (* ldrb r0, [r3, r0] *)
-      "00f18fe0" (* add pc, pc, r0, lsl #2 *)
-      "ec000000" (* .word 0xec, from the PC of the add to the table *)
-      "1eff2fe1" (* bx lr *)
-      "1eff2fe1" (* bx lr *) ]
-    |> String.concat ""
-    |> patch 0x330
-    patch 0x428 "0001010001000100" (* .byte 0, 1, 1, 0, then 1, 0, 1, 0 *)
-    let hdl = BinHandle.LoadFileBytes(bytes, ISA "armv7")
-    let tables = BinaryBrew(hdl).Functions[0x10330UL].JumpTables
-    CollectionAssert.AreEqual([| 4 |], tables |> Array.map _.NumEntries)
+    let code =
+      [ "10309fe5" (* ldr r3, [pc, #0x10] *)
+        "03308fe0" (* add r3, pc, r3 *)
+        "030050e3" (* cmp r0, #3 *)
+        "0300008a" (* bhi 0x10350 *)
+        "0000d3e7" (* ldrb r0, [r3, r0] *)
+        "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+        "ec000000" (* .word 0xec, from the PC of the add to the table *)
+        "1eff2fe1" (* bx lr *)
+        "1eff2fe1" (* bx lr *) ]
+    let rodata = "0001010001000100" (* .byte 0, 1, 1, 0, then 1, 0, 1, 0 *)
+    let actual = countEntriesInPatchedMain code rodata
+    CollectionAssert.AreEqual([| 4 |], actual)
+
+  (* GCC may switch on a byte that a callee has written into a structure on
+     the stack, a slot that the function itself never writes. The data flow
+     knows neither what such a slot holds nor how wide it is, so the range
+     check has to bound the index as the load extends the byte. Here main
+     switches on a byte that its caller left on the stack. *)
+  [<TestMethod>]
+  member _.``A GCC switch on a stack byte ends at its range check``() =
+    let code =
+      [ "10309fe5" (* ldr r3, [pc, #0x10] *)
+        "0400dde5" (* ldrb r0, [sp, #4] *)
+        "030050e3" (* cmp r0, #3 *)
+        "0300008a" (* bhi 0x10350 *)
+        "0000d3e7" (* ldrb r0, [r3, r0] *)
+        "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+        "28040100" (* .word 0x10428, the table *)
+        "1eff2fe1" (* bx lr *)
+        "1eff2fe1" (* bx lr *) ]
+    let rodata = "0001010001000100" (* .byte 0, 1, 1, 0, then 1, 0, 1, 0 *)
+    let actual = countEntriesInPatchedMain code rodata
+    CollectionAssert.AreEqual([| 4 |], actual)
 
   (* Only a pointer leads to the second function, so the identification finds
      it in what the recovery has built rather than up front. It keeps naming

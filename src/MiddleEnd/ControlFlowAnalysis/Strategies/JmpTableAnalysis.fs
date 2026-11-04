@@ -411,9 +411,24 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let toSigned (n: BitVector) =
     BitVector.SExt(n, max n.Length 64<rt>).ToInt64()
 
+  /// Checks if the given expression is a variable that carries no width and
+  /// that no definition computes, as a stack slot that only a callee writes.
+  /// The evaluator cannot give such a variable a value where a cast reads it,
+  /// since nothing tells how wide the value is.
+  let isWidthlessLeaf findDef e =
+    match e with
+    | Var v when Expr.typeOf e = 0<rt> ->
+      match findDef v with
+      | Some(Def _) -> false
+      | _ -> true
+    | _ ->
+      false
+
   /// Decomposes an index into the variable it derives from and the constant
   /// added to that variable, looking through copies, extensions, and constant
-  /// additions.
+  /// additions, but not through an extension of a variable that carries no
+  /// width and that no definition computes, so that the variable holding the
+  /// extension becomes the root instead.
   let rec decomposeIndex findDef e =
     match e with
     | Var v ->
@@ -431,7 +446,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       |> Option.map (fun (v, offset) -> v, offset - toSigned n)
     | Cast(CastKind.ZeroExt, _, e)
     | Cast(CastKind.SignExt, _, e)
-    | Extract(e, _, 0) ->
+    | Extract(e, _, 0) when not (isWidthlessLeaf findDef e) ->
       decomposeIndex findDef e
     | _ ->
       None

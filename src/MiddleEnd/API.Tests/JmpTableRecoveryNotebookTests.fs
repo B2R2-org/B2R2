@@ -95,6 +95,25 @@ type JmpTableRecoveryNotebookTests() =
     Assert.AreEqual<bool>(true, notes.IsExpandable(holder.TableAddress, 7))
     Assert.AreEqual<Addr option>(Some 0x400138UL, notes.TryFindHeldEnd folded)
 
+  (* GCC on ARM may lay a table of halfwords right after a table of bytes, so
+     the table before ends at its own last byte, one byte before the next
+     table starts, rather than one halfword before. The overlap is resolved as
+     the coordinator does, by ending the table before the next one. *)
+  [<TestMethod>]
+  member _.``Notebook ends a table of bytes right before one of halfwords``() =
+    let notes = JmpTableRecoveryNotebook()
+    let bytes = { table 0x1010UL 0x400100UL (Some 14) with EntrySize = 1 }
+    let halves = { table 0x1020UL 0x40010eUL (Some 4) with EntrySize = 2 }
+    notes.Register(0x1000UL, bytes) |> ignore
+    match notes.Register(0x1000UL, halves) with
+    | OverlappingNote note ->
+      notes.EndBefore(note.StartingPoint, halves.TableAddress) |> ignore
+    | result ->
+      Assert.Fail $"{result}"
+    notes.Register(0x1000UL, halves) |> ignore
+    let idx = notes.GetPotentialEndPointIndex bytes.TableAddress
+    Assert.AreEqual<int>(13, idx)
+
   [<TestMethod>]
   member _.``Notebook refuses a table that starts at a phantom``() =
     let notes = JmpTableRecoveryNotebook()

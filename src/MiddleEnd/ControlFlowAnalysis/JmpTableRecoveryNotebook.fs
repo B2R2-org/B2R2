@@ -86,18 +86,25 @@ type JmpTableRecoveryNotebook() =
     | Some key when phantoms.Contains key -> tryFindPreviousLiveKey key
     | key -> key
 
+  /// Finds the last entry of the table of the given note that lies before the
+  /// given address, where another table starts, by the size of its own entries
+  /// rather than those of the other table.
+  let lastEntryBefore note addr = addr - uint64 note.EntrySize
+
   let rec tryFindNextLiveKey addr =
     match SortedList.tryFindNextKey addr notes with
     | Some key when phantoms.Contains key -> tryFindNextLiveKey key
     | key -> key
 
   let syncAfterRegistration tblAddr note =
-    let sz = uint64 note.EntrySize
     match tryFindPreviousLiveKey tblAddr with
-    | Some lb -> updatePotentialEndPoint notes[lb] (note.StartingPoint - sz)
-    | None -> ()
+    | Some lb ->
+      let prev = notes[lb]
+      updatePotentialEndPoint prev (lastEntryBefore prev note.StartingPoint)
+    | None ->
+      ()
     match tryFindNextLiveKey tblAddr with
-    | Some ub -> updatePotentialEndPoint note (ub - sz)
+    | Some ub -> updatePotentialEndPoint note (lastEntryBefore note ub)
     | None -> ()
 
   let registerAnew fnAddr jmptbl =
@@ -218,6 +225,15 @@ type JmpTableRecoveryNotebook() =
   member _.SetPotentialEndPointByAddr(tblAddr, confirmedAddr) =
     updatePotentialEndPoint notes[tblAddr] confirmedAddr
     syncConfirmedEndPoint notes[tblAddr] confirmedAddr
+
+  /// Ends the jump table at its last entry before the given address, where
+  /// another table starts, and returns where that entry lies.
+  member _.EndBefore(tblAddr, addr) =
+    let note = notes[tblAddr]
+    let lastEntry = lastEntryBefore note addr
+    updatePotentialEndPoint note lastEntry
+    syncConfirmedEndPoint note lastEntry
+    lastEntry
 
   /// Gets the indirect branch address that is associated with the given jump
   /// table address.
