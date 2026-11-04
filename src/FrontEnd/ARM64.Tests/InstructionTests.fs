@@ -66,6 +66,18 @@ type InstructionTests() =
     let ins = parse "04000014" (* b 0x1010 *)
     CollectionAssert.AreEqual([| 0x1010UL |], nexts ins)
 
+  (* B.cond with AL or NV is taken whatever the flags say, so it is a branch
+     that never falls through, like B. *)
+  [<TestMethod>]
+  member _.``[ARM64] a branch on AL goes to its target only test``() =
+    let ins = parse "8e000054" (* b.al 0x1010 *)
+    CollectionAssert.AreEqual([| 0x1010UL |], nexts ins)
+
+  [<TestMethod>]
+  member _.``[ARM64] a branch on NV goes to its target only test``() =
+    let ins = parse "8f000054" (* b.nv 0x1010 *)
+    CollectionAssert.AreEqual([| 0x1010UL |], nexts ins)
+
   [<TestMethod>]
   member _.``[ARM64] a call returns to the next instruction test``() =
     let ins = parse "04000094" (* bl 0x1010 *)

@@ -77,8 +77,8 @@ type Instruction
       | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
       | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
       | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ
-      (* Unconditional branch (immediate) *)
-      | Opcode.B | Opcode.BL
+      (* Unconditional branch (immediate), with B.cond on AL or NV *)
+      | Opcode.B | Opcode.BL | Opcode.BAL | Opcode.BNV
       (* Unconditional branch (register) *)
       | Opcode.BLR | Opcode.BR | Opcode.RET
       | Opcode.BRAA | Opcode.BRAAZ | Opcode.BRAB | Opcode.BRABZ
