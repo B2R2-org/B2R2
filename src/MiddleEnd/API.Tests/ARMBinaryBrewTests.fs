@@ -85,6 +85,21 @@ type ARMBinaryBrewTests() =
     BinaryBrew(hdl).Functions[0x10330UL].JumpTables
     |> Array.map _.NumEntries
 
+  /// Recovers the functions of the given code of 32-bit ARM, which starts at
+  /// address zero with the entry of the binary.
+  static let recoverCode (code: string list) =
+    let bytes = code |> String.concat "" |> ByteArray.ofHexString
+    BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "armv7")).Functions
+
+  /// Returns the kinds of the edges that leave the block of the function that
+  /// ends at the given address.
+  static let edgeKindsFrom (fn: Function) insAddr =
+    let v =
+      fn.CFG.FindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.LastInstruction.Address = insAddr)
+    fn.CFG.GetSuccEdges v |> Array.map _.Label
+
   [<TestMethod>]
   member _.``An ARM function is read in ARM``() =
     let main = mixedFunctions[0x10330UL]
@@ -216,28 +231,112 @@ type ARMBinaryBrewTests() =
      x as its tail rather than keep a copy of it. *)
   [<TestMethod>]
   member _.``A jump to code that a later call proves calls it as a tail``() =
-    let code =
-      [ "10402de9" (* main: push {r4, lr} *)
-        "010000eb" (* bl f *)
-        "020000eb" (* bl g *)
-        "1080bde8" (* pop {r4, pc} *)
-        "0100a0e3" (* f: mov r0, #1 *)
-        "020000ea" (* b x *)
-        "10402de9" (* g: push {r4, lr} *)
-        "000000eb" (* bl x *)
-        "1080bde8" (* pop {r4, pc} *)
-        "010080e2" (* x: add r0, r0, #1 *)
-        "1eff2fe1" (* bx lr *) ]
-      |> String.concat ""
-      |> ByteArray.ofHexString
-    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
-    let cfg = fns[0x10UL].CFG
-    let jump =
-      cfg.FindVertexBy(fun v ->
-        not v.VData.Internals.IsAbstract
-        && v.VData.Internals.LastInstruction.Address = 0x14UL)
-    let kinds = cfg.GetSuccEdges jump |> Array.map _.Label
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "010000eb" (* bl f *)
+          "020000eb" (* bl g *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "020000ea" (* b x *)
+          "10402de9" (* g: push {r4, lr} *)
+          "000000eb" (* bl x *)
+          "1080bde8" (* pop {r4, pc} *)
+          "010080e2" (* x: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let kinds = edgeKindsFrom fns[0x10UL] 0x14UL
     CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
+  (* Only f calls x, by jumping to it as its tail. x lies below the entry of
+     f, and code of 32-bit ARM keeps each function in one piece, so the jump
+     leaves f for another function, which x shows starting by saving the
+     registers that its caller keeps. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump below its function proves the function it enters``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "030000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "10402de9" (* x: push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "faffffea" (* b x *) ]
+    let entries = Seq.toArray fns.Addresses
+    let kinds = edgeKindsFrom fns[0x18UL] 0x1cUL
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
+  (* The recovery reads a literal pool as code when the call before it is taken
+     to return, as a Thumb call of error may be, and a literal may then decode
+     as a jump out of its function. f runs into the literal that it loads, a
+     word that reads as a jump to x. A literal that code loads is data, so the
+     jump proves nothing, however x starts. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump that decodes from a loaded literal proves nothing``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "030000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "10402de9" (* x: push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "00109fe5" (* f: ldr r1, [pc, #0] *)
+          "0100a0e3" (* mov r0, #1 *)
+          "f9ffffea" (* .word 0xeafffff9, loaded at 0x18, as b x *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x18UL |], entries)
+
+  (* The floating-point code of libgcc jumps from one function into the middle
+     of another, as __floatsidf does into __adddf3, which nothing may call. The
+     code above the target falls through to it without saving any register on
+     the way, so the target starts no function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump into the middle of code proves nothing``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "030000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "010080e0" (* g: add r0, r0, r1 *)
+          "010080e2" (* l: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "fbffffea" (* b l *) ]
+    let entries = Seq.toArray fns.Addresses
+    let kinds = edgeKindsFrom fns[0x18UL] 0x1cUL
+    CollectionAssert.AreEqual([| 0x0UL; 0x18UL |], entries)
+    CollectionAssert.AreEqual([| InterJmpEdge |], kinds)
+
+  (* A Cortex-A8 erratum makes GNU ld redirect a branch of Thumb code across
+     a page to a veneer past the code, which branches back into the function.
+     The jump to v leaves f past the next function, g, and v lies right below
+     a literal that g loads, the way a function may start; yet v only
+     branches on, and so starts no function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump to a veneer that only branches on proves nothing``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "010000eb" (* bl f *)
+          "040000eb" (* bl g *)
+          "1080bde8" (* pop {r4, pc} *)
+          "000050e3" (* f: cmp r0, #0 *)
+          "040000ea" (* b v *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "00009fe5" (* g: ldr r0, [pc, #0] *)
+          "1eff2fe1" (* bx lr *)
+          "34120000" (* .word 0x1234 *)
+          "f9ffffea" (* v: b 0x18 *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x20UL |], entries)
 
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps

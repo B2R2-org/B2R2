@@ -29,6 +29,7 @@ open B2R2
 open B2R2.ABI
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -54,9 +55,12 @@ type private CallSite =
 /// the recovery builds. A code address that recovered code calls starts a
 /// function: as an argument that an external function is known to call, as
 /// __libc_start_main calls main, or as the constant target of an indirect
-/// call. A code address that the data of the binary holds may name a label
-/// instead, whose address GNU C lets a program take, so it starts a function
-/// only once the code there shows one starting, as ARM32EntryEvidence tells.
+/// call. A jump that leaves its function for code outside of it, up to the
+/// next function, calls a function as its tail, as code of 32-bit ARM keeps
+/// each function in one piece. A code address that the data of the binary
+/// holds may name a label instead, whose address GNU C lets a program take,
+/// so it starts a function only once the code there shows one starting, as
+/// ARM32EntryEvidence tells, which the target of such a jump also has to.
 type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -353,6 +357,104 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Seq.distinct
     |> Seq.toArray
 
+  /// Checks if the recovery followed the jump that ends the given vertex
+  /// within its function, rather than took it for a tail call.
+  let isFollowedWithin (cfg: LowUIRCFG) v =
+    cfg.GetSuccEdges v |> Array.exists (fun e -> e.Label = InterJmpEdge)
+
+  /// Returns where the direct jump that ends the given vertex goes, if the
+  /// recovery followed it within its function.
+  let tryFollowedTarget cfg (v: IVertex<LowUIRBasicBlock>) =
+    match v.VData.Internals.Terminator with
+    | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base)
+      when isFollowedWithin cfg v ->
+      Some(n.ToUInt64())
+    | _ ->
+      None
+
+  /// Returns where the given instruction jumps to in the form that Identify
+  /// gives, with the lowest bit set for Thumb, as a direct jump stays in its
+  /// instruction set.
+  let toPointer (ins: IInstruction) target =
+    if (ins :?> ARM32.Instruction).IsThumb then target ||| 1UL else target
+
+  /// Finds the jumps that leave the given function, each as the vertex that it
+  /// ends, its address, and where it goes in the form that Identify gives: the
+  /// direct jumps that the recovery followed from within the function, from
+  /// its entry up to the next of the given entries, to code outside of it.
+  let findLeavingJumps (entries: Addr[]) (fn: Function) =
+    let i = System.Array.BinarySearch(entries, fn.EntryPoint)
+    let next =
+      if i + 1 < entries.Length then entries[i + 1]
+      else System.UInt64.MaxValue
+    let isWithin addr = fn.EntryPoint <= addr && addr < next
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.choose (fun v ->
+      let ins = v.VData.Internals.LastInstruction
+      match tryFollowedTarget fn.CFG v with
+      | Some target when isWithin ins.Address && not (isWithin target) ->
+        Some(v, ins.Address, toPointer ins target)
+      | _ ->
+        None)
+
+  /// Collects the ranges of the blocks that the given function reaches from
+  /// its roots without leaving it through the given vertices.
+  let collectHomeRanges (fn: Function) (exits: HashSet<_>) =
+    let cfg = fn.CFG
+    let visited = HashSet<IVertex<LowUIRBasicBlock>>()
+    let work = Queue<IVertex<LowUIRBasicBlock>>(cfg.Roots)
+    let ranges = List<AddrRange>()
+    while work.Count > 0 do
+      let v = work.Dequeue()
+      let blk = v.VData.Internals
+      if visited.Add v then
+        if blk.IsAbstract then () else ranges.Add blk.Range
+        if exits.Contains v then ()
+        else for succ in cfg.GetSuccs v do work.Enqueue succ
+      else
+        ()
+    ranges.ToArray()
+
+  /// Collects the code that the given functions cover, each but for what it
+  /// reaches only through the given jumps of it that leave it.
+  let coverHomes leaving =
+    leaving
+    |> Array.collect (fun (fn, jumps) ->
+      collectHomeRanges fn (HashSet(Array.map (fun (v, _, _) -> v) jumps)))
+    |> Array.distinct
+    |> Array.fold (fun set range -> IntervalSet.add range set) IntervalSet.empty
+
+  /// Checks if the given jump that leaves its function decodes from data or
+  /// lands on data: it or where it goes lies in a literal that recovered code
+  /// loads, as when the recovery reads a literal pool as code.
+  let isAmidData (evidence: ARM32EntryEvidence) (_, jmpAddr, pointer) =
+    evidence.IsInLoadedLiteral jmpAddr
+    || evidence.IsInLoadedLiteral(pointer &&& ~~~1UL)
+
+  /// Finds the code addresses that jumps leaving their functions prove to start
+  /// functions, in the form that Identify gives. Code of 32-bit ARM keeps each
+  /// function in one piece, so such a jump enters another function, at its
+  /// entry unless hand-written code shares its middle or a linker redirects
+  /// the jump through a veneer: the code there has to show a function
+  /// starting without only branching on, and no function may cover it but
+  /// through such a jump. A jump amid data proves nothing.
+  let proveByTailCalls (evidence: ARM32EntryEvidence) (recovered: Function[]) =
+    let internals = recovered |> Array.filter (fun fn -> not fn.IsExternal)
+    let entries = internals |> Array.map (fun fn -> fn.EntryPoint) |> Array.sort
+    let leaving =
+      internals |> Array.map (fun fn -> fn, findLeavingJumps entries fn)
+    let home = coverHomes leaving
+    leaving
+    |> Array.collect snd
+    |> Array.filter (not << isAmidData evidence)
+    |> Array.map (fun (_, _, pointer) -> pointer)
+    |> Array.distinct
+    |> Array.filter (fun pointer ->
+      not (IntervalSet.containsAddr (pointer &&& ~~~1UL) home)
+      && evidence.ShowsEntry pointer
+      && not (evidence.OnlyBranchesOn pointer))
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() = metadata.Identify()
 
@@ -363,6 +465,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       |> Seq.filter (fun fn -> not fn.IsExternal)
       |> Seq.collect findCalls
       |> Seq.collect (prove externals)
+      |> Seq.append (proveByTailCalls evidence recovered)
       |> Seq.filter isCodePointer
       |> Seq.append (Array.filter evidence.IsLikelyEntry dataPointers)
       |> Seq.distinct

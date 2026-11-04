@@ -45,12 +45,14 @@ type private Hint =
   | Refutes
 
 /// Represents what the code that the recovery has built tells about an address
-/// that a pointer names in 32-bit ARM: whether a function starts there. A
-/// function saves a register that its caller keeps as it starts, or lies right
-/// below what ends another function and no label: a literal pool, padding, a
-/// trap, or a call that never returns. A label of GNU C, whose address a
-/// program may store, lies below a jump instead, mostly through a register, as
-/// GCC gives each label its own dispatch.
+/// that a pointer or a jump names in 32-bit ARM: whether a function starts
+/// there. A function saves a register that its caller keeps as it starts, or
+/// lies right below what ends another function and no label: a literal pool,
+/// padding, a trap, or a call that never returns. A label of GNU C, whose
+/// address a program may store, lies below a jump instead, mostly through a
+/// register, as GCC gives each label its own dispatch. Neither does a function
+/// start at a veneer, which only branches on, nor in a literal that the code
+/// loads.
 type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   let cc = (hdl: BinHandle).Conventions.Calling
 
@@ -91,17 +93,25 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     | _ ->
       None
 
-  /// Returns where the literal that the instruction loads ends, if it loads
+  /// Returns where the literal that the instruction loads lies, if it loads
   /// one.
-  let tryLiteralEndOf (ins: IInstruction) =
+  let tryLiteralRangeOf (ins: IInstruction) =
     match ins.MemoryDereferences() with
     | true, [| addr |] ->
       tryLiteralSizeOf (ins :?> ARM32.Instruction)
-      |> Option.map (fun size -> addr + size)
+      |> Option.map (fun size -> AddrRange.create addr (addr + size - 1UL))
     | _ ->
       None
 
-  let literalEnds = instructions |> Array.choose tryLiteralEndOf |> HashSet
+  let literalRanges =
+    instructions |> Array.choose tryLiteralRangeOf |> Array.distinct
+
+  let literalEnds =
+    literalRanges |> Array.map (fun range -> range.Max + 1UL) |> HashSet
+
+  let literals =
+    literalRanges
+    |> Array.fold (fun set range -> IntervalSet.add range set) IntervalSet.empty
 
   let sectionStarts =
     BinFileOps.getSections hdl.File
@@ -237,12 +247,45 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     | Neutral -> savesFrom addr 4
     | Refutes -> false
 
+  /// Tells whether the code from the address reaches an unconditional direct
+  /// branch through nothing but conditional ones, within the given number of
+  /// instructions.
+  let rec onlyBranchesFrom addr count =
+    if count = 0 then
+      false
+    else
+      match lu.TryParseInstruction(addr: Addr) with
+      | Ok ins when ins.IsCondBranch && not ins.IsCall ->
+        onlyBranchesFrom (addr + uint64 ins.Length) (count - 1)
+      | Ok ins ->
+        ins.IsBranch && not ins.IsCall && fst (ins.DirectBranchTarget())
+      | Error _ ->
+        false
+
+  /// Tells whether the code where the pointer leads, in the instruction set
+  /// that its lowest bit names, shows a function starting, whatever the
+  /// recovery has built there.
+  member _.ShowsEntry(pointer: Addr) =
+    let addr = pointer &&& ~~~1UL
+    lu.IsThumb <- pointer &&& 1UL = 1UL
+    isDecodable addr && showsEntry addr
+
   /// Tells whether a function likely starts where the pointer leads: at code
   /// in the instruction set that its lowest bit names, which no function that
   /// the recovery has built covers, and which shows a function starting.
-  member _.IsLikelyEntry(pointer: Addr) =
-    let addr = pointer &&& ~~~1UL
+  member this.IsLikelyEntry(pointer: Addr) =
+    not (IntervalSet.containsAddr (pointer &&& ~~~1UL) covered)
+    && this.ShowsEntry pointer
+
+  /// Tells whether the code where the pointer leads, in the instruction set
+  /// that its lowest bit names, only branches on: it reaches an unconditional
+  /// branch through nothing but conditional ones, as a veneer does that a
+  /// linker lays out to redirect a branch.
+  member _.OnlyBranchesOn(pointer: Addr) =
     lu.IsThumb <- pointer &&& 1UL = 1UL
-    not (IntervalSet.containsAddr addr covered)
-    && isDecodable addr
-    && showsEntry addr
+    onlyBranchesFrom (pointer &&& ~~~1UL) 3
+
+  /// Tells whether the address lies in a literal that recovered code loads,
+  /// which is data, whatever it decodes as.
+  member _.IsInLoadedLiteral(addr: Addr) =
+    IntervalSet.containsAddr addr literals
