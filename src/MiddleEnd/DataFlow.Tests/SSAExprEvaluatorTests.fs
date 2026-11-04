@@ -127,6 +127,20 @@ type SSAExprEvaluatorTests() =
     Assert.AreEqual<bool option list>(expected, actual)
 
   [<TestMethod>]
+  member _.``SSAExprEvaluator follows copies however many there are``() =
+    (* ARM moves a register through a temporary, so a value that the code
+       moves around a few times reaches a comparison through more copies than
+       the depth that the evaluation goes to. *)
+    let edi = var 32<rt> Register.EDI 1
+    let temp n = { Kind = TempVar(0<rt>, n); Identifier = n }
+    let temps = [ 2 .. 13 ] |> List.map temp
+    let defs =
+      List.pairwise (edi :: temps) |> List.map (fun (src, t) -> Def(t, Var src))
+    let cond = relop RelOpType.LT (Var(List.last temps)) (num 4UL)
+    let actual = evaluateAll defs edi cond [ 3L; 4L ]
+    Assert.AreEqual<bool option list>([ Some true; Some false ], actual)
+
+  [<TestMethod>]
   member _.``SSAExprEvaluator knows no slot read at another width``() =
     (* mov [rsp+0x70], rax spills eight bytes, and cmp dword [rsp+0x70], 9
        reads back four of them, which four depending on the byte order. *)

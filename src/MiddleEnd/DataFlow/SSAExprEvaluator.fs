@@ -83,6 +83,14 @@ let private keepIf isFitting c =
   | _ ->
     c
 
+/// Finds the depth left after following the given definition. A copy of a
+/// variable takes none, since it computes nothing, and ARM moves a register
+/// through a temporary, which doubles the copies on the way to a value.
+let private depthAfter depth d =
+  match d with
+  | Var _ -> depth
+  | _ -> depth - 1
+
 /// Evaluates the given expression, whose width is rt unless rt is zero.
 let rec private evalAt findDef root (value: int64 option) depth rt e =
   let eval = evalAt findDef root value depth
@@ -97,7 +105,7 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
     match findDef v with
     | Some(Def(_, d)) ->
       let w = widthAt rt e
-      evalAt findDef root value (depth - 1) (widthAt w d) d
+      evalAt findDef root value (depthAfter depth d) (widthAt w d) d
       |> keepIf (fun dw -> w = 0<rt> || dw = w)
     | _ ->
       ConstantDomain.NotAConst
@@ -125,7 +133,8 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
 
 /// Evaluates the given expression with the root holding the given value, if
 /// any, following the definitions of the other variables it reads, as findDef
-/// gives them, up to the given depth. The result is not a constant if it
-/// depends on anything else, or on the root while the root holds no value.
+/// gives them, up to the given depth, which copies do not count toward. The
+/// result is not a constant if it depends on anything else, or on the root
+/// while the root holds no value.
 let evaluate findDef root value depth e =
   evalAt findDef root value depth (widthOf e) e
