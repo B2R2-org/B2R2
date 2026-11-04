@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
@@ -187,6 +188,27 @@ type ARMBinaryBrewTests() =
     let cfg = fns[0x0UL].CFG
     let callee = cfg.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
     CollectionAssert.AreEqual([||], cfg.GetSuccs callee)
+
+  (* The error of gnulib returns only when its status is zero, and exits
+     otherwise. ARM pops the PC on that condition within the instruction
+     rather than branching around the pop, and compares the status with zero
+     by adding the complement of zero and one. *)
+  [<TestMethod>]
+  member _.``A pop of the PC on a zero argument returns conditionally``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "0040a0e1" (* mov r4, r0 *)
+        "000054e3" (* cmp r4, #0 *)
+        "1080bd08" (* popeq {r4, pc} *)
+        "000000eb" (* bl 0x18 *)
+        "00000000" (* .word 0, which no path reaches *)
+        "feffffea" (* b 0x18 *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let r0 = ARM32.Register.toRegID ARM32.Register.R0
+    let expected = ConditionalNoRet(ArgLocation.Reg r0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps

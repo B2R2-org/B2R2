@@ -52,14 +52,14 @@ module internal Guard =
       None
 
   /// Gets the guard on the edge from pred to v. Either a conditional jump ends
-  /// pred, or pred is a way that a conditional jump within an instruction
-  /// takes, out of which the instruction jumps to v, as ARM branches on a
-  /// condition.
+  /// pred, whether it jumps out of its instruction or within it, or pred is a
+  /// way that a conditional jump within an instruction takes, out of which the
+  /// instruction jumps to v, as ARM branches on a condition.
   let tryGet tryGetCondition (g: IDiGraph<_, _>) pred v =
     match g.FindEdge(pred, v).Label with
-    | InterCJmpTrueEdge ->
+    | InterCJmpTrueEdge | IntraCJmpTrueEdge ->
       tryGetCondition pred |> Option.map (fun c -> c, true)
-    | InterCJmpFalseEdge ->
+    | InterCJmpFalseEdge | IntraCJmpFalseEdge ->
       tryGetCondition pred |> Option.map (fun c -> c, false)
     | InterJmpEdge ->
       tryGetOfWay tryGetCondition g pred

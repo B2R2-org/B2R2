@@ -88,6 +88,22 @@ module private CondAwareNoretAnalysisHelper =
     | LowUIR.Num(Value = n) when n.IsZero -> ValueSome()
     | _ -> ValueNone
 
+  /// Matches the difference that ARM computes to compare one operand with
+  /// another, adding the complement of the other and one to the first, and
+  /// gives the two operands.
+  [<return: Struct>]
+  let (|SubByComplement|_|) e =
+    match e with
+    | LowUIR.BinOp(Op = BinOpType.ADD
+                   Left = LowUIR.BinOp(Op = BinOpType.ADD
+                                       Left = e1
+                                       Right = LowUIR.UnOp(Op = UnOpType.NOT
+                                                           Operand = e2))
+                   Right = LowUIR.Num(Value = n)) when n.IsOne ->
+      ValueSome(e1, e2)
+    | _ ->
+      ValueNone
+
 /// Represents a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
 /// simple patterns that are handled by compilers, but we may have to extend
@@ -390,7 +406,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       status
 
   /// Gets the condition of the conditional jump that ends the given vertex,
-  /// along with the statements of the vertex, which tell what it reads.
+  /// whether it jumps out of its instruction or within it, along with the
+  /// statements of the vertex, which tell what it reads.
   let tryGetCondition (state: LowUIRSparseDataFlow.State<_>) v =
     if (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
       None
@@ -398,7 +415,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       let stmts = state.GetStmtInfos v
       match fst stmts[stmts.Length - 1] with
       | LowUIR.InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f)
-        when t <> f ->
+      | LowUIR.CJmp(Cond = c; TrueTarget = t; FalseTarget = f) when t <> f ->
         Some(stmts, c)
       | _ ->
         None
@@ -412,6 +429,19 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       match fst stmts[i - 1] with
       | LowUIR.Put(Dst = dst; Src = src) when dst = var -> Some(i - 1, src)
       | _ -> tryFindLocalDef stmts (i - 1) var
+
+  /// Checks if the given expression, which the i-th of the given statements
+  /// reads, is zero, following the definitions in the block.
+  let rec isLocallyZero stmts i e =
+    match e with
+    | Zero ->
+      true
+    | LowUIR.Var _ | LowUIR.TempVar _ ->
+      match tryFindLocalDef stmts i e with
+      | Some(j, src) -> isLocallyZero stmts j src
+      | None -> false
+    | _ ->
+      false
 
   /// Finds what the given expression, which the i-th of the given statements
   /// of a block reads, tests against zero: a register or memory read, along
@@ -442,6 +472,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       when e1 = e2 ->
       find e1
     | LowUIR.BinOp(Op = BinOpType.SUB; Left = e; Right = Zero) ->
+      find e
+    (* ARM subtracts zero to compare with it by adding its complement and one,
+       which leaves what it compares. *)
+    | SubByComplement(e, z) when isLocallyZero stmts i z ->
       find e
     (* The low part of a register holds an argument narrower than the
        register, such as an int in RDI, which is what a test of it tells. *)
