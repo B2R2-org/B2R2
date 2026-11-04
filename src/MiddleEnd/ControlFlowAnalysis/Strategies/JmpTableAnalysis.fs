@@ -443,6 +443,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           JumpBase = baseAddr
           TableAddress = tblAddr
           EntrySize = RegType.toByteWidth rt
+          EntryShift = 0
+          IsSignedEntry = true
           NumEntries = 0
           WaitingInstructions = []
           IsSingleEntry = singleEntry

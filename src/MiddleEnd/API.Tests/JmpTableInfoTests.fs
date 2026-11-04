@@ -44,6 +44,8 @@ type JmpTableInfoTests() =
       JumpBase = 0x0UL
       TableAddress = 0x0UL
       EntrySize = 8
+      EntryShift = 0
+      IsSignedEntry = true
       NumEntries = 0
       WaitingInstructions = []
       IsSingleEntry = false
@@ -58,3 +60,20 @@ type JmpTableInfoTests() =
     let read = JmpTableInfo.tryReadTarget hdl jmptbl
     Assert.AreEqual<Addr option>(Some 0x10UL, read 0)
     Assert.AreEqual<Addr option>(None, read 1)
+
+  (* GCC for ARM counts the entries of a table in words and reads a byte entry
+     with ldrb or ldrsb, so the same byte sends one table 0xe0 words past its
+     base and another 0x20 words before it. *)
+  [<TestMethod>]
+  member _.``JmpTableInfo extends an entry as its load does and scales it``() =
+    let hdl = BinHandle.LoadRawImage([| 0xe0uy |], ISA "armv7")
+    let unsigned =
+      { jmptbl with
+          JumpBase = 0x1000UL
+          EntrySize = 1
+          EntryShift = 2
+          IsSignedEntry = false }
+    let signed = { unsigned with IsSignedEntry = true }
+    let read tbl = JmpTableInfo.tryReadTarget hdl tbl 0
+    Assert.AreEqual<Addr option>(Some 0x1380UL, read unsigned)
+    Assert.AreEqual<Addr option>(Some 0xf80UL, read signed)

@@ -39,6 +39,13 @@ type JmpTableInfo =
     TableAddress: Addr
     /// The size of each entry in the jump table (in bytes).
     EntrySize: int
+    /// The number of bits by which the code shifts an entry to the left before
+    /// adding it to the base, e.g., two for GCC on ARM, whose entries count
+    /// instructions rather than bytes.
+    EntryShift: int
+    /// Indicates whether the load that reads an entry sign-extends it, rather
+    /// than zero-extends it.
+    IsSignedEntry: bool
     /// The number of entries in the jump table.
     mutable NumEntries: int
     /// Indirect branch instructions that share this table and should receive
@@ -73,9 +80,17 @@ module JmpTableInfo =
   let private isRebased (file: IBinFile) =
     file.IsBaseRelative && file.Kind <> BinFileKind.Object
 
-  let private tryReadInt (hdl: BinHandle) jmptbl (addr: Addr) =
-    match hdl.TryReadInt(addr, jmptbl.EntrySize) with
-    | Ok value -> Some(jmptbl.JumpBase + uint64 value)
+  /// Reads the target of the entry at the given address, which the entry
+  /// offsets from the base once extended and shifted as the code reading it
+  /// does.
+  let private tryReadEntry (hdl: BinHandle) jmptbl (addr: Addr) =
+    let value =
+      if jmptbl.IsSignedEntry then
+        hdl.TryReadInt(addr, jmptbl.EntrySize) |> Result.map uint64
+      else
+        hdl.TryReadUInt(addr, jmptbl.EntrySize)
+    match value with
+    | Ok value -> Some(jmptbl.JumpBase + (value <<< jmptbl.EntryShift))
     | Error _ -> None
 
   /// Reads the target of the entry at the given index of the given table, or
@@ -91,6 +106,6 @@ module JmpTableInfo =
       match BinFileOps.tryComputeRelocationValue file addr with
       | Ok target -> Some target
       | Error _ when isRebased file -> None
-      | Error _ -> tryReadInt hdl jmptbl addr
+      | Error _ -> tryReadEntry hdl jmptbl addr
     else
-      tryReadInt hdl jmptbl addr
+      tryReadEntry hdl jmptbl addr
