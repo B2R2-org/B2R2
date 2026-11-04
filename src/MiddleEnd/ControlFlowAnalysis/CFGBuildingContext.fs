@@ -54,6 +54,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let gapBlacklist = HashSet<Addr>()
 
+  let callsBeforeLiterals = HashSet<Addr>()
+
   let jumpTables = Dictionary<Addr, JmpTableInfo>()
 
   let intraCallTable = IntraCallTable()
@@ -139,6 +141,11 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// addresses to this blacklist, we prevent performing gap analysis on
   /// these addresses again.
   member internal _.GapBlacklist with get() = gapBlacklist
+
+  /// Addresses of the indirect calls right before a literal that the function
+  /// loads, which never return. Finding one rebuilds the function, which
+  /// keeps them, as the load that tells may again come after the call.
+  member internal _.CallsBeforeLiterals with get() = callsBeforeLiterals
 
   /// Jump tables associated with this function, keyed by table address.
   /// Recovery records a table once per entry it expands, so keying on the

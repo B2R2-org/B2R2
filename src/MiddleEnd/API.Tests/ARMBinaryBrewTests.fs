@@ -163,6 +163,31 @@ type ARMBinaryBrewTests() =
     let callee = cfg.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
     CollectionAssert.AreEqual([||], cfg.GetSuccs callee)
 
+  (* Clang keeps one pool for a whole function, so the literal right after a
+     call may be one that another block loads, which the recovery may build
+     only after it has connected the call. *)
+  [<TestMethod>]
+  member _.``A BLX right before a literal loaded elsewhere never returns``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "000050e3" (* cmp r0, #0 *)
+        "0100000a" (* beq 0x14 *)
+        "0c009fe5" (* ldr r0, [pc, #12] *)
+        "1080bde8" (* pop {r4, pc} *)
+        "08009fe5" (* ldr r0, [pc, #8] *)
+        "003091e5" (* ldr r3, [r1] *)
+        "33ff2fe1" (* blx r3 *)
+        "98890500" (* .word 0x58998, loaded at 0xc *)
+        "34120000" (* .word 0x1234, loaded at 0x14 *)
+        "0100a0e3" (* mov r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let cfg = fns[0x0UL].CFG
+    let callee = cfg.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    CollectionAssert.AreEqual([||], cfg.GetSuccs callee)
+
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps
      within its function, which stays in ARM, and the jump that does is the

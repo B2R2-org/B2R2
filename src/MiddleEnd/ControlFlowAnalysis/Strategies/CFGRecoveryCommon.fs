@@ -997,19 +997,22 @@ module internal CFGRecoveryCommon =
     | _ ->
       None
 
-  /// Checks if the given instruction loads the literal at the given address,
-  /// out of the pool that 32-bit ARM code keeps among its instructions. An ADR
-  /// takes the address of what lies there, which may as well be code, rather
-  /// than reading it.
-  let loadsLiteralAt addr (ins: IInstruction) =
+  /// Returns the address of the literal that the given instruction loads, out
+  /// of the pool that 32-bit ARM code keeps among its instructions, if it loads
+  /// one. An ADR takes the address of what lies there, which may as well be
+  /// code, rather than reading it.
+  let tryFindLoadedLiteral (ins: IInstruction) =
     match ins with
     | :? ARM32.Instruction as arm
       when arm.Opcode = ARM32.Opcode.LDR || arm.Opcode = ARM32.Opcode.VLDR ->
       match ins.MemoryDereferences() with
-      | true, [| target |] -> target = addr
-      | _ -> false
+      | true, [| addr |] -> Some addr
+      | _ -> None
     | _ ->
-      false
+      None
+
+  /// Checks if the given instruction loads the literal at the given address.
+  let loadsLiteralAt addr ins = tryFindLoadedLiteral ins = Some addr
 
   /// Checks if the block that ends with the given vertex loads the literal at
   /// the given address. The lifter splits an instruction that branches within
@@ -1028,15 +1031,17 @@ module internal CFGRecoveryCommon =
       || Array.exists (fun p -> isUnvisitedPart p && loads p) (g.GetPreds v)
     loads v
 
-  /// Judges from what its block loads whether the given indirect call returns.
-  /// A compiler lays a literal pool only where control never comes, so a call
-  /// right before a literal that the code loads never returns. Returns None
-  /// when the block loads no literal right after the call.
+  /// Judges from what the function loads whether the given indirect call
+  /// returns. A compiler lays a literal pool only where control never comes,
+  /// so a call right before a literal that the code loads never returns: one
+  /// that its block loads, or one that an earlier build of the function found
+  /// loaded elsewhere. Returns None when neither tells.
   let tryJudgeReturnByLiteral (ctx: CFGBuildingContext<_, _>) caller =
     let blk = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
     let callIns = blk.LastInstruction
     let nextAddr = callIns.Address + uint64 callIns.Length
-    if blockLoadsLiteralAt ctx.CFG nextAddr caller then Some(NoRet, 0)
+    if ctx.CallsBeforeLiterals.Contains callIns.Address then Some(NoRet, 0)
+    elif blockLoadsLiteralAt ctx.CFG nextAddr caller then Some(NoRet, 0)
     else None
 
   /// Computes how many bytes the callee of the given indirect call pops on
@@ -1382,8 +1387,67 @@ module internal CFGRecoveryCommon =
     | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
     | _ -> MoveOn
 
-  let onFinish (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
-    assert (ctx.JumpTableRecoveryStatus.Count = 0)
+  /// Checks if the indirect call at the given call site is taken to return.
+  let isTakenToReturn (ctx: CFGBuildingContext<_, _>) callsite =
+    match ctx.Vertices.TryGetValue(getCalleePPoint callsite None) with
+    | true, absV ->
+      absV.VData.Internals.AbstractContent.ReturningStatus <> NoRet
+    | false, _ ->
+      false
+
+  /// Returns the instruction at the given call site if it is a call in 32-bit
+  /// ARM that is taken to return, unless it has been found right before a
+  /// literal already: the call frame information may still say that such a
+  /// call returns, and finding it again would rebuild the function forever.
+  let tryGetReturningARMCall (ctx: CFGBuildingContext<_, _>) callsite =
+    let ins = (getCallerVertex ctx callsite).VData.Internals.LastInstruction
+    match ins with
+    | :? ARM32.Instruction when ins.IsCall && isTakenToReturn ctx callsite ->
+      if ctx.CallsBeforeLiterals.Contains ins.Address then None else Some ins
+    | _ ->
+      None
+
+  /// Returns the address of the literal that the given instruction loads
+  /// whenever it runs. A literal mostly holds a small number, whose top bits
+  /// read as the condition EQ, so a load that runs on a condition may be a
+  /// literal decoded as code rather than code.
+  let tryFindAlwaysLoadedLiteral (ins: IInstruction) =
+    match ins with
+    | :? ARM32.Instruction as arm
+      when arm.Condition = ARM32.Condition.AL
+           || arm.Condition = ARM32.Condition.UN ->
+      tryFindLoadedLiteral ins
+    | _ ->
+      None
+
+  /// Collects the addresses of the literals that the function loads.
+  let collectLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
+    ctx.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.collect (fun v -> v.VData.Internals.Instructions)
+    |> Array.choose tryFindAlwaysLoadedLiteral
+    |> HashSet
+
+  /// Finds the indirect calls of the function that are taken to return while
+  /// the function loads the literal right after them.
+  let findCallsBeforeLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
+    let calls =
+      ctx.CallerVertices.Keys
+      |> Seq.choose (tryGetReturningARMCall ctx)
+      |> Seq.toArray
+    if Array.isEmpty calls then
+      [||]
+    else
+      let literals = collectLoadedLiterals ctx
+      let isBeforeLiteral (ins: IInstruction) =
+        literals.Contains(ins.Address + uint64 ins.Length)
+      calls
+      |> Array.filter isBeforeLiteral
+      |> Array.map (fun ins -> ins.Address)
+
+  /// Finalizes the recovery, unless the function runs into the next one
+  /// through a jump table entry that turns out bogus, which rebuilds it.
+  let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
     let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress
     match ctx.FindOverlap nextFn with
     | Some v ->
@@ -1403,6 +1467,15 @@ module internal CFGRecoveryCommon =
         finalizeRecovery ctx cfgRec postAnalysis
     | _ ->
       finalizeRecovery ctx cfgRec postAnalysis
+
+  let onFinish (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
+    assert (ctx.JumpTableRecoveryStatus.Count = 0)
+    match findCallsBeforeLoadedLiterals ctx with
+    | [||] ->
+      checkOverlap ctx cfgRec postAnalysis
+    | calls ->
+      ctx.CallsBeforeLiterals.UnionWith calls
+      StopAndReload
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
     let sorted = deps |> Array.sortBy fst
