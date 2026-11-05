@@ -535,6 +535,38 @@ type ARMBinaryBrewTests() =
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x28UL; 0x2cUL; 0x30UL; 0x34UL |], targets)
 
+  (* The scan reaches the code at 0x18 through the jump at 0xc before it
+     reaches 0x14, which runs on into it, so two of its blocks hold the add to
+     the PC, which splits into a block for each instruction set. The blocks of
+     the add have to come from one lifting of it, or the jump reads a target
+     that no block defines. *)
+  [<TestMethod>]
+  member _.``A table is read where a block found later runs into it``() =
+    let code =
+      [ "0f0000eb" (* bl 0x44 *)
+        "030050e3" (* cmp r0, #3 *)
+        "0000008a" (* bhi 0x10 *)
+        "010000ea" (* b 0x18 *)
+        "ffffffea" (* b 0x14 *)
+        "0000a0e3" (* mov r0, #0 *)
+        "04108fe2" (* add r1, pc, #4 *)
+        "000191e7" (* ldr r0, [r1, r0, lsl #2] *)
+        "00f081e0" (* add pc, r1, r0 *)
+        "10000000" (* .word 0x10 *)
+        "14000000" (* .word 0x14 *)
+        "18000000" (* .word 0x18 *)
+        "1c000000" (* .word 0x1c *)
+        "0000a0e3" (* mov r0, #0 *)
+        "0100a0e3" (* mov r0, #1 *)
+        "0200a0e3" (* mov r0, #2 *)
+        "1eff2fe1" (* bx lr *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x34UL; 0x38UL; 0x3cUL; 0x40UL |], targets)
+
   (* Clang fills the entries of the cases that never come with the end of the
      function, which in 32-bit ARM is where its literal pool starts. The
      function loads the first literal of the pool, so no code lies there, and
