@@ -31,10 +31,12 @@ open B2R2.FrontEnd.ARM32
 
 [<TestClass>]
 type InstructionTests() =
-  static let parse isThumb hex =
+  static let parseAt isThumb hex addr =
     let reader = BinReader.Init Endian.Big
     let parser = Parser(ISA "armv7", isThumb, reader) :> IInstructionParsable
-    parser.Parse(ByteArray.ofHexString hex, 0UL)
+    parser.Parse(ByteArray.ofHexString hex, addr)
+
+  static let parse isThumb hex = parseAt isThumb hex 0UL
 
   (* A function returns by branching to the link register as much as by popping
      the PC, and a BX to any other register is a jump that the CFG has to
@@ -74,3 +76,19 @@ type InstructionTests() =
     let successors isThumb hex = (parse isThumb hex).GetNextInstrAddrs()
     CollectionAssert.AreEqual(Array.empty<Addr>, successors false "e7f000f0")
     CollectionAssert.AreEqual(Array.empty<Addr>, successors true "de00")
+
+  (* A VLDR reads its literal from the PC aligned to a word, just as an LDR
+     does, though its operand names the PC as a base rather than a label. *)
+  [<TestMethod>]
+  member _.``[ARMv7] loads relative to the PC dereference memory test``() =
+    let derefs isThumb hex addr =
+      match (parseAt isThumb hex addr).MemoryDereferences() with
+      | true, addrs -> addrs
+      | false, _ -> [||]
+    let actual =
+      [| derefs false "e59f0010" 0x0UL (* ldr r0, [pc, #16] *)
+         derefs false "ed9f0a02" 0x0UL (* vldr s0, [pc, #8] *)
+         derefs false "ed1f1b01" 0x0UL (* vldr d1, [pc, #-4] *)
+         derefs true "ed9f1a14" 0x2UL (* vldr s2, [pc, #80] *) |]
+      |> Array.concat
+    CollectionAssert.AreEqual([| 0x18UL; 0x10UL; 0x4UL; 0x54UL |], actual)
