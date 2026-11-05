@@ -38,6 +38,5 @@ module BinaryAnalysis =
     brew.Value.Functions
 
   let tryFindFunction bin entry =
-    recoveredFunctions bin
-    |> fun functions -> functions.Sequence
-    |> Seq.tryFind (fun fn -> fn.EntryPoint = entry)
+    let functions = recoveredFunctions bin
+    functions.TryFind entry

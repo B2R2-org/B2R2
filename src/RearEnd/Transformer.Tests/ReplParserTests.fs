@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer.Tests
 
 open System
+open System.Numerics
 open System.Threading
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
@@ -119,7 +120,7 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Pipeline parser preserves stage and argument boundaries``() =
     let input =
-      "let hits = target |> @slice section=.text |> @grep "
+      "hits = target |> @slice section=.text |> @grep "
       + "pattern=837d..63 before=0 after=50"
     let segments, binding, expected = parseEvaluate input
     Assert.AreEqual(Some "hits", binding)
@@ -134,9 +135,40 @@ type ReplParserTests() =
       [ "pattern=837d..63"; "before=0"; "after=50" ] segments[2].Arguments
 
   [<TestMethod>]
+  member _.``Binding annotation works without let``() =
+    let segments, binding, expected =
+      parseEvaluate "target: Binary = @load hex=90c3 isa=x86-64"
+    Assert.AreEqual(Some "target", binding)
+    Assert.AreEqual(Some ReplValueKind.Binary, expected)
+    Assert.AreEqual("@load", segments[0].Head)
+
+  [<TestMethod>]
+  member _.``Let binding is rejected``() =
+    match TransformerReplParser.parse "let target = @load hex=90c3" with
+    | Error message ->
+      Assert.AreEqual("Use <name> = <expression> to bind a value.", message)
+    | Ok command ->
+      Assert.Fail $"Expected a parse error, but parsed {command}."
+
+  [<TestMethod>]
+  member _.``Multiline binding is one script command``() =
+    let lines =
+      [ "target ="
+        "  @load hex=90c3 isa=x86-64"
+        "target |> @disasm" ]
+    match ReplLanguage.combineCommandLines lines with
+    | Ok commands ->
+      let expected =
+        [ "target =\n  @load hex=90c3 isa=x86-64"
+          "target |> @disasm" ]
+      Assert.AreEqual<string list>(expected, commands)
+    | Error message ->
+      Assert.Fail $"Unexpected script error: {message}"
+
+  [<TestMethod>]
   member _.``Pipeline parser keeps quoted action values intact``() =
     let input =
-      "let code = @asm code=\"cmp dword ptr [rbp-0x0], 0x63\" "
+      "code = @asm code=\"cmp dword ptr [rbp-0x0], 0x63\" "
       + "isa=x86-64"
     let segments, _, _ = parseEvaluate input
     Assert.AreEqual(1, List.length segments)
@@ -147,29 +179,54 @@ type ReplParserTests() =
 
   [<TestMethod>]
   member _.``Pipeline parser retains iter lambda tokens``() =
-    let input = "targets |> iter @strings (fun item -> min=4)"
+    let input = "targets |> iter @extract-strings (fun item -> min=4)"
     let segments, binding, expected = parseEvaluate input
     Assert.AreEqual(None, binding)
     Assert.AreEqual(None, expected)
     Assert.AreEqual(2, List.length segments)
     Assert.AreEqual("iter", segments[1].Head)
     assertArguments
-      [ "@strings"; "("; "fun"; "item"; "->"; "min=4"; ")" ]
+      [ "@extract-strings"; "("; "fun"; "item"; "->"; "min=4"; ")" ]
       segments[1].Arguments
 
   [<TestMethod>]
+  member _.``Iter function rejects local bindings``() =
+    let input =
+      "targets |> iter @grep (fun item -> let p=item; pattern=p)"
+    let segments, _, _ = parseEvaluate input
+    match ReplLanguage.parseIter "iter" segments[1].Arguments with
+    | Error message ->
+      Assert.AreEqual(
+        "Local bindings are not supported in iter functions.",
+        message
+      )
+    | Ok _ ->
+      Assert.Fail "Expected the local binding to be rejected."
+
+  [<TestMethod>]
+  member _.``Iter function retains semicolons inside lists``() =
+    let input =
+      "targets |> iter @make-concrete-executor "
+      + "(fun item -> regs=[RDI=0x1; RSI=0x2])"
+    let segments, _, _ = parseEvaluate input
+    match ReplLanguage.parseIter "iter" segments[1].Arguments with
+    | Ok spec -> Assert.AreEqual(true, List.contains ";" spec.Body)
+    | Error message -> Assert.Fail $"Unexpected iter error: {message}"
+
+  [<TestMethod>]
   member _.``Pipeline parser retains literal punctuation``() =
-    let segments, _, _ = parseEvaluate "let pair = (left, right)"
+    let segments, _, _ = parseEvaluate "pair = (left, right)"
     Assert.AreEqual(1, List.length segments)
     Assert.AreEqual("(", segments[0].Head)
     assertArguments [ "left"; ","; "right"; ")" ] segments[0].Arguments
-    let segments, _, _ = parseEvaluate "let values = [left; right]"
+    let segments, _, _ = parseEvaluate "values = [left; right]"
     Assert.AreEqual("[", segments[0].Head)
     assertArguments [ "left"; ";"; "right"; "]" ] segments[0].Arguments
 
   [<TestMethod>]
   member _.``Pipeline parser rejects incomplete delimiters``() =
-    match TransformerReplParser.parse "targets |> iter @strings (fun item" with
+    let input = "targets |> iter @extract-strings (fun item"
+    match TransformerReplParser.parse input with
     | Error _ ->
       ()
     | Ok command ->
@@ -178,8 +235,10 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Partial iter analysis records a missing lambda arrow``() =
     let analysis =
-      ReplLanguage.analyzeIter "iter" [ "@strings"; "("; "fun"; "item" ]
-    Assert.AreEqual(Some "strings", analysis.ActionID)
+      ReplLanguage.analyzeIter
+        "iter"
+        [ "@extract-strings"; "("; "fun"; "item" ]
+    Assert.AreEqual(Some "extract-strings", analysis.ActionID)
     Assert.AreEqual(Some [ "item" ], analysis.LambdaParameters)
     Assert.AreEqual(1, analysis.ExpectedParameterCount)
     Assert.AreEqual(true, analysis.HasOpeningDelimiter)
@@ -189,11 +248,11 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Partial parser retains an incomplete lambda``() =
     let pipeline =
-      parsePartial "targets |> iter @strings (fun item "
+      parsePartial "targets |> iter @extract-strings (fun item "
     Assert.AreEqual(Some 8, pipeline.LastPipelineStart)
     Assert.AreEqual(false, pipeline.HasTrailingPipeline)
     Assert.AreEqual<string list list>(
-      [ [ "targets" ]; [ "iter"; "@strings"; "("; "fun"; "item" ] ],
+      [ [ "targets" ]; [ "iter"; "@extract-strings"; "("; "fun"; "item" ] ],
       pipeline.Segments |> List.map _.Tokens
     )
 
@@ -243,7 +302,7 @@ type ReplParserTests() =
   member _.``Completion suggests a lambda arrow after its parameter``() =
     let candidates =
       candidateTexts ReplValueKind.Binary
-        "targets |> iter @strings (fun item "
+        "targets |> iter @extract-strings (fun item "
     let detail = String.concat ", " candidates
     Assert.AreEqual(true, List.contains "-> " candidates, detail)
 
@@ -259,7 +318,10 @@ type ReplParserTests() =
 
   [<TestMethod>]
   member _.``Completion suggests compatible argument bindings``() =
-    let executor = collectionValue ReplValueKind.ConcExecutor
+    let executor =
+      { Kind = ReplValueKind.ConcExecutor
+        IsCollection = false
+        Collection = { Values = [||] } }
     let address =
       { Address = 0x401e08UL }
       |> box
@@ -316,9 +378,9 @@ type ReplParserTests() =
     let hint =
       completionHint
         ReplValueKind.ConcExecutor
-        "target |> @mem read addr="
-    StringAssert.Contains(hint, "@mem read")
-    assertDoesNotContain "@mem write" hint
+        "target |> @read-memory addr="
+    StringAssert.Contains(hint, "@read-memory")
+    assertDoesNotContain "@write-memory" hint
 
   [<TestMethod>]
   member _.``Colon-prefixed shell input is not a control command``() =
@@ -326,7 +388,7 @@ type ReplParserTests() =
       evaluateOutput registry.Value TransformerReplState.empty ":help"
     Assert.AreEqual<string list>(
       [ "Error: Unknown value or action: :help" ],
-      output.Lines
+      output.Lines |> Seq.toList
     )
 
   [<TestMethod>]
@@ -341,7 +403,7 @@ type ReplParserTests() =
       evaluateControlOutput registry.Value TransformerReplState.empty ":show"
     Assert.AreEqual<string list>(
       [ "Error: Unknown REPL command: :show" ],
-      output.Lines
+      output.Lines |> Seq.toList
     )
 
   [<TestMethod>]
@@ -350,9 +412,9 @@ type ReplParserTests() =
       evaluate
         registry.Value
         TransformerReplState.empty
-        "let target = @load hex=90c3 isa=x86-64"
+        "target = @load hex=90c3 isa=x86-64"
     let registry, state =
-      evaluate registry state "let targets = [target; target]"
+      evaluate registry state "targets = [target; target]"
     let registry, state =
       evaluate registry state "targets |> iter @disasm |> @print"
     let source = Unchecked.defaultof<Binary>
@@ -367,7 +429,7 @@ type ReplParserTests() =
         "@list functions"
         functionValue
         state
-    let input = "let addr = 0x"
+    let input = "addr = 0x"
     let items = Suggestions.get registry state input input.Length |> _.Items
     let zero = items |> List.filter (fun item -> item.Text = "0x0")
     Assert.HasCount(1, zero)
@@ -379,13 +441,26 @@ type ReplParserTests() =
   member _.``Completion preserves symbolic input widths``() =
     let solverValue name value: SolverValue =
       { Name = name; Value = BitVector(uint64 value, 8<rt>) }
+    let input = { Values = [| box () |] }
+    let loaded =
+      (LoadAction() :> IAction).Transform([ "90c3"; "x86-64" ], input)
+    let binary = loaded.Values[0] :?> Binary
+    let source = SymbExecutorValue(binary)
+    let source = source.WithSymbolicRegister("ESI", Some "idx")
+    let source = source.WithSymbolicRegister("RDX", Some "ind")
+    let solverName name =
+      source.Inputs
+      |> List.find (fun input -> input.Name = name)
+      |> fun input -> input.SolverName
+    let idx = solverName "idx"
+    let ind = solverName "ind"
     let values =
-      [ solverValue "idx_0" 0xf0
-        solverValue "idx_1" 0xff
-        solverValue "idx_2" 0xff
-        solverValue "idx_3" 0xf0 ]
+      [ solverValue $"{idx}_0" 0xf0
+        solverValue $"{idx}_1" 0xff
+        solverValue $"{idx}_2" 0xff
+        solverValue $"{idx}_3" 0xf0 ]
       @ ([ 0 .. 7 ]
-         |> List.map (fun index -> solverValue $"ind_{index}" 0))
+         |> List.map (fun index -> solverValue $"{ind}_{index}" 0))
     let answer: SymbSatisfiabilityAnswer =
       { Target = 0x401e5cUL
         State = SymbState()
@@ -396,7 +471,6 @@ type ReplParserTests() =
         PruneReasons = []
         StateCount = 1
         Timeout = None }
-    let source = Unchecked.defaultof<SymbExecutorValue>
     let run = SymbRunValue(source, "satisfy", Some answer.Target, result)
     let value =
       ReplValue.ofCollection
@@ -408,16 +482,50 @@ type ReplParserTests() =
         "@run-symbolic"
         value
         TransformerReplState.empty
-    let idxInput = "let idxValue = 0x"
+    let idxInput = "idxValue = 0x"
     let idxItems =
       Suggestions.get registry.Value state idxInput idxInput.Length |> _.Items
     let idx =
       idxItems |> List.find (fun item -> item.Text = "0xf0fffff0")
     Assert.AreEqual("command #7 · @run-symbolic · idx:4", idx.Detail)
-    let indInput = "let indValue = 0x0"
+    let indInput = "indValue = 0x0"
     let indItems =
       Suggestions.get registry.Value state indInput indInput.Length |> _.Items
     let ind =
       indItems
       |> List.find (fun item -> item.Text = "0x0000000000000000")
     Assert.AreEqual("command #7 · @run-symbolic · ind:8", ind.Detail)
+
+  [<TestMethod>]
+  member _.``Action names and random integers match their contracts``() =
+    let registry = registry.Value
+    for name in [ "filter"; "read-memory"; "write-memory" ] do
+      let exists = ActionRegistry.tryFind name registry |> Option.isSome
+      Assert.AreEqual(true, exists)
+    for name in [ "find"; "mem"; "model" ] do
+      let missing = ActionRegistry.tryFind name registry |> Option.isNone
+      Assert.AreEqual(true, missing)
+    let _, state, output =
+      evaluateOutput
+        registry
+        TransformerReplState.empty
+        "value = @random min=-3 max=-2"
+    Assert.AreEqual(false, output.HasError)
+    let value = TransformerReplState.tryFind "value" state |> Option.get
+    let number = value.Collection.Values[0] :?> BigInteger
+    Assert.AreEqual(BigInteger(-3), number)
+    Assert.AreEqual("value = -3", state.ReplayCommands.Head)
+    let _, state, output =
+      evaluateOutput
+        registry
+        state
+        ("large = @random min=0xffffffffffffffff "
+         + "max=0x10000000000000000")
+    Assert.AreEqual(false, output.HasError)
+    let value = TransformerReplState.tryFind "large" state |> Option.get
+    let number = value.Collection.Values[0] :?> BigInteger
+    Assert.AreEqual(BigInteger(UInt64.MaxValue), number)
+    Assert.AreEqual(
+      "large = 18446744073709551615",
+      state.ReplayCommands.Head
+    )

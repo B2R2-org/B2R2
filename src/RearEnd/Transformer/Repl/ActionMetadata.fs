@@ -87,6 +87,7 @@ type ActionArgumentKind =
   | OutputPath
   | ISA
   | Integer
+  | ArbitraryInteger
   | Float
   | HexPattern
   | HexBytes
@@ -100,6 +101,7 @@ type ActionArgumentKind =
 [<RequireQualifiedAccess>]
 type ActionArgumentDefault =
   | Zero
+  | EmptyList
 
 /// A command-line argument accepted by an action.
 type ActionArgument =
@@ -130,6 +132,11 @@ type ActionMetadata =
     Description: string
     Examples: string list
     Priority: int }
+
+/// Top-level argument facts recovered from complete or partial action input.
+type ActionArgumentInput =
+  { Names: string list
+    Trigger: string option }
 
 /// Implemented by external actions that support the interactive environment.
 type IActionMetadataProvider =
@@ -301,8 +308,7 @@ module ReplValueKind =
 module ActionMetadata =
   let actionName id = "@" + id
 
-  let acceptedInputs metadata =
-    let metadata: ActionMetadata = metadata
+  let acceptedInputs (metadata: ActionMetadata) =
     metadata.Input :: metadata.AlternativeInputs
 
   let argumentKindName = function
@@ -318,6 +324,8 @@ module ActionMetadata =
       "ISA"
     | ActionArgumentKind.Integer ->
       "Int"
+    | ActionArgumentKind.ArbitraryInteger ->
+      "Integer"
     | ActionArgumentKind.Float ->
       "Float"
     | ActionArgumentKind.HexPattern ->
@@ -337,6 +345,30 @@ module ActionMetadata =
     | ActionArgumentKind.Choice ->
       "Choice"
 
+  let annotationMatches (argument: ActionArgument) annotation =
+    let primary = argumentKindName argument.Kind
+    let aliases =
+      match argument.Kind with
+      | ActionArgumentKind.Text
+      | ActionArgumentKind.Path
+      | ActionArgumentKind.ExistingPath
+      | ActionArgumentKind.OutputPath
+      | ActionArgumentKind.ISA
+      | ActionArgumentKind.Section
+      | ActionArgumentKind.Action
+      | ActionArgumentKind.ParameterFunction
+      | ActionArgumentKind.Choice ->
+        [ "String" ]
+      | ActionArgumentKind.Integer
+      | ActionArgumentKind.ArbitraryInteger
+      | ActionArgumentKind.Size ->
+        [ "Integer" ]
+      | _ ->
+        []
+    primary :: aliases
+    |> List.exists (fun name ->
+      String.Equals(name, annotation, StringComparison.OrdinalIgnoreCase))
+
   let private argumentPlaceholder = function
     | ActionArgumentKind.Text ->
       "text"
@@ -348,6 +380,8 @@ module ActionMetadata =
       "isa"
     | ActionArgumentKind.Integer ->
       "n"
+    | ActionArgumentKind.ArbitraryInteger ->
+      "int"
     | ActionArgumentKind.Float ->
       "n"
     | ActionArgumentKind.HexPattern ->
@@ -367,15 +401,13 @@ module ActionMetadata =
     | ActionArgumentKind.Choice ->
       "choice"
 
-  let formatArgument argument =
-    let argument: ActionArgument = argument
+  let formatArgument (argument: ActionArgument) =
     let kind = argumentKindName argument.Kind
     let placeholder = argumentPlaceholder argument.Kind
     let text = $"{argument.Name}:{kind}=<{placeholder}>"
     if argument.IsOptional then $"[{text}]" else text
 
-  let private formatUsageArgument argument =
-    let argument: ActionArgument = argument
+  let private formatUsageArgument (argument: ActionArgument) =
     let placeholder = argumentPlaceholder argument.Kind
     let text = $"{argument.Name}=<{placeholder}>"
     if argument.IsOptional then $"[{text}]" else text
@@ -385,8 +417,7 @@ module ActionMetadata =
     let args = syntax.Arguments |> List.map formatArgument
     String.concat " " (trigger @ args)
 
-  let private formatUsage metadata syntax =
-    let metadata: ActionMetadata = metadata
+  let private formatUsage (metadata: ActionMetadata) syntax =
     let trigger = (syntax: ActionSyntax).Trigger |> Option.toList
     let args = syntax.Arguments |> List.map formatUsageArgument
     let syntax = String.concat " " (trigger @ args)
@@ -395,14 +426,10 @@ module ActionMetadata =
     else
       actionName metadata.ID + " " + syntax
 
-  let private sameArgument left right =
-    let left: ActionArgument = left
-    let right: ActionArgument = right
+  let private sameArgument (left: ActionArgument) (right: ActionArgument) =
     left.Name = right.Name && left.Kind = right.Kind
 
-  let private syntaxSubsumes candidate syntax =
-    let candidate: ActionSyntax = candidate
-    let syntax: ActionSyntax = syntax
+  let private syntaxSubsumes (candidate: ActionSyntax) (syntax: ActionSyntax) =
     let extraArguments =
       candidate.Arguments
       |> List.filter (fun candidate ->
@@ -416,11 +443,9 @@ module ActionMetadata =
     && not (List.isEmpty extraArguments)
     && extraArguments |> List.forall _.IsOptional
 
-  let private inputKinds metadata =
-    let metadata: ActionMetadata = metadata
+  let private inputKinds (metadata: ActionMetadata) =
     metadata.Syntaxes
-    |> List.collect (fun syntax ->
-      let syntax: ActionSyntax = syntax
+    |> List.collect (fun (syntax: ActionSyntax) ->
       if List.isEmpty syntax.Inputs then
         acceptedInputs metadata
       else
@@ -431,11 +456,9 @@ module ActionMetadata =
       | inputs ->
         inputs |> List.distinct
 
-  let private outputKinds metadata =
-    let metadata: ActionMetadata = metadata
+  let private outputKinds (metadata: ActionMetadata) =
     metadata.Syntaxes
-    |> List.map (fun syntax ->
-      let syntax: ActionSyntax = syntax
+    |> List.map (fun (syntax: ActionSyntax) ->
       syntax.Output |> Option.defaultValue metadata.Output)
     |> function
       | [] ->
@@ -443,8 +466,7 @@ module ActionMetadata =
       | outputs ->
         outputs |> List.distinct
 
-  let usageLines metadata =
-    let metadata: ActionMetadata = metadata
+  let usageLines (metadata: ActionMetadata) =
     metadata.Syntaxes
     |> List.filter (fun syntax ->
       metadata.Syntaxes
@@ -453,8 +475,7 @@ module ActionMetadata =
     |> List.map (formatUsage metadata)
     |> List.distinct
 
-  let documentationLines metadata =
-    let metadata: ActionMetadata = metadata
+  let documentationLines (metadata: ActionMetadata) =
     let role = metadata.Role.ToString().ToLowerInvariant()
     let kinds = List.map ReplValueKind.toString >> String.concat ", "
     let description =
@@ -462,16 +483,17 @@ module ActionMetadata =
         [| '\r'; '\n' |],
         StringSplitOptions.RemoveEmptyEntries
       )
-      |> Array.tryHead
-      |> Option.defaultValue ""
-      |> fun line -> line.Trim()
+      |> Array.map (fun line -> line.Trim())
+      |> Array.filter (String.IsNullOrWhiteSpace >> not)
+      |> Array.toList
     let details =
-      if String.IsNullOrWhiteSpace description then
+      if List.isEmpty description then
         []
       else
-        [ "  " + description ]
+        description |> List.map (fun line -> "  " + line)
     let input =
-      if metadata.Role = ActionRole.Source then
+      if metadata.Role = ActionRole.Source
+         && inputKinds metadata = [ ReplValueKind.Unit ] then
         []
       else
         [ "  input: " + kinds (inputKinds metadata) ]
@@ -545,8 +567,7 @@ module ActionMetadata =
       input, body, output)
     |> List.distinct
 
-  let private signatureRows metadata =
-    let metadata: ActionMetadata = metadata
+  let private signatureRows (metadata: ActionMetadata) =
     if hasSyntaxSpecifics metadata then
       specificSignatureRows metadata
     else
@@ -679,8 +700,7 @@ module ActionMetadata =
         Priority = priority }
     create
 
-  let syntaxAccepts inputKind syntax =
-    let syntax: ActionSyntax = syntax
+  let syntaxAccepts inputKind (syntax: ActionSyntax) =
     match inputKind with
     | None ->
       true
@@ -698,22 +718,57 @@ module ActionMetadata =
     | _ ->
       None
 
-  let private tokenParameterName (token: string) =
+  let private tryParameterHeader (token: string) =
     let index = token.IndexOf '='
     if index <= 0 then
       None
     else
-      let key = token[..index - 1]
+      let key = token[..index - 1].Trim()
       let typeIndex = key.IndexOf ':'
-      let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
-      Some(key.ToLowerInvariant())
+      let name, annotation =
+        if typeIndex <= 0 then
+          key, None
+        else
+          key[..typeIndex - 1], Some key[typeIndex + 1..]
+      if String.IsNullOrWhiteSpace name then
+        None
+      else
+        Some(name.ToLowerInvariant(), annotation, index)
 
-  let private syntaxMatchesOutputArguments args syntax =
-    let names = args |> List.choose tokenParameterName
-    if List.isEmpty args || List.isEmpty names then
+  let tryParseNamedArgument token =
+    tryParameterHeader token
+    |> Option.map (fun (name, annotation, index) ->
+      name, annotation, token[index + 1..])
+
+  let tryParameterName token =
+    tryParameterHeader token
+    |> Option.map (fun (name, _, _) -> name)
+
+  let analyzeArguments tokens =
+    let collect (depth, names) token =
+      match token with
+      | "(" | "[" | "[|" ->
+        depth + 1, names
+      | ")" | "]" | "|]" ->
+        max 0 (depth - 1), names
+      | _ when depth = 0 ->
+        let names =
+          match tryParameterName token with
+          | Some name -> name :: names
+          | None -> names
+        depth, names
+      | _ ->
+        depth, names
+    let names = tokens |> List.fold collect (0, []) |> snd |> List.rev
+    { Names = names
+      Trigger = List.tryHead tokens }
+
+  let private syntaxMatchesOutputArguments
+    (input: ActionArgumentInput) syntax =
+    if input.Trigger.IsNone || List.isEmpty input.Names then
       true
     else
-      names
+      input.Names
       |> List.forall (fun name ->
         (syntax: ActionSyntax).Arguments
         |> List.exists (fun argument ->
@@ -728,18 +783,6 @@ module ActionMetadata =
     | Some _, [] ->
       false
 
-  let private outputForSyntaxes metadata inputKind args =
-    let metadata: ActionMetadata = metadata
-    metadata.Syntaxes
-    |> List.filter (syntaxAccepts inputKind)
-    |> List.tryPick (fun syntax ->
-      if syntaxMatchesOutputTrigger args syntax
-         && syntaxMatchesOutputArguments args syntax then
-        syntax.Output
-      else
-        None)
-    |> Option.defaultValue metadata.Output
-
   let private applyOutputRelation relation inputKind output =
     match relation, inputKind with
     | ActionOutputRelation.CollectionElement, Some input ->
@@ -751,33 +794,49 @@ module ActionMetadata =
     | _ ->
       output
 
-  let outputForArguments metadata inputKind args =
-    let metadata: ActionMetadata = metadata
-    let output =
-      outputForSyntaxes metadata inputKind args
+  let outputForSyntax
+    (metadata: ActionMetadata)
+    inputKind
+    (syntax: ActionSyntax) =
+    let output = syntax.Output |> Option.defaultValue metadata.Output
     applyOutputRelation metadata.OutputRelation inputKind output
 
-  let possibleOutputs metadata inputKind =
-    let metadata: ActionMetadata = metadata
+  let outputForArguments (metadata: ActionMetadata) inputKind args =
+    let input = analyzeArguments args
+    metadata.Syntaxes
+    |> List.tryFind (fun syntax ->
+      syntaxAccepts inputKind syntax
+      && syntaxMatchesOutputTrigger args syntax
+      && syntaxMatchesOutputArguments input syntax)
+    |> Option.map (outputForSyntax metadata inputKind)
+    |> Option.defaultWith (fun () ->
+      applyOutputRelation
+        metadata.OutputRelation inputKind metadata.Output)
+
+  let possibleOutputs (metadata: ActionMetadata) inputKind =
     let outputs =
       metadata.Syntaxes
       |> List.filter (syntaxAccepts inputKind)
-      |> List.choose (fun syntax -> syntax.Output)
+      |> List.map (outputForSyntax metadata inputKind)
       |> List.distinct
-    if List.isEmpty outputs then [ metadata.Output ] else outputs
+    if List.isEmpty outputs then
+      [ applyOutputRelation
+          metadata.OutputRelation inputKind metadata.Output ]
+    else
+      outputs
 
   let syntaxHasParameter (name: string) syntax =
     (syntax: ActionSyntax).Arguments
     |> List.exists (fun argument ->
       argumentKeys argument |> List.contains (name.ToLowerInvariant()))
 
-  let syntaxMatchesParameters args syntax =
-    let names = args |> List.choose tokenParameterName
-    names |> List.forall (fun name -> syntaxHasParameter name syntax)
+  let syntaxMatchesParameters input syntax =
+    (input: ActionArgumentInput).Names
+    |> List.forall (fun name -> syntaxHasParameter name syntax)
 
-  let private matchingTriggerSyntaxes args syntaxes =
-    match args with
-    | actual :: _ ->
+  let private matchingTriggerSyntaxes trigger syntaxes =
+    match trigger with
+    | Some actual ->
       let triggered =
         syntaxes
         |> List.filter (fun syntax ->
@@ -789,20 +848,22 @@ module ActionMetadata =
               StringComparison.OrdinalIgnoreCase
             )))
       if List.isEmpty triggered then syntaxes else triggered
-    | [] ->
+    | None ->
       syntaxes
 
-  let private inputSyntaxes metadata inputKind =
-    let metadata: ActionMetadata = metadata
+  let private inputSyntaxes (metadata: ActionMetadata) inputKind =
     metadata.Syntaxes |> List.filter (syntaxAccepts inputKind)
 
-  let matchingSyntaxes metadata inputKind args =
+  let matchingSyntaxesForInput
+    metadata inputKind (input: ActionArgumentInput) =
     inputSyntaxes metadata inputKind
-    |> matchingTriggerSyntaxes args
-    |> List.filter (syntaxMatchesParameters args)
+    |> matchingTriggerSyntaxes input.Trigger
+    |> List.filter (syntaxMatchesParameters input)
 
-  let typedSignatureFor metadata inputKind args =
-    let metadata: ActionMetadata = metadata
+  let matchingSyntaxes metadata inputKind args =
+    analyzeArguments args |> matchingSyntaxesForInput metadata inputKind
+
+  let typedSignatureFor (metadata: ActionMetadata) inputKind args =
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
       if List.isEmpty syntaxes then
@@ -811,8 +872,7 @@ module ActionMetadata =
         syntaxes
     typedSignature { metadata with Syntaxes = syntaxes }
 
-  let typedSignatureForLines metadata inputKind args =
-    let metadata: ActionMetadata = metadata
+  let typedSignatureForLines (metadata: ActionMetadata) inputKind args =
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
       if List.isEmpty syntaxes then
@@ -826,15 +886,15 @@ module ActionMetadata =
       required "entry" ActionArgumentKind.Address
         "Function entry address. Omit this to recover all CFGs."
     overloadContract
-      "cfg"
+      "recover-cfg"
       [ ReplValueKind.Binary; ReplValueKind.FunctionInfo ]
       ReplValueKind.CFG
       ActionRole.Transform
       20
-      "cfg -> CFG collection | cfg entry=<address> -> CFG"
-      [ "binary |> @cfg"
-        "binary |> @cfg entry=<entry>"
-        "function |> @cfg" ]
+      "recover-cfg -> CFG collection | recover-cfg entry=<address> -> CFG"
+      [ "binary |> @recover-cfg"
+        "binary |> @recover-cfg entry=<entry>"
+        "function |> @recover-cfg" ]
       [ syntaxForOutput
           [ ReplValueKind.Binary ]
           None
@@ -845,24 +905,13 @@ module ActionMetadata =
 
   let private bytes =
     overloadContract
-      "bytes"
+      "extract-bytes"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ByteArray
       ActionRole.Transform
       20
-      "bytes -> ByteArray"
-      [ "binary |> @bytes" ]
-      [ syntax None [] ]
-
-  let private asBinary =
-    contract
-      "as-binary"
-      ReplValueKind.ByteArray
-      ReplValueKind.Binary
-      ActionRole.Transform
-      10
-      "as-binary -> Binary"
-      [ "rawBytes |> @as-binary" ]
+      "extract-bytes -> ByteArray"
+      [ "binary |> @extract-bytes" ]
       [ syntax None [] ]
 
   let private asm =
@@ -889,24 +938,7 @@ module ActionMetadata =
         syntax None [ code; baseAddress ]
         syntax None [ code; isa; baseAddress ] ]
 
-  let private arg =
-    let index =
-      required "index" ActionArgumentKind.Integer
-        "Zero-based integer argument index."
-    let value =
-      required "value" ActionArgumentKind.Address
-        "Concrete integer or pointer value."
-    contract
-      "arg"
-      ReplValueKind.ConcExecutor
-      ReplValueKind.ConcExecutor
-      ActionRole.Transform
-      20
-      "arg index=<n> value=<addr> -> ConcExecutor"
-      [ "executor |> @arg index=<index> value=<addr>" ]
-      [ syntax None [ index; value ] ]
-
-  let private makeConcreteContext =
+  let private concExec =
     let stack =
       optional "stack" ActionArgumentKind.Address
         "Stack pointer value to set."
@@ -919,27 +951,25 @@ module ActionMetadata =
     let regions =
       optional "regions" ActionArgumentKind.Text
         "Memory regions: [name=<start>..<end>:rw]."
-    contract
-      "make-concrete-context"
-      ReplValueKind.ConcExecutor
+    let args =
+      optional "args" ActionArgumentKind.Text
+        "ABI arguments: [0=0x1; 1=0x2]."
+    let buffers =
+      optional "ptr-regs" ActionArgumentKind.Text
+        "Pointer registers: [RDI=0x400:rw]."
+    overloadContract
+      "make-concrete-executor"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ConcExecutor
       ActionRole.Transform
-      18
-      ("make-concrete-context [stack=<addr>] [regs=[...]] [mem=[...]] "
-       + "[regions=[...]] -> ConcExecutor")
-      [ "executor |> @make-concrete-context regs=[<reg>=<value>; RSP=sp]"
-        "executor |> @make-concrete-context mem=[<addr>=<hex>]"
-        "executor |> @make-concrete-context "
-        + "regions=[buf=<start>..<end>:rw]" ]
-      [ syntax None [ stack ]
-        syntax None [ regs ]
-        syntax None [ mem ]
-        syntax None [ regions ]
-        syntax None [ stack; regs ]
-        syntax None [ stack; mem ]
-        syntax None [ regs; mem ]
-        syntax None [ stack; regs; mem ]
-        syntax None [ stack; regs; mem; regions ] ]
+      20
+      ("make-concrete-executor [stack=<addr>] [regs=[...]] "
+       + "[mem=[...]] [regions=[...]] [args=[...]] "
+       + "[ptr-regs=[...]] -> ConcExecutor")
+      [ "binary |> @make-concrete-executor"
+        "binary |> @make-concrete-executor regs=[RDI=0x70000000]"
+        "binary |> @make-concrete-executor args=[0=0x70000000]" ]
+      [ syntax None [ stack; regs; mem; regions; args; buffers ] ]
 
   let private count =
     contract
@@ -950,17 +980,6 @@ module ActionMetadata =
       60
       "count -> Int"
       [ "matches |> @count" ]
-      [ syntax None [] ]
-
-  let private concExec =
-    overloadContract
-      "make-concrete-executor"
-      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
-      ReplValueKind.ConcExecutor
-      ActionRole.Transform
-      20
-      "make-concrete-executor -> ConcExecutor"
-      [ "binary |> @make-concrete-executor" ]
       [ syntax None [] ]
 
   let private dbscan =
@@ -996,7 +1015,7 @@ module ActionMetadata =
     let pair left right = ReplValueKind.Tuple [ left; right ]
     let samePair kind = pair kind kind
     overloadContract
-      "diff"
+      "compare"
       [ samePair ReplValueKind.Binary
         samePair ReplValueKind.BinarySlice
         pair ReplValueKind.Binary ReplValueKind.BinarySlice
@@ -1009,11 +1028,11 @@ module ActionMetadata =
         samePair ReplValueKind.TextArtifact ]
       ReplValueKind.Text
       ActionRole.Reducer 60
-      "supported pair -> @diff -> Text"
-      [ "let binaries = (oldBin, newBin)"
-        "binaries |> @diff"
-        "let code = (oldCode, newCode)"
-        "code |> @diff" ] [ syntax None [] ]
+      "supported pair -> @compare -> Text"
+      [ "binaries = (oldBin, newBin)"
+        "binaries |> @compare"
+        "code = (oldCode, newCode)"
+        "code |> @compare" ] [ syntax None [] ]
 
   let private disasm =
     overloadContract
@@ -1028,13 +1047,13 @@ module ActionMetadata =
 
   let private dot =
     contract
-      "dot"
+      "export-dot"
       ReplValueKind.CFG
       ReplValueKind.TextArtifact
       ActionRole.Transform
       10
-      "dot -> TextArtifact"
-      [ "graph |> @dot" ]
+      "export-dot -> TextArtifact"
+      [ "graph |> @export-dot" ]
       [ syntax None [] ]
 
   let private editSyntaxes start finish size bytes asm isa =
@@ -1069,7 +1088,7 @@ module ActionMetadata =
       required "asm" ActionArgumentKind.Text
         "Replacement instruction assembled at the start address."
     let isa =
-      optional "isa" ActionArgumentKind.Text
+      optional "isa" ActionArgumentKind.ISA
         "Instruction-set architecture used for assembly."
     overloadContract
       "edit"
@@ -1172,7 +1191,7 @@ module ActionMetadata =
       ActionRole.Reducer
       60
       "Fingerprint * Fingerprint -> @jaccard -> Float"
-      [ "let fingerprints = (leftFingerprint, rightFingerprint)"
+      [ "fingerprints = (leftFingerprint, rightFingerprint)"
         "fingerprints |> @jaccard" ] [ syntax None [] ]
 
   let private regs =
@@ -1180,14 +1199,51 @@ module ActionMetadata =
       optional "name" ActionArgumentKind.Text
         "Register name to print; defaults to all defined registers."
     contract
-      "regs"
+      "inspect-registers"
       ReplValueKind.ConcExecutor
       ReplValueKind.RegisterView
       ActionRole.Transform
       20
-      "regs [name=<reg>] -> RegisterView"
-      [ "executor |> @regs"; "executor |> @regs name=RAX" ]
+      "inspect-registers [name=<reg>] -> RegisterView"
+      [ "executor |> @inspect-registers"
+        "executor |> @inspect-registers name=RAX" ]
       [ syntax None [ register ] ]
+
+  let private runDirectArguments limit =
+    let binaryEntry =
+      required "entry" ActionArgumentKind.Address
+        "Address of the function to execute."
+    let registers =
+      { required "regs" ActionArgumentKind.Text
+          "Concrete register values: [RSI=0x1; RDX=0x2]." with
+          IsOptional = true
+          DefaultValue = Some ActionArgumentDefault.EmptyList
+          Choices = [ "[]" ] }
+    let buffers =
+      { required "ptr-regs" ActionArgumentKind.Text
+          "Pointer registers: [RDI=0x400:rw]." with
+          IsOptional = true
+          DefaultValue = Some ActionArgumentDefault.EmptyList
+          Choices = [ "[]" ] }
+    let stack =
+      optional "stack" ActionArgumentKind.Address "Initial stack pointer."
+    let memory =
+      optional "mem" ActionArgumentKind.Text
+        "Concrete memory assignments."
+    let regions =
+      optional "regions" ActionArgumentKind.Text
+        "Additional memory regions."
+    let arguments =
+      optional "args" ActionArgumentKind.Text
+        "ABI arguments: [0=0x1; 1=0x2]."
+    [ binaryEntry
+      stack
+      registers
+      memory
+      regions
+      arguments
+      buffers
+      limit ]
 
   let private run =
     let entry =
@@ -1199,17 +1255,25 @@ module ActionMetadata =
     let breakpoint =
       optional "break" ActionArgumentKind.Address
         "Stop before executing this address."
-    contract
+    let directArgs = runDirectArguments limit
+    let executorArgs = [ entry; limit; breakpoint ]
+    let binarySyntax = syntaxFor [ ReplValueKind.Binary ] None directArgs
+    let executorSyntax =
+      syntaxFor [ ReplValueKind.ConcExecutor ] None executorArgs
+    overloadContract
       "run-concrete"
-      ReplValueKind.ConcExecutor
+      [ ReplValueKind.Binary; ReplValueKind.ConcExecutor ]
       ReplValueKind.ConcExecutor
       ActionRole.Transform
       20
-      ("run-concrete [entry=<addr>] [limit=<n>] [break=<addr>]"
-       + " -> ConcExecutor")
-      [ "executor |> @run-concrete entry=<entry> limit=<limit>"
+      ("Binary -> run-concrete entry=<addr> [stack=<addr>] [regs=[...]] "
+       + "[mem=[...]] [regions=[...]] [args=[...]] [ptr-regs=[...]] "
+       + "[limit=<n>] | ConcExecutor -> run-concrete [entry=<addr>] "
+       + "[limit=<n>] [break=<addr>] -> ConcExecutor")
+      [ "binary |> @run-concrete entry=<entry> ptr-regs=[...]"
+        "executor |> @run-concrete entry=<entry> limit=<limit>"
         "executor |> @run-concrete entry=<entry> limit=<limit> break=<addr>" ]
-      [ syntax None [ entry; limit; breakpoint ] ]
+      [ binarySyntax; executorSyntax ]
 
   let private lift =
     overloadContract
@@ -1264,13 +1328,13 @@ module ActionMetadata =
 
   let private llvm =
     contract
-      "llvm"
+      "export-llvm"
       ReplValueKind.Binary
       ReplValueKind.TextArtifact
       ActionRole.Transform
       50
-      "llvm -> TextArtifact"
-      [ "binary |> @llvm" ]
+      "export-llvm -> TextArtifact"
+      [ "binary |> @export-llvm" ]
       [ syntax None [] ]
 
   let private load =
@@ -1284,73 +1348,71 @@ module ActionMetadata =
       optional "isa" ActionArgumentKind.ISA "Instruction-set architecture."
     let requiredISA =
       required "isa" ActionArgumentKind.ISA "Instruction-set architecture."
-    contract
+    overloadContract
       "load"
-      ReplValueKind.Unit
+      [ ReplValueKind.Unit; ReplValueKind.ByteArray ]
       ReplValueKind.Binary
       ActionRole.Source
       0
-      "load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
+      ("load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> | "
+       + "ByteArray -> load -> Binary")
       [ "@load path=<path>"
-        "@load hex=<hex> isa=<isa>" ]
-      [ syntax None [ source; optionalISA ]
-        syntax None [ hex; requiredISA ] ]
+        "@load hex=<hex> isa=<isa>"
+        "rawBytes |> @load" ]
+      [ syntaxFor [ ReplValueKind.Unit ] None [ source; optionalISA ]
+        syntaxFor [ ReplValueKind.Unit ] None [ hex; requiredISA ]
+        syntaxFor [ ReplValueKind.ByteArray ] None [] ]
 
   let private random =
-    let minAddress =
-      required "min" ActionArgumentKind.Address
-        "Inclusive lower address bound."
-    let maxAddress =
-      required "max" ActionArgumentKind.Address
-        "Exclusive upper address bound."
+    let minimum =
+      required "min" ActionArgumentKind.ArbitraryInteger
+        "Inclusive lower integer bound."
+    let maximum =
+      required "max" ActionArgumentKind.ArbitraryInteger
+        "Exclusive upper integer bound."
     contract
       "random"
       ReplValueKind.Unit
-      ReplValueKind.Address
+      ReplValueKind.Int
       ActionRole.Source
       20
-      "random min=<addr> max=<addr> -> Address"
-      [ "let ptr = @random min=<min> max=<max>" ]
-      [ syntax None [ minAddress; maxAddress ] ]
+      "random min=<int> max=<int> -> Int"
+      [ "value = @random min=<min> max=<max>" ]
+      [ syntax None [ minimum; maximum ] ]
 
-  let private userStack =
-    contract
-      "user-stack"
-      ReplValueKind.Unit
-      ReplValueKind.Address
-      ActionRole.Source
-      19
-      "user-stack -> Address"
-      [ "let sp = @user-stack" ]
-      [ syntax None [] ]
-
-  let private mem =
+  let private readMemory =
     let addr =
       required "addr" ActionArgumentKind.Address
         "Starting concrete memory address."
     let size =
       required "size" ActionArgumentKind.Integer
         "Number of bytes to read."
+    contract
+      "read-memory"
+      ReplValueKind.ConcExecutor
+      ReplValueKind.MemoryView
+      ActionRole.Transform
+      20
+      "read-memory addr=<addr> size=<n> -> MemoryView"
+      [ "executor |> @read-memory addr=<addr> size=<size>" ]
+      [ syntax None [ addr; size ] ]
+
+  let private writeMemory =
+    let addr =
+      required "addr" ActionArgumentKind.Address
+        "Starting concrete memory address."
     let bytes =
       required "bytes" ActionArgumentKind.HexBytes
         "Bytes to write as a hexadecimal string."
-    let signature =
-      "mem read addr=<addr> size=<n> -> MemoryView | "
-      + "mem write addr=<addr> bytes=<hex> -> ConcExecutor"
     contract
-      "mem"
+      "write-memory"
       ReplValueKind.ConcExecutor
-      ReplValueKind.Any
+      ReplValueKind.ConcExecutor
       ActionRole.Transform
       20
-      signature
-      [ "executor |> @mem read addr=<addr> size=<size>"
-        "executor |> @mem write addr=<addr> bytes=<hex>" ]
-      [ syntaxOutput (Some "read") ReplValueKind.MemoryView [ addr; size ]
-        syntaxOutput
-          (Some "write")
-          ReplValueKind.ConcExecutor
-          [ addr; bytes ] ]
+      "write-memory addr=<addr> bytes=<hex> -> ConcExecutor"
+      [ "executor |> @write-memory addr=<addr> bytes=<hex>" ]
+      [ syntax None [ addr; bytes ] ]
 
   let private pick =
     let index =
@@ -1369,19 +1431,19 @@ module ActionMetadata =
 
   let private one =
     { overloadContract
-        "one"
+        "require-one"
         [ ReplValueKind.Collection ReplValueKind.Any
           ReplValueKind.List ReplValueKind.Any
           ReplValueKind.Array ReplValueKind.Any ]
         ReplValueKind.Any
         ActionRole.Reducer
         5
-        "one -> Any"
-        [ "items |> @one" ]
+        "require-one -> Any"
+        [ "items |> @require-one" ]
         [ syntax None [] ] with
         OutputRelation = ActionOutputRelation.CollectionElement }
 
-  let private find =
+  let private filter =
     let symbol =
       required "symbol" ActionArgumentKind.Text "Function symbol name."
     let entry =
@@ -1391,18 +1453,18 @@ module ActionMetadata =
     let address =
       required "address" ActionArgumentKind.Address "Basic-block address."
     { overloadContract
-        "find"
+        "filter"
         [ ReplValueKind.Collection ReplValueKind.FunctionInfo
           ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
         ReplValueKind.Any
         ActionRole.Transform
         5
-        ("find symbol=<name>|entry=<addr> -> FunctionInfo collection | "
-         + "find mnemonic=<name>|address=<addr> -> CFGNodeInfo collection")
-        [ "functions |> @find symbol=<name>"
-          "functions |> @find entry=<addr>"
-          "nodes |> @find mnemonic=<name>"
-          "nodes |> @find address=<addr>" ]
+        ("filter symbol=<name>|entry=<addr> -> FunctionInfo collection | "
+         + "filter mnemonic=<name>|address=<addr> -> CFGNodeInfo collection")
+        [ "functions |> @filter symbol=<name>"
+          "functions |> @filter entry=<addr>"
+          "nodes |> @filter mnemonic=<name>"
+          "nodes |> @filter address=<addr>" ]
         [ syntaxFor
             [ ReplValueKind.Collection ReplValueKind.FunctionInfo ]
             None
@@ -1505,15 +1567,15 @@ module ActionMetadata =
       optional "pattern" ActionArgumentKind.Text
         "Case-insensitive substring filter."
     overloadContract
-      "strings"
+      "extract-strings"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       (ReplValueKind.Collection ReplValueKind.StringMatch)
       ActionRole.Transform
       10
-      "strings [min=<n>] [pattern=<text>] -> StringMatch collection"
-      [ "binary |> @strings"
-        "binary |> @strings pattern=ADMIN"
-        "binary |> @strings min=<length> pattern=EXPORT" ]
+      "extract-strings [min=<n>] [pattern=<text>] -> StringMatch collection"
+      [ "binary |> @extract-strings"
+        "binary |> @extract-strings pattern=ADMIN"
+        "binary |> @extract-strings min=<length> pattern=EXPORT" ]
       [ syntax None [ minimum; pattern ] ]
 
   let private save =
@@ -1562,9 +1624,7 @@ module ActionMetadata =
   let private builtIns =
     [ cfg
       bytes
-      asBinary
       asm
-      arg
       count
       concExec
       dbscan
@@ -1573,7 +1633,7 @@ module ActionMetadata =
       disasm
       dot
       edit
-      find
+      filter
       grep
       hexdump
       jaccard
@@ -1581,22 +1641,21 @@ module ActionMetadata =
       list
       llvm
       load
-      mem
+      readMemory
       one
       pick
       print
       random
       regs
       run
-      makeConcreteContext
       slice
       step
       trace
-      userStack
       strings
       save
       winnowing
-      write ]
+      write
+      writeMemory ]
     |> List.map (fun metadata -> metadata.ID.ToLowerInvariant(), metadata)
     |> Map.ofList
 
@@ -1626,6 +1685,9 @@ module ActionMetadata =
         invalidOp (message + "IActionMetadataProvider.")
 
 module ActionRegistry =
+  let private canonicalActionID (id: string) =
+    id.ToLowerInvariant()
+
   let private valueKinds =
     [ ReplValueKind.Unit
       ReplValueKind.Binary
@@ -1743,7 +1805,7 @@ module ActionRegistry =
     loadAssembly path (registry: ActionRegistry).Actions |> fromMap
 
   let tryFind (id: string) registry =
-    registry.Actions |> Map.tryFind (id.ToLowerInvariant())
+    registry.Actions |> Map.tryFind (canonicalActionID id)
 
   let getAll registry =
     registry.AllSorted

@@ -29,9 +29,8 @@ open B2R2.FrontEnd
 
 /// The `bytes` action.
 type BytesAction() =
-  let convert cancellationToken (input: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let convert (ct: CancellationToken) (input: obj) =
+    ct.ThrowIfCancellationRequested()
     let binary =
       match input with
       | :? Binary as binary ->
@@ -48,11 +47,11 @@ type BytesAction() =
       Annotation = Binary.Annotation binary }
     |> box
 
-  let transform cancellationToken collection =
-    { Values = collection.Values |> Array.map (convert cancellationToken) }
+  let transform ct collection =
+    { Values = collection.Values |> Array.map (convert ct) }
 
   interface IAction with
-    member _.ActionID with get() = "bytes"
+    member _.ActionID with get() = "extract-bytes"
     member _.Signature with get() = "Binary | BinarySlice -> ByteArray"
     member _.Description with get() =
       "Extract raw bytes while retaining address and ISA information."
@@ -64,46 +63,9 @@ type BytesAction() =
         invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
+    member _.Transform(args, collection, ct) =
       match args with
       | [] ->
-        transform cancellationToken collection
-      | _ ->
-        invalidArg (nameof args) "Invalid argument."
-
-/// The `as-binary` action.
-type AsBinaryAction() =
-  let convert cancellationToken input =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
-    let bytes = unbox<BinaryBytes> input
-    let hdl =
-      lazy (
-        BinHandle.LoadRawImage(
-          bytes.Bytes, bytes.ISA, bytes.BaseAddress, bytes.OS
-        )
-      )
-    Binary.Init(bytes.Annotation, hdl) |> box
-
-  let transform cancellationToken collection =
-    { Values = collection.Values |> Array.map (convert cancellationToken) }
-
-  interface IAction with
-    member _.ActionID with get() = "as-binary"
-    member _.Signature with get() = "ByteArray -> Binary"
-    member _.Description with get() =
-      "Reconstruct an analyzable raw Binary from retained bytes."
-    member _.Transform(args, collection) =
-      match args with
-      | [] ->
-        transform CancellationToken.None collection
-      | _ ->
-        invalidArg (nameof args) "Invalid argument."
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      match args with
-      | [] ->
-        transform cancellationToken collection
+        transform ct collection
       | _ ->
         invalidArg (nameof args) "Invalid argument."

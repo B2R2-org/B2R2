@@ -31,6 +31,7 @@ open System.Text
 open System.Text.RegularExpressions
 open System.Threading
 open B2R2
+open B2R2.ABI
 open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -109,14 +110,14 @@ module SymbSolverRegistry =
 
 type SymbolicInput =
   { Name: string
+    SolverName: string
     Location: string
     Size: int
     Query: IQueryExpr }
 
 type SymbSymbolicRegisterAssignment =
   { Register: string
-    Name: string
-    Size: int }
+    Name: string option }
 
 type SymbRegionPermission =
   { Read: bool
@@ -132,6 +133,10 @@ type SymbMemoryRegion =
 type SymbMemoryAccessKind =
   | MemoryRead
   | MemoryWrite
+
+type SymbMemoryViolation =
+  { Kind: SymbMemoryAccessKind
+    Address: Addr }
 
 module private SymbRegionPerm =
   let format permission =
@@ -304,6 +309,52 @@ type SymbExecutorValue(binary: Binary,
         $"{region.Name}=0x{region.Start:x}-0x{region.Finish:x}:{perms}")
       |> String.concat ", "
 
+  let allocateArgumentBuffers
+    (accessor: SymbStateAccessor)
+    arguments
+    firstOrdinal =
+    arguments
+    |> List.mapi (fun ordinal (index, name, size) ->
+      let solverName = $"__b2r2_arg_{firstOrdinal + ordinal}"
+      let buffer = accessor.AllocateSymbolicBuffer(solverName, size)
+      let input =
+        { Name = name
+          SolverName = solverName
+          Location = $"arg{index}@0x{buffer.Address:x}"
+          Size = size
+          Query = buffer :> IQueryExpr }
+      index, buffer, input)
+
+  let reserveArgumentFrame
+    (hdl: BinHandle)
+    (accessor: SymbStateAccessor)
+    initialSP
+    arguments =
+    let reserved =
+      arguments
+      |> List.map (fun (index, _, _) -> index)
+      |> ExecutionSetup.callerReservedBytes hdl
+    let used = initialSP - accessor.StackPointer + reserved
+    let alignment = uint64 hdl.Conventions.Stack.Alignment
+    let padding = (alignment - used % alignment) % alignment
+    accessor.AllocateStackBuffer(int (reserved + padding)) |> ignore
+
+  let writeArgumentBuffers
+    (hdl: BinHandle)
+    (accessor: SymbStateAccessor)
+    (allocations: (int * SymbByteBuffer * SymbolicInput) list) =
+    allocations
+    |> List.iter (fun (index, buffer, _) ->
+      let argument = accessor.WordValue buffer.Address
+      match hdl.Conventions.Calling.GetIntArgLocation index with
+      | ArgLocation.Reg rid ->
+        accessor.SetRegister(rid, argument)
+      | ArgLocation.Stack slot ->
+        let addr = accessor.StackPointer + uint64 slot.FirstOffset
+        accessor.WriteValue(addr, argument)
+      | _ ->
+        invalidArg (nameof allocations) "Unsupported argument location.")
+
   new(binary: Binary) =
     let hdl = Binary.Handle binary
     let executor = SymbExecutor hdl
@@ -436,9 +487,11 @@ type SymbExecutorValue(binary: Binary,
   member _.WithSymbolicMemory(addr, name, size) =
     let state = state.Clone()
     let accessor = SymbStateAccessor(Binary.Handle binary, state)
-    let buffer = accessor.WriteSymbolicBuffer(name, addr, size)
+    let solverName = $"__b2r2_mem_{List.length inputs}"
+    let buffer = accessor.WriteSymbolicBuffer(solverName, addr, size)
     let input =
       { Name = name
+        SolverName = solverName
         Location = $"mem@0x{buffer.Address:x}"
         Size = size
         Query = buffer :> IQueryExpr }
@@ -451,38 +504,47 @@ type SymbExecutorValue(binary: Binary,
                       hookText,
                       solver)
 
-  member _.WithSymbolicArgument(index, name, size) =
+  member _.WithSymbolicArguments(arguments) =
     let state = state.Clone()
-    let accessor = SymbStateAccessor(Binary.Handle binary, state)
-    let buffer = accessor.AllocateSymbolicBuffer(name, size)
-    accessor.SetArgumentBuffer(index, buffer)
-    let input =
-      { Name = name
-        Location = $"arg{index}@0x{buffer.Address:x}"
-        Size = size
-        Query = buffer :> IQueryExpr }
+    let hdl = Binary.Handle binary
+    let accessor = SymbStateAccessor(hdl, state)
+    let initialSP = accessor.StackPointer
+    let firstOrdinal = List.length inputs
+    let allocations =
+      allocateArgumentBuffers accessor arguments firstOrdinal
+    reserveArgumentFrame hdl accessor initialSP arguments
+    writeArgumentBuffers hdl accessor allocations
+    let addedInputs = allocations |> List.map (fun (_, _, input) -> input)
     SymbExecutorValue(binary,
                       state,
-                      input :: inputs,
+                      List.rev addedInputs @ inputs,
                       avoids,
                       regions,
                       hooks,
                       hookText,
                       solver)
 
-  member _.WithSymbolicRegister(register: string, name: string, size: int) =
+  member this.WithSymbolicArgument(index, name, size) =
+    this.WithSymbolicArguments([ index, name, size ])
+
+  member _.WithSymbolicRegister(register: string, name: string option) =
     let state = state.Clone()
     let hdl = Binary.Handle binary
     let accessor = SymbStateAccessor(hdl, state)
     let rid = hdl.RegisterFactory.GetRegisterID(name = register)
     let registerType = hdl.RegisterFactory.GetRegType rid
-    let bytes = accessor.CreateSymbolicBytes(name, size)
+    let size = RegType.toByteWidth registerType
+    let solverName = hdl.RegisterFactory.GetRegisterName rid
+    let name =
+      name |> Option.defaultValue solverName
+    let bytes = accessor.CreateSymbolicBytes(solverName, size)
     let value = symbolicRegisterValue hdl.ISA.Endian registerType bytes size
     let query = symbolicRegisterQuery bytes
     accessor.SetRegister(rid, value)
     setX64ParentRegister hdl accessor register value
     let input =
       { Name = name
+        SolverName = solverName
         Location = $"reg:{register}"
         Size = size
         Query = query }
@@ -587,8 +649,7 @@ type SymbExecutorValue(binary: Binary,
     let applySymbolicRegister (executor: SymbExecutorValue)
                               (assignment: SymbSymbolicRegisterAssignment) =
       executor.WithSymbolicRegister(assignment.Register,
-                                    assignment.Name,
-                                    assignment.Size)
+                                    assignment.Name)
     let applyRegion (executor: SymbExecutorValue)
                     (region: SymbMemoryRegion) =
       executor.WithRegion region
@@ -599,6 +660,50 @@ type SymbExecutorValue(binary: Binary,
     let executor =
       spec.SymbolicRegisters |> List.fold applySymbolicRegister executor
     spec.Regions |> List.fold applyRegion executor
+
+  member _.WithExecutionSetup(entry, layout: ExecutionLayout, symRegs) =
+    ((symRegs: SymbSymbolicRegisterAssignment list)
+     |> List.map _.Register)
+    @ (layout.Buffers |> List.map _.Register)
+    |> ExecutionSetup.validateRegisterNames (Binary.Handle binary)
+    let nextState = state.Clone()
+    nextState.PC <- entry
+    let accessor = SymbStateAccessor(Binary.Handle binary, nextState)
+    accessor.SetStackPointer layout.InitialStackPointer
+    let hdl = Binary.Handle binary
+    if Option.isSome hdl.RegisterFactory.FramePointer then
+      accessor.InitializeFramePointer()
+    else
+      ()
+    let prepared =
+      SymbExecutorValue(binary,
+                        nextState,
+                        inputs,
+                        avoids,
+                        regions,
+                        hooks,
+                        hookText,
+                        solver)
+    let withBuffers =
+      layout.Buffers
+      |> List.fold (fun (current: SymbExecutorValue) buffer ->
+        current.WithRegister(buffer.Register, buffer.Address)) prepared
+    let withRegions =
+      ExecutionSetup.regions layout
+      |> List.fold (fun (current: SymbExecutorValue) region ->
+        current.WithRegion
+          { Name = region.Name
+            Start = region.Start
+            Finish = region.Finish
+            Permission =
+              { Read = region.Permission.Read
+                Write = region.Permission.Write
+                Execute = region.Permission.Execute } }) withBuffers
+    symRegs
+    |> List.fold (fun (current: SymbExecutorValue)
+                      (assignment: SymbSymbolicRegisterAssignment) ->
+      current.WithSymbolicRegister(assignment.Register,
+                                   assignment.Name)) withRegions
 
   member _.RunSatisfy(target, maxDepth, maxStates, loopBound, prune, ct) =
     let query =
@@ -637,7 +742,11 @@ type SymbExecutorValue(binary: Binary,
                                maxStates,
                                loopBound,
                                prune,
-                               ct) =
+                               ct,
+                               ?stopWhen: StopPredicate<SymbState>,
+                               ?violationAnalyzer:
+                                 SymbSatisfiabilityAnswer ->
+                                   SymbMemoryViolation option) =
     let query =
       { Query = SymbQuery.SatisfyWhen predicate
         QueryValues =
@@ -649,15 +758,29 @@ type SymbExecutorValue(binary: Binary,
       { SymbRunOptions.Default(query, this.SolverBackend) with
           Calls = this.CallPolicy
           AvoidConditions =
-            avoids
-            |> Seq.map SymbAvoidCondition.AvoidAddress
-            |> Seq.toList
+            (stopWhen
+             |> Option.map SymbAvoidCondition.AvoidWhen
+             |> Option.toList)
+            @ (avoids
+               |> Seq.map SymbAvoidCondition.AvoidAddress
+               |> Seq.toList)
           MaxDepth = maxDepth
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
-    executor.Run(state.PC, state, options, ct)
-    |> fun result -> SymbRunValue(this, "cond", None, result)
+    let result = executor.Run(state.PC, state, options, ct)
+    let violations =
+      violationAnalyzer
+      |> Option.map (fun analyze ->
+        result.SatisfiabilityAnswers
+        |> List.map (fun answer ->
+          ct.ThrowIfCancellationRequested()
+          analyze answer))
+    SymbRunValue(this,
+                 "cond",
+                 None,
+                 result,
+                 ?violations = violations)
 
   member this.RunSatisfyCondition(predicate,
                                   maxDepth,
@@ -718,17 +841,45 @@ type SymbExecutorValue(binary: Binary,
 and SymbRunValue(source: SymbExecutorValue,
                  query: string,
                  target: Addr option,
-                 result: SymbRunResult) =
+                 result: SymbRunResult,
+                 ?violations: SymbMemoryViolation option list) =
+  let violations =
+    violations
+    |> Option.defaultWith (fun () ->
+      result.SatisfiabilityAnswers |> List.map (fun _ -> None))
+
+  let displayNames =
+    source.Inputs
+    |> List.map (fun input -> input.SolverName, input.Name)
+    |> Map.ofList
+
+  let indexedName name =
+    let indexed = Regex.Match(name, "^(.+)_([0-9]+)$")
+    if indexed.Success then
+      Some(indexed.Groups[1].Value, indexed.Groups[2].Value)
+    else
+      None
+
+  let displayValue (value: SolverValue) =
+    match indexedName value.Name with
+    | Some(solverName, index) ->
+      match Map.tryFind solverName displayNames with
+      | Some name ->
+        { value with Name = $"{name}_{index}" }
+      | None ->
+        value
+    | None ->
+      value
+
   let valueText (value: SolverValue) =
     $"  {value.Name}: {value.Value}"
 
   let tryIndexedByte (value: SolverValue) =
-    let m = Regex.Match(value.Name, "^(.+)_([0-9]+)$")
-    if m.Success && value.Value.Length = 8<rt> then
-      let prefix = m.Groups[1].Value
-      let index = Int32.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture)
+    match indexedName value.Name with
+    | Some(prefix, index) when value.Value.Length = 8<rt> ->
+      let index = Int32.Parse(index, CultureInfo.InvariantCulture)
       Some(prefix, index, byte (value.Value.ToUInt64()))
-    else
+    | _ ->
       None
 
   let printableAscii bytes =
@@ -791,13 +942,25 @@ and SymbRunValue(source: SymbExecutorValue,
   let appendSatAnswer
         (sb: StringBuilder)
         index
+        violation
         (answer: SymbSatisfiabilityAnswer) =
     sb.AppendLine($"answer #{index}") |> ignore
     sb.AppendLine($"  target: 0x{answer.Target:x}") |> ignore
+    match violation with
+    | Some violation ->
+      let kind =
+        match violation.Kind with
+        | MemoryRead -> "read"
+        | MemoryWrite -> "write"
+      sb.AppendLine($"  access violation: {kind} at "
+                    + $"0x{violation.Address:x}")
+      |> ignore
+    | None ->
+      ()
     sb.AppendLine(
       $"  path-conditions: {List.length answer.State.PathCondition}")
     |> ignore
-    appendInputModels sb answer.Values
+    answer.Values |> List.map displayValue |> appendInputModels sb
 
   let appendReachAnswer
         (sb: StringBuilder)
@@ -824,14 +987,24 @@ and SymbRunValue(source: SymbExecutorValue,
 
   member _.ConcreteInputs =
     result.SatisfiabilityAnswers
-    |> List.collect (fun answer -> indexedByteGroups answer.Values)
+    |> List.collect (fun answer ->
+      answer.Values |> List.map displayValue |> indexedByteGroups)
+
+  member _.InputModels =
+    result.SatisfiabilityAnswers
+    |> List.map (fun answer ->
+      let values = answer.Values |> List.map displayValue
+      answer.Target, values, indexedByteGroups values)
+
+  member _.Violations = violations
 
   member _.ModelText() =
     let sb = StringBuilder()
     let appendResult = function
       | SymbAnswer.Satisfiable answers ->
-        answers |> List.iteri (fun idx answer ->
-          appendSatAnswer sb (idx + 1) answer)
+        List.zip answers violations
+        |> List.iteri (fun idx (answer, violation) ->
+          appendSatAnswer sb (idx + 1) violation answer)
       | SymbAnswer.Reachable answers ->
         answers |> List.iteri (fun idx answer ->
           appendReachAnswer sb (idx + 1) answer)
@@ -910,15 +1083,12 @@ module private SymbArgs =
         Size = parseInt (entry[sizeIndex + 1..].Trim()) }
 
   let parseSymbolicRegisterAssignment (entry: string) =
-    let register, spec = splitAssignment entry
-    let sizeIndex = spec.LastIndexOf ':'
-    if sizeIndex <= 0 then
-      invalidArg (nameof entry)
-        $"Expected symbolic register entry REG=name:size: {entry}"
-    else
+    if entry.Contains '=' then
+      let register, name = splitAssignment entry
       { Register = register
-        Name = spec[..sizeIndex - 1].Trim()
-        Size = parseInt (spec[sizeIndex + 1..].Trim()) }
+        Name = Some(ContextParsing.parseQuotedName entry name) }
+    else
+      { Register = entry.Trim(); Name = None }
 
   let parseRegionAssignment (entry: string) =
     let region = ContextParsing.parseRegion entry
@@ -976,7 +1146,7 @@ module private SymbArgs =
             { spec with Regions = spec.Regions @ regions }
           | _ ->
             invalidArg (nameof args)
-              $"Unknown make-symbolic-context parameter: {key}"
+              $"Unknown symbolic execution parameter: {key}"
         loop spec rest
     let empty: SymbContextSpec =
       { PC = None
@@ -1016,18 +1186,7 @@ module private SymbCondition =
     | MemoryPolicyViolation of SymbMemoryAccessKind option
     | And of Condition list
 
-  let norm (text: string) =
-    Regex.Replace(text.Trim(), @"\s+", " ")
-
-  let stripOuterParens (text: string) =
-    let text = text.Trim()
-    if text.StartsWith("(", StringComparison.Ordinal)
-       && text.EndsWith(")", StringComparison.Ordinal) then
-      text[1..text.Length - 2].Trim()
-    else
-      text
-
-  let parseRelOp = function
+  let private parseRelOp = function
     | "=" | "==" ->
       RelOpType.EQ
     | "!=" | "<>" ->
@@ -1043,173 +1202,181 @@ module private SymbCondition =
     | op ->
       invalidArg (nameof op) $"Unsupported condition operator: {op}"
 
-  let parseIntegerLiteral (m: Match) =
-    let value = SymbArgs.parseAddr m.Groups["value"].Value
-    if m.Groups["sign"].Success then
-      let width = SymbArgs.parseInt m.Groups["width"].Value
-      let typ = RegType.fromBitWidth width
-      let maximum =
-        if width = 64 then UInt64.MaxValue else (1UL <<< width) - 1UL
-      if value > maximum then
-        invalidArg (nameof value) $"Value does not fit in {width} bits."
+  module Grammar =
+    open FParsec
+
+    let private identifier = regex "[A-Za-z_][A-Za-z0-9_]*"
+
+    let private numberText = regex "0[xX][0-9a-fA-F]+|[0-9]+"
+
+    let tryAddress (text: string) =
+      if text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
+        let digits = text[2..]
+        let style = NumberStyles.HexNumber
+        match UInt64.TryParse(digits, style, CultureInfo.InvariantCulture) with
+        | true, value ->
+          Some value
+        | _ ->
+          None
       else
-        ()
-      let isSigned =
-        m.Groups["sign"].Value.Equals("i", StringComparison.OrdinalIgnoreCase)
-      { Value = value
-        Type = Some typ
-        IsSigned = isSigned }
-    else
-      { Value = value
-        Type = None
-        IsSigned = false }
+        match UInt64.TryParse(text, CultureInfo.InvariantCulture) with
+        | true, value ->
+          Some value
+        | _ ->
+          None
 
-  let tryMatch pattern text =
-    let options = RegexOptions.IgnoreCase ||| RegexOptions.CultureInvariant
-    let m = Regex.Match(text, pattern, options)
-    if m.Success then Some m else None
-
-  let parseConditionList atomParser body =
-    Regex.Split(body, @"\s*&&\s*")
-    |> Array.toList
-    |> List.map atomParser
-    |> function
-      | [ atom ] ->
-        atom
-      | atoms ->
-        And atoms
-
-  let parseAtom text =
-    let address = @"(0x[0-9a-f]+|[0-9]+)"
-    let integer =
-      @"(?<value>0x[0-9a-f]+|[0-9]+)(?::(?<sign>[iu])(?<width>8|16|32|64))?"
-    let op = @"(==|=|!=|<>|<=|>=|<|>)"
-    let text = norm text
-    let atPattern = @"^pp\.at\s*\(\s*" + address + @"\s*\)$"
-    match tryMatch atPattern text with
-    | Some m ->
-      At(SymbArgs.parseAddr m.Groups[1].Value)
-    | None ->
-      if
-        Regex.IsMatch(
-          text,
-          @"^(mem|memory)\.accessViolation\s*\(\s*\)$",
-          RegexOptions.IgnoreCase
-        ) then
-        MemoryPolicyViolation None
-      elif
-        Regex.IsMatch(
-          text,
-          @"^(mem|memory)\.readViolation\s*\(\s*\)$",
-          RegexOptions.IgnoreCase
-        ) then
-        MemoryPolicyViolation(Some MemoryRead)
-      elif
-        Regex.IsMatch(
-          text,
-          @"^(mem|memory)\.writeViolation\s*\(\s*\)$",
-          RegexOptions.IgnoreCase
-        ) then
-        MemoryPolicyViolation(Some MemoryWrite)
-      else
-        let regPattern =
-          @"^pp\.REG\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*"
-          + op + @"\s*" + integer + "$"
-        let memPattern =
-          @"^pp\.MEM\s*\[\s*" + address + @"(?::([0-9]+))?\s*\]\s*"
-          + op + @"\s*" + integer + "$"
-        let writePattern =
-          @"^pp\.WRITE\s*" + op + @"\s*" + integer + "$"
-        match tryMatch regPattern text with
-        | Some m ->
-          let term = Register m.Groups[1].Value
-          let relop = parseRelOp m.Groups[2].Value
-          Compare(term, relop, parseIntegerLiteral m)
+    let private address =
+      numberText >>= fun text ->
+        match tryAddress text with
+        | Some value ->
+          preturn value
         | None ->
-          match tryMatch memPattern text with
-          | Some m ->
-            let size =
-              if m.Groups[2].Success then
-                SymbArgs.parseInt m.Groups[2].Value
-              else
-                8
-            let term =
-              Memory(SymbArgs.parseAddr m.Groups[1].Value,
-                     RegType.fromByteWidth size)
-            let relop = parseRelOp m.Groups[3].Value
-            Compare(term, relop, parseIntegerLiteral m)
+          fail "64-bit address"
+
+    let private byteWidth =
+      regex "[0-9]+" >>= fun text ->
+        match Int32.TryParse(text, CultureInfo.InvariantCulture) with
+        | true, width ->
+          preturn width
+        | _ ->
+          fail "byte width"
+
+    let private integerLiteral =
+      let suffix =
+        pchar ':' >>. anyOf "iIuU" .>>. regex "8|16|32|64"
+      numberText .>>. opt suffix >>= fun (text, suffix) ->
+        match tryAddress text with
+        | None ->
+          fail "64-bit integer"
+        | Some value ->
+          match suffix with
           | None ->
-            match tryMatch writePattern text with
-            | Some m ->
-              let relop = parseRelOp m.Groups[1].Value
-              Compare(WriteAddress, relop, parseIntegerLiteral m)
-            | None ->
-              invalidArg (nameof text) $"Invalid pp condition: {text}"
+            preturn { Value = value; Type = None; IsSigned = false }
+          | Some(sign, widthText) ->
+            let width = Int32.Parse widthText
+            let maximum =
+              if width = 64 then UInt64.MaxValue else (1UL <<< width) - 1UL
+            if value > maximum then
+              fail $"value that fits in {width} bits"
+            else
+              preturn
+                { Value = value
+                  Type = Some(RegType.fromBitWidth width)
+                  IsSigned = sign = 'i' || sign = 'I' }
 
-  let parseBody body =
-    parseConditionList parseAtom body
+    let private relOp =
+      regex "==|!=|<>|<=|>=|=|<|>" |>> parseRelOp
 
-  let parse text =
-    let text = stripOuterParens text
-    let pattern = @"^fun\s+([A-Za-z_][A-Za-z0-9_]*|_)\s*->\s*(.+)$"
-    match tryMatch pattern text with
-    | Some m ->
-      parseBody m.Groups[2].Value
-    | None ->
-      invalidArg (nameof text)
-        "Expected condition function: fun pp -> <predicate>."
+    let private memoryTerm =
+      between
+        (pchar '[' .>> spaces)
+        (spaces >>. pchar ']')
+        (address .>>. opt (pchar ':' >>. byteWidth))
+      |>> fun (addr, size) ->
+        Memory(addr, RegType.fromByteWidth (defaultArg size 8))
 
-  let stripListBrackets (text: string) =
-    let text = text.Trim()
-    if text.StartsWith("[", StringComparison.Ordinal)
-       && text.EndsWith("]", StringComparison.Ordinal) then
-      text[1..text.Length - 2].Trim()
-    else
-      text
+    let comparison term =
+      pipe3
+        term
+        (spaces >>. relOp .>> spaces)
+        integerLiteral
+        (fun subject op value -> Compare(subject, op, value))
 
-  let parsePreconditionAtom text =
-    let address = @"(0x[0-9a-f]+|[0-9]+)"
-    let integer =
-      @"(?<value>0x[0-9a-f]+|[0-9]+)(?::(?<sign>[iu])(?<width>8|16|32|64))?"
-    let op = @"(==|=|!=|<>|<=|>=|<|>)"
-    let text = norm text
-    let regPattern =
-      @"^([A-Za-z][A-Za-z0-9_]*)\s*" + op + @"\s*" + integer + "$"
-    let memPattern =
-      @"^MEM\s*\[\s*" + address + @"(?::([0-9]+))?\s*\]\s*"
-      + op + @"\s*" + integer + "$"
-    match tryMatch regPattern text with
-    | Some m ->
-      let term = Register m.Groups[1].Value
-      let relop = parseRelOp m.Groups[2].Value
-      Compare(term, relop, parseIntegerLiteral m)
-    | None ->
-      match tryMatch memPattern text with
-      | Some m ->
-        let size =
-          if m.Groups[2].Success then
-            SymbArgs.parseInt m.Groups[2].Value
+    let private ppAtom =
+      let term =
+        choice
+          [ pstringCI "REG" >>. spaces >>.
+              between
+                (pchar '[' .>> spaces)
+                (spaces >>. pchar ']')
+                identifier |>> Register
+            pstringCI "MEM" >>. spaces >>. memoryTerm
+            pstringCI "WRITE" >>% WriteAddress ]
+      let at =
+        pstringCI "at" >>. spaces >>.
+          between
+            (pchar '(' .>> spaces)
+            (spaces >>. pchar ')')
+            address
+        |>> At
+      pstringCI "pp." >>. (at <|> comparison term)
+
+    let private memoryPolicy =
+      let kind =
+        choice
+          [ pstringCI "accessViolation" >>% None
+            pstringCI "readViolation" >>% Some MemoryRead
+            pstringCI "writeViolation" >>% Some MemoryWrite ]
+      pstringCI "mem" >>. opt (pstringCI "ory") >>. pchar '.' >>.
+        kind .>> spaces .>> between
+          (pchar '(' .>> spaces)
+          (pchar ')')
+          spaces
+      |>> MemoryPolicyViolation
+
+    let private preconditionAtom =
+      let register = identifier |>> Register
+      let term =
+        attempt (pstringCI "MEM" >>. spaces >>. memoryTerm)
+        <|> register
+      comparison term
+
+    let conjunction atom separator =
+      let expression, expressionRef =
+        createParserForwardedToRef<Condition, unit>()
+      let group =
+        between
+          (pchar '(' .>> spaces)
+          (spaces >>. pchar ')')
+          expression
+      let element = group <|> atom
+      expressionRef.Value <-
+        sepBy1 element (attempt (spaces >>. separator .>> spaces))
+        |>> function
+          | [ condition ] -> condition
+          | conditions -> And conditions
+      expression
+
+    let private condition =
+      let atom = ppAtom <|> memoryPolicy
+      let body = conjunction atom (pstring "&&")
+      let lambda =
+        pstring "fun" >>. spaces1 >>. identifier .>> spaces
+        .>> pstring "->" .>> spaces >>. body
+      spaces >>. opt (pchar '(' .>> spaces) >>= fun opening ->
+        let closing =
+          if Option.isSome opening then
+            spaces >>. pchar ')' >>% ()
           else
-            8
-        let term =
-          Memory(SymbArgs.parseAddr m.Groups[1].Value,
-                 RegType.fromByteWidth size)
-        let relop = parseRelOp m.Groups[3].Value
-        Compare(term, relop, parseIntegerLiteral m)
-      | None ->
-        invalidArg (nameof text) $"Invalid precondition: {text}"
+            preturn ()
+        lambda .>> closing .>> spaces .>> eof
 
-  let parsePreconditions text =
-    stripListBrackets text
-    |> fun text -> Regex.Split(text, @"\s*(?:;|&&)\s*")
-    |> Array.toList
-    |> List.filter (String.IsNullOrWhiteSpace >> not)
-    |> List.map parsePreconditionAtom
-    |> function
-      | [ atom ] ->
-        atom
-      | atoms ->
-        And atoms
+    let private precondition =
+      let separator = pstring "&&" <|> pstring ";"
+      let body = conjunction preconditionAtom separator
+      spaces >>. opt (pchar '[' .>> spaces) >>= fun opening ->
+        let body =
+          if Option.isSome opening then
+            opt body |>> Option.defaultValue (And [])
+            .>> spaces .>> pchar ']'
+          else
+            opt body |>> Option.defaultValue (And [])
+        body .>> spaces .>> eof
+
+    let parse name parser text =
+      match run parser text with
+      | Success(condition, _, _) ->
+        condition
+      | Failure(message, _, _) ->
+        invalidArg (nameof text) $"Invalid {name}: {message}"
+
+    let parseCondition text = parse "condition" condition text
+
+    let parsePrecondition text = parse "precondition" precondition text
+
+  let parse text = Grammar.parseCondition text
+
+  let parsePreconditions text = Grammar.parsePrecondition text
 
   let constFor (expr: SymbExpr) (value: Addr) =
     SymbExpr.Const(BitVector(uint64 value, expr.Type))
@@ -1416,6 +1583,11 @@ module private SymbCondition =
     |> List.exists (fun access ->
       violationExpr regions access |> addCondition point.State)
 
+  let witnessAddressExpr (expr: SymbExpr) =
+    if expr.Type = 64<rt> then expr
+    elif expr.Type < 64<rt> then SymbExpr.cast CastKind.ZeroExt 64<rt> expr
+    else SymbExpr.extract expr 64<rt> 0
+
   let rec evaluate
     (hdl: BinHandle)
     (regions: SymbMemoryRegion list)
@@ -1456,6 +1628,76 @@ module private SymbCondition =
     StopPredicate<SymbState>(fun point ->
       evaluate hdl regions condition point
     )
+
+  let fixedModelConditions (answer: SymbSatisfiabilityAnswer) =
+    answer.Values
+    |> List.map (fun value ->
+      let variable = SymbExpr.Var(value.Name, value.Value.Length)
+      SymbExpr.relop RelOpType.EQ variable (SymbExpr.Const value.Value))
+
+  let trySolveViolation solver path regions access =
+    let violation = violationExpr regions access
+    match violation, access.Address with
+    | SymbExpr.Const violated, SymbExpr.Const address
+        when violated.IsTrue ->
+      Some({ Kind = access.Kind
+             Address = address.ToUInt64() }: SymbMemoryViolation)
+    | _ ->
+      (solver: Lazy<ISolver option>).Value
+      |> Option.bind (fun (solver: ISolver) ->
+        let name = "__b2r2_violation_address_" + Guid.NewGuid().ToString("N")
+        let witness = SymbExpr.Var(name, 64<rt>)
+        let address = witnessAddressExpr access.Address
+        let addressConstraint =
+          SymbExpr.relop RelOpType.EQ witness address
+        let conditions =
+          violation :: addressConstraint :: path
+        let smt = SMTLibSerializer.serializeAssertions conditions [ witness ]
+        let status =
+          solver.CheckSat smt
+          |> Result.bind SolverOutputParser.parseStatus
+        match status with
+        | Ok SolverStatus.Sat ->
+          match solver.GetModels smt
+                |> Result.bind (SolverOutputParser.extract [ witness ]) with
+          | Ok { Values = [ value ] } ->
+            Some({ Kind = access.Kind
+                   Address = value.Value.ToUInt64() }: SymbMemoryViolation)
+          | _ ->
+            None
+        | _ ->
+          None)
+
+  let violationAnalyzer hdl regions solver kind =
+    let liftCache = LiftCache hdl
+    let solver =
+      lazy (solver |> Option.map (fun (value: SymbSolverValue) ->
+        value.Create()))
+    fun (answer: SymbSatisfiabilityAnswer) ->
+      match liftCache.TryLift answer.Target with
+      | Error _ ->
+        None
+      | Ok lifted ->
+        let point =
+          { Address = answer.Target
+            InstructionCount = 0
+            Instruction = Some lifted.Instruction
+            Statements = lifted.Stmts
+            State = answer.State }
+        let pathCondition =
+          fixedModelConditions answer @ answer.State.PathCondition
+        memoryAccesses point
+        |> List.filter (fun access ->
+          kind |> Option.forall ((=) access.Kind))
+        |> List.tryPick (trySolveViolation solver pathCondition regions)
+
+  let toQueryPredicate hdl regions solver condition =
+    let predicate = toPredicate hdl regions condition
+    match condition with
+    | MemoryPolicyViolation kind ->
+      predicate, Some(violationAnalyzer hdl regions solver kind)
+    | _ ->
+      predicate, None
 
   let trySatisfyAddress = function
     | At addr ->
@@ -1499,6 +1741,107 @@ module private SymbMetadata =
       Examples = examples
       Priority = 20 }
 
+module private SymbExecutorSetup =
+  let private contextKeys =
+    Set.ofList
+      [ "pc"; "stack"; "regs"; "mem"; "sym-mem"; "sym-regs"; "regions" ]
+
+  let symbolicArguments text =
+    ContextParsing.entries text
+    |> Array.map (fun entry ->
+      let index, spec = ContextParsing.splitAssignment entry
+      let separator = spec.LastIndexOf ':'
+      if separator <= 0 then
+        invalidArg (nameof text)
+          $"Expected ABI argument index=name:size: {entry}"
+      else
+        let index = SymbArgs.parseInt index
+        let name = spec[..separator - 1].Trim()
+        let size = SymbArgs.parseInt (spec[separator + 1..].Trim())
+        if index < 0 || size <= 0 || String.IsNullOrWhiteSpace name then
+          invalidArg (nameof text) $"Invalid symbolic ABI argument: {entry}"
+        else
+          index, name, size)
+    |> Array.toList
+
+  let parseOptions args =
+    args
+    |> List.map ContextParsing.splitParameter
+    |> Map.ofList
+
+  let context options =
+    options
+    |> Map.toList
+    |> List.choose (fun (key, value) ->
+      if Set.contains key contextKeys then Some $"{key}={value}" else None)
+    |> SymbArgs.parseContext
+
+  let layout binary context options indices =
+    ExecutionSetup.requestedBufferSpec options (not (List.isEmpty indices))
+    |> Option.map (fun buffers ->
+      let hdl = Binary.Handle binary
+      ExecutionSetup.layoutForStack hdl context.Stack buffers indices)
+
+  let applyLayout binary layout context (executor: SymbExecutorValue) =
+    match layout with
+    | Some layout ->
+      let hdl = Binary.Handle binary
+      let entry =
+        context.PC
+        |> Option.defaultWith (fun () ->
+          hdl.File.EntryPoint |> Option.defaultValue hdl.File.BaseAddress)
+      let executor =
+        executor.WithExecutionSetup(entry, layout, context.SymbolicRegisters)
+      executor, { context with Stack = None; SymbolicRegisters = [] }
+    | None ->
+      executor, context
+
+  let configure options (executor: SymbExecutorValue) =
+    let executor =
+      match Map.tryFind "avoid" options with
+      | Some text ->
+        ContextParsing.entries text
+        |> Array.fold (fun (current: SymbExecutorValue) address ->
+          current.WithAvoid(SymbArgs.parseAddr address)) executor
+      | None ->
+        executor
+    match Map.tryFind "hooks" options with
+    | Some text ->
+      ContextParsing.entries text
+      |> Array.fold (fun (current: SymbExecutorValue) entry ->
+        let name, address = ContextParsing.splitAssignment entry
+        let address = SymbArgs.parseAddr address
+        match name.Trim().ToLowerInvariant() with
+        | "strlen" -> current.WithStrlenHook address
+        | "fwrite" -> current.WithFwriteHook address
+        | _ -> invalidArg (nameof text) $"Unknown call hook: {name}")
+        executor
+    | None ->
+      executor
+
+  let create (binary: Binary) options =
+    let solverID =
+      options |> Map.tryFind "solver" |> Option.defaultValue "symb-z3"
+    let solver =
+      SymbSolverRegistry.create solverID
+      |> Option.defaultWith (fun () ->
+        invalidOp $"The {solverID} solver is unavailable. Load its plugin.")
+    let context = context options
+    let arguments =
+      options
+      |> Map.tryFind "sym-args"
+      |> Option.map symbolicArguments
+      |> Option.defaultValue []
+    let indices = arguments |> List.map (fun (index, _, _) -> index)
+    let layout = layout binary context options indices
+    let executor = SymbExecutorValue(binary).WithSolver solver
+    let executor, context = applyLayout binary layout context executor
+    let executor = executor.WithContext context
+    let executor =
+      if List.isEmpty arguments then executor
+      else executor.WithSymbolicArguments arguments
+    configure options executor, layout
+
 type SymbExecAction() =
   let solver =
     SymbMetadata.arg
@@ -1506,10 +1849,79 @@ type SymbExecAction() =
       ActionArgumentKind.Action
       true
       "Solver provider action, such as @symb-z3."
+  let pc =
+    SymbMetadata.arg
+      "pc"
+      ActionArgumentKind.Address
+      true
+      "Address where symbolic execution starts."
+  let stack =
+    SymbMetadata.arg
+      "stack"
+      ActionArgumentKind.Address
+      true
+      "Initial stack pointer."
+  let regs =
+    SymbMetadata.arg
+      "regs"
+      ActionArgumentKind.Text
+      true
+      "Concrete register assignments: [RDI=0x70000000]."
+  let mem =
+    SymbMetadata.arg
+      "mem"
+      ActionArgumentKind.Text
+      true
+      "Concrete memory assignments: [0x70000000=00]."
+  let symMem =
+    SymbMetadata.arg
+      "sym-mem"
+      ActionArgumentKind.Text
+      true
+      "Symbolic memory assignments: [input@0x70000000:16]."
+  let symRegs =
+    SymbMetadata.arg
+      "sym-regs"
+      ActionArgumentKind.Text
+      true
+      "Symbolic registers: [ESI; RDX=\"value\"]."
+  let regions =
+    SymbMetadata.arg
+      "regions"
+      ActionArgumentKind.Text
+      true
+      "Memory regions: [buf=0x70000000..0x70000400:rw]."
+  let symArgs =
+    SymbMetadata.arg
+      "sym-args"
+      ActionArgumentKind.Text
+      true
+      "Symbolic ABI buffers: [0=input:32]."
+  let buffers =
+    SymbMetadata.arg
+      "ptr-regs"
+      ActionArgumentKind.Text
+      true
+      "Pointer registers: [RDI=0x400:rw]."
+  let avoid =
+    SymbMetadata.arg
+      "avoid"
+      ActionArgumentKind.Text
+      true
+      "Addresses to exclude from exploration: [0x401e62]."
+  let hooks =
+    SymbMetadata.arg
+      "hooks"
+      ActionArgumentKind.Text
+      true
+      "External call models: [strlen=0x401000; fwrite=0x401220]."
   let metadata =
     let signature =
       "Binary | BinarySlice -> @make-symbolic-executor "
-      + "[solver:Action=<action>] "
+      + "[solver=<action>] [pc=<addr>] [stack=<addr>] "
+      + "[regs=[...]] [mem=[...]] [sym-mem=[...]] "
+      + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
+      + "[ptr-regs=[...]] [avoid=[...]] [hooks=[...]] "
       + "-> SymbExecutor"
     { SymbMetadata.metadata
         "make-symbolic-executor"
@@ -1518,40 +1930,43 @@ type SymbExecAction() =
         ActionRole.Transform
         signature
         "Create a symbolic executor over a binary or binary slice."
-        [ "let sx = bin |> @make-symbolic-executor solver=@symb-z3" ] with
+        [ "binary |> @make-symbolic-executor pc=<addr> "
+          + "sym-regs=[ESI]" ] with
         AlternativeInputs = [ ReplValueKind.BinarySlice ]
-        Syntaxes = [ SymbMetadata.syntax None [ solver ] ] }
+        Syntaxes =
+          [ SymbMetadata.syntax None
+              [ solver
+                pc
+                stack
+                regs
+                mem
+                symMem
+                symRegs
+                regions
+                symArgs
+                buffers
+                avoid
+                hooks ] ] }
 
-  let findSolver = function
-    | [] ->
-      None
-    | [ solver ] ->
-      match SymbSolverRegistry.create solver with
-      | Some solver ->
-        Some solver
-      | None ->
-        invalidArg (nameof solver) $"Unknown solver: {solver}"
-    | _ ->
-      invalidArg "args" "Invalid make-symbolic-executor arguments."
+  let transformNamed args (collection: ObjCollection) =
+    let options = Map.ofList args
+    let values =
+      collection.Values
+      |> Array.map (function
+        | :? Binary as binary ->
+          SymbExecutorSetup.create binary options |> fst |> box
+        | :? BinarySlice as slice ->
+          SymbExecutorSetup.create (slice.ToBinary()) options
+          |> fst
+          |> box
+        | value ->
+          invalidOp $"make-symbolic-executor expects Binary: {value}")
+    { Values = values }
 
-  let transformOne solver (value: obj) =
-    let executor =
-      match value with
-      | :? Binary as binary ->
-        SymbExecutorValue binary
-      | :? BinarySlice as slice ->
-        SymbExecutorValue(slice.ToBinary())
-      | value ->
-        invalidOp $"make-symbolic-executor expects Binary: {value}"
-    solver
-    |> Option.map executor.WithSolver
-    |> Option.defaultValue executor
-    |> box
-
-  let transform args (collection: ObjCollection) =
-    let solver = findSolver args
-    collection.Values |> Array.map (transformOne solver) |> fun values ->
-      { Values = values }
+  let transform args collection =
+    SymbExecutorSetup.parseOptions args
+    |> Map.toList
+    |> fun options -> transformNamed options collection
 
   interface IAction with
     member _.ActionID with get() = metadata.ID
@@ -1563,267 +1978,98 @@ type SymbExecAction() =
     member _.Metadata with get() = metadata
 
   interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
+    member _.Transform(args, collection, _) =
       transform args collection
 
-type SymbContextAction() =
-  let pc =
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, _) =
+      transformNamed args collection
+
+type SymbSearchAction() =
+  let entry =
     SymbMetadata.arg
-      "pc"
+      "entry"
       ActionArgumentKind.Address
+      false
+      "Address of the function to explore."
+  let solver =
+    SymbMetadata.arg
+      "solver"
+      ActionArgumentKind.Action
       true
-      "Address where the next symbolic run starts."
+      "Symbolic solver provider. Default: @symb-z3."
   let stack =
     SymbMetadata.arg
       "stack"
       ActionArgumentKind.Address
       true
-      "Concrete stack pointer value."
-  let regs =
+      "Initial stack pointer."
+  let registers =
     SymbMetadata.arg
       "regs"
       ActionArgumentKind.Text
       true
-      "Register assignments: [RBP=0x1; RDI=0x70000000]."
-  let mem =
+      "Concrete register assignments."
+  let memory =
     SymbMetadata.arg
       "mem"
       ActionArgumentKind.Text
       true
-      "Concrete memory assignments: [0x70000012=00]."
-  let symMem =
+      "Concrete memory assignments."
+  let symbolicMemory =
     SymbMetadata.arg
       "sym-mem"
       ActionArgumentKind.Text
       true
-      "Symbolic memory assignments: [password@0x70000000:18]."
-  let symRegs =
-    SymbMetadata.arg
-      "sym-regs"
-      ActionArgumentKind.Text
-      true
-      "Symbolic register assignments: [ESI=idx:4]."
+      "Symbolic memory assignments."
+  let symbolicRegisters =
+    { SymbMetadata.arg
+        "sym-regs"
+        ActionArgumentKind.Text
+        false
+        "Symbolic registers: [ESI; RDX=\"value\"]." with
+        IsOptional = true
+        DefaultValue = Some ActionArgumentDefault.EmptyList
+        Choices = [ "[]" ] }
   let regions =
     SymbMetadata.arg
       "regions"
       ActionArgumentKind.Text
       true
-      "Additional regions: [track=0x70000000..0x70000400:rw]."
-  let signature =
-    "SymbExecutor -> @make-symbolic-context [pc:Address=<addr>] "
-    + "[stack:Address=<addr>] [regs:String=<regs>] "
-    + "[mem:String=<mem>] [sym-mem:String=<sym-mem>] "
-    + "[sym-regs:String=<regs>] [regions:String=<regions>] "
-    + "-> SymbExecutor"
-  let metadata =
-    { SymbMetadata.metadata
-        "make-symbolic-context"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        signature
-        "Set symbolic context; binary image permissions are automatic."
-        [ "sx |> @make-symbolic-context pc=<addr> stack=<addr>"
-          "sx |> @make-symbolic-context regs=[RBP=<addr>; RDI=<addr>]"
-          "sx |> @make-symbolic-context sym-regs=[ESI=idx:4]"
-          "sx |> @make-symbolic-context "
-          + "regions=[buf=<start>..<end>:rw]" ]
-        with
-        Syntaxes =
-          [ SymbMetadata.syntax None
-              [ pc; stack; regs; mem; symMem; symRegs; regions ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      SymbArgs.parseContext args |> executor.WithContext |> box
-    | value ->
-      invalidOp $"make-symbolic-context expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbAvoidAction() =
-  let addr =
+      "Additional memory regions."
+  let symbolicArguments =
     SymbMetadata.arg
-      "addr"
-      ActionArgumentKind.Address
-      false
-      "Address to discard during symbolic exploration."
-  let metadata =
-    { SymbMetadata.metadata
-        "stop-at"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        "SymbExecutor -> @stop-at addr:Address=<addr> -> SymbExecutor"
-        "Stop symbolic exploration when PC reaches an address."
-        [ "sx |> @stop-at addr=<addr>" ] with
-        Syntaxes = [ SymbMetadata.syntax None [ addr ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      match args with
-      | [ addr ] ->
-        executor.WithAvoid(SymbArgs.parseAddr addr) |> box
-      | _ ->
-        invalidArg (nameof args) "Invalid stop-at arguments."
-    | value ->
-      invalidOp $"stop-at expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbHookAction() =
-  let addr =
-    SymbMetadata.arg
-      "addr"
-      ActionArgumentKind.Address
-      false
-      "Address of an external call stub to model."
-  let metadata =
-    let signature =
-      "SymbExecutor -> @hook (strlen | fwrite) addr:Address=<addr> "
-      + "-> SymbExecutor"
-    { SymbMetadata.metadata
-        "hook"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        signature
-        "Attach a built-in symbolic model for an external function."
-        [ "sx |> @hook strlen addr=<addr>"
-          "sx |> @hook fwrite addr=<addr>" ] with
-        Syntaxes =
-          [ SymbMetadata.syntax (Some "strlen") [ addr ]
-            SymbMetadata.syntax (Some "fwrite") [ addr ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      let result =
-        match args with
-        | [ "strlen"; addr ] ->
-          executor.WithStrlenHook(SymbArgs.parseAddr addr)
-        | [ "fwrite"; addr ] ->
-          executor.WithFwriteHook(SymbArgs.parseAddr addr)
-        | _ ->
-          invalidArg (nameof args) "Invalid hook arguments."
-      result |> box
-    | value ->
-      invalidOp $"hook expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbArgAction() =
-  let index =
-    SymbMetadata.arg
-      "index"
-      ActionArgumentKind.Integer
-      false
-      "Zero-based ABI argument index."
-  let name =
-    SymbMetadata.arg
-      "name"
+      "sym-args"
       ActionArgumentKind.Text
-      false
-      "Symbolic input variable prefix."
-  let size =
+      true
+      "Symbolic ABI buffers: [0=input:32]."
+  let buffers =
+    { SymbMetadata.arg
+        "ptr-regs"
+        ActionArgumentKind.Text
+        false
+        "Pointer registers: [RDI=0x400:rw]." with
+        IsOptional = true
+        DefaultValue = Some ActionArgumentDefault.EmptyList
+        Choices = [ "[]" ] }
+  let avoid =
     SymbMetadata.arg
-      "size"
-      ActionArgumentKind.Integer
-      false
-      "Number of symbolic bytes."
-  let signature =
-    "SymbExecutor -> @make-symbolic-arg index:Int=<n> name:String=<name> "
-    + "size:Int=<n> -> SymbExecutor"
-  let metadata =
-    { SymbMetadata.metadata
-        "make-symbolic-arg"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        signature
-        "Allocate a symbolic byte buffer and pass it as an ABI argument."
-        [ "sx |> @make-symbolic-arg index=<n> name=<name> size=<n>" ] with
-        Syntaxes = [ SymbMetadata.syntax None [ index; name; size ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      match args with
-      | [ index; name; size ] ->
-        executor.WithSymbolicArgument(SymbArgs.parseInt index,
-                                      name,
-                                      SymbArgs.parseInt size)
-        |> box
-      | _ ->
-        invalidArg (nameof args) "Invalid make-symbolic-arg arguments."
-    | value ->
-      invalidOp $"make-symbolic-arg expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbSearchAction() =
+      "avoid"
+      ActionArgumentKind.Text
+      true
+      "Addresses to exclude from exploration: [0x401e62]."
+  let hooks =
+    SymbMetadata.arg
+      "hooks"
+      ActionArgumentKind.Text
+      true
+      "External call models: [strlen=0x401000; fwrite=0x401220]."
+  let check =
+    SymbMetadata.choice
+      "check"
+      true
+      [ "access-violation" ]
+      "Condition to search for. Default: access-violation."
   let cond =
     SymbMetadata.arg
       "cond"
@@ -1860,27 +2106,182 @@ type SymbSearchAction() =
       true
       [ "true"; "false" ]
       "Use the solver to prune infeasible paths. Default: true."
-  let condArgs = [ cond; precond; maxDepth; maxStates; loopBound; prune ]
+  let executorCondArgs =
+    [ cond; precond; maxDepth; maxStates; loopBound; prune; avoid; hooks ]
+  let executorDefaultArgs =
+    [ check; precond; maxDepth; maxStates; loopBound; prune; avoid; hooks ]
+  let setupArgs =
+    [ entry
+      solver
+      stack
+      registers
+      memory
+      symbolicMemory
+      symbolicRegisters
+      regions
+      symbolicArguments
+      buffers
+      avoid
+      hooks ]
+  let directArgs =
+    setupArgs
+    @ [ check
+        precond
+        maxDepth
+        maxStates
+        loopBound
+        prune ]
+  let directCondArgs =
+    setupArgs @ [ cond; precond; maxDepth; maxStates; loopBound; prune ]
   let signature =
-    "SymbExecutor -> @run-symbolic cond:ParameterFunction=<fun> "
+    "Binary -> @run-symbolic entry=<addr> [solver=<action>] "
+    + "[stack=<addr>] [regs=[...]] [mem=[...]] [sym-mem=[...]] "
+    + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
+    + "[ptr-regs=[...]] [avoid=[...]] [hooks=[...]] "
+    + "[check=access-violation | cond=<fun>] | "
+    + "SymbExecutor -> @run-symbolic "
+    + "[check=access-violation | cond:ParameterFunction=<fun>] "
     + "[precond:String=<conditions>] [max-depth:Int=<n>] "
     + "[max-states:Int=<n>] "
-    + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] -> SymbRunResult"
+    + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] "
+    + "[avoid=[...]] [hooks=[...]] -> SymbRunResult"
   let metadata =
     { SymbMetadata.metadata
         "run-symbolic"
-        ReplValueKind.SymbExecutor
+        ReplValueKind.Binary
         ReplValueKind.SymbRunResult
         ActionRole.Transform
         signature
-        "Search for symbolic inputs satisfying a state condition."
-        [ "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
+        ("Search for symbolic inputs satisfying a state condition. "
+         + "By default, search for a memory access violation.")
+        [ "binary |> @run-symbolic entry=<addr> "
+          + "sym-regs=[ESI] ptr-regs=[RDI=0x400:rw]"
+          "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
           "sx |> @run-symbolic precond=ESI>99:u32 "
           + "cond=(fun _ -> mem.accessViolation())"
           "sx |> @run-symbolic cond=(fun _ -> mem.accessViolation())" ]
         with
+        AlternativeInputs =
+          [ ReplValueKind.BinarySlice; ReplValueKind.SymbExecutor ]
         Syntaxes =
-          [ SymbMetadata.syntax None condArgs ] }
+          [ { SymbMetadata.syntax None directArgs with
+                Inputs =
+                  [ ReplValueKind.Binary; ReplValueKind.BinarySlice ] }
+            { SymbMetadata.syntax None directCondArgs with
+                Inputs =
+                  [ ReplValueKind.Binary; ReplValueKind.BinarySlice ] }
+            { SymbMetadata.syntax None executorDefaultArgs with
+                Inputs = [ ReplValueKind.SymbExecutor ] }
+            { SymbMetadata.syntax None executorCondArgs with
+                Inputs = [ ReplValueKind.SymbExecutor ] } ] }
+
+  let withPrecondition hdl options (executor: SymbExecutorValue) =
+    match Map.tryFind "precond" options with
+    | Some text ->
+      let condition = SymbCondition.parsePreconditions text
+      let predicate =
+        SymbCondition.toPredicate hdl executor.Regions condition
+      executor.WithPrecondition predicate.Invoke
+    | None ->
+      executor
+
+  let defaultCondition = "(fun _ -> mem.accessViolation())"
+
+  let conditionText options =
+    match Map.tryFind "check" options, Map.tryFind "cond" options with
+    | None, None
+    | Some "access-violation", None ->
+      defaultCondition
+    | None, Some condition ->
+      condition
+    | Some check, None ->
+      invalidArg (nameof options) $"Unsupported check: {check}"
+    | _ ->
+      invalidArg (nameof options) "Specify either check= or cond=."
+
+  let stopAtReturn hdl (executor: SymbExecutorValue) =
+    let returnSP =
+      let accessor = SymbStateAccessor(hdl, executor.State)
+      match accessor.TryGetStackPointer() with
+      | Ok stackPointer ->
+        stackPointer
+      | Error error ->
+        invalidOp $"Cannot determine the initial stack pointer: {error}"
+    StopPredicate<SymbState>(fun point ->
+      match point.Instruction with
+      | Some instruction when instruction.IsRET ->
+        let accessor = SymbStateAccessor(hdl, point.State)
+        match accessor.TryGetStackPointer() with
+        | Ok stackPointer ->
+          stackPointer = returnSP
+        | Error _ ->
+          false
+      | _ ->
+        false)
+
+  let directLimits options =
+    let optionInt name fallback =
+      options
+      |> Map.tryFind name
+      |> Option.map SymbArgs.parseInt
+      |> Option.defaultValue fallback
+    let maxDepth = optionInt "max-depth" 512
+    let maxStates = optionInt "max-states" 2048
+    let loopBound = optionInt "loop-bound" 2
+    let prune =
+      options
+      |> Map.tryFind "prune"
+      |> Option.map SymbArgs.parseBool
+      |> Option.defaultValue true
+    maxDepth, maxStates, loopBound, prune
+
+  let runBinaryNamed ct options binary =
+    let entry = Map.find "entry" options
+    let setup = options |> Map.add "pc" entry
+    let setup =
+      if Map.containsKey "ptr-regs" setup
+         || Map.containsKey "stack" setup then
+        setup
+      else
+        Map.add "ptr-regs" "[]" setup
+    let executor, _ = SymbExecutorSetup.create binary setup
+    let hdl = Binary.Handle binary
+    let executor = withPrecondition hdl options executor
+    let condition =
+      conditionText options
+      |> SymbCondition.parse
+    let predicate, analyzer =
+      SymbCondition.toQueryPredicate
+        hdl executor.Regions executor.Solver condition
+    let stopAtReturn = stopAtReturn hdl executor
+    let maxDepth, maxStates, loopBound, prune = directLimits options
+    executor.RunSatisfyCondition(predicate,
+                                 maxDepth,
+                                 maxStates,
+                                 loopBound,
+                                 prune,
+                                 ct,
+                                 stopWhen = stopAtReturn,
+                                 ?violationAnalyzer = analyzer)
+    |> box
+
+  let runBinary ct args binary =
+    match args with
+    | [ entry; registers; buffers ] ->
+      Map.ofList
+        [ "entry", entry
+          "sym-regs", registers
+          "ptr-regs", buffers ]
+      |> fun options -> runBinaryNamed ct options binary
+    | [ entry; registers; buffers; check ] ->
+      Map.ofList
+        [ "entry", entry
+          "sym-regs", registers
+          "ptr-regs", buffers
+          "check", check ]
+      |> fun options -> runBinaryNamed ct options binary
+    | _ ->
+      invalidArg (nameof args) "Invalid binary run-symbolic arguments."
 
   let isBoolText (text: string) =
     match text.Trim().ToLowerInvariant() with
@@ -1904,43 +2305,49 @@ type SymbSearchAction() =
 
   let transformOne ct args (value: obj) =
     match value with
+    | :? Binary as binary ->
+      runBinary ct args binary
+    | :? BinarySlice as slice ->
+      runBinary ct args (slice.ToBinary())
     | :? SymbExecutorValue as executor ->
-      match args with
-      | cond :: rest ->
-        let hdl = Binary.Handle executor.Binary
-        let precond, rest = splitPrecondition rest
-        let executor =
-          match precond with
-          | Some precond ->
-            let condition = SymbCondition.parsePreconditions precond
-            let predicate =
-              SymbCondition.toPredicate hdl executor.Regions condition
-            executor.WithPrecondition predicate.Invoke
-          | None ->
-            executor
-        let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
-        let condition = SymbCondition.parse cond
-        let result =
-          match SymbCondition.trySatisfyAddress condition with
-          | Some target ->
-            executor.RunSatisfy(target,
-                                maxDepth,
-                                maxStates,
-                                loopBound,
-                                prune,
-                                ct)
-          | None ->
-            let predicate =
-              SymbCondition.toPredicate hdl executor.Regions condition
-            executor.RunSatisfyCondition(predicate,
-                                         maxDepth,
-                                         maxStates,
-                                         loopBound,
-                                         prune,
-                                         ct)
-        result |> box
-      | _ ->
-        invalidArg (nameof args) "Invalid run-symbolic arguments."
+      let cond, rest =
+        match args with
+        | [] -> defaultCondition, []
+        | cond :: rest -> cond, rest
+      let hdl = Binary.Handle executor.Binary
+      let precond, rest = splitPrecondition rest
+      let executor =
+        match precond with
+        | Some precond ->
+          let condition = SymbCondition.parsePreconditions precond
+          let predicate =
+            SymbCondition.toPredicate hdl executor.Regions condition
+          executor.WithPrecondition predicate.Invoke
+        | None ->
+          executor
+      let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
+      let condition = SymbCondition.parse cond
+      let result =
+        match SymbCondition.trySatisfyAddress condition with
+        | Some target ->
+          executor.RunSatisfy(target,
+                              maxDepth,
+                              maxStates,
+                              loopBound,
+                              prune,
+                              ct)
+        | None ->
+          let predicate, analyzer =
+            SymbCondition.toQueryPredicate
+              hdl executor.Regions executor.Solver condition
+          executor.RunSatisfyCondition(predicate,
+                                       maxDepth,
+                                       maxStates,
+                                       loopBound,
+                                       prune,
+                                       ct,
+                                       ?violationAnalyzer = analyzer)
+      result |> box
     | value ->
       invalidOp $"run-symbolic expects SymbExecutor: {value}"
 
@@ -1949,6 +2356,30 @@ type SymbSearchAction() =
     |> Array.map (transformOne ct args)
     |> fun values ->
       { Values = values }
+
+  let transformNamed ct args (collection: ObjCollection) =
+    let options = Map.ofList args
+    let option name fallback =
+      Map.tryFind name options |> Option.defaultValue fallback
+    let executorArgs () =
+      [ conditionText options ]
+      @ (Map.tryFind "precond" options |> Option.toList)
+      @ [ option "max-depth" "512"
+          option "max-states" "2048"
+          option "loop-bound" "2"
+          option "prune" "true" ]
+    { Values =
+        collection.Values
+        |> Array.map (function
+          | :? Binary as binary ->
+            runBinaryNamed ct options binary
+          | :? BinarySlice as slice ->
+            runBinaryNamed ct options (slice.ToBinary())
+          | :? SymbExecutorValue as executor ->
+            let executor = SymbExecutorSetup.configure options executor
+            transformOne ct (executorArgs ()) executor
+          | value ->
+            invalidOp $"run-symbolic expects Binary or SymbExecutor: {value}") }
 
   interface IAction with
     member _.ActionID with get() = metadata.ID
@@ -1964,38 +2395,6 @@ type SymbSearchAction() =
     member _.Transform(args, collection, ct) =
       transform ct args collection
 
-type SymbModelAction() =
-  let metadata =
-    { SymbMetadata.metadata
-        "model"
-        ReplValueKind.SymbRunResult
-        ReplValueKind.Text
-        ActionRole.Transform
-        "SymbRunResult -> @model -> Text"
-        "Print model assignments from a symbolic execution result."
-        [ "result |> @model" ] with
-        Syntaxes = [ SymbMetadata.syntax None [] ] }
-
-  let transformOne (value: obj) =
-    match value with
-    | :? SymbRunValue as result ->
-      result.ModelText() |> box
-    | value ->
-      invalidOp $"model expects SymbRunResult: {value}"
-
-  let transform (collection: ObjCollection) =
-    collection.Values |> Array.map transformOne |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(_args, collection) = transform collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(_args, collection, _cancellationToken) =
-      transform collection
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection

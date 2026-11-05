@@ -56,7 +56,9 @@ module TransformerReplParser =
     | [ ":quit" ] | [ ":q" ] ->
       Ok Quit
     | [ ":help" ] ->
-      Ok Help
+      Ok(Help None)
+    | [ ":help"; action ] ->
+      Ok(Help(Some action))
     | [ ":actions" ] ->
       Ok Actions
     | [ ":history" ] ->
@@ -117,9 +119,19 @@ module TransformerReplParser =
       let command = String.concat " " tokens
       Error $"Unknown REPL command: {command}"
 
+  let private normalizeControlTokens (tokens: string list) =
+    match tokens with
+    | command :: rest when not (command.StartsWith ':') ->
+      (":" + command) :: rest
+    | tokens ->
+      tokens
+
   let parseControl (input: string) =
     InputAnalysis.tokenizeStrict input
-    |> Result.bind (List.map ReplLanguage.unquote >> parseMetaCommand)
+    |> Result.bind
+      (List.map ReplLanguage.unquote
+       >> normalizeControlTokens
+       >> parseMetaCommand)
 
   let parse (input: string) =
     let trimmed = input.TrimStart()

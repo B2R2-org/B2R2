@@ -28,9 +28,8 @@ open System.Threading
 
 /// The `count` action.
 type CountAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let transform (ct: CancellationToken) args collection =
+    ct.ThrowIfCancellationRequested()
     match args with
     | [] ->
       { Values = [| collection.Values.Length |] }
@@ -50,5 +49,5 @@ type CountAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

@@ -1,0 +1,289 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.RearEnd.Transformer
+
+open System
+open B2R2
+open B2R2.ABI
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.Executor
+
+type ExecutionBuffer =
+  { Register: string
+    Name: string
+    Size: Addr
+    Permission: ContextRegionPermission
+    Address: Addr }
+
+and ExecutionLayout =
+  { StackTop: Addr
+    StackStart: Addr
+    InitialStackPointer: Addr
+    Buffers: ExecutionBuffer list }
+
+type private ExecutionMemoryPolicy =
+  { PageBytes: Addr
+    StackBytes: Addr
+    FirstBufferAddress: Addr
+    StackPermission: ContextRegionPermission }
+
+[<RequireQualifiedAccess>]
+module ExecutionSetup =
+  (* These addresses describe a synthetic execution space, not an OS memory
+     allocation. A 4-KiB placement granularity separates buffers without
+     claiming the target's actual page size. The 64-KiB stack is for short,
+     bounded executions. Buffer search starts at 0x70000000, above typical
+     fixed image addresses and below either default stack. If the image or
+     stack occupies that range, the search continues at the next free
+     page-aligned address. *)
+  let private memoryPolicy =
+    { PageBytes = 0x1000UL
+      StackBytes = 0x10000UL
+      FirstBufferAddress = 0x70000000UL
+      StackPermission =
+        { Read = true; Write = true; Execute = false } }
+
+  let private alignUp value =
+    let pageBytes = memoryPolicy.PageBytes
+    let remainder = value % pageBytes
+    if remainder = 0UL then
+      value
+    elif value > UInt64.MaxValue - pageBytes + remainder then
+      invalidOp "No address space remains for an execution buffer."
+    else
+      value + pageBytes - remainder
+
+  let private overlaps start finish (region: ContextRegion) =
+    start < region.Finish && finish > region.Start
+
+  let private permission (entry: string) text =
+    let permission = ContextParsing.parseRegionPermission entry text
+    if permission.Execute then
+      invalidArg (nameof entry) "Buffers cannot be executable."
+    else
+      permission
+
+  let private parseBuffer (entry: string) =
+    let register, spec = ContextParsing.splitAssignment entry
+    let parts = spec.Split(':')
+    let name, sizeText, permissionText =
+      match parts with
+      | [| size; permission |] ->
+        register, size, permission
+      | [| name; size; permission |] ->
+        ContextParsing.parseQuotedName entry name, size, permission
+      | _ ->
+        invalidArg (nameof entry)
+          $"Expected REG=[\"name\":]size:permission: {entry}"
+    let size = ContextParsing.parseAddress sizeText
+    if size = 0UL then
+      invalidArg (nameof entry) "Buffer size must be positive."
+    else
+      register, name, size, permission entry permissionText
+
+  let parseBuffers text =
+    let buffers = ContextParsing.entries text |> Array.map parseBuffer
+    let names = buffers |> Array.map (fun (_, name, _, _) -> name)
+    let registers = buffers |> Array.map (fun (reg, _, _, _) -> reg)
+    let distinct count values =
+      values
+      |> Array.distinctBy (fun (value: string) -> value.ToUpperInvariant())
+      |> Array.length
+      |> (=) count
+    if not (distinct names.Length names) then
+      invalidArg (nameof text) "Buffer names must be unique."
+    elif not (distinct registers.Length registers) then
+      invalidArg (nameof text) "Buffer registers must be unique."
+    else
+      buffers |> Array.toList
+
+  let private findFree start size limit (occupied: ContextRegion list) =
+    let rec search candidate =
+      if candidate >= limit || size > limit - candidate then
+        invalidOp "No address space remains for an execution buffer."
+      else
+        let finish = candidate + size
+        match occupied |> List.tryFind (overlaps candidate finish) with
+        | None -> candidate
+        | Some region -> search (alignUp region.Finish)
+    search (alignUp start)
+
+  let validateRegisterNames (hdl: BinHandle) names =
+    let aliases name =
+      let factory = hdl.RegisterFactory
+      let rid = factory.GetRegisterID(name = name)
+      factory.GetRegisterIDAliases rid |> Set.ofArray
+    let isReserved rid =
+      let factory = hdl.RegisterFactory
+      factory.IsProgramCounter rid
+      || factory.IsStackPointer rid
+      || factory.IsFramePointer rid
+    names
+    |> List.fold (fun seen name ->
+      let current = aliases name
+      if current |> Set.exists isReserved then
+        invalidArg (nameof names)
+          $"Direct execution reserves the PC and stack registers: {name}"
+      elif seen |> List.exists (fun prior ->
+        Set.intersect prior current |> Set.isEmpty |> not) then
+        invalidArg (nameof names) $"Overlapping register assignment: {name}"
+      else
+        current :: seen) []
+    |> ignore
+
+  let private region name start finish permission =
+    { Name = name
+      Start = start
+      Finish = finish
+      Permission = permission }
+
+  let private imageRegions (hdl: BinHandle) addressLimit =
+    BinFileOps.getSegments hdl.File
+    |> Seq.iter (fun segment ->
+      let fits =
+        segment.Address < addressLimit
+        && segment.Size <= addressLimit - segment.Address
+      if segment.Size > 0UL && not fits then
+        invalidOp "The binary image exceeds the execution address space."
+      else
+        ())
+    ContextParsing.imageRegions hdl.File
+
+  let private returnSlotBytes (hdl: BinHandle) =
+    match hdl.Conventions.Calling.ReturnAddressLocation with
+    | OnStack -> uint64 (StateAccess.wordBytes hdl)
+    | InRegister _ -> 0UL
+
+  let private callerAreaBytes (hdl: BinHandle) =
+    match hdl.ISA with
+    | MIPS when hdl.ISA.WordSize = WordSize.Bit32 -> 16UL
+    | PPC when hdl.ISA.WordSize = WordSize.Bit32 -> 16UL
+    | PPC64 when hdl.ISA.Endian = Endian.Little -> 32UL
+    | S390 when hdl.ISA.WordSize = WordSize.Bit64 -> 160UL
+    | _ -> 0UL
+
+  let private stackArgumentEnd (hdl: BinHandle) indices =
+    indices
+    |> List.fold (fun finish index ->
+      match hdl.Conventions.Calling.GetIntArgLocation index with
+      | ArgLocation.Stack slot ->
+        max finish (uint64 slot.FirstOffset + uint64 slot.SlotSize)
+      | _ ->
+        finish) 0UL
+
+  let callerReservedBytes (hdl: BinHandle) indices =
+    max
+      (returnSlotBytes hdl
+       + uint64 hdl.Conventions.Stack.ShadowSpaceSize)
+      (max
+        (callerAreaBytes hdl)
+        (stackArgumentEnd hdl indices))
+
+  let private stackBounds (hdl: BinHandle) stackPointer indices =
+    let wordBytes = uint64 (StateAccess.wordBytes hdl)
+    if wordBytes <> 4UL && wordBytes <> 8UL then
+      invalidOp "Direct execution requires a 32- or 64-bit target."
+    else
+      ()
+    let addressLimit =
+      if wordBytes = 4UL then 0x100000000UL else UInt64.MaxValue
+    let returnBytes = returnSlotBytes hdl
+    let reservedBytes = callerReservedBytes hdl indices
+    if stackPointer < memoryPolicy.StackBytes
+       || stackPointer > addressLimit - reservedBytes then
+      invalidArg (nameof stackPointer) "The stack pointer is out of range."
+    else
+      ()
+    let returnAddressTop = stackPointer + returnBytes
+    let stackTop = stackPointer + reservedBytes
+    let stackStart = returnAddressTop - memoryPolicy.StackBytes
+    addressLimit, stackStart, stackTop
+
+  let layoutAt (hdl: BinHandle) stackPointer bufferText indices =
+    let addressLimit, stackStart, stackTop =
+      stackBounds hdl stackPointer indices
+    let image = imageRegions hdl addressLimit
+    if image |> List.exists (overlaps stackStart stackTop) then
+      invalidOp "The execution stack overlaps the binary image."
+    else
+      ()
+    let stack =
+      region "stack" stackStart stackTop memoryPolicy.StackPermission
+    let specs = parseBuffers bufferText
+    specs
+    |> List.map (fun (register, _, _, _) -> register)
+    |> validateRegisterNames hdl
+    let buffers, _ =
+      specs
+      |> List.fold (fun (buffers, occupied) (register, name, size, perm) ->
+        let address =
+          findFree memoryPolicy.FirstBufferAddress size addressLimit occupied
+        let buffer =
+          { Register = register
+            Name = name
+            Size = size
+            Permission = perm
+            Address = address }
+        let next = region name address (address + size) perm
+        buffer :: buffers, next :: occupied) ([], stack :: image)
+    { StackTop = stackTop
+      StackStart = stackStart
+      InitialStackPointer = stackPointer
+      Buffers = List.rev buffers }
+
+  let layout (hdl: BinHandle) bufferText indices =
+    (* The default top is exclusive. Calls that push a return address place
+       the initial stack pointer one word below it. *)
+    let defaultTop =
+      match hdl.ISA.WordSize with
+      | WordSize.Bit32 -> 0xbfffe000UL
+      | _ -> 0x7fffffffe000UL
+    let stackPointer =
+      defaultTop - returnSlotBytes hdl
+    layoutAt hdl stackPointer bufferText indices
+
+  let requestedBufferSpec options hasArguments =
+    Map.tryFind "ptr-regs" options
+    |> Option.orElseWith (fun () ->
+      if hasArguments || Map.containsKey "stack" options then
+        Some "[]"
+      else
+        None)
+
+  let layoutForStack (hdl: BinHandle) stackPointer buffers indices =
+    match stackPointer with
+    | Some stackPointer -> layoutAt hdl stackPointer buffers indices
+    | None -> layout hdl buffers indices
+
+  let regions layout =
+    let stackPermission = memoryPolicy.StackPermission
+    let stack =
+      region "stack" layout.StackStart layout.StackTop stackPermission
+    stack ::
+      (layout.Buffers
+       |> List.map (fun buffer ->
+         let finish = buffer.Address + buffer.Size
+         region buffer.Name buffer.Address finish buffer.Permission))

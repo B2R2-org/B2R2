@@ -1,0 +1,834 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.RearEnd.Transformer
+
+open System
+open System.Collections.Generic
+open System.Text
+open System.Threading
+open System.Threading.Tasks
+
+type private TuiEvaluationOrigin =
+  | ShellEvaluation
+  | ControlEvaluation
+
+type private RunningEvaluation =
+  { Task: Task<ReplEvaluation * TuiLine list option>
+    Cancellation: CancellationTokenSource
+    Command: string
+    Origin: TuiEvaluationOrigin
+    StartedAt: DateTimeOffset }
+
+type private ScriptReplayOutput =
+  { Parent: TuiLine list
+    Commands: (string * TuiLine list) list }
+
+type private SuggestionCache =
+  { Input: string
+    Cursor: int
+    Registry: ActionRegistry
+    Session: TransformerReplState
+    Suggestions: SuggestionSet
+    Context: InputContext
+    TypeCache: ReplTypeAnalysis.Cache option }
+
+module TransformerRepl =
+  let private printOutput output =
+    (output: ReplOutput).FullLines.Value |> List.iter (printfn "%s")
+
+  let private readRedirectedLines () =
+    let rec loop lines =
+      let input = Console.ReadLine()
+      if isNull input then
+        List.rev lines
+      else
+        loop (input :: lines)
+    loop []
+
+  let private evaluateLineModeCommand registry state (input: string) =
+    if input.Trim() = ":clear" then
+      registry, state, false
+    else
+      match
+        TransformerReplEvaluator.evaluateCommand
+          registry
+          state
+          input
+          CancellationToken.None
+      with
+      | Exit _ ->
+        registry, state, true
+      | Continue(registry, state, output) ->
+        printOutput output
+        registry, state, false
+
+  let private runCombinedLineMode registry state lines =
+    match InputAnalysis.combineCommandLines lines with
+    | Error message ->
+      printfn "Error: %s" message
+    | Ok commands ->
+      let rec loop registry state = function
+        | [] ->
+          ()
+        | command :: rest ->
+          let registry, state, shouldExit =
+            evaluateLineModeCommand registry state command
+          if shouldExit then
+            ()
+          else
+            loop registry state rest
+      loop registry state commands
+
+  let private runPromptLineMode registry state =
+    let rec loop registry state =
+      let input = Console.ReadLine()
+      if isNull input then
+        ()
+      else
+        let registry, state, shouldExit =
+          evaluateLineModeCommand registry state input
+        if shouldExit then
+          ()
+        else
+          loop registry state
+    loop registry state
+
+  let private runLineMode registry =
+    let state = TransformerReplState.empty
+    if Console.IsInputRedirected then
+      readRedirectedLines () |> runCombinedLineMode registry state
+    else
+      runPromptLineMode registry state
+
+  let private scriptLines path =
+    if not (System.IO.File.Exists path) then
+      Error $"Script file not found: {path}"
+    else
+      System.IO.File.ReadAllLines path
+      |> Array.toList
+      |> InputAnalysis.combineCommandLines
+
+  let runScript registry path =
+    match scriptLines path with
+    | Error message ->
+      eprintfn "%s" message
+      1
+    | Ok lines ->
+      let rec loop registry state = function
+        | [] ->
+          0
+        | line :: rest ->
+          let evaluation =
+            TransformerReplEvaluator.evaluateCommand
+              registry
+              state
+              line
+              CancellationToken.None
+          match evaluation with
+          | Exit _ ->
+            0
+          | Continue(registry, next, output) ->
+            printOutput output
+            if output.HasError then 1 else loop registry next rest
+      loop registry TransformerReplState.empty lines
+
+  let private hasModifier modifier (key: ConsoleKeyInfo) =
+    key.Modifiers &&& modifier = modifier
+
+  let private isTextKey (key: ConsoleKeyInfo) =
+    not (hasModifier ConsoleModifiers.Control key)
+    && not (hasModifier ConsoleModifiers.Alt key)
+    && not (Char.IsControl key.KeyChar)
+
+  let private toTuiLine (line: string) =
+    let kind =
+      if line.StartsWith("Error:", StringComparison.Ordinal) then
+        TuiLineKind.Error
+      else
+        TuiLineKind.Output
+    { Kind = kind; Text = line }
+
+  let private replayCommandPrefix = "> "
+
+  let private isScriptReplayOutput (output: ReplOutput) =
+    output.Lines
+    |> Seq.tryHead
+    |> Option.exists (fun line ->
+      line.StartsWith("Script loaded:", StringComparison.Ordinal))
+
+  let private tryReplayCommand (line: string) =
+    if line.StartsWith(replayCommandPrefix, StringComparison.Ordinal) then
+      Some line[replayCommandPrefix.Length..]
+    else
+      None
+
+  let private splitScriptReplayLines lines =
+    let parent = ResizeArray<TuiLine>()
+    let commands = ResizeArray<string * ResizeArray<TuiLine>>()
+    let mutable current: ResizeArray<TuiLine> option = None
+    for line in lines do
+      match tryReplayCommand line with
+      | Some command ->
+        let output = ResizeArray<TuiLine>()
+        commands.Add((command, output))
+        current <- Some output
+      | None ->
+        let line = toTuiLine line
+        match current with
+        | Some output ->
+          output.Add line
+        | None ->
+          parent.Add line
+    { Parent = Seq.toList parent
+      Commands =
+        commands
+        |> Seq.map (fun (command, output) -> command, Seq.toList output)
+        |> Seq.toList }
+
+  let private replayTranscriptLines replay =
+    let commandLines =
+      replay.Commands
+      |> List.collect (fun (command, output) ->
+        { Kind = TuiLineKind.Command; Text = command } :: output)
+    replay.Parent @ commandLines
+
+  let private previewTuiLines height ct (lines: TuiLine seq) =
+    let maxInline = max 6 (height - 2)
+    let keep = max 2 (min 8 ((height - 3) / 2))
+    let inlineLines = ResizeArray<TuiLine>()
+    let tail = Queue<TuiLine>()
+    let mutable count = 0
+    for line in lines do
+      (ct: CancellationToken).ThrowIfCancellationRequested()
+      if count < maxInline then inlineLines.Add line else ()
+      tail.Enqueue line
+      if tail.Count > keep then tail.Dequeue() |> ignore else ()
+      count <- count + 1
+    if count <= maxInline then
+      Seq.toList inlineLines
+    else
+      let hidden = count - (keep * 2)
+      let marker =
+        { Kind = TuiLineKind.System
+          Text = $"<< {hidden} output lines hidden; Enter opens view >>" }
+      (inlineLines |> Seq.take keep |> Seq.toList)
+      @ [ marker ] @ Seq.toList tail
+
+  let private outputPreviewHeight model =
+    let _, terminalHeight = TransformerTuiTerminal.dimensions ()
+    TransformerTuiModel.transcriptHeight terminalHeight model
+
+  let private setReplayResultBlocks
+    parentIndex
+    (fullReplay: Lazy<ScriptReplayOutput>)
+    model =
+    let model =
+      TransformerTuiModel.setResultBlock
+        parentIndex
+        (lazy fullReplay.Value.Parent)
+        model
+    fullReplay.Value.Commands
+    |> List.mapi (fun index (_, lines) -> parentIndex + index + 1, lines)
+    |> List.fold (fun model (index, lines) ->
+      TransformerTuiModel.setResultBlock index (lazy lines) model) model
+
+  let private appendScriptReplayOutput (output: ReplOutput) model =
+    let replay = output.Lines |> Seq.toList |> splitScriptReplayLines
+    let fullReplay: Lazy<ScriptReplayOutput> =
+      lazy (splitScriptReplayLines output.FullLines.Value)
+    let height = outputPreviewHeight model
+    let commands =
+      replay.Commands
+      |> List.map (fun (command, lines) ->
+        command, previewTuiLines height CancellationToken.None lines)
+    let preview =
+      { Parent = previewTuiLines height CancellationToken.None replay.Parent
+        Commands = commands }
+    let lines = replayTranscriptLines preview
+    let blockIndex = model.FoldTarget
+    model
+    |> TransformerTuiModel.setLastViewLines lines
+    |> fun model ->
+      match blockIndex with
+      | Some index ->
+        setReplayResultBlocks index fullReplay model
+      | None ->
+        model
+    |> TransformerTuiModel.appendTuiLines lines
+
+  let private appendEvaluationOutput preview (output: ReplOutput) model =
+    if isScriptReplayOutput output then
+      appendScriptReplayOutput output model
+    else
+      let lines =
+        preview
+        |> Option.defaultWith (fun () ->
+          let height = outputPreviewHeight model
+          output.Lines
+          |> Seq.map toTuiLine
+          |> previewTuiLines height CancellationToken.None)
+      let fullLines =
+        lazy (output.FullLines.Value |> List.map toTuiLine)
+      let blockIndex = model.FoldTarget
+      model
+      |> TransformerTuiModel.setLastViewLines lines
+      |> fun model ->
+        match blockIndex with
+        | Some index ->
+          TransformerTuiModel.setResultBlock index fullLines model
+        | None ->
+          model
+      |> TransformerTuiModel.appendTuiLines lines
+
+  let private documentationViewTitle command =
+    match InputAnalysis.splitWords command with
+    | [ "help" ] ->
+      Some "Help"
+    | [ "help"; action ] ->
+      let action = action.TrimStart '@'
+      Some $"Help: @{action}"
+    | [ "actions" ] ->
+      Some "Actions"
+    | _ ->
+      None
+
+  let private finishShellEvaluation evaluation preview model =
+    match evaluation with
+    | Exit(registry, session) ->
+      registry, TransformerTuiModel.setSession session model, true
+    | Continue(registry, session, output) ->
+      let status = if output.HasError then "Command failed" else "Ready"
+      let model =
+        model
+        |> TransformerTuiModel.setSession session
+        |> TransformerTuiModel.setBusy false
+        |> TransformerTuiModel.setStatus status
+      let model = appendEvaluationOutput preview output model
+      registry, model, false
+
+  let private controlViewTitle command =
+    documentationViewTitle command
+    |> Option.defaultValue $"Command: {command}"
+
+  let private controlItemCommands command (session: TransformerReplState) =
+    match InputAnalysis.splitWords command with
+    | [ ":values" ] ->
+      session.ValueHistory
+      |> List.rev
+      |> List.map (fun entry -> $":restore {entry.ID}")
+      |> List.toArray
+    | [ ":history" ] ->
+      session.CommandHistory |> List.rev |> List.toArray
+    | ":inspect" :: args when List.length args <= 1 ->
+      let name = args |> List.tryHead |> Option.defaultValue ""
+      let value =
+        if name = "" then session.Current
+        else TransformerReplState.tryFind name session
+      value
+      |> Option.map TransformerReplInspection.inspect
+      |> Option.defaultValue []
+      |> List.map (fun item ->
+        if name = "" then item.Command
+        else $"{name} |> {item.Command}")
+      |> List.toArray
+    | _ ->
+      [||]
+
+  let private finishControlEvaluation command evaluation model =
+    match evaluation with
+    | Exit(registry, session) ->
+      registry, TransformerTuiModel.setSession session model, true
+    | Continue(registry, session, output) ->
+      let hasError = output.HasError
+      let status = if hasError then "Command failed" else "Ready"
+      let model =
+        model
+        |> TransformerTuiModel.setSession session
+        |> TransformerTuiModel.setBusy false
+        |> TransformerTuiModel.setStatus status
+      let title = controlViewTitle command
+      let lines =
+        output.Lines |> Seq.map toTuiLine |> Seq.toList
+      let commands = controlItemCommands command session
+      let model =
+        TransformerTuiModel.openCommandView title lines commands model
+      registry, model, false
+
+  let private failShellEvaluation (error: exn) model =
+    let message = error.GetBaseException().Message
+    model
+    |> TransformerTuiModel.appendLines TuiLineKind.Error
+      [ $"Internal error: {message}" ]
+    |> TransformerTuiModel.setBusy false
+    |> TransformerTuiModel.setStatus "Command failed"
+
+  let private failControlEvaluation command (error: exn) model =
+    let message = error.GetBaseException().Message
+    let lines =
+      [ { Kind = TuiLineKind.Error
+          Text = $"Internal error: {message}" } ]
+    model
+    |> TransformerTuiModel.setBusy false
+    |> TransformerTuiModel.setStatus "Command failed"
+    |> TransformerTuiModel.openTextView (controlViewTitle command) lines
+
+  let private startTask origin evaluate registry command model =
+    let session = (model: TransformerTuiModel).Session
+    let height = outputPreviewHeight model
+    let cancellation = new CancellationTokenSource()
+    let task: Task<ReplEvaluation * TuiLine list option> =
+      Task.Run(
+        Func<ReplEvaluation * TuiLine list option>(
+          fun () ->
+            let result =
+              evaluate registry session command cancellation.Token
+            let preview =
+              match origin, result with
+              | ShellEvaluation, Continue(_, _, output)
+                  when not (isScriptReplayOutput output) ->
+                output.Lines
+                |> Seq.map toTuiLine
+                |> previewTuiLines height cancellation.Token
+                |> Some
+              | _ ->
+                None
+            result, preview
+        ),
+        cancellation.Token
+      )
+    let running =
+      { Task = task
+        Cancellation = cancellation
+        Command = command
+        Origin = origin
+        StartedAt = DateTimeOffset.Now }
+    model, Some running
+
+  let private startShellEvaluation evaluate registry command model =
+    let model =
+      model
+      |> TransformerTuiModel.appendCommand command
+      |> TransformerTuiModel.clearInput
+    let model =
+      model
+      |> TransformerTuiModel.setBusy true
+      |> TransformerTuiModel.setStatus "Running action"
+    startTask ShellEvaluation evaluate registry command model
+
+  let private startCommandEvaluation registry (command: string) model =
+    let command = command.Trim()
+    let model =
+      model
+      |> TransformerTuiModel.setBusy true
+      |> TransformerTuiModel.setStatus "Running command"
+    startTask
+      ControlEvaluation
+      TransformerReplEvaluator.evaluateControlCommand
+      registry
+      command
+      model
+
+  let private finishCancellation running (model: TransformerTuiModel) =
+    let duration = DateTimeOffset.Now - running.StartedAt
+    let session =
+      model.Session
+      |> TransformerReplState.recordCommand running.Command
+      |> TransformerReplState.recordExecution
+        running.StartedAt
+        duration
+        ReplExecutionStatus.Cancelled
+        running.Command
+        None
+    let model =
+      model
+      |> TransformerTuiModel.setSession session
+      |> TransformerTuiModel.setBusy false
+      |> TransformerTuiModel.setStatus "Cancelled"
+    match running.Origin with
+    | ShellEvaluation ->
+      model
+      |> TransformerTuiModel.appendLines
+        TuiLineKind.System
+        [ "Action cancelled." ]
+    | ControlEvaluation ->
+      let lines = [ { Kind = TuiLineKind.System; Text = "Command cancelled." } ]
+      TransformerTuiModel.openTextView
+        (controlViewTitle running.Command)
+        lines
+        model
+
+  let private requestCancellation running model =
+    if running.Cancellation.IsCancellationRequested then
+      model
+    else
+      running.Cancellation.Cancel()
+      match running.Origin with
+      | ShellEvaluation ->
+        model
+        |> TransformerTuiModel.appendLines TuiLineKind.System
+          [ "Cancellation requested; waiting for the action to stop." ]
+        |> TransformerTuiModel.setStatus "Cancelling action"
+      | ControlEvaluation ->
+        TransformerTuiModel.setStatus "Cancelling command" model
+
+  let private restoreKey key =
+    ConsoleKeyInfo(char 0, key, false, false, false)
+
+  let private restoreEscapeSequence addPendingKey first keys sequence =
+    match sequence with
+    | "[A" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.UpArrow)
+    | "[B" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.DownArrow)
+    | "[C" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.RightArrow)
+    | "[D" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.LeftArrow)
+    | "[H"
+    | "[1~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.Home)
+    | "[F"
+    | "[4~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.End)
+    | "[3~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.Delete)
+    | "[5~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.PageUp)
+    | "[6~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.PageDown)
+    | "[17~" ->
+      TuiInputEvent.Key(restoreKey ConsoleKey.F6)
+    | _ ->
+      keys |> Seq.iter addPendingKey
+      TuiInputEvent.Key first
+
+  let private readEscapeSequence addPendingKey first =
+    if not Console.KeyAvailable then
+      TuiInputEvent.Key first
+    else
+      let keys = ResizeArray<ConsoleKeyInfo>()
+      let text = StringBuilder()
+      let mutable isComplete = false
+      while Console.KeyAvailable && text.Length < 64 && not isComplete do
+        let key = Console.ReadKey true
+        keys.Add key
+        text.Append key.KeyChar |> ignore
+        let sequence = text.ToString()
+        isComplete <-
+          if sequence.StartsWith("[<", StringComparison.Ordinal) then
+            key.KeyChar = 'M' || key.KeyChar = 'm'
+          elif sequence.StartsWith("[", StringComparison.Ordinal) then
+            Char.IsLetter key.KeyChar || key.KeyChar = '~'
+          else
+            true
+      let sequence = text.ToString()
+      match TransformerTuiTerminal.tryParseInputEvent sequence with
+      | Some input ->
+        input
+      | None ->
+        restoreEscapeSequence addPendingKey first keys sequence
+
+  let private isViewNavigationKey (model: TransformerTuiModel) key =
+    not (hasModifier ConsoleModifiers.Control key)
+    && not (hasModifier ConsoleModifiers.Alt key)
+    && model.Overlay = TuiOverlay.View
+    && (model.ViewPane |> Option.exists (fun pane -> not pane.IsFinding))
+    && (match key.Key with
+        | ConsoleKey.UpArrow
+        | ConsoleKey.DownArrow
+        | ConsoleKey.LeftArrow
+        | ConsoleKey.RightArrow
+        | ConsoleKey.PageUp
+        | ConsoleKey.PageDown ->
+          true
+        | _ ->
+          false)
+
+  let private samePhysicalKey (left: ConsoleKeyInfo) right =
+    left.Key = (right: ConsoleKeyInfo).Key
+    && left.Modifiers = right.Modifiers
+
+  let private applyViewNavigation count (key: ConsoleKeyInfo) model =
+    let shift = hasModifier ConsoleModifiers.Shift key
+    let width, height = TransformerTuiTerminal.dimensions ()
+    let pageHeight = TransformerTuiModel.transcriptHeight height model
+    match key.Key with
+    | ConsoleKey.UpArrow ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height -count shift model
+    | ConsoleKey.DownArrow ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height count shift model
+    | ConsoleKey.LeftArrow ->
+      TransformerTuiModel.moveViewCursor 0 -count shift model
+    | ConsoleKey.RightArrow ->
+      TransformerTuiModel.moveViewCursor 0 count shift model
+    | ConsoleKey.PageUp ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height (-(pageHeight * count)) shift model
+    | ConsoleKey.PageDown ->
+      TransformerTuiRenderer.moveViewCursorByRows
+        width height (pageHeight * count) shift model
+    | _ ->
+      model
+
+  let private runTui initialLayout initialRegistry =
+    let restoreTerminal = TransformerTuiTerminal.enter ()
+    let mutable registry = initialRegistry
+    let mutable model =
+      TransformerTuiModel.initial
+      |> TransformerTuiModel.setLayout initialLayout
+    let mutable running: RunningEvaluation option = None
+    let mutable shouldExit = false
+    let mutable dirty = true
+    let mutable suggestionCache: SuggestionCache option = None
+    let pendingInput = Queue<TuiInputEvent>()
+    let mutable lastWidth, lastHeight = 0, 0
+    let mutable lastSpinner = Environment.TickCount64
+    let addPending input = pendingInput.Enqueue input
+    let addPendingKey key = pendingInput.Enqueue(TuiInputEvent.Key key)
+    let readInput () =
+      if pendingInput.Count > 0 then
+        Some(pendingInput.Dequeue())
+      elif TransformerTuiTerminal.usesNativeInput () then
+        TransformerTuiTerminal.tryReadNativeInputEvent ()
+      elif Console.KeyAvailable then
+        let key = Console.ReadKey true
+        if key.Key = ConsoleKey.Escape && key.KeyChar = '\u001b' then
+          Some(readEscapeSequence addPendingKey key)
+        else
+          Some(TuiInputEvent.Key key)
+      else
+        None
+    let readTextBurst first =
+      let builder = StringBuilder()
+      builder.Append((first: ConsoleKeyInfo).KeyChar) |> ignore
+      let mutable keepReading = true
+      while keepReading do
+        match readInput () with
+        | Some(TuiInputEvent.Key key) when isTextKey key ->
+          builder.Append(key.KeyChar) |> ignore
+        | Some input ->
+          addPending input
+          keepReading <- false
+        | None ->
+          keepReading <- false
+      builder.ToString()
+    let repeatedKeyCount first =
+      let mutable count = 1
+      let mutable keepReading = true
+      while keepReading do
+        match readInput () with
+        | Some(TuiInputEvent.Key key) when samePhysicalKey first key ->
+          count <- count + 1
+        | Some input ->
+          addPending input
+          keepReading <- false
+        | None ->
+          keepReading <- false
+      count
+    let currentSuggestions () =
+      match suggestionCache with
+      | Some cached
+        when cached.Input = model.Input
+             && cached.Cursor = model.Cursor
+             && Object.ReferenceEquals(cached.Registry, registry)
+             && Object.ReferenceEquals(cached.Session, model.Session) ->
+        cached.Suggestions
+      | _ ->
+        let previousContext = suggestionCache |> Option.map _.Context
+        let previousType = suggestionCache |> Option.bind _.TypeCache
+        let suggestions, context, typeCache =
+          Suggestions.getWithInputContext
+            previousContext
+            previousType
+            registry
+            model.Session
+            model.Input
+            model.Cursor
+        suggestionCache <-
+          Some
+            { Input = model.Input
+              Cursor = model.Cursor
+              Registry = registry
+              Session = model.Session
+              Suggestions = suggestions
+              Context = context
+              TypeCache = typeCache }
+        suggestions
+    let applyInputResult input =
+      match input with
+      | TuiInputResult.Stop next ->
+        model <- next
+        shouldExit <- true
+      | TuiInputResult.Update next ->
+        model <- next
+      | TuiInputResult.Execute(next, command) ->
+        let next, task =
+          startShellEvaluation
+            TransformerReplEvaluator.evaluateCommand
+            registry
+            command
+            next
+        model <- next
+        running <- task
+      | TuiInputResult.ExecuteCommand(next, command) ->
+        let next, task = startCommandEvaluation registry command next
+        model <- next
+        running <- task
+    let refreshDimensions width height =
+      if width <> lastWidth || height <> lastHeight then
+        lastWidth <- width
+        lastHeight <- height
+        dirty <- true
+      else
+        ()
+    let advanceEvaluation () =
+      match running with
+      | Some runningEvaluation when runningEvaluation.Task.IsCompleted ->
+        let task = runningEvaluation.Task
+        if runningEvaluation.Cancellation.IsCancellationRequested then
+          model <- finishCancellation runningEvaluation model
+        else
+          try
+            let evaluation, preview = task.Result
+            let nextRegistry, nextModel, exit =
+              match runningEvaluation.Origin with
+              | ShellEvaluation ->
+                finishShellEvaluation evaluation preview model
+              | ControlEvaluation ->
+                finishControlEvaluation
+                  runningEvaluation.Command evaluation model
+            registry <- nextRegistry
+            suggestionCache <- None
+            model <- nextModel
+            shouldExit <- exit
+          with error ->
+            model <-
+              match runningEvaluation.Origin with
+              | ShellEvaluation ->
+                failShellEvaluation error model
+              | ControlEvaluation ->
+                failControlEvaluation runningEvaluation.Command error model
+        runningEvaluation.Cancellation.Dispose()
+        running <- None
+        dirty <- true
+      | Some _ when Environment.TickCount64 - lastSpinner >= 80L ->
+        model <- TransformerTuiModel.advanceSpinner model
+        lastSpinner <- Environment.TickCount64
+        dirty <- true
+      | _ ->
+        ()
+    let advanceMouseDrag width height =
+      let mouseModel =
+        TransformerTuiInputController.advanceMouseDrag width height model
+      if mouseModel.LastMouseScrollAt <> model.LastMouseScrollAt then
+        model <- mouseModel
+        dirty <- true
+      else
+        ()
+    let dispatchInput width height =
+      if not shouldExit then
+        match readInput () with
+        | None ->
+          ()
+        | Some(TuiInputEvent.Mouse mouse) ->
+          let completion = currentSuggestions ()
+          match running with
+          | Some _ ->
+            TransformerTuiInputController.handlePassiveMouse
+              width height completion mouse model
+            |> applyInputResult
+          | None ->
+            TransformerTuiInputController.handleMouse
+              width height completion mouse model
+            |> applyInputResult
+          dirty <- true
+        | Some(TuiInputEvent.Key key) ->
+          match running with
+          | Some runningEvaluation
+            when hasModifier ConsoleModifiers.Control key
+                 && key.Key = ConsoleKey.C ->
+            model <- requestCancellation runningEvaluation model
+          | Some _ when isTextKey key
+                        && model.Overlay = TuiOverlay.None
+                        && not model.IsFindingTranscript
+                        && model.Focus = TuiFocus.Shell ->
+            let text = readTextBurst key
+            TransformerTuiInputController.appendShellText text model
+            |> applyInputResult
+          | Some _ ->
+            ()
+          | None when isTextKey key
+                      && model.Overlay = TuiOverlay.None
+                      && not model.IsFindingTranscript
+                      && model.Focus = TuiFocus.Shell ->
+            let text = readTextBurst key
+            TransformerTuiInputController.appendShellText text model
+            |> applyInputResult
+          | None when isViewNavigationKey model key ->
+            let count = repeatedKeyCount key
+            model <- applyViewNavigation count key model
+            let scrollOffset =
+              TransformerTuiRenderer.viewScrollOffset width height model
+            model <- { model with ScrollOffset = scrollOffset }
+          | None ->
+            let completion = currentSuggestions ()
+            TransformerTuiInputController.handle completion key model
+            |> applyInputResult
+          dirty <- true
+      else
+        ()
+    let renderFrame width height =
+      if not shouldExit && dirty then
+        let completion = currentSuggestions ()
+        let render = TransformerTuiRenderer.render width height registry model
+        let frame = render completion
+        TransformerTuiTerminal.draw model.IsBusy frame
+        dirty <- false
+      else
+        ()
+    try
+      while not shouldExit do
+        let width, height = TransformerTuiTerminal.dimensions ()
+        refreshDimensions width height
+        advanceEvaluation ()
+        advanceMouseDrag width height
+        dispatchInput width height
+        renderFrame width height
+        if not shouldExit then
+          Thread.Sleep 20
+        else
+          ()
+    finally
+      restoreTerminal ()
+
+  let runWithLayout layout registry =
+    if TransformerTuiTerminal.isInteractive () then
+      runTui layout registry
+    else
+      runLineMode registry
+
+  let run registry = runWithLayout TuiLayout.Pane registry

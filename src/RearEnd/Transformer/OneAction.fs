@@ -28,9 +28,8 @@ open System.Threading
 
 /// The `one` action.
 type OneAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let transform (ct: CancellationToken) args collection =
+    ct.ThrowIfCancellationRequested()
     if List.isEmpty args then
       match collection.Values with
       | [| value |] ->
@@ -43,8 +42,8 @@ type OneAction() =
       invalidArg (nameof args) "The one action does not accept arguments."
 
   interface IAction with
-    member _.ActionID with get() = "one"
-    member _.Signature with get() = "'a collection -> one -> 'a"
+    member _.ActionID with get() = "require-one"
+    member _.Signature with get() = "'a collection -> require-one -> 'a"
     member _.Description with get() =
       """
     Require the current collection to contain exactly one value.
@@ -53,5 +52,5 @@ type OneAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

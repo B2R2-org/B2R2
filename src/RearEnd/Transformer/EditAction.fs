@@ -107,8 +107,7 @@ type EditAction() =
         $"{section.Name} {formatRange startAddress endAddress}")
       |> String.concat "; "
 
-  let checkedFileOffset section address =
-    let section: BinSection = section
+  let checkedFileOffset (section: BinSection) address =
     let offset = Option.get section.Offset
     let fileOffset = offset + address - section.Address
     if fileOffset > uint64 Int32.MaxValue then
@@ -336,24 +335,23 @@ type EditAction() =
     let endAddress = startAddress + uint64 bytes.Length
     replace startAddress endAddress bytes o
 
-  let map cancellationToken operation collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let map (ct: CancellationToken) operation collection =
     collection.Values
     |> Array.map (fun value ->
-      cancellationToken.ThrowIfCancellationRequested()
+      ct.ThrowIfCancellationRequested()
       operation value)
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     match args with
     | "insert" :: start :: hexstr :: [] ->
       let start = parseUInt64 start
       let bs = ByteArray.ofHexString hexstr
-      { Values = map cancellationToken (insert start bs) collection }
+      { Values = map ct (insert start bs) collection }
     | "delete" :: start :: finish :: [] ->
       let start = parseUInt64 start
       let finish = parseEndAddress start finish
       if finish > start then
-        { Values = map cancellationToken (delete start finish) collection }
+        { Values = map ct (delete start finish) collection }
       else
         invalidArg (nameof args) "Invalid address range."
     | "replace" :: start :: finish :: hexstr :: [] ->
@@ -365,7 +363,7 @@ type EditAction() =
         let editSize = finish - start
         if finish > start && editSize = uint64 newbs.Length then
           let replace = replace start finish newbs
-          { Values = map cancellationToken replace collection }
+          { Values = map ct replace collection }
         else
           invalidArg (nameof args) "Invalid address range or hexstring."
       | None ->
@@ -373,25 +371,25 @@ type EditAction() =
         | Some isa ->
           let replace =
             replaceAsmForInput start finish (Some isa)
-          { Values = map cancellationToken replace collection }
+          { Values = map ct replace collection }
         | None ->
           invalidArg (nameof hexstr) "Invalid ISA."
     | "replace" :: start :: code :: [] ->
       let start = parseUInt64 start
       let replace = replaceAsmForInput start code None
-      { Values = map cancellationToken replace collection }
+      { Values = map ct replace collection }
     | "force-replace" :: start :: code :: isa :: [] ->
       let start = parseUInt64 start
       match tryParseISA isa with
       | Some isa ->
         let replace = forceReplaceAsmForInput start code (Some isa)
-        { Values = map cancellationToken replace collection }
+        { Values = map ct replace collection }
       | None ->
         invalidArg (nameof isa) "Invalid ISA."
     | "force-replace" :: start :: code :: [] ->
       let start = parseUInt64 start
       let replace = forceReplaceAsmForInput start code None
-      { Values = map cancellationToken replace collection }
+      { Values = map ct replace collection }
     | _ ->
       invalidArg (nameof args) "Invalid edit action."
 
@@ -445,5 +443,5 @@ type EditAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
