@@ -421,6 +421,36 @@ type ARMBinaryBrewTests() =
     CollectionAssert.AreEqual([| 3 |], entries)
     CollectionAssert.AreEqual([| 0x1cUL; 0x24UL |], targets)
 
+  (* GCC copies `goto *tbl[i]` into the end of each label, so the code that an
+     entry leads to dispatches through the same table again. That is the table
+     itself rather than one starting inside it, so no entry is to blame, and
+     both dispatches share the table. *)
+  [<TestMethod>]
+  member _.``Labels that dispatch through their own table share it``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* push {r4, lr} *)
+          "0b0000eb" (* bl g *)
+          "0120d0e4" (* ldrb r2, [r0], #1 *)
+          "20309fe5" (* ldr r3, [pc, #0x20] *)
+          "022193e7" (* ldr r2, [r3, r2, lsl #2] *)
+          "02f0a0e1" (* mov pc, r2 *)
+          "011081e2" (* l0: add r1, r1, #1 *)
+          "0120d0e4" (* ldrb r2, [r0], #1 *)
+          "0c309fe5" (* ldr r3, [pc, #0xc] *)
+          "022193e7" (* ldr r2, [r3, r2, lsl #2] *)
+          "02f0a0e1" (* mov pc, r2 *)
+          "0100a0e1" (* l1: mov r0, r1 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "3c000000" (* .word 0x3c, the table *)
+          "1eff2fe1" (* g: bx lr *)
+          "18000000" (* .word l0 *)
+          "2c000000" (* .word l1 *) ]
+    let entries = fns[0x0UL].JumpTables |> Array.map _.NumEntries
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 2 |], entries)
+    CollectionAssert.AreEqual([| 0x18UL; 0x18UL; 0x2cUL; 0x2cUL |], targets)
+
   (* GCC keeps the table away from the code and reads where it lies out of the
      literal pool of the function. The ADD to the PC that jumps scales each
      entry by four, so a byte counts the words from the instruction after the

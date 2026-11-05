@@ -963,12 +963,17 @@ module internal CFGRecoveryCommon =
 
   /// Checks if the given table starts within the other table at tblAddr, no
   /// later than the end of its entry at idx, while the two tables belong to
-  /// different indirect branches.
+  /// different indirect branches. A table that starts where the other one
+  /// does, with entries of the same size, is that table itself, which the two
+  /// branches share, as the copies of a computed goto do.
   let startsByEntryOf (ctx: CFGBuildingContext<_, _>) jmptbl (tblAddr, idx) =
     match ctx.JumpTables.TryGetValue tblAddr with
     | true, other when other.InsAddr <> (jmptbl: JmpTableInfo).InsAddr ->
       let entryEnd = tblAddr + uint64 ((idx + 1) * other.EntrySize)
+      let isSameTable =
+        jmptbl.TableAddress = tblAddr && jmptbl.EntrySize = other.EntrySize
       tblAddr <= jmptbl.TableAddress && jmptbl.TableAddress < entryEnd
+      && not isSameTable
     | _ ->
       false
 
