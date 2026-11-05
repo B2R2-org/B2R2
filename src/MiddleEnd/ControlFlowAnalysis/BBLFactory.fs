@@ -396,6 +396,10 @@ type BBLFactory(hdl: BinHandle,
         Error(List.rev acc)
     parse [] addr null
 
+  /// Peeks at the instruction at the given address without making a BBL of it,
+  /// parsing it if no one has yet.
+  member _.PeekInstruction(addr) = instrs.TryFind addr
+
   /// Checks if there is a BBL at the given program point.
   member _.Contains(ppoint: ProgramPoint) = bbls.ContainsKey ppoint
 

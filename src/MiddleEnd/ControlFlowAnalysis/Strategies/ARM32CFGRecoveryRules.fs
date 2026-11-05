@@ -100,6 +100,13 @@ module private ARM32CFGRecoveryRules =
     elif blockLoadsLiteralAt ctx.CFG nextAddr caller then Some(NoRet, 0)
     else None
 
+  /// Checks if the given address lies past every block that the function has
+  /// built so far.
+  let liesPastBuiltCode (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.CFG.Vertices
+    |> Array.forall (fun v ->
+      v.VData.Internals.IsAbstract || v.VData.Internals.Range.Max < addr)
+
   /// Returns the address of the literal that the given instruction loads
   /// whenever it runs. A literal mostly holds a small number, whose top bits
   /// read as the condition EQ, so a load that runs on a condition may be a
@@ -109,13 +116,28 @@ module private ARM32CFGRecoveryRules =
     | ARM32.Condition.AL | ARM32.Condition.UN -> tryFindLoadedLiteral ins
     | _ -> None
 
-  /// Checks if the function loads the literal at the given address, as far as
-  /// it has been built.
+  /// Checks if the given instruction loads the literal at the given address
+  /// whenever it runs.
+  let alwaysLoadsLiteralAt addr ins = tryFindAlwaysLoadedLiteral ins = Some addr
+
+  /// The farthest that a load lies before the literal it loads: an offset from
+  /// the PC reaches 4095 bytes, and the PC reads 8 bytes past the load in ARM.
+  let [<Literal>] LiteralReach = 4104UL
+
+  /// Checks if the function loads the literal at the given address. Code of
+  /// 32-bit ARM keeps a function in one piece and lays a pool after the code
+  /// that loads it, so the instructions from the entry of the function up to
+  /// the address tell, however far the building has come.
   let isLoadedLiteral (ctx: CFGBuildingContext<_, _>) addr =
-    let loads ins = tryFindAlwaysLoadedLiteral ins = Some addr
-    ctx.CFG.Vertices
-    |> Array.exists (fun v ->
-      not v.VData.Internals.IsAbstract && Array.exists loads (instructionsOf v))
+    let step = if ctx.EntryMode = ARM32Mode.Thumb then 2UL else 4UL
+    let lowest = max ctx.FunctionAddress (addr - min addr LiteralReach)
+    let loads insAddr =
+      match ctx.BBLFactory.PeekInstruction insAddr with
+      | Ok ins -> alwaysLoadsLiteralAt addr (ins :?> ARM32.Instruction)
+      | Error _ -> false
+    let rec scan insAddr =
+      loads insAddr || (insAddr >= lowest + step && scan (insAddr - step))
+    addr >= lowest + step && scan (addr - step)
 
   /// Checks if the indirect call at the given call site is taken to return.
   let isTakenToReturn (ctx: CFGBuildingContext<_, _>) callsite =
@@ -212,11 +234,10 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
   /// Takes a target for a hole if the function loads a literal there. Clang
   /// points the entries of the cases that never come to the end of the
-  /// function, where 32-bit ARM code keeps its literal pool. A target where
-  /// the function has built a block already is code.
+  /// function, where 32-bit ARM code keeps its literal pool, so only a target
+  /// past every block that the function has built can be one.
   override _.IsJumpTableHole(ctx, target) =
-    not (ctx.Vertices.ContainsKey(ProgramPoint(target, 0)))
-    && isLoadedLiteral ctx target
+    liesPastBuiltCode ctx target && isLoadedLiteral ctx target
 
   override _.RequiresRebuild ctx =
     match findCallsBeforeLoadedLiterals ctx with

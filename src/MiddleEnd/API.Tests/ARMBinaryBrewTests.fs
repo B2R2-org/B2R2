@@ -396,6 +396,31 @@ type ARMBinaryBrewTests() =
     CollectionAssert.AreEqual([| 3 |], entries)
     CollectionAssert.AreEqual([| 0x20UL; 0x28UL |], targets)
 
+  (* Only a case that the table reaches through an entry after the hole may
+     load the literal, as in the regex code of gnulib, so the hole has to be
+     told before the recovery builds that case. *)
+  [<TestMethod>]
+  member _.``A table entry to a literal that a later case loads is a hole``() =
+    let fns =
+      recoverCode
+        [ "0a0000eb" (* bl g *)
+          "04108fe2" (* add r1, pc, #4 *)
+          "000191e7" (* ldr r0, [r1, r0, lsl #2] *)
+          "00f081e0" (* add pc, r1, r0 *)
+          "0c000000" (* .word 0xc *)
+          "1c000000" (* .word 0x1c, a hole *)
+          "14000000" (* .word 0x14 *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1eff2fe1" (* bx lr *)
+          "00009fe5" (* ldr r0, [pc, #0] *)
+          "1eff2fe1" (* bx lr *)
+          "34120000" (* .word 0x1234, loaded at 0x24 *)
+          "1eff2fe1" (* g: bx lr *) ]
+    let entries = fns[0x0UL].JumpTables |> Array.map _.NumEntries
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 3 |], entries)
+    CollectionAssert.AreEqual([| 0x1cUL; 0x24UL |], targets)
+
   (* GCC keeps the table away from the code and reads where it lies out of the
      literal pool of the function. The ADD to the PC that jumps scales each
      entry by four, so a byte counts the words from the instruction after the
