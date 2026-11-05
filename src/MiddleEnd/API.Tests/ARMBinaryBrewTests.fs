@@ -338,6 +338,67 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x20UL |], entries)
 
+  (* Nothing calls g or takes its address, as with dead code that a linker
+     keeps. Code of 32-bit ARM keeps each function in one piece, followed by
+     the literals that it loads, so g follows the literal of f, and it saves
+     the registers that its caller keeps first thing, as no code in the middle
+     of a function does. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function past the literals of another one is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "00009fe5" (* f: ldr r0, [pc, #0] *)
+          "1eff2fe1" (* bx lr *)
+          "34120000" (* .word 0x1234 *)
+          "10402de9" (* g: push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
+
+  (* The code past f saves no register, as a label of a computed goto that the
+     recovery has not reached may not either, so it starts no function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a function that saves no register starts none``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "00009fe5" (* f: ldr r0, [pc, #0] *)
+          "1eff2fe1" (* bx lr *)
+          "34120000" (* .word 0x1234 *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
+  (* No code that the recovery knows loads the word past f, so it may be a
+     literal of code that the recovery has not built. It decodes as an
+     instruction that runs on a condition, which no function starts with, so
+     the push right after it does not make it a start either. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A word that no load reads before a push starts no function``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "34120000" (* .word 0x1234, as andeq r1, r0, r4, lsr r2 *)
+          "10402de9" (* push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps
      within its function, which stays in ARM, and the jump that does is the

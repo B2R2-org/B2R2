@@ -71,7 +71,8 @@ type private Hint =
 /// address a program may store, lies below a jump instead, mostly through a
 /// register, as GCC gives each label its own dispatch. Neither does a function
 /// start at a veneer, which only branches on, nor in a literal that the code
-/// loads.
+/// loads. The code past a recovered function and the literals that it loads
+/// also tells whether the next function starts there.
 type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   let cc = (hdl: BinHandle).Conventions.Calling
 
@@ -275,6 +276,84 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
       | Error _ ->
         false
 
+  /// Adds to the given literals those that the code from the address up to the
+  /// end loads, decoding one instruction after another, which reaches loads
+  /// in code that the recovery has not built without reading an instruction
+  /// out of the middle of another.
+  let rec sweepLiterals literals (addr: Addr) codeEnd =
+    if addr >= codeEnd then
+      literals
+    else
+      match lu.TryParseInstruction addr with
+      | Ok ins ->
+        let literals =
+          match tryLiteralRangeOf ins with
+          | Some range -> range :: literals
+          | None -> literals
+        sweepLiterals literals (addr + uint64 ins.Length) codeEnd
+      | Error _ ->
+        let step = if lu.IsThumb then 2UL else 4UL
+        sweepLiterals literals (addr + step) codeEnd
+
+  let isZeroAt (addr: Addr) size =
+    match hdl.TryReadUInt(addr, size) with
+    | Ok 0UL -> true
+    | _ -> false
+
+  /// Returns how many bytes of zeros pad the code at the address, if any: a
+  /// halfword that aligns Thumb code to a word, or a whole word.
+  let tryPaddingSize (addr: Addr) =
+    if lu.IsThumb && addr % 4UL = 2UL && isZeroAt addr 2 then Some 2UL
+    elif addr % 4UL = 0UL && isZeroAt addr 4 then Some 4UL
+    else None
+
+  /// Skips what may lie between a function and the next one from the address
+  /// on: the given literals, none of which overlap, padding and nops.
+  let rec skipGap literals (addr: Addr) =
+    match IntervalSet.tryFindOverlappingOneByAddr addr literals with
+    | Some(range: AddrRange) ->
+      skipGap literals (range.Max + 1UL)
+    | None ->
+      match tryPaddingSize addr with
+      | Some size ->
+        skipGap literals (addr + size)
+      | None ->
+        match lu.TryParseInstruction addr with
+        | Ok ins when ins.IsNop -> skipGap literals (addr + uint64 ins.Length)
+        | _ -> addr
+
+  /// Returns which of the first two instructions from the address saves a
+  /// preserved register, after nothing but an instruction that runs whenever
+  /// it is reached and goes on to the next.
+  let trySaveIndex addr =
+    let rec find (addr: Addr) idx =
+      if idx = 2 then
+        None
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins ->
+          let arm = ins :?> ARM32.Instruction
+          if saves arm then Some idx
+          elif ins.IsBranch || ins.IsExit || ins.IsInterrupt then None
+          elif isConditional arm then None
+          else find (addr + uint64 ins.Length) (idx + 1)
+        | Error _ ->
+          None
+    find addr 0
+
+  /// Tells whether the code at the address saves a preserved register first
+  /// thing in the given instruction set, and no later than it would in the
+  /// other one, as the code that a linker puts after the Thumb start-up code
+  /// of glibc is in ARM.
+  let savesFirst addr isThumb =
+    lu.IsThumb <- not isThumb
+    let other = trySaveIndex addr
+    lu.IsThumb <- isThumb
+    match trySaveIndex addr, other with
+    | Some idx, Some otherIdx -> idx <= otherIdx
+    | Some _, None -> true
+    | None, _ -> false
+
   /// Tells whether the code where the pointer leads, in the instruction set
   /// that its lowest bit names, shows a function starting, whatever the
   /// recovery has built there.
@@ -302,3 +381,36 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   /// which is data, whatever it decodes as.
   member _.IsInLoadedLiteral(addr: Addr) =
     IntervalSet.containsAddr addr literals
+
+  /// Tells whether code that the recovery has built covers the address.
+  member _.Covers(addr: Addr) = IntervalSet.containsAddr addr covered
+
+  /// Finds where the function after the given one may start, in the form that
+  /// Identify gives, by the code of the given function alone. Code of 32-bit
+  /// ARM keeps each function in one piece, followed by the literals that it
+  /// loads and padding, so the code past them starts the next function if it
+  /// saves a preserved register first thing, which no code in the middle of
+  /// a function does.
+  member _.TryFindStartPast(fn: Function) =
+    match blocksOf fn with
+    | [||] ->
+      None
+    | fnBlocks ->
+      let first = fnBlocks[0].Instructions[0] :?> ARM32.Instruction
+      let codeEnd =
+        fnBlocks |> Array.map (fun blk -> blk.Range.Max + 1UL) |> Array.max
+      let built =
+        fnBlocks
+        |> Array.collect (fun blk -> blk.Instructions)
+        |> Array.choose tryLiteralRangeOf
+        |> Array.toList
+      lu.IsThumb <- first.IsThumb
+      let literals =
+        sweepLiterals built fn.EntryPoint codeEnd
+        |> List.toArray
+        |> AddrRangeUnion.ofArray
+      let addr = skipGap literals codeEnd
+      if savesFirst addr first.IsThumb then
+        Some(if first.IsThumb then addr ||| 1UL else addr)
+      else
+        None

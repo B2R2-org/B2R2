@@ -470,6 +470,50 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       && evidence.ShowsEntry pointer
       && not (evidence.OnlyBranchesOn pointer))
 
+  /// Where the function past each recovered one may start, by the entry of the
+  /// recovered one and the end of what the recovery has built of it, as
+  /// telling it takes reading that code anew, round after round.
+  let startsPast = Dictionary<Addr * Addr, Addr option>()
+
+  /// Returns the end of what the recovery has built of the function.
+  let codeEndOf (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.fold (fun e v -> max e (v.VData.Internals.Range.Max + 1UL)) 0UL
+
+  let tryFindStartPast (evidence: ARM32EntryEvidence) (fn: Function) =
+    let key = fn.EntryPoint, codeEndOf fn
+    match startsPast.TryGetValue key with
+    | true, start ->
+      start
+    | false, _ ->
+      let start = evidence.TryFindStartPast fn
+      startsPast[key] <- start
+      start
+
+  /// Checks if the pointer leads before the next entry, to code that no
+  /// recovered function covers.
+  let isFreeBefore (evidence: ARM32EntryEvidence) next pointer =
+    let addr = pointer &&& ~~~1UL
+    addr < next && not (evidence.Covers addr)
+
+  /// Finds where the functions that follow the recovered ones start, in the
+  /// form that Identify gives, which covers functions that nothing calls or
+  /// points to, such as dead code that a linker keeps.
+  let findNextStarts (evidence: ARM32EntryEvidence) (recovered: Function[]) =
+    let internals =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> Array.sortBy (fun fn -> fn.EntryPoint)
+    internals
+    |> Array.mapi (fun i fn ->
+      let next =
+        if i + 1 < internals.Length then internals[i + 1].EntryPoint
+        else System.UInt64.MaxValue
+      tryFindStartPast evidence fn
+      |> Option.filter (isFreeBefore evidence next))
+    |> Array.choose id
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() = metadata.Identify()
 
@@ -481,6 +525,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       |> Seq.collect findCallsOnce
       |> Seq.collect (prove externals)
       |> Seq.append (proveByTailCalls evidence recovered)
+      |> Seq.append (findNextStarts evidence recovered)
       |> Seq.filter isCodePointer
       |> Seq.append (Array.filter evidence.IsLikelyEntry dataPointers)
       |> Seq.distinct
