@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.Executor
@@ -171,7 +172,37 @@ module ExecutionSetup =
         ())
     ContextParsing.imageRegions hdl.File
 
-  let layoutAt (hdl: BinHandle) stackPointer bufferText =
+  let private returnSlotBytes (hdl: BinHandle) =
+    match hdl.Conventions.Calling.ReturnAddressLocation with
+    | OnStack -> uint64 (StateAccess.wordBytes hdl)
+    | InRegister _ -> 0UL
+
+  let private callerAreaBytes (hdl: BinHandle) =
+    match hdl.ISA with
+    | MIPS when hdl.ISA.WordSize = WordSize.Bit32 -> 16UL
+    | PPC when hdl.ISA.WordSize = WordSize.Bit32 -> 16UL
+    | PPC64 when hdl.ISA.Endian = Endian.Little -> 32UL
+    | S390 when hdl.ISA.WordSize = WordSize.Bit64 -> 160UL
+    | _ -> 0UL
+
+  let private stackArgumentEnd (hdl: BinHandle) indices =
+    indices
+    |> List.fold (fun finish index ->
+      match hdl.Conventions.Calling.GetIntArgLocation index with
+      | ArgLocation.Stack slot ->
+        max finish (uint64 slot.FirstOffset + uint64 slot.SlotSize)
+      | _ ->
+        finish) 0UL
+
+  let callerReservedBytes (hdl: BinHandle) indices =
+    max
+      (returnSlotBytes hdl
+       + uint64 hdl.Conventions.Stack.ShadowSpaceSize)
+      (max
+        (callerAreaBytes hdl)
+        (stackArgumentEnd hdl indices))
+
+  let private stackBounds (hdl: BinHandle) stackPointer indices =
     let wordBytes = uint64 (StateAccess.wordBytes hdl)
     if wordBytes <> 4UL && wordBytes <> 8UL then
       invalidOp "Direct execution requires a 32- or 64-bit target."
@@ -179,13 +210,21 @@ module ExecutionSetup =
       ()
     let addressLimit =
       if wordBytes = 4UL then 0x100000000UL else UInt64.MaxValue
+    let returnBytes = returnSlotBytes hdl
+    let reservedBytes = callerReservedBytes hdl indices
     if stackPointer < memoryPolicy.StackBytes
-       || stackPointer > addressLimit - wordBytes then
+       || stackPointer > addressLimit - reservedBytes then
       invalidArg (nameof stackPointer) "The stack pointer is out of range."
     else
       ()
-    let stackTop = stackPointer + wordBytes
-    let stackStart = stackTop - memoryPolicy.StackBytes
+    let returnAddressTop = stackPointer + returnBytes
+    let stackTop = stackPointer + reservedBytes
+    let stackStart = returnAddressTop - memoryPolicy.StackBytes
+    addressLimit, stackStart, stackTop
+
+  let layoutAt (hdl: BinHandle) stackPointer bufferText indices =
+    let addressLimit, stackStart, stackTop =
+      stackBounds hdl stackPointer indices
     let image = imageRegions hdl addressLimit
     if image |> List.exists (overlaps stackStart stackTop) then
       invalidOp "The execution stack overlaps the binary image."
@@ -215,23 +254,29 @@ module ExecutionSetup =
       InitialStackPointer = stackPointer
       Buffers = List.rev buffers }
 
-  let layout hdl bufferText =
-    (* The accessor's default top is exclusive. Reserve one word below it
-       for a return address while leaving that word undefined. *)
+  let layout (hdl: BinHandle) bufferText indices =
+    (* The default top is exclusive. Calls that push a return address place
+       the initial stack pointer one word below it. *)
+    let defaultTop =
+      match hdl.ISA.WordSize with
+      | WordSize.Bit32 -> 0xbfffe000UL
+      | _ -> 0x7fffffffe000UL
     let stackPointer =
-      StateAccess.defaultStackTop hdl
-      - uint64 (StateAccess.wordBytes hdl)
-    layoutAt hdl stackPointer bufferText
+      defaultTop - returnSlotBytes hdl
+    layoutAt hdl stackPointer bufferText indices
 
   let requestedBufferSpec options hasArguments =
     Map.tryFind "ptr-regs" options
     |> Option.orElseWith (fun () ->
-      if hasArguments then Some "[]" else None)
+      if hasArguments || Map.containsKey "stack" options then
+        Some "[]"
+      else
+        None)
 
-  let layoutForStack hdl stackPointer buffers =
+  let layoutForStack (hdl: BinHandle) stackPointer buffers indices =
     match stackPointer with
-    | Some stackPointer -> layoutAt hdl stackPointer buffers
-    | None -> layout hdl buffers
+    | Some stackPointer -> layoutAt hdl stackPointer buffers indices
+    | None -> layout hdl buffers indices
 
   let regions layout =
     let stackPermission = memoryPolicy.StackPermission
