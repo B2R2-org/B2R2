@@ -373,6 +373,18 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Seq.distinct
     |> Seq.toArray
 
+  /// Pairs each of the recovered functions that the binary defines, in the
+  /// order of their entries, with the entry of the next one.
+  let withNextEntries (recovered: Function[]) =
+    let internals =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> Array.sortBy (fun fn -> fn.EntryPoint)
+    internals
+    |> Array.mapi (fun i fn ->
+      if i + 1 < internals.Length then fn, internals[i + 1].EntryPoint
+      else fn, System.UInt64.MaxValue)
+
   /// Checks if the recovery followed the jump that ends the given vertex
   /// within its function, rather than took it for a tail call.
   let isFollowedWithin (cfg: LowUIRCFG) v =
@@ -397,12 +409,8 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// Finds the jumps that leave the given function, each as the vertex that it
   /// ends, its address, and where it goes in the form that Identify gives: the
   /// direct jumps that the recovery followed from within the function, from
-  /// its entry up to the next of the given entries, to code outside of it.
-  let findLeavingJumps (entries: Addr[]) (fn: Function) =
-    let i = System.Array.BinarySearch(entries, fn.EntryPoint)
-    let next =
-      if i + 1 < entries.Length then entries[i + 1]
-      else System.UInt64.MaxValue
+  /// its entry up to the given next entry, to code outside of it.
+  let findLeavingJumps next (fn: Function) =
     let isWithin addr = fn.EntryPoint <= addr && addr < next
     fn.CFG.Vertices
     |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
@@ -432,13 +440,29 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         ()
     ranges.ToArray()
 
-  /// Collects the code that the given functions cover, each but for what it
-  /// reaches only through the given jumps of it that leave it.
-  let coverHomes leaving =
-    leaving
-    |> Array.collect (fun (fn, jumps) ->
-      collectHomeRanges fn (HashSet(Array.map (fun (v, _, _) -> v) jumps)))
-    |> AddrRangeUnion.ofArray
+  /// The jumps that leave each recovered function and the code that it covers
+  /// but for what it reaches only through them, by its CFG, with the count of
+  /// its edges and the next entry that they hold for, as finding them takes
+  /// walking the whole CFG, while most functions stay the same from round to
+  /// round.
+  let leavingByCFG =
+    System.Runtime.CompilerServices.ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Finds the jumps that leave the given function, up to the given next
+  /// entry, and the code that it covers but for what it reaches only through
+  /// them.
+  let findLeavingOnce (fn: Function, next) =
+    let cfg = fn.CFG
+    match leavingByCFG.TryGetValue cfg with
+    | true, (edgeCount, nextOfCache, leaving)
+      when edgeCount = cfg.EdgeCount && nextOfCache = next ->
+      leaving
+    | _ ->
+      let jumps = findLeavingJumps next fn
+      let exits = HashSet(Array.map (fun (v, _, _) -> v) jumps)
+      let leaving = jumps, collectHomeRanges fn exits
+      leavingByCFG.AddOrUpdate(cfg, (cfg.EdgeCount, next, leaving))
+      leaving
 
   /// Checks if the given jump that leaves its function decodes from data or
   /// lands on data: it or where it goes lies in a literal that recovered code
@@ -454,14 +478,11 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// the jump through a veneer: the code there has to show a function
   /// starting without only branching on, and no function may cover it but
   /// through such a jump. A jump amid data proves nothing.
-  let proveByTailCalls (evidence: ARM32EntryEvidence) (recovered: Function[]) =
-    let internals = recovered |> Array.filter (fun fn -> not fn.IsExternal)
-    let entries = internals |> Array.map (fun fn -> fn.EntryPoint) |> Array.sort
-    let leaving =
-      internals |> Array.map (fun fn -> fn, findLeavingJumps entries fn)
-    let home = coverHomes leaving
+  let proveByTailCalls (evidence: ARM32EntryEvidence) recovered =
+    let leaving = withNextEntries recovered |> Array.map findLeavingOnce
+    let home = leaving |> Array.collect snd |> AddrRangeUnion.ofArray
     leaving
-    |> Array.collect snd
+    |> Array.collect fst
     |> Array.filter (not << isAmidData evidence)
     |> Array.map (fun (_, _, pointer) -> pointer)
     |> Array.distinct
@@ -500,19 +521,11 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// Finds where the functions that follow the recovered ones start, in the
   /// form that Identify gives, which covers functions that nothing calls or
   /// points to, such as dead code that a linker keeps.
-  let findNextStarts (evidence: ARM32EntryEvidence) (recovered: Function[]) =
-    let internals =
-      recovered
-      |> Array.filter (fun fn -> not fn.IsExternal)
-      |> Array.sortBy (fun fn -> fn.EntryPoint)
-    internals
-    |> Array.mapi (fun i fn ->
-      let next =
-        if i + 1 < internals.Length then internals[i + 1].EntryPoint
-        else System.UInt64.MaxValue
+  let findNextStarts evidence recovered =
+    withNextEntries recovered
+    |> Array.choose (fun (fn, next) ->
       tryFindStartPast evidence fn
       |> Option.filter (isFreeBefore evidence next))
-    |> Array.choose id
 
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() = metadata.Identify()
