@@ -85,6 +85,23 @@ module IntervalSet =
     if rangeExists i r then raise InvalidAddrRangeException
     else IntervalSet <| Op.Concat(l, Op.Cons(IntervalSetElem i, r))
 
+  /// Builds an interval set out of the given intervals at once, appending them
+  /// in order rather than splitting the tree for each. An exact duplicate range
+  /// is not allowed, as in add.
+  [<CompiledName("OfSeq")>]
+  let ofSeq (intervals: seq<AddrRange>) =
+    let sorted =
+      intervals
+      |> Seq.toArray
+      |> Array.sortBy (fun (i: AddrRange) -> i.Min, i.Max)
+    let isSame (a: AddrRange, b: AddrRange) = a.Min = b.Min && a.Max = b.Max
+    if Array.pairwise sorted |> Array.exists isSame then
+      raise InvalidAddrRangeException
+    else
+      sorted
+      |> Array.fold (fun tree i -> Op.Snoc(tree, IntervalSetElem i)) Empty
+      |> IntervalSet
+
   /// Checks whether the given address interval overlaps with any of the
   /// intervals in the interval set.
   [<CompiledName("OverlapsRange")>]

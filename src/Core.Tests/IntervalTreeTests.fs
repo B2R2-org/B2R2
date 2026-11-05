@@ -87,6 +87,30 @@ type IntervalTreeTests() =
     |> ignore
 
   [<TestMethod>]
+  member _.``IntervalSet Test ofSeq``() =
+    let ranges =
+      [ 0x300UL -- 0x3FFUL
+        0x100UL -- 0x200UL
+        0x50UL -- 0x300UL
+        0x100UL -- 0x150UL
+        0x120UL -- 0x130UL ]
+    let built = IntervalSet.ofSeq ranges
+    let added = setOf ranges
+    let probe set =
+      [| 0x40UL; 0x50UL; 0x125UL; 0x151UL; 0x300UL; 0x3FFUL; 0x400UL |]
+      |> Array.map (fun a -> IntervalSet.containsAddr a set)
+    CollectionAssert.AreEqual(probe added, probe built)
+    Assert.AreEqual<int>(IntervalSet.count added, IntervalSet.count built)
+    let all set =
+      IntervalSet.findAll (0x0UL -- 0x500UL) set
+      |> List.sortBy (fun (r: AddrRange) -> r.Min, r.Max)
+      |> List.toArray
+    CollectionAssert.AreEqual(all added, all built)
+    Assert.Throws<InvalidAddrRangeException>(fun () ->
+      IntervalSet.ofSeq [ 0x1UL -- 0x2UL; 0x1UL -- 0x2UL ] |> ignore)
+    |> ignore
+
+  [<TestMethod>]
   member _.``IntervalSet Test Overlaps``() =
     let range1 = 0x100UL -- 0x200UL
     let range2 = 0x50UL -- 0x300UL
