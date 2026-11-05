@@ -491,41 +491,43 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       && evidence.ShowsEntry pointer
       && not (evidence.OnlyBranchesOn pointer))
 
-  /// Where the function past each recovered one may start, by the entry of the
-  /// recovered one and the end of what the recovery has built of it, as
-  /// telling it takes reading that code anew, round after round.
-  let startsPast = Dictionary<Addr * Addr, Addr option>()
+  /// Where code resumes past each recovered function, by its CFG, with the
+  /// count of its edges, as telling it takes reading the function anew, round
+  /// after round.
+  let gapsByCFG =
+    System.Runtime.CompilerServices.ConditionalWeakTable<LowUIRCFG, _>()
 
-  /// Returns the end of what the recovery has built of the function.
-  let codeEndOf (fn: Function) =
-    fn.CFG.Vertices
-    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
-    |> Array.fold (fun e v -> max e (v.VData.Internals.Range.Max + 1UL)) 0UL
+  let tryFindGapPast (evidence: ARM32EntryEvidence) (fn: Function) =
+    let cfg = fn.CFG
+    match gapsByCFG.TryGetValue cfg with
+    | true, (edgeCount, gap) when edgeCount = cfg.EdgeCount ->
+      gap
+    | _ ->
+      let gap = evidence.TryFindGapPast fn
+      gapsByCFG.AddOrUpdate(cfg, (cfg.EdgeCount, gap))
+      gap
 
-  let tryFindStartPast (evidence: ARM32EntryEvidence) (fn: Function) =
-    let key = fn.EntryPoint, codeEndOf fn
-    match startsPast.TryGetValue key with
-    | true, start ->
-      start
-    | false, _ ->
-      let start = evidence.TryFindStartPast fn
-      startsPast[key] <- start
-      start
-
-  /// Checks if the pointer leads before the next entry, to code that no
+  /// Checks if the address lies before the next entry, in code that no
   /// recovered function covers.
-  let isFreeBefore (evidence: ARM32EntryEvidence) next pointer =
-    let addr = pointer &&& ~~~1UL
+  let isFreeBefore (evidence: ARM32EntryEvidence) next addr =
     addr < next && not (evidence.Covers addr)
+
+  /// Finds where the function past the given one starts, in the form that
+  /// Identify gives, if one does where code resumes before the next entry and
+  /// no recovered function lies. What the code there leads to tells, which
+  /// may change as the recovery finds more functions, such as one that the
+  /// code calls as its tail.
+  let tryFindStartPast evidence next fn =
+    tryFindGapPast evidence fn
+    |> Option.filter (fun gap -> isFreeBefore evidence next gap.Start)
+    |> Option.bind (fun gap -> evidence.TryFindStartIn(fn, gap))
 
   /// Finds where the functions that follow the recovered ones start, in the
   /// form that Identify gives, which covers functions that nothing calls or
   /// points to, such as dead code that a linker keeps.
   let findNextStarts evidence recovered =
     withNextEntries recovered
-    |> Array.choose (fun (fn, next) ->
-      tryFindStartPast evidence fn
-      |> Option.filter (isFreeBefore evidence next))
+    |> Array.choose (fun (fn, next) -> tryFindStartPast evidence next fn)
 
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() = metadata.Identify()

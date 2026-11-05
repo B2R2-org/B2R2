@@ -63,6 +63,34 @@ type private Hint =
   /// way the dispatch of a label does.
   | Refutes
 
+/// Represents where code resumes past a recovered function of 32-bit ARM,
+/// beyond the literals that the function loads and padding.
+type internal ARM32Gap =
+  { /// The address where code resumes.
+    Start: Addr
+    /// Tells whether the function is in Thumb.
+    IsThumb: bool
+    /// Tells whether literals that the function loads lie in between.
+    FollowsLiterals: bool
+    /// Tells whether the code of the function ends in a jump that never goes
+    /// on to the next instruction.
+    FollowsJump: bool }
+
+/// Represents where the code from an address leads first, as a function that
+/// starts there runs.
+type private Lead =
+  /// Saves a preserved register at the instruction of the given index.
+  | Saves of int
+  /// Returns at the instruction of the given index, telling whether one that
+  /// runs on a condition came before.
+  | Returns of int * bool
+  /// Jumps to a recovered function as its tail at the instruction of the
+  /// given index, telling whether one that runs on a condition came before.
+  | CallsTail of int * bool
+  /// Calls, jumps back or past the next function, runs into what decodes as
+  /// no instruction or into the next function, or goes on for too long.
+  | Unclear
+
 /// Represents what the code that the recovery has built tells about an address
 /// that a pointer or a jump names in 32-bit ARM: whether a function starts
 /// there. A function saves a register that its caller keeps as it starts, or
@@ -332,51 +360,153 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     else None
 
   /// Skips what may lie between a function and the next one from the address
-  /// on: the given literals, none of which overlap, padding and nops.
-  let rec skipGap literals (addr: Addr) =
+  /// on: the given literals, none of which overlap, padding and nops. This
+  /// returns where code resumes, telling whether it skipped a literal.
+  let rec skipGap literals (addr: Addr) hasSkippedLiteral =
     match IntervalSet.tryFindOverlappingOneByAddr addr literals with
     | Some(range: AddrRange) ->
-      skipGap literals (range.Max + 1UL)
+      skipGap literals (range.Max + 1UL) true
     | None ->
       match tryPaddingSize addr with
       | Some size ->
-        skipGap literals (addr + size)
+        skipGap literals (addr + size) hasSkippedLiteral
       | None ->
         match lu.TryParseInstruction addr with
-        | Ok ins when ins.IsNop -> skipGap literals (addr + uint64 ins.Length)
-        | _ -> addr
+        | Ok ins when ins.IsNop ->
+          skipGap literals (addr + uint64 ins.Length) hasSkippedLiteral
+        | _ ->
+          addr, hasSkippedLiteral
 
-  /// Returns which of the first two instructions from the address saves a
-  /// preserved register, after nothing but an instruction that runs whenever
-  /// it is reached and goes on to the next.
-  let trySaveIndex addr =
-    let rec find (addr: Addr) idx =
-      if idx = 2 then
-        None
-      else
-        match lu.TryParseInstruction addr with
-        | Ok ins ->
-          let arm = ins :?> ARM32.Instruction
-          if saves arm then Some idx
-          elif ins.IsBranch || ins.IsExit || ins.IsInterrupt then None
-          elif isConditional arm then None
-          else find (addr + uint64 ins.Length) (idx + 1)
-        | Error _ ->
-          None
-    find addr 0
+  /// Tells whether the instruction leaves for good whenever it is reached: a
+  /// branch, a return or an exit that runs on no condition, and no call,
+  /// which comes back.
+  let leaves (ins: IInstruction) =
+    (ins.IsBranch || ins.IsExit)
+    && not ins.IsCall
+    && not ins.IsCondBranch
+    && not (isConditional (ins :?> ARM32.Instruction))
 
-  /// Tells whether the code at the address saves a preserved register first
-  /// thing in the given instruction set, and no later than it would in the
-  /// other one, as the code that a linker puts after the Thumb start-up code
-  /// of glibc is in ARM.
-  let savesFirst addr isThumb =
-    lu.IsThumb <- not isThumb
-    let other = trySaveIndex addr
+  let entries =
+    recovered |> Array.map (fun fn -> fn.EntryPoint) |> Array.sort
+
+  let isEntry (addr: Addr) = System.Array.BinarySearch(entries, addr) >= 0
+
+  /// Returns where the first recovered function past the address starts.
+  let nextEntryPast (addr: Addr) =
+    match System.Array.BinarySearch(entries, addr) with
+    | i when i >= 0 && i + 1 < entries.Length -> entries[i + 1]
+    | i when i < 0 && ~~~i < entries.Length -> entries[~~~i]
+    | _ -> System.UInt64.MaxValue
+
+  /// The most instructions that a function may run before it saves a
+  /// register, returns or calls its tail.
+  let [<Literal>] MaxLeadLength = 24
+
+  /// Reads where the code from the address leads, along the jumps forward
+  /// within the span from where the reading started up to the next function,
+  /// given how many instructions came before and whether one of them runs on
+  /// a condition. No function starts with such an instruction, as the flags
+  /// mean nothing yet. A literal that recovered code loads ends the reading,
+  /// as it is data, whatever it decodes as.
+  let rec leadFrom span (addr: Addr) idx isAfterCondition =
+    if idx = MaxLeadLength || addr >= snd span then
+      Unclear
+    elif IntervalSet.containsAddr addr literals then
+      Unclear
+    else
+      match lu.TryParseInstruction addr with
+      | Ok ins -> leadOf span ins idx isAfterCondition
+      | Error _ -> Unclear
+
+  and leadOf span ins idx isAfterCondition =
+    let arm = ins :?> ARM32.Instruction
+    let next = ins.Address + uint64 ins.Length
+    if idx = 0 && isConditional arm then
+      Unclear
+    elif saves arm then
+      Saves idx
+    elif ins.IsCall || ins.IsExit || ins.IsInterrupt then
+      Unclear
+    elif isReturn ins && isConditional arm then
+      leadFrom span next (idx + 1) true
+    elif isReturn ins then
+      Returns(idx, isAfterCondition)
+    elif ins.IsBranch then
+      leadOfBranch span ins idx isAfterCondition
+    else
+      leadFrom span next (idx + 1) (isAfterCondition || isConditional arm)
+
+  and leadOfBranch (start, limit) ins idx isAfterCondition =
+    let next = ins.Address + uint64 ins.Length
+    let isGuarded =
+      ins.IsCondBranch || isConditional (ins :?> ARM32.Instruction)
+    match ins.DirectBranchTarget(), isGuarded with
+    | (true, target), false when isEntry target ->
+      CallsTail(idx, isAfterCondition)
+    | (true, target), true when isEntry target ->
+      leadFrom (start, limit) next (idx + 1) true
+    | (true, target), _ when target < start || target >= limit ->
+      Unclear
+    | (true, target), false ->
+      leadFrom (start, limit) target (idx + 1) isAfterCondition
+    | _, true ->
+      leadFrom (start, limit) next (idx + 1) true
+    | _, false ->
+      Unclear
+
+  /// Reads where the code at the address leads in the given instruction set.
+  let leadAt addr isThumb =
     lu.IsThumb <- isThumb
-    match trySaveIndex addr, other with
-    | Some idx, Some otherIdx -> idx <= otherIdx
-    | Some _, None -> true
-    | None, _ -> false
+    leadFrom (addr, nextEntryPast addr) addr 0 false
+
+  /// Tells whether the instruction jumps where only a table that the recovery
+  /// reads tells, as a switch or a computed goto does, even with a BX, which
+  /// Clang dispatches a computed goto with.
+  let isOpenJump (ins: IInstruction) =
+    ins.IsIndirectBranch && not ins.IsCall && not (isReturn ins)
+
+  /// Tells whether the recovery knows where every jump of the function goes,
+  /// so that no code of the function lies past what the recovery has built.
+  let isClosed (fn: Function) =
+    let cfg = fn.CFG
+    let hasTargets v =
+      cfg.GetSuccEdges v |> Array.exists (fun e -> e.Label = IndirectJmpEdge)
+    cfg.Vertices
+    |> Array.forall (fun v ->
+      let blk = v.VData.Internals
+      blk.IsAbstract || not (isOpenJump blk.LastInstruction) || hasTargets v)
+
+  /// Tells whether the code where the lead starts begins the function past
+  /// the given one. Code that saves a preserved register before it calls,
+  /// returns or jumps back does, as no code in the middle of a function does.
+  /// Code that saves nothing does if it returns or calls its tail first, and
+  /// the given function ends right above in literals or a jump, with no jump
+  /// that the recovery cannot follow, which may lead to a label past it.
+  /// Only past literals may a return on a condition come first, as the code
+  /// that libgcc writes by hand returns so in the middle of a function.
+  let startsFunction fn (gap: ARM32Gap) lead =
+    match lead with
+    | Saves _ ->
+      true
+    | Returns(_, false) | CallsTail(_, false) ->
+      (gap.FollowsLiterals || gap.FollowsJump) && isClosed fn
+    | Returns(_, true) ->
+      gap.FollowsLiterals && isClosed fn
+    | CallsTail(_, true) | Unclear ->
+      false
+
+  let tryIndexOf lead =
+    match lead with
+    | Saves idx | Returns(idx, _) | CallsTail(idx, _) -> Some idx
+    | Unclear -> None
+
+  /// Tells whether the code leads somewhere sooner in the other instruction
+  /// set, as the code that a linker puts after the Thumb start-up code of
+  /// glibc is in ARM.
+  let leadsSoonerInOther lead other =
+    match tryIndexOf lead, tryIndexOf other with
+    | Some idx, Some otherIdx -> otherIdx < idx
+    | _ -> false
 
   /// Tells whether the code where the pointer leads, in the instruction set
   /// that its lowest bit names, shows a function starting, whatever the
@@ -409,20 +539,18 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   /// Tells whether code that the recovery has built covers the address.
   member _.Covers(addr: Addr) = IntervalSet.containsAddr addr covered
 
-  /// Finds where the function after the given one may start, in the form that
-  /// Identify gives, by the code of the given function alone. Code of 32-bit
-  /// ARM keeps each function in one piece, followed by the literals that it
-  /// loads and padding, so the code past them starts the next function if it
-  /// saves a preserved register first thing, which no code in the middle of
-  /// a function does.
-  member _.TryFindStartPast(fn: Function) =
+  /// Finds where code resumes past the given function, which takes reading
+  /// the function anew. Code of 32-bit ARM keeps each function in one piece,
+  /// followed by the literals that it loads and padding, so the next function
+  /// may start there.
+  member _.TryFindGapPast(fn: Function) =
     match blocksOf fn with
     | [||] ->
       None
     | fnBlocks ->
       let first = fnBlocks[0].Instructions[0] :?> ARM32.Instruction
-      let codeEnd =
-        fnBlocks |> Array.map (fun blk -> blk.Range.Max + 1UL) |> Array.max
+      let last = fnBlocks |> Array.maxBy (fun blk -> blk.Range.Max)
+      let codeEnd = last.Range.Max + 1UL
       let built =
         fnBlocks
         |> Array.collect (fun blk -> blk.Instructions)
@@ -433,8 +561,19 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
         sweepLiterals built fn.EntryPoint codeEnd
         |> List.toArray
         |> AddrRangeUnion.ofArray
-      let addr = skipGap literals codeEnd
-      if savesFirst addr first.IsThumb then
-        Some(if first.IsThumb then addr ||| 1UL else addr)
-      else
-        None
+      let start, hasSkippedLiteral = skipGap literals codeEnd false
+      Some
+        { Start = start
+          IsThumb = first.IsThumb
+          FollowsLiterals = hasSkippedLiteral
+          FollowsJump = leaves last.LastInstruction }
+
+  /// Finds the function that starts where code resumes past the given
+  /// function, in the form that Identify gives, if one does.
+  member _.TryFindStartIn(fn: Function, gap: ARM32Gap) =
+    let lead = leadAt gap.Start gap.IsThumb
+    let other = leadAt gap.Start (not gap.IsThumb)
+    if startsFunction fn gap lead && not (leadsSoonerInOther lead other) then
+      Some(if gap.IsThumb then gap.Start ||| 1UL else gap.Start)
+    else
+      None

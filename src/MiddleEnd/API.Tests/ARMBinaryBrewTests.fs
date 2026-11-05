@@ -293,9 +293,9 @@ type ARMBinaryBrewTests() =
 
   (* Only code that the recovery never builds loads the words at x, yet they
      are literals all the same, as in a pool amid a large switch whose cases
-     the recovery has yet to reach. A literal is data whatever it decodes as,
-     so the jump to it proves nothing, though the words read as a push and a
-     pop. *)
+     the recovery has yet to reach, which jump back to where the cases meet.
+     A literal is data whatever it decodes as, so the jump to it proves
+     nothing, though the words read as a push and a pop. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``A jump to a literal that unbuilt code loads proves nothing``() =
@@ -306,7 +306,7 @@ type ARMBinaryBrewTests() =
           "1080bde8" (* pop {r4, pc} *)
           "04009fe5" (* ldr r0, [pc, #4], which nothing reaches *)
           "04109fe5" (* ldr r1, [pc, #4] *)
-          "1eff2fe1" (* bx lr *)
+          "fbffffea" (* b 0x8 *)
           "10402de9" (* x: .word 0xe92d4010, loaded at 0xc *)
           "1080bde8" (* .word 0xe8bd8010, loaded at 0x10 *)
           "0100a0e3" (* f: mov r0, #1 *)
@@ -317,7 +317,8 @@ type ARMBinaryBrewTests() =
   (* The floating-point code of libgcc jumps from one function into the middle
      of another, as __floatsidf does into __adddf3, which nothing may call. The
      code above the target falls through to it without saving any register on
-     the way, so the target starts no function. *)
+     the way, so the target starts no function, while g, which returns right
+     past main, does. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``A jump into the middle of code proves nothing``() =
@@ -333,7 +334,7 @@ type ARMBinaryBrewTests() =
           "fbffffea" (* b l *) ]
     let entries = Seq.toArray fns.Addresses
     let kinds = edgeKindsFrom fns[0x18UL] 0x1cUL
-    CollectionAssert.AreEqual([| 0x0UL; 0x18UL |], entries)
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
     CollectionAssert.AreEqual([| InterJmpEdge |], kinds)
 
   (* A Cortex-A8 erratum makes GNU ld redirect a branch of Thumb code across
@@ -383,11 +384,50 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
 
-  (* The code past f saves no register, as a label of a computed goto that the
-     recovery has not reached may not either, so it starts no function. *)
+  (* g tests its argument before it saves the registers that its caller keeps,
+     returning at once on zero, as a compiler lays out a function that needs
+     its frame only on some paths. *)
   [<TestMethod>]
   [<Timeout(10000)>]
-  member _.``Code past a function that saves no register starts none``() =
+  member _.``A function that saves registers after a test is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "000050e3" (* g: cmp r0, #0 *)
+          "1eff2f01" (* bxeq lr *)
+          "10402de9" (* push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
+
+  (* g saves no register, as a function that calls none need not. f ends in a
+     return, and the recovery knows where every jump of f goes, so no code of
+     f lies past it, and g returns before anything else. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function that returns past a whole function is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "010080e2" (* g: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
+
+  (* g only sets an argument and jumps to f as its tail, saving nothing, the
+     way a wrapper does. It follows the literal of f. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function that calls its tail past literals is found``() =
     let fns =
       recoverCode
         [ "10402de9" (* main: push {r4, lr} *)
@@ -396,10 +436,52 @@ type ARMBinaryBrewTests() =
           "00009fe5" (* f: ldr r0, [pc, #0] *)
           "1eff2fe1" (* bx lr *)
           "34120000" (* .word 0x1234 *)
+          "0010a0e3" (* g: mov r1, #0 *)
+          "faffffea" (* b f *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
+
+  (* f jumps through a register that the recovery cannot follow, as Clang
+     does for a computed goto with a BX, so the code past its literal may be a
+     label of f, which saves no register and returns like a function does. It
+     starts none. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a function with an unknown jump starts none``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "00109fe5" (* f: ldr r1, [pc, #0] *)
+          "10ff2fe1" (* bx r0 *)
+          "34120000" (* .word 0x1234 *)
           "0200a0e3" (* mov r0, #2 *)
           "1eff2fe1" (* bx lr *) ]
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
+  (* GCC puts a mov r0, r0 for a nop in ARMv5 code, here between f and the
+     literal that it loads, and the word of the literal decodes as an andeq.
+     Read on through them, the code at 0x14 would save registers with the
+     push of g, but a literal is data, so 0x14 starts no function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that runs into a literal starts no function``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "04009fe5" (* f: ldr r0, [pc, #4] *)
+          "1eff2fe1" (* bx lr *)
+          "0000a0e1" (* mov r0, r0 *)
+          "34120000" (* .word 0x1234, loaded at 0xc *)
+          "10402de9" (* g: push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.DoesNotContain(entries, 0x14UL)
 
   (* No code that the recovery knows loads the word past f, so it may be a
      literal of code that the recovery has not built. It decodes as an
@@ -741,15 +823,16 @@ type ARMBinaryBrewTests() =
     CollectionAssert.AreEqual([| 0x0UL; 0x14UL |], Seq.toArray fns.Addresses)
 
   (* GNU C lets a program take the address of a label, which this code stores
-     but never calls, so nothing proves that a function starts at 0xc. *)
+     but never calls, so nothing proves that a function starts at 0xc, where
+     the label dispatches on through a register. *)
   [<TestMethod>]
   member _.``A code address stored but never called proves nothing``() =
     let code =
       [ "04308fe2" (* add r3, pc, #4 *)
         "003080e5" (* str r3, [r0] *)
         "1eff2fe1" (* bx lr *)
-        "0100a0e3" (* mov r0, #1 *)
-        "1eff2fe1" (* bx lr *) ]
+        "010080e2" (* add r0, r0, #1 *)
+        "01f0a0e1" (* mov pc, r1 *) ]
       |> String.concat ""
       |> ByteArray.ofHexString
     let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
