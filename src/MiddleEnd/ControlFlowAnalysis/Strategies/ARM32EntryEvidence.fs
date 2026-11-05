@@ -33,6 +33,25 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
+/// Provides what address ranges cover together as an interval set, merging
+/// the ranges that overlap or touch. Telling whether an address lies in any of
+/// them needs no more, and far fewer ranges build an interval set far sooner,
+/// which matters as identification builds one for all the recovered code
+/// every round.
+[<RequireQualifiedAccess>]
+module internal AddrRangeUnion =
+  /// Returns an interval set of what the given ranges cover together.
+  let ofArray (ranges: AddrRange[]) =
+    ranges
+    |> Array.sortBy (fun range -> range.Min)
+    |> Array.fold (fun (merged: AddrRange list) range ->
+      match merged with
+      | last :: rest when range.Min <= last.Max + 1UL ->
+        AddrRange.create last.Min (max last.Max range.Max) :: rest
+      | _ ->
+        range :: merged) []
+    |> IntervalSet.ofSeq
+
 /// Represents what the code right above an address says about whether a
 /// function starts there.
 type private Hint =
@@ -68,12 +87,8 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     |> Array.filter (fun fn -> not fn.IsExternal)
     |> Array.collect blocksOf
 
-  (* Functions may share a block, while the set takes each range once. *)
   let covered =
-    blocks
-    |> Array.map (fun blk -> blk.Range)
-    |> Array.distinct
-    |> Array.fold (fun set range -> IntervalSet.add range set) IntervalSet.empty
+    blocks |> Array.map (fun blk -> blk.Range) |> AddrRangeUnion.ofArray
 
   let isDecodable addr = lu.TryParseInstruction(addr: Addr) |> Result.isOk
 
@@ -109,9 +124,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   let literalEnds =
     literalRanges |> Array.map (fun range -> range.Max + 1UL) |> HashSet
 
-  let literals =
-    literalRanges
-    |> Array.fold (fun set range -> IntervalSet.add range set) IntervalSet.empty
+  let literals = AddrRangeUnion.ofArray literalRanges
 
   let sectionStarts =
     BinFileOps.getSections hdl.File

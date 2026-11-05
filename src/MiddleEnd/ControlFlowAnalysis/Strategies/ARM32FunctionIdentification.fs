@@ -211,6 +211,22 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       for succ in cfg.GetSuccs v do propagate knownsAt work succ out
     calls.Values
 
+  /// The calls that each recovered function makes, by its CFG, which stays the
+  /// same until the function is built again, along with how many edges the CFG
+  /// had then. A round of identification thus runs the data flow only over the
+  /// functions built since the last round.
+  let callsByCFG =
+    System.Runtime.CompilerServices.ConditionalWeakTable<LowUIRCFG, _>()
+
+  let findCallsOnce (fn: Function) =
+    match callsByCFG.TryGetValue fn.CFG with
+    | true, (edgeCount, calls) when edgeCount = fn.CFG.EdgeCount ->
+      calls
+    | _ ->
+      let calls = Seq.toArray (findCalls fn)
+      callsByCFG.AddOrUpdate(fn.CFG, (fn.CFG.EdgeCount, calls))
+      calls
+
   /// Returns the address of the function that a call to the given target
   /// enters, as the recovery takes it: the trampoline of the PLT entry that
   /// covers the target, which a call that switches Thumb code to ARM enters
@@ -422,8 +438,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     leaving
     |> Array.collect (fun (fn, jumps) ->
       collectHomeRanges fn (HashSet(Array.map (fun (v, _, _) -> v) jumps)))
-    |> Array.distinct
-    |> Array.fold (fun set range -> IntervalSet.add range set) IntervalSet.empty
+    |> AddrRangeUnion.ofArray
 
   /// Checks if the given jump that leaves its function decodes from data or
   /// lands on data: it or where it goes lies in a literal that recovered code
@@ -463,7 +478,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       let evidence = ARM32EntryEvidence(hdl, recovered, toCalleeAddr)
       recovered
       |> Seq.filter (fun fn -> not fn.IsExternal)
-      |> Seq.collect findCalls
+      |> Seq.collect findCallsOnce
       |> Seq.collect (prove externals)
       |> Seq.append (proveByTailCalls evidence recovered)
       |> Seq.filter isCodePointer
