@@ -29,6 +29,7 @@ open System.Collections.Generic
 open System.Globalization
 open System.Threading
 open B2R2
+open B2R2.ABI
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.Collections
@@ -359,20 +360,22 @@ type ConcExecutorValue private(binary: Binary,
       false
 
   let registerDiffs beforeState afterState =
-    hdl.RegisterFactory.GetAllRegisterNames()
-    |> Array.choose (fun name ->
-      match tryGetRegisterID name with
-      | None ->
+    hdl.RegisterFactory.GetAllRegVars()
+    |> Array.choose (function
+      | Var(RegisterID = rid) -> Some rid
+      | PCVar _ -> Some hdl.RegisterFactory.ProgramCounter
+      | _ -> None)
+    |> Array.distinct
+    |> Array.choose (fun rid ->
+      let before = registerText beforeState rid
+      let after = registerText afterState rid
+      if before = after then
         None
-      | Some rid ->
-        let before = registerText beforeState rid
-        let after = registerText afterState rid
-        if before = after then
-          None
-        else
-          let before = before |> Option.defaultValue "<undef>"
-          let after = after |> Option.defaultValue "<undef>"
-          Some $"{name}: {before} -> {after}")
+      else
+        let name = hdl.RegisterFactory.GetRegisterName rid
+        let before = before |> Option.defaultValue "<undef>"
+        let after = after |> Option.defaultValue "<undef>"
+        Some $"{name}: {before} -> {after}")
     |> Array.toList
 
   let instructionAt (addr: Addr) =
@@ -1055,7 +1058,15 @@ type ConcExecutorValue private(binary: Binary,
       let value = parseUInt64 value
       let nextState = state.Clone()
       let accessor = accessorFor nextState
-      accessor.SetArgument(index, accessor.WordValue value)
+      let argument = accessor.WordValue value
+      match hdl.Conventions.Calling.GetIntArgLocation index with
+      | ArgLocation.Reg rid ->
+        accessor.SetRegister(rid, argument)
+      | ArgLocation.Stack slot ->
+        let addr = accessor.StackPointer + uint64 slot.FirstOffset
+        accessor.WriteValue(addr, argument)
+      | _ ->
+        invalidArg (nameof args) "Unsupported argument location."
       clearRunState nextState memoryRanges regions
     | _ ->
       invalidArg (nameof args) "Invalid arg argument layout."
@@ -1102,7 +1113,10 @@ type ConcExecutorValue private(binary: Binary,
     let nextState = state.Clone()
     let accessor = accessorFor nextState
     accessor.SetStackPointer layout.InitialStackPointer
-    accessor.InitializeFramePointer()
+    if Option.isSome hdl.RegisterFactory.FramePointer then
+      accessor.InitializeFramePointer()
+    else
+      ()
     let setRegister (name, value) =
       match tryGetRegisterID name with
       | Some rid ->
@@ -1222,7 +1236,8 @@ module private ConcExecutorSetup =
         let stack =
           Map.tryFind "stack" options
           |> Option.map ContextParsing.parseAddress
-        ExecutionSetup.layoutForStack hdl stack buffers)
+        let indices = arguments |> List.map fst
+        ExecutionSetup.layoutForStack hdl stack buffers indices)
     let executor =
       match layout with
       | Some layout ->

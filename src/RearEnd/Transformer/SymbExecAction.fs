@@ -31,6 +31,7 @@ open System.Text
 open System.Text.RegularExpressions
 open System.Threading
 open B2R2
+open B2R2.ABI
 open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -308,6 +309,52 @@ type SymbExecutorValue(binary: Binary,
         $"{region.Name}=0x{region.Start:x}-0x{region.Finish:x}:{perms}")
       |> String.concat ", "
 
+  let allocateArgumentBuffers
+    (accessor: SymbStateAccessor)
+    arguments
+    firstOrdinal =
+    arguments
+    |> List.mapi (fun ordinal (index, name, size) ->
+      let solverName = $"__b2r2_arg_{firstOrdinal + ordinal}"
+      let buffer = accessor.AllocateSymbolicBuffer(solverName, size)
+      let input =
+        { Name = name
+          SolverName = solverName
+          Location = $"arg{index}@0x{buffer.Address:x}"
+          Size = size
+          Query = buffer :> IQueryExpr }
+      index, buffer, input)
+
+  let reserveArgumentFrame
+    (hdl: BinHandle)
+    (accessor: SymbStateAccessor)
+    initialSP
+    arguments =
+    let reserved =
+      arguments
+      |> List.map (fun (index, _, _) -> index)
+      |> ExecutionSetup.callerReservedBytes hdl
+    let used = initialSP - accessor.StackPointer + reserved
+    let alignment = uint64 hdl.Conventions.Stack.Alignment
+    let padding = (alignment - used % alignment) % alignment
+    accessor.AllocateStackBuffer(int (reserved + padding)) |> ignore
+
+  let writeArgumentBuffers
+    (hdl: BinHandle)
+    (accessor: SymbStateAccessor)
+    (allocations: (int * SymbByteBuffer * SymbolicInput) list) =
+    allocations
+    |> List.iter (fun (index, buffer, _) ->
+      let argument = accessor.WordValue buffer.Address
+      match hdl.Conventions.Calling.GetIntArgLocation index with
+      | ArgLocation.Reg rid ->
+        accessor.SetRegister(rid, argument)
+      | ArgLocation.Stack slot ->
+        let addr = accessor.StackPointer + uint64 slot.FirstOffset
+        accessor.WriteValue(addr, argument)
+      | _ ->
+        invalidArg (nameof allocations) "Unsupported argument location.")
+
   new(binary: Binary) =
     let hdl = Binary.Handle binary
     let executor = SymbExecutor hdl
@@ -457,26 +504,28 @@ type SymbExecutorValue(binary: Binary,
                       hookText,
                       solver)
 
-  member _.WithSymbolicArgument(index, name, size) =
+  member _.WithSymbolicArguments(arguments) =
     let state = state.Clone()
-    let accessor = SymbStateAccessor(Binary.Handle binary, state)
-    let solverName = $"__b2r2_arg_{List.length inputs}"
-    let buffer = accessor.AllocateSymbolicBuffer(solverName, size)
-    accessor.SetArgumentBuffer(index, buffer)
-    let input =
-      { Name = name
-        SolverName = solverName
-        Location = $"arg{index}@0x{buffer.Address:x}"
-        Size = size
-        Query = buffer :> IQueryExpr }
+    let hdl = Binary.Handle binary
+    let accessor = SymbStateAccessor(hdl, state)
+    let initialSP = accessor.StackPointer
+    let firstOrdinal = List.length inputs
+    let allocations =
+      allocateArgumentBuffers accessor arguments firstOrdinal
+    reserveArgumentFrame hdl accessor initialSP arguments
+    writeArgumentBuffers hdl accessor allocations
+    let addedInputs = allocations |> List.map (fun (_, _, input) -> input)
     SymbExecutorValue(binary,
                       state,
-                      input :: inputs,
+                      List.rev addedInputs @ inputs,
                       avoids,
                       regions,
                       hooks,
                       hookText,
                       solver)
+
+  member this.WithSymbolicArgument(index, name, size) =
+    this.WithSymbolicArguments([ index, name, size ])
 
   member _.WithSymbolicRegister(register: string, name: string option) =
     let state = state.Clone()
@@ -621,7 +670,11 @@ type SymbExecutorValue(binary: Binary,
     nextState.PC <- entry
     let accessor = SymbStateAccessor(Binary.Handle binary, nextState)
     accessor.SetStackPointer layout.InitialStackPointer
-    accessor.InitializeFramePointer()
+    let hdl = Binary.Handle binary
+    if Option.isSome hdl.RegisterFactory.FramePointer then
+      accessor.InitializeFramePointer()
+    else
+      ()
     let prepared =
       SymbExecutorValue(binary,
                         nextState,
@@ -1723,11 +1776,11 @@ module private SymbExecutorSetup =
       if Set.contains key contextKeys then Some $"{key}={value}" else None)
     |> SymbArgs.parseContext
 
-  let layout binary context options hasArguments =
-    ExecutionSetup.requestedBufferSpec options hasArguments
+  let layout binary context options indices =
+    ExecutionSetup.requestedBufferSpec options (not (List.isEmpty indices))
     |> Option.map (fun buffers ->
       let hdl = Binary.Handle binary
-      ExecutionSetup.layoutForStack hdl context.Stack buffers)
+      ExecutionSetup.layoutForStack hdl context.Stack buffers indices)
 
   let applyLayout binary layout context (executor: SymbExecutorValue) =
     match layout with
@@ -1779,14 +1832,14 @@ module private SymbExecutorSetup =
       |> Map.tryFind "sym-args"
       |> Option.map symbolicArguments
       |> Option.defaultValue []
-    let layout = layout binary context options (not (List.isEmpty arguments))
+    let indices = arguments |> List.map (fun (index, _, _) -> index)
+    let layout = layout binary context options indices
     let executor = SymbExecutorValue(binary).WithSolver solver
     let executor, context = applyLayout binary layout context executor
     let executor = executor.WithContext context
     let executor =
-      arguments
-      |> List.fold (fun (current: SymbExecutorValue) (index, name, size) ->
-        current.WithSymbolicArgument(index, name, size)) executor
+      if List.isEmpty arguments then executor
+      else executor.WithSymbolicArguments arguments
     configure options executor, layout
 
 type SymbExecAction() =
