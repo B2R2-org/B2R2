@@ -59,6 +59,11 @@ type Instruction
   /// Operation size.
   member _.OprSize with get(): RegType = oprSize
 
+  member private this.AddBranchTargetIfExist addrs =
+    match (this :> IInstruction).DirectBranchTarget() with
+    | false, _ -> addrs
+    | true, target -> Array.append addrs [| target |]
+
   interface IInstruction with
 
     member _.Address with get() = addr
@@ -72,8 +77,8 @@ type Instruction
       | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
       | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
       | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ
-      (* Unconditional branch (immediate) *)
-      | Opcode.B | Opcode.BL
+      (* Unconditional branch (immediate), with B.cond on AL or NV *)
+      | Opcode.B | Opcode.BL | Opcode.BAL | Opcode.BNV
       (* Unconditional branch (register) *)
       | Opcode.BLR | Opcode.BR | Opcode.RET
       | Opcode.BRAA | Opcode.BRAAZ | Opcode.BRAB | Opcode.BRABZ
@@ -183,7 +188,15 @@ type Instruction
       | FiveOperands(_, _, _, _, OprImm c) -> v <- c; true
       | _ -> false
 
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
+    member this.GetNextInstrAddrs() =
+      let ins = this :> IInstruction
+      let fallThrough = [| addr + uint64 nb |]
+      if ins.IsCall || ins.IsCondBranch then
+        this.AddBranchTargetIfExist fallThrough
+      elif ins.IsBranch || ins.IsExit then
+        this.AddBranchTargetIfExist [||]
+      else
+        fallThrough
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 

@@ -164,26 +164,17 @@ let transShiftAmount bld oprSize = function
   | Imm amt -> numI64 amt oprSize
   | Reg amt -> regVar bld amt
 
-/// shared/functions/common/Extend
-/// Extend()
-/// ========
-let extend reg oprSz regSize isUnsigned =
-  (* Extending to the operand's own width is the identity, and it has to be
-     taken before the mask is built rather than after: 1L <<< 64 shifts by a
-     count the CLR reduces modulo 64, so it yields 1L and the mask below comes
-     out as zero. The signed branch used to carry that guard on its own, which
-     left every unsigned full-width extension -- UXTX, and the UXTX form of a
-     register memory offset -- masking its operand away to nothing. *)
-  if regSize >= RegType.toBitWidth oprSz then
-    reg
+/// Extends the low len bits of the given register to oprSize bits, as a cast
+/// rather than as Extend's test of the top bit, so that what reads the IR
+/// sees which extension it is.
+let private extendLowBits (reg: Expr) oprSize len isUnsigned =
+  if len >= RegType.toBitWidth oprSize then
+    AST.zext oprSize reg
   else
-    let uMask = numI64 ((1L <<< regSize) - 1L) oprSz
-    if isUnsigned then
-      reg .& uMask
-    else
-      let mBit = AST.extract reg 1<rt> (regSize - 1)
-      let sMask = ~~~((1L <<< regSize) - 1L)
-      AST.ite mBit (reg .| numI64 sMask oprSz) (reg .& uMask)
+    let low =
+      if len >= RegType.toBitWidth (Expr.typeOf reg) then reg
+      else AST.xtlo (RegType.fromBitWidth len) reg
+    if isUnsigned then AST.zext oprSize low else AST.sext oprSize low
 
 /// aarch64/instrs/extendreg/ExtendReg
 /// ExtendReg()
@@ -204,9 +195,9 @@ let extendReg bld reg typ shift oprSize =
     | UXTH -> true, 16
     | UXTW -> true, 32
     | UXTX -> true, 64
-  let reg = regVar bld reg |> AST.zext oprSize
   let len = min len ((RegType.toBitWidth oprSize) - shift)
-  extend (reg << numI32 shift oprSize) oprSize (len + shift) isUnsigned
+  let ext = extendLowBits (regVar bld reg) oprSize len isUnsigned
+  ext << numI32 shift oprSize
 
 let getElemDataSzAndElemsByVector = function
   (* Vector register names with element index *)

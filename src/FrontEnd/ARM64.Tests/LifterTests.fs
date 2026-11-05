@@ -510,6 +510,17 @@ type LifterTests() =
     ++ [| !.X0 := !.X20 .+ (!.X19 << num64 0x0UL) .+ num64 0x0UL |]
     |> test
 
+  /// An extended register is the extension of its low bits, then the shift:
+  /// what gcc emits to scale a jump table entry has to read as a sign
+  /// extension rather than as a test of the bit the shift moved the sign to.
+  [<TestMethod>]
+  member _.``[AArch64] ADD (extended register, SXTH #2) lift test``() =
+    "8b20a820"
+    ++ [| !.X0 := !.X1
+                  .+ (AST.sext 64<rt> (AST.xtlo 16<rt> !.X0) << num64 0x2UL)
+                  .+ num64 0x0UL |]
+    |> test
+
   /// DC ZVA clears the block DCZID_EL0 names, so the register has to be one
   /// this front end models, with a value from reset on.
   [<TestMethod>]
