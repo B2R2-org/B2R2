@@ -261,6 +261,30 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     | Neutral -> savesFrom addr 4
     | Refutes -> false
 
+  /// The farthest that a load lies from the literal it loads: an offset from
+  /// the PC reaches 4095 bytes, and the PC reads 8 bytes past the load in ARM.
+  let [<Literal>] LiteralReach = 4104UL
+
+  /// Tells whether code within reach of the address loads a literal that
+  /// covers it, reading an instruction at every word, as the code that loads
+  /// it may be code that the recovery has yet to build, such as a case of a
+  /// switch that a literal pool amid the switch serves. Only ARM code is read
+  /// this way, as one halfword in 32 reads as a load of a literal in Thumb,
+  /// whether it is data, ARM code or the second half of a Thumb instruction.
+  let isLoadedFromNearby (addr: Addr) =
+    let covers ins =
+      match tryLiteralRangeOf ins with
+      | Some(range: AddrRange) -> range.IsIncluding addr
+      | None -> false
+    let rec scan (insAddr: Addr) =
+      if insAddr > addr + LiteralReach then
+        false
+      else
+        match lu.TryParseInstruction insAddr with
+        | Ok ins when covers ins -> true
+        | _ -> scan (insAddr + 4UL)
+    not lu.IsThumb && scan ((addr - min addr LiteralReach) / 4UL * 4UL)
+
   /// Tells whether the code from the address reaches an unconditional direct
   /// branch through nothing but conditional ones, within the given number of
   /// instructions.
@@ -356,11 +380,11 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
 
   /// Tells whether the code where the pointer leads, in the instruction set
   /// that its lowest bit names, shows a function starting, whatever the
-  /// recovery has built there.
+  /// recovery has built there, while no ARM code nearby loads it as a literal.
   member _.ShowsEntry(pointer: Addr) =
     let addr = pointer &&& ~~~1UL
     lu.IsThumb <- pointer &&& 1UL = 1UL
-    isDecodable addr && showsEntry addr
+    isDecodable addr && showsEntry addr && not (isLoadedFromNearby addr)
 
   /// Tells whether a function likely starts where the pointer leads: at code
   /// in the instruction set that its lowest bit names, which no function that

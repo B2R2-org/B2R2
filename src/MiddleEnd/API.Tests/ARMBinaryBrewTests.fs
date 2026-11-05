@@ -291,6 +291,29 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0x18UL |], entries)
 
+  (* Only code that the recovery never builds loads the words at x, yet they
+     are literals all the same, as in a pool amid a large switch whose cases
+     the recovery has yet to reach. A literal is data whatever it decodes as,
+     so the jump to it proves nothing, though the words read as a push and a
+     pop. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump to a literal that unbuilt code loads proves nothing``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "050000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "04009fe5" (* ldr r0, [pc, #4], which nothing reaches *)
+          "04109fe5" (* ldr r1, [pc, #4] *)
+          "1eff2fe1" (* bx lr *)
+          "10402de9" (* x: .word 0xe92d4010, loaded at 0xc *)
+          "1080bde8" (* .word 0xe8bd8010, loaded at 0x10 *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "fbffffea" (* b x *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x20UL |], entries)
+
   (* The floating-point code of libgcc jumps from one function into the middle
      of another, as __floatsidf does into __adddf3, which nothing may call. The
      code above the target falls through to it without saving any register on
@@ -803,6 +826,19 @@ type ARMBinaryBrewTests() =
   [<Timeout(10000)>]
   member _.``A pointer that fixed-base data holds can name a function``() =
     let bytes = readZippedBinary "elf_arm32"
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x103fcUL)
+
+  (* With main saving r4, r5, fp and lr instead, its push reads in Thumb as a
+     load of a literal at __do_global_dtors_aux, as one halfword in 32 of any
+     data or code does, so no such reading tells that the function that the
+     pointer of .fini_array names is a literal. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A Thumb function that ARM code seems to load is found``() =
+    let bytes = readZippedBinary "elf_arm32"
+    System.BitConverter.GetBytes(0xe92d4830u).CopyTo(bytes, 0x338)
+    System.BitConverter.GetBytes(0xe8bd8830u).CopyTo(bytes, 0x34c)
     let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
     CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x103fcUL)
 
