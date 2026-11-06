@@ -468,6 +468,12 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | LowUIR.UnOp(Op = UnOpType.NOT; Operand = e)
       when LowUIR.Expr.typeOf e = 1<rt> ->
       find e |> negate
+    (* Thumb tells CBNZ from CBZ by xoring the test of the register with one
+       rather than zero. *)
+    | LowUIR.BinOp(Op = BinOpType.XOR; Left = LowUIR.Num(Value = n); Right = e)
+    | LowUIR.BinOp(Op = BinOpType.XOR; Left = e; Right = LowUIR.Num(Value = n))
+      when LowUIR.Expr.typeOf e = 1<rt> ->
+      if n.IsZero then find e else find e |> negate
     | LowUIR.BinOp(Op = (BinOpType.AND | BinOpType.OR); Left = e1; Right = e2)
       when e1 = e2 ->
       find e1
@@ -494,14 +500,52 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | _ ->
       None
 
+  /// Finds the definition that alone reaches the given read of a variable at
+  /// the given program point from another block, as the statements of that
+  /// block, the index of the definition among them, and what it defines the
+  /// variable as. Where several definitions meet, a phi defines the variable
+  /// at the start of its block, where no statement defines anything.
+  let tryFindOuterDef (state: LowUIRSparseDataFlow.State<_>) pp read =
+    let vp = { ProgramPoint = pp; VarKind = VarKind.ofIRExpr read }
+    match state.UseDefMap.TryGetValue vp with
+    | true, defVp ->
+      match state.StmtOfBBLs.TryGetValue defVp.ProgramPoint with
+      | true, (LowUIR.Put(Src = src), v) ->
+        let stmts = state.GetStmtInfos v
+        let i = stmts |> Array.findIndex (fun (_, p) -> p = defVp.ProgramPoint)
+        Some(stmts, i, src)
+      | _ ->
+        None
+    | false, _ ->
+      None
+
+  /// Traces the given test of a read at a program point back to the argument
+  /// that the function gets untouched, through the definitions that reach the
+  /// read from other blocks, as when a conditional instruction of ARM parts a
+  /// comparison from the instruction that reads its flag. Gives the argument
+  /// along with whether the test holds exactly when the argument is zero.
+  let rec tryTraceZeroTest hdl state (read, pp, onZero) =
+    match tryGetUntouchedArgument hdl state pp read, read with
+    | Some loc, _ ->
+      Some(loc, onZero)
+    | None, (LowUIR.Var _ | LowUIR.TempVar _) ->
+      tryFindOuterDef state pp read
+      |> Option.bind (fun (stmts, i, src) -> tryFindZeroTest stmts i src)
+      |> Option.bind (fun (read, pp, onDefZero) ->
+        tryTraceZeroTest hdl state (read, pp, onZero <> onDefZero))
+    | None, _ ->
+      None
+
   /// Finds the argument that the given guard finds zero whenever it lets a
   /// path through. The data flow that tells whether the guard tests one is
   /// computed only once the guard tests something that may be one.
   let tryGetZeroOnGuard hdl (state: Lazy<_>) ((stmts, cond), outcome) =
     match tryFindZeroTest stmts (Array.length stmts - 1) cond with
-    | Some(read, pp, onZero) when onZero = outcome ->
-      tryGetUntouchedArgument hdl state.Value pp read
-    | _ ->
+    | Some test ->
+      match tryTraceZeroTest hdl state.Value test with
+      | Some(loc, onZero) when onZero = outcome -> Some loc
+      | _ -> None
+    | None ->
       None
 
   /// Finds the argument that a guard on every path to the given vertex finds

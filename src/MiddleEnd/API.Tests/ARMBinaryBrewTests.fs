@@ -255,6 +255,63 @@ type ARMBinaryBrewTests() =
     let expected = ConditionalNoRet(ArgLocation.Reg r0)
     Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
+  (* Clang frees the frame of error_tail on the same condition right before the
+     pop, so the add that frees it parts the pop from the comparison: the pop
+     reads a flag that a block before it sets. *)
+  [<TestMethod>]
+  member _.``A pop of the PC after a conditional add returns conditionally``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* push {r4, lr} *)
+          "01db4de2" (* sub sp, sp, #1024 *)
+          "0040a0e1" (* mov r4, r0 *)
+          "000054e3" (* cmp r4, #0 *)
+          "01db8d02" (* addeq sp, sp, #1024 *)
+          "1080bd08" (* popeq {r4, pc} *)
+          "000000eb" (* bl 0x20 *)
+          "00000000" (* .word 0, which no path reaches *)
+          "feffffea" (* b 0x20 *) ]
+    let r0 = ARM32.Register.toRegID ARM32.Register.R0
+    let expected = ConditionalNoRet(ArgLocation.Reg r0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
+  (* Thumb compares a register with zero and branches on the outcome in one
+     instruction, whose IR tells CBNZ from CBZ by xoring the comparison with
+     one rather than zero. Clang branches around the return of error_tail by
+     CBNZ. *)
+  [<TestMethod>]
+  member _.``A return that CBNZ branches around returns conditionally``() =
+    let fns =
+      recoverThumbCode
+        [ "10b5" (* push {r4, lr} *)
+          "0446" (* mov r4, r0 *)
+          "04b9" (* cbnz r4, 0x8 *)
+          "10bd" (* pop {r4, pc} *)
+          "2046" (* mov r0, r4 *)
+          "00f001f8" (* bl 0x10 *)
+          "00bf" (* nop, which no path reaches *)
+          "fee7" (* b.n 0x10 *) ]
+    let r0 = ARM32.Register.toRegID ARM32.Register.R0
+    let expected = ConditionalNoRet(ArgLocation.Reg r0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
+  (* GCC branches to the return of error_tail by CBZ instead. *)
+  [<TestMethod>]
+  member _.``A return that CBZ branches to returns conditionally``() =
+    let fns =
+      recoverThumbCode
+        [ "10b5" (* push {r4, lr} *)
+          "0446" (* mov r4, r0 *)
+          "14b1" (* cbz r4, 0xc *)
+          "2046" (* mov r0, r4 *)
+          "00f002f8" (* bl 0x10 *)
+          "10bd" (* pop {r4, pc} *)
+          "00bf" (* nop, which no path reaches *)
+          "fee7" (* b.n 0x10 *) ]
+    let r0 = ARM32.Register.toRegID ARM32.Register.R0
+    let expected = ConditionalNoRet(ArgLocation.Reg r0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
   (* f jumps to x before anything tells that x is a function, so its building
      follows the jump within f. Only once f returns does main call g, which
      calls x and so makes it a function, after which f is built again to call
