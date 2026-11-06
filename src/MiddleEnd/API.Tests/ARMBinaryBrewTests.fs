@@ -204,6 +204,30 @@ type ARMBinaryBrewTests() =
     let callee = cfg.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
     CollectionAssert.AreEqual([||], cfg.GetSuccs callee)
 
+  (* xalloc_die of gnulib passes exit_failure to error, which returns on zero,
+     and calls abort after it. The variable holds one in .data, but the program
+     may set it to anything before the call, so the call may return. Here main
+     passes what .data holds to f, which returns on zero. *)
+  [<TestMethod>]
+  member _.``A call passing a variable may return``() =
+    let bytes = readZippedBinary "elf_arm32"
+    let code =
+      [ "10402de9" (* main: push {r4, lr} *)
+        "08009fe5" (* ldr r0, [pc, #8] *)
+        "000090e5" (* ldr r0, [r0] *)
+        "010000eb" (* bl f *)
+        "1080bde8" (* pop {r4, pc} *)
+        "24200100" (* .word 0x12024, a variable in .data *)
+        "000050e3" (* f: cmp r0, #0 *)
+        "1eff2f01" (* bxeq lr *)
+        "f3ffffeb" (* bl abort *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    code.CopyTo(bytes, 0x330)
+    System.BitConverter.GetBytes(1u).CopyTo(bytes, 0x1024)
+    let fns = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "armv7")).Functions
+    Assert.AreEqual<NonReturningStatus>(NotNoRet, fns[0x10330UL].NoRet)
+
   (* The error of gnulib returns only when its status is zero, and exits
      otherwise. ARM pops the PC on that condition within the instruction
      rather than branching around the pop, and compares the status with zero

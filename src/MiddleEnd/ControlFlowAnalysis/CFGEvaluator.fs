@@ -28,15 +28,27 @@ open System
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.DataFlow.Constants
 
+/// Checks if only the loader writes to the given address, so that the code
+/// reads there what the binary holds. A variable in .data, for instance, may
+/// hold anything by the time the code reads it.
+let private isLoaderOnly (file: IBinFile) addr =
+  match file with
+  | :? ELFBinFile as elf -> elf.IsReadOnlyAfterLoading addr
+  | _ -> file.IsExecutableAddr addr
+
+let private isReadable (file: IBinFile) addr =
+  addr < UInt64.MaxValue && file.IsValidAddr addr && isLoaderOnly file addr
+
 let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let len = RegType.toByteWidth typ
   let file = hdl.File
-  if addr < UInt64.MaxValue && file.IsValidAddr addr then
+  if isReadable file addr then
     let ptr = hdl.File.GetBoundedPointer addr
     match hdl.TryReadBytes(ptr, len) with
     | Ok v -> Ok(BitVector v)
