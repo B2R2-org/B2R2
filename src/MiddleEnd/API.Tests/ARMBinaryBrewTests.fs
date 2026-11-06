@@ -91,6 +91,12 @@ type ARMBinaryBrewTests() =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "armv7")).Functions
 
+  /// Recovers the functions of the given code of Thumb, which starts at address
+  /// zero with the entry of the binary.
+  static let recoverThumbCode (code: string list) =
+    let bytes = code |> String.concat "" |> ByteArray.ofHexString
+    BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "thumb")).Functions
+
   /// Returns the kinds of the edges that leave the block of the function that
   /// ends at the given address.
   static let edgeKindsFrom (fn: Function) insAddr =
@@ -765,6 +771,89 @@ type ARMBinaryBrewTests() =
     let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x8UL; 0x10UL; 0x38UL; 0x3cUL |], targets)
+
+  (* A TBB of Thumb jumps through a table of bytes right after it, each of
+     which counts halfwords from the table. Like any branch of Thumb, the jump
+     clears the lowest bit of its target. *)
+  [<TestMethod>]
+  member _.``A TBB jumps by the bytes of the table after it``() =
+    let fns =
+      recoverThumbCode
+        [ "00f00ff8" (* bl 0x22 *)
+          "0328" (* cmp r0, #3 *)
+          "0ad8" (* bhi.n 0x1e *)
+          "dfe800f0" (* tbb [pc, r0] *)
+          "02030507" (* .byte 2, 3, 5, 7 *)
+          "7047" (* bx lr *)
+          "0120" (* movs r0, #1 *)
+          "7047" (* bx lr *)
+          "0220" (* movs r0, #2 *)
+          "7047" (* bx lr *)
+          "0320" (* movs r0, #3 *)
+          "7047" (* bx lr *)
+          "0420" (* movs r0, #4 *)
+          "7047" (* bx lr *)
+          "7047" (* bx lr *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x10UL; 0x12UL; 0x16UL; 0x1aUL |], targets)
+
+  (* A TBH reads a table of halfwords instead, doubling the index within the
+     load. *)
+  [<TestMethod>]
+  member _.``A TBH jumps by the halfwords of the table after it``() =
+    let fns =
+      recoverThumbCode
+        [ "00f00ff8" (* bl 0x22 *)
+          "0228" (* cmp r0, #2 *)
+          "0ad8" (* bhi.n 0x1e *)
+          "dfe810f0" (* tbh [pc, r0, lsl #1] *)
+          "030005000700" (* .short 3, 5, 7 *)
+          "0020" (* movs r0, #0 *)
+          "7047" (* bx lr *)
+          "0120" (* movs r0, #1 *)
+          "7047" (* bx lr *)
+          "0220" (* movs r0, #2 *)
+          "7047" (* bx lr *)
+          "0320" (* movs r0, #3 *)
+          "7047" (* bx lr *)
+          "7047" (* bx lr *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x12UL; 0x16UL; 0x1aUL |], targets)
+
+  (* Whether a table entry points to a literal tells by reading the code below
+     it from any halfword, which may be the middle of an instruction, as 0x2 is
+     here, whose halfword reads as an IT. The read must leave no IT block for
+     the code that the sweep of the binary skips and the recovery reads later,
+     as x is, which the halfword before it swallows. x jumps on no condition,
+     so nothing runs on past it. *)
+  [<TestMethod>]
+  member _.``Reading Thumb code for literals leaves no IT block``() =
+    let fns =
+      recoverThumbCode
+        [ "d0f808bf" (* ldr.w fp, [r0, #3848], whose 0xbf08 reads as it eq *)
+          "00f012f8" (* bl 0x2c *)
+          "0328" (* cmp r0, #3 *)
+          "00d9" (* bls.n 0xe *)
+          "7047" (* bx lr *)
+          "dfe800f0" (* tbb [pc, r0] *)
+          "02030406" (* .byte 2, 3, 4, 6 *)
+          "7047" (* bx lr *)
+          "04e0" (* b.n 0x24 *)
+          "0120" (* movs r0, #1 *)
+          "7047" (* bx lr *)
+          "0220" (* movs r0, #2 *)
+          "7047" (* bx lr *)
+          "00f0" (* .short 0xf000, which the sweep reads with x as a blx *)
+          "00e0" (* x: b.n 0x28 *)
+          "0920" (* movs r0, #9, which no path reaches *)
+          "0020" (* movs r0, #0 *)
+          "7047" (* bx lr *)
+          "7047" (* bx lr *) ]
+    let blocks =
+      fns[0x0UL].CFG.Vertices
+      |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+      |> Array.map (fun v -> v.VData.Internals.PPoint.Address)
+    CollectionAssert.DoesNotContain(blocks, 0x26UL)
 
   (* Each entry of a GCC table counts words from the jump, so the bytes after
      the table in .rodata send the jump into its function as well, and only

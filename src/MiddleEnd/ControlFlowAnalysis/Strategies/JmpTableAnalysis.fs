@@ -488,14 +488,47 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       Error ErrorCase.ItemNotFound
 
+  /// Reads the given factor as the shift to the left that multiplying by it
+  /// amounts to, if it is a power of two.
+  let tryGetShiftOfFactor (n: BitVector) =
+    let v = n.ToUInt64()
+    if v <> 0UL && v &&& (v - 1UL) = 0UL then
+      Some(System.Numerics.BitOperations.Log2 v)
+    else
+      None
+
   /// Matches an entry that the code extends and then shifts to the left before
   /// adding it to the base, as GCC for ARM adds an entry to the PC, giving
   /// whether the extension is signed, the shift, and the load of the entry.
+  /// TBB and TBH of Thumb double the entry by a multiplication instead.
   let (|ShiftedEntry|_|) = function
     | BinOp(BinOpType.SHL, _, Cast(kind, _, Load(_, t, memExpr)), Num n)
       when kind = CastKind.SignExt || kind = CastKind.ZeroExt ->
       let signed = kind = CastKind.SignExt
       Some(signed, n.ToInt32(), t, memExpr)
+    | BinOp(BinOpType.MUL, _, Num n, Cast(kind, _, Load(_, t, memExpr)))
+    | BinOp(BinOpType.MUL, _, Cast(kind, _, Load(_, t, memExpr)), Num n)
+      when kind = CastKind.SignExt || kind = CastKind.ZeroExt ->
+      let signed = kind = CastKind.SignExt
+      tryGetShiftOfFactor n
+      |> Option.map (fun shift -> signed, shift, t, memExpr)
+    | _ ->
+      None
+
+  /// Matches the target of a jump that clears its lowest bit, as every branch
+  /// of Thumb does, where the bit is clear anyway: an entry shifted to the left
+  /// and added to an even base, as TBB and TBH jump. Gives the target without
+  /// the mask.
+  let (|EvenTarget|_|) = function
+    | BinOp(BinOpType.AND, _, e, Num mask)
+      when BitVector.Not mask = BitVector.One mask.Length ->
+      match e with
+      | BinOp(BinOpType.ADD, _, Num b, ShiftedEntry(_, shift, _, _))
+      | BinOp(BinOpType.ADD, _, ShiftedEntry(_, shift, _, _), Num b)
+        when shift > 0 && b.ToUInt64() % 2UL = 0UL ->
+        Some e
+      | _ ->
+        None
     | _ ->
       None
 
@@ -554,7 +587,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       memExpr
 
-  let detect expandPhi findConst findDef iAddr = function
+  let rec detect expandPhi findConst findDef iAddr = function
+    | EvenTarget e ->
+      detect expandPhi findConst findDef iAddr e
     | BinOp(BinOpType.ADD, _, Num b, Load(_, t, memExpr))
     | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
     | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))

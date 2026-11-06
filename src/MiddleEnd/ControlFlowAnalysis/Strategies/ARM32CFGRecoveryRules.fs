@@ -124,15 +124,24 @@ module private ARM32CFGRecoveryRules =
   /// the PC reaches 4095 bytes, and the PC reads 8 bytes past the load in ARM.
   let [<Literal>] LiteralReach = 4104UL
 
+  /// Returns the lifting unit with which the function reads code on its own,
+  /// set to read from a start: in its instruction set, outside an IT block.
+  let scanningUnitOf (ctx: CFGBuildingContext<_, _>) =
+    let lu = ctx.ScanningUnit
+    lu.IsThumb <- ctx.EntryMode = ARM32Mode.Thumb
+    lu.ITState <- 0uy
+    lu
+
   /// Checks if the function loads the literal at the given address. Code of
   /// 32-bit ARM keeps a function in one piece and lays a pool after the code
   /// that loads it, so the instructions from the entry of the function up to
-  /// the address tell, however far the building has come.
+  /// the address tell, however far the building has come. Each of them is read
+  /// from a start, as the scan may hit the middle of one in Thumb.
   let isLoadedLiteral (ctx: CFGBuildingContext<_, _>) addr =
     let step = if ctx.EntryMode = ARM32Mode.Thumb then 2UL else 4UL
     let lowest = max ctx.FunctionAddress (addr - min addr LiteralReach)
     let loads insAddr =
-      match ctx.BBLFactory.PeekInstruction insAddr with
+      match (scanningUnitOf ctx).TryParseInstruction(insAddr: Addr) with
       | Ok ins -> alwaysLoadsLiteralAt addr (ins :?> ARM32.Instruction)
       | Error _ -> false
     let rec scan insAddr =

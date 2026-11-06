@@ -82,6 +82,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable entryMode = ARM32Mode.ARM
 
+  let scanningUnit = lazy (hdl: BinHandle).NewLiftingUnit()
+
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
 
@@ -95,6 +97,12 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   /// Function name.
   member _.FunctionName with get(): string = name
+
+  /// The lifting unit with which the function reads code on its own, apart
+  /// from the instructions that all functions share. A read there may start
+  /// anywhere, so it must leave no state, such as that of an IT block, that a
+  /// shared read would pick up.
+  member internal _.ScanningUnit with get() = scanningUnit.Value
 
   /// The binary handle.
   member _.BinHandle with get() = hdl
