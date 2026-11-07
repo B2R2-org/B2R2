@@ -402,14 +402,19 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
 
   /// Tells whether the recovery knows where every jump of the function goes,
   /// so that no code of the function lies past what the recovery has built.
+  /// A jump is known once a vertex of its instruction has targets, as a write
+  /// to the PC in ARM splits into a jump for each instruction set, and the
+  /// recovery reads a table only through the one that stays in ARM.
   let isClosed (fn: Function) =
     let cfg = fn.CFG
     let hasTargets v =
       cfg.GetSuccEdges v |> Array.exists (fun e -> e.Label = IndirectJmpEdge)
     cfg.Vertices
-    |> Array.forall (fun v ->
+    |> Array.filter (fun v ->
       let blk = v.VData.Internals
-      blk.IsAbstract || not (isOpenJump blk.LastInstruction) || hasTargets v)
+      not blk.IsAbstract && isOpenJump blk.LastInstruction)
+    |> Array.groupBy (fun v -> v.VData.Internals.LastInstruction.Address)
+    |> Array.forall (fun (_, vs) -> Array.exists hasTargets vs)
 
   /// Tells whether the code where the lead starts begins the function past
   /// the given one. Code that saves a preserved register before it calls,

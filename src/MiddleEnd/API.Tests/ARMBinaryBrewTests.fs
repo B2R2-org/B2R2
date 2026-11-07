@@ -642,6 +642,39 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
 
+  (* An ADD to the PC in ARM splits into a jump for each instruction set, and
+     the recovery reads the table of f through the one that stays in ARM, so
+     it knows where every jump of f goes. g, which saves no register and
+     returns, then starts right past f. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function past a switch that the recovery reads is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "10402de9" (* f: push {r4, lr} *)
+          "0e0000eb" (* bl h *)
+          "030050e3" (* cmp r0, #3 *)
+          "0900008a" (* bhi 0x44 *)
+          "04108fe2" (* add r1, pc, #4 *)
+          "000191e7" (* ldr r0, [r1, r0, lsl #2] *)
+          "00f081e0" (* add pc, r1, r0 *)
+          "10000000" (* .word 0x10 *)
+          "14000000" (* .word 0x14 *)
+          "18000000" (* .word 0x18 *)
+          "1c000000" (* .word 0x1c *)
+          "0000a0e3" (* mov r0, #0 *)
+          "0100a0e3" (* mov r0, #1 *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "010080e2" (* g: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "1eff2fe1" (* h: bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x48UL; 0x50UL |], entries)
+
   (* GCC puts a mov r0, r0 for a nop in ARMv5 code, here between f and the
      literal that it loads, and the word of the literal decodes as an andeq.
      Read on through them, the code at 0x14 would save registers with the
