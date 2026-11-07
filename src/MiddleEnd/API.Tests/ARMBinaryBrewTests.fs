@@ -312,6 +312,31 @@ type ARMBinaryBrewTests() =
     let expected = ConditionalNoRet(ArgLocation.Reg r0)
     Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
+  (* Clang passes error the status err_exit ? err_exit : 1 by moving one into
+     it when it is at most one. The call at 0xc thus passes no zero to the
+     function at 0x12, which never returns then, nor does the caller. *)
+  [<TestMethod>]
+  member _.``A call passing at least one never returns``() =
+    let fns =
+      recoverThumbCode
+        [ "10b5" (* push {r4, lr} *)
+          "0446" (* mov r4, r0 *)
+          "012c" (* cmp r4, #1 *)
+          "98bf" (* it ls *)
+          "0124" (* movls r4, #1 *)
+          "2046" (* mov r0, r4 *)
+          "00f001f8" (* bl 0x12 *)
+          "10bd" (* pop {r4, pc} *)
+          "10b5" (* push {r4, lr} *)
+          "0446" (* mov r4, r0 *)
+          "14b1" (* cbz r4, 0x1e *)
+          "2046" (* mov r0, r4 *)
+          "00f002f8" (* bl 0x22 *)
+          "10bd" (* pop {r4, pc} *)
+          "00bf" (* nop, which no path reaches *)
+          "fee7" (* b.n 0x22 *) ]
+    Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x0UL].NoRet)
+
   (* f jumps to x before anything tells that x is a function, so its building
      follows the jump within f. Only once f returns does main call g, which
      calls x and so makes it a function, after which f is built again to call

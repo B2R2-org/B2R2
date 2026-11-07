@@ -82,6 +82,127 @@ module private CondAwareNoretAnalysisHelper =
       not pred.VData.Internals.IsAbstract
       && hasNonZero hdl [| pred; caller |] loc)
 
+  /// Represents what holds a value within the statements of a vertex: a
+  /// register, or a temporary of the instruction that they belong to.
+  [<RequireQualifiedAccess>]
+  type Holder =
+    | Reg of RegisterID
+    | Temp of int
+
+  let tryHolderOf e =
+    match e with
+    | LowUIR.Var(RegisterID = r) -> Some(Holder.Reg r)
+    | LowUIR.TempVar(Index = i) -> Some(Holder.Temp i)
+    | _ -> None
+
+  /// Follows the given holder of a value back from the i-th of the given
+  /// statements to what holds the value before the first one, through the
+  /// copies that pass it on, unless a statement computes the value.
+  let rec tryTraceCopy (stmts: LowUIR.Stmt[]) i holder =
+    if i < 0 then
+      Some holder
+    else
+      match stmts[i] with
+      | LowUIR.Put(Dst = dst; Src = src) when tryHolderOf dst = Some holder ->
+        tryHolderOf src |> Option.bind (tryTraceCopy stmts (i - 1))
+      | _ ->
+        tryTraceCopy stmts (i - 1) holder
+
+  /// Follows the given holder of a value at the end of the given vertex back
+  /// to what holds the value at its start, unless the vertex computes it.
+  let tryTraceBack (v: IVertex<LowUIRBasicBlock>) holder =
+    let stmts = v.VData.Internals.LiftedInstructions |> Array.collect _.Stmts
+    tryTraceCopy stmts (stmts.Length - 1) holder
+
+  /// Checks if the given holder holds a non-zero value at the end of the given
+  /// vertex, whatever the control brings into it.
+  let isNonZeroAtEnd hdl v holder =
+    let st = CFGEvaluator.evalBlockWith hdl [||] v
+    let value =
+      match holder with
+      | Holder.Reg r -> st.TryGetReg r
+      | Holder.Temp i -> st.TryGetTmp i
+    match value with
+    | Def bv -> not bv.IsZero
+    | _ -> false
+
+  /// Tells whether the given vertex starts past the first statement of an
+  /// instruction, where only the conditional jumps within the instruction
+  /// lead, so that no other code may come to enter it.
+  let isWithinInstruction (v: IVertex<LowUIRBasicBlock>) =
+    v.VData.Internals.PPoint.Position > 0
+
+  /// Returns which way a conditional jump goes as the control takes an edge of
+  /// the given kind, if the edge stands for one.
+  let tryGetOutcome kind =
+    match kind with
+    | IntraCJmpTrueEdge | InterCJmpTrueEdge -> Some true
+    | IntraCJmpFalseEdge | InterCJmpFalseEdge -> Some false
+    | _ -> None
+
+  /// Gets the condition of the conditional jump that ends the given vertex.
+  let tryGetJumpCondition (v: IVertex<LowUIRBasicBlock>) =
+    (Array.last v.VData.Internals.LiftedInstructions).Stmts
+    |> Array.rev
+    |> Array.tryPick (fun stmt ->
+      match stmt with
+      | LowUIR.CJmp(Cond = c) | LowUIR.InterCJmp(Cond = c) -> Some c
+      | _ -> None)
+
+  /// Checks if the conditional jump that ends the given vertex would not go the
+  /// given way, were the value that the given holder holds at the end of the
+  /// vertex zero: the value comes from a register that the vertex compares, as
+  /// when a conditional move turns any value up to one into one.
+  let isCutOnZero hdl u holder outcome =
+    match tryTraceBack u holder, tryGetJumpCondition u with
+    | Some(Holder.Reg r), Some cond ->
+      let zero = BitVector.Zero((hdl: BinHandle).RegisterFactory.GetRegType r)
+      let st = CFGEvaluator.evalBlockWith hdl [| r, zero |] u
+      match SafeEvaluator.evalExpr st cond with
+      | Ok(Def taken) -> taken.IsZero = outcome
+      | _ -> false
+    | _ ->
+      false
+
+  /// The most vertices that the paths to a call may cross back to find what
+  /// sets the argument that the call passes.
+  let [<Literal>] MaxPathLength = 16
+
+  /// Checks if the value that the given holder holds at the end of the given
+  /// vertex is non-zero on every path to it, crossing back at most the given
+  /// number of vertices. A path ends where a vertex computes the value or a
+  /// guard would turn a zero one away. Only the caller of the call that passes
+  /// the value and the parts of an instruction past its conditional jumps let
+  /// a path go further back, as no other code may come to enter the parts,
+  /// while the caller is judged again once it gains a predecessor.
+  let rec isNonZeroOnPaths hdl g caller fuel v holder =
+    match tryTraceBack v holder with
+    | None ->
+      isNonZeroAtEnd hdl v holder
+    | Some start when fuel > 0 && (v = caller || isWithinInstruction v) ->
+      let edges = (g: IDiGraph<LowUIRBasicBlock, _>).GetPredEdges v
+      not (Array.isEmpty edges)
+      && edges |> Array.forall (isNonZeroAcross hdl g caller (fuel - 1) start)
+    | Some _ ->
+      false
+
+  and isNonZeroAcross hdl g caller fuel holder (e: Edge<_, _>) =
+    let u = e.First
+    not u.VData.Internals.IsAbstract
+    && (tryGetOutcome e.Label |> Option.exists (isCutOnZero hdl u holder)
+        || isNonZeroOnPaths hdl g caller fuel u holder)
+
+  /// Checks if every path to the call ending the given caller sets the
+  /// argument at the given location to a non-zero one or passes a guard that a
+  /// zero one would not pass, such as the comparison that decides whether a
+  /// conditional move turns the argument into one.
+  let passesNonZeroOnGuards hdl g caller loc =
+    match loc with
+    | ArgLocation.Reg rid ->
+      isNonZeroOnPaths hdl g caller MaxPathLength caller (Holder.Reg rid)
+    | _ ->
+      false
+
   [<return: Struct>]
   let (|Zero|_|) e =
     match e with
@@ -624,8 +745,10 @@ module CondAwareNoretAnalysis =
   /// Checks if the call ending the given caller in the given CFG passes a
   /// non-zero argument at the given location, however the control reaches it.
   /// A caller that sets no argument of its own leaves it to its predecessors,
-  /// as when a compiler merges the calls of several paths into one, so the
-  /// answer holds only while no other predecessor joins them.
+  /// as when a compiler merges the calls of several paths into one, or to a
+  /// guard that a zero argument would not pass, so the answer holds only while
+  /// no other predecessor joins them.
   let passesNonZero hdl g caller loc =
     CondAwareNoretAnalysisHelper.hasNonZero hdl [| caller |] loc
     || CondAwareNoretAnalysisHelper.hasNonZeroFromPreds hdl g caller loc
+    || CondAwareNoretAnalysisHelper.passesNonZeroOnGuards hdl g caller loc

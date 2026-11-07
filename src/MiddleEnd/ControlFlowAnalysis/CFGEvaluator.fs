@@ -68,13 +68,11 @@ let private obtainFramePointerDef (hdl: BinHandle) =
   | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
   | None -> [||]
 
-let private initState hdl pc =
+let private initState hdl pc regs =
   let st = ConcState()
   st.IgnoreUndef <- true
   st.LoadFailureEventHandler <- memoryReader hdl
-  [| obtainStackDef hdl; obtainFramePointerDef hdl |]
-  |> Array.concat
-  |> fun regs -> st.InitializeContext(pc, regs)
+  st.InitializeContext(pc, regs)
   st
 
 let rec private evalBlockLoop idx (blk: Stmt[][]) result =
@@ -96,9 +94,8 @@ let private evalBlock (st: ConcState) pc blk =
   evalBlockLoop 0 blk (Ok st)
 
 /// Concretely evaluates the given basic blocks in turn, as the control runs
-/// through them, from an arbitrarily generated state.
-let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
-  let st = initState hdl blks[0].VData.Internals.PPoint.Address
+/// through them, from the given state.
+let private evalBlocks (st: ConcState) (blks: IVertex<LowUIRBasicBlock>[]) =
   st.SideEffectEventHandler <- fun _ st -> st.AbortInstr()
   for blk in blks do
     let pc = blk.VData.Internals.PPoint.Address
@@ -109,5 +106,20 @@ let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
     | Error _ -> Terminator.impossible ()
   st
 
+/// Concretely evaluates the given basic blocks in turn, as the control runs
+/// through them, from an arbitrarily generated state.
+let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
+  let regs = Array.append (obtainStackDef hdl) (obtainFramePointerDef hdl)
+  let st = initState hdl blks[0].VData.Internals.PPoint.Address regs
+  evalBlocks st blks
+
 /// Concretely evaluates a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl blk = evalBlocksFromScratch hdl [| blk |]
+
+/// Concretely evaluates a basic block from a state that knows nothing but the
+/// stack pointer and the given registers, not even the frame pointer, which a
+/// state from scratch takes for zero.
+let evalBlockWith hdl regs (blk: IVertex<LowUIRBasicBlock>) =
+  let regs = Array.append (obtainStackDef hdl) regs
+  let st = initState hdl blk.VData.Internals.PPoint.Address regs
+  evalBlocks st [| blk |]
