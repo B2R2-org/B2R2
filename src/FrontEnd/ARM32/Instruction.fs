@@ -46,9 +46,13 @@ type Instruction
            isAdd,
            lifter: ILiftable) =
 
+  /// Tells whether this names where it branches to as a label, as B does, and
+  /// as CBZ and CBNZ do besides the register that they test.
   let hasConcJmpTarget () =
-    match opr with
-    | OneOperand(OprMemory(LiteralMode _)) -> true
+    match op, opr with
+    | _, OneOperand(OprMemory(LiteralMode _))
+    | Op.CBZ, TwoOperands(_, OprMemory(LiteralMode _))
+    | Op.CBNZ, TwoOperands(_, OprMemory(LiteralMode _)) -> true
     | _ -> false
 
   /// Tells whether this computes the PC as its destination, which ALUWritePC

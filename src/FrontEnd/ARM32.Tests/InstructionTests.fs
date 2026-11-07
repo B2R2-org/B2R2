@@ -68,6 +68,16 @@ type InstructionTests() =
     Assert.AreEqual<string>("", String.concat " " missed)
     Assert.AreEqual<bool>(false, (parse false "e28f1004").IsBranch)
 
+  (* CBZ and CBNZ branch to the label that they name, as B does, besides the
+     register that they test, so they branch directly. *)
+  [<TestMethod>]
+  member _.``[ARMv7] compares and branches on zero directly test``() =
+    let kinds hex =
+      let ins = parse true hex
+      ins.IsDirectBranch, ins.IsIndirectBranch
+    Assert.AreEqual<bool * bool>((true, false), kinds "b175") (* cbz r5 *)
+    Assert.AreEqual<bool * bool>((true, false), kinds "b97b") (* cbnz r3 *)
+
   (* GCC puts a UDF where control never arrives, such as a case of a switch
      that cannot happen, and lays data right after it, so nothing after it is
      code to follow, just as nothing is after a UD2 of Intel. *)
