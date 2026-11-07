@@ -359,6 +359,27 @@ type ARMBinaryBrewTests() =
     let kinds = edgeKindsFrom fns[0x10UL] 0x14UL
     CollectionAssert.AreEqual([| TailCallEdge |], kinds)
 
+  (* f flips the sign of an argument and runs into g, as libgcc writes
+     __subdf3 by hand to run into __adddf3. main calls g first, so g is a
+     function before f is built, and f calls it as its tail rather than lose
+     the code of g past its entry. *)
+  [<TestMethod>]
+  member _.``Code that runs into another function calls it as its tail``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "020000eb" (* bl g *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "023123e2" (* f: eor r3, r3, #0x80000000 *)
+          "10402de9" (* g: push {r4, lr} *)
+          "000050e3" (* cmp r0, #0 *)
+          "0000000a" (* beq 0x24 *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let kinds = edgeKindsFrom fns[0x10UL] 0x10UL
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
   (* Only f calls x, by jumping to it as its tail. x lies below the entry of
      f, and code of 32-bit ARM keeps each function in one piece, so the jump
      leaves f for another function, which x shows starting by saving the

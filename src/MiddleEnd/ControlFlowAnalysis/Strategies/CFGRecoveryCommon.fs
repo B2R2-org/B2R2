@@ -502,6 +502,20 @@ module internal CFGRecoveryCommon =
     let act = MakeCall(callsite, callee, CalleeInfo.Unknown)
     handleCall ctx cfgRec rules srcVertex callsite callee act
 
+  /// Checks if the code that goes on to the given address runs into the entry
+  /// of another function, as code written by hand does that shares the rest
+  /// of a function, such as __subdf3 of libgcc, which runs into __adddf3.
+  let runsIntoOtherFunction (ctx: CFGBuildingContext<_, _>) addr =
+    addr <> ctx.FunctionAddress && isFuncEntryPoint ctx addr
+
+  /// Calls the function that the code ending the given vertex runs into at the
+  /// given entry as its tail.
+  let handleRunInto ctx cfgRec rules srcVertex entry =
+    let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
+    let callsite = LeafCallSite bbl.LastInstruction.Address
+    let act = MakeTlCall(callsite, entry, CalleeInfo.Unknown)
+    handleCall ctx cfgRec rules srcVertex callsite entry act
+
   /// Matches the kind of a call that switches 32-bit ARM to the other
   /// instruction set, telling the one the callee starts in.
   [<return: Struct>]
@@ -546,13 +560,17 @@ module internal CFGRecoveryCommon =
         match srcData.Terminator with
         | IEMark _ ->
           let last = srcData.LastInstruction
-          let nextPPoint = ProgramPoint(last.Address + uint64 last.Length, 0)
-          match tryGetVertex ctx cfgRec nextPPoint with
-          | Ok dstVertex ->
-            connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
-            queue.Enqueue nextPPoint
-          | Error _ ->
-            () (* Ignore when a bad instruction follows *)
+          let nextAddr = last.Address + uint64 last.Length
+          if useTailcallHeuristic && runsIntoOtherFunction ctx nextAddr then
+            result <- handleRunInto ctx cfgRec rules srcVertex nextAddr
+          else
+            let nextPPoint = ProgramPoint(nextAddr, 0)
+            match tryGetVertex ctx cfgRec nextPPoint with
+            | Ok dstVertex ->
+              connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
+              queue.Enqueue nextPPoint
+            | Error _ ->
+              () (* Ignore when a bad instruction follows *)
         | Jmp(Target = JmpDest(Target = lbl)) ->
           let dstPPoint = srcBBL.LabelMap[lbl]
           let dstVertex = getVertex ctx cfgRec dstPPoint
@@ -1207,6 +1225,28 @@ module internal CFGRecoveryCommon =
         v.VData.Internals.LastInstruction.IsRET)
     |> Option.isSome
 
+  /// Checks if a block of the function runs on into the given entry, where an
+  /// instruction of the block past its first one starts.
+  let runsIntoEntry (ctx: CFGBuildingContext<_, _>) entry =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && bbl.Range.Min < entry
+      && bbl.Instructions |> Array.exists (fun ins -> ins.Address = entry))
+
+  /// Cuts the block of the function that runs on into the entry of the next
+  /// function there, telling whether it did. Such a block, scanned before the
+  /// next function came to light, keeps the code past the entry, while the
+  /// function ends at the entry and drops what that code jumps to. Built
+  /// again, the function calls the next one as its tail where it runs into it.
+  let cutsAtNextEntry (ctx: CFGBuildingContext<_, _>) =
+    match ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress with
+    | Some entry when runsIntoEntry ctx entry ->
+      Result.isOk (ctx.ScanBBLs [ entry ])
+    | _ ->
+      false
+
   /// Copies the recovered edges to other indirect branches that use the same
   /// jump table. The table owner performs the actual recovery only once.
   let connectDelayedJumpTableEdges ctx (cfgRec: ICFGRecovery<_, _>) =
@@ -1266,6 +1306,7 @@ module internal CFGRecoveryCommon =
   let onFinish (ctx: CFGBuildingContext<_, _>) cfgRec rules postAnalysis =
     assert (ctx.JumpTableRecoveryStatus.Count = 0)
     if (rules: ICFGRecoveryRules<_, _>).RequiresRebuild ctx then StopAndReload
+    elif cutsAtNextEntry ctx then StopAndReload
     else checkOverlap ctx cfgRec postAnalysis
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
