@@ -1024,6 +1024,58 @@ type ARMBinaryBrewTests() =
     let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
     CollectionAssert.AreEqual([| 0x0UL; 0x14UL |], Seq.toArray fns.Addresses)
 
+  (* The function at 0x14 calls the argument that its caller passes in r2, so
+     the pointer that the call at 0x8 passes there proves that a function
+     starts at 0x24, which nothing else shows, as it returns past a move on a
+     condition. *)
+  [<TestMethod>]
+  member _.``A call proves its argument a function if the callee calls it``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "04209fe5" (* ldr r2, [pc, #4] *)
+        "010000eb" (* bl #0x14 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "24000000" (* .word 0x24 *)
+        "10402de9" (* push {r4, lr} *)
+        "0240a0e1" (* mov r4, r2 *)
+        "34ff2fe1" (* blx r4 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "000050e3" (* cmp r0, #0 *)
+        "0100a003" (* moveq r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x24UL |], entries)
+
+  (* The function at 0x10 jumps to the one at 0x1c as its tail, which calls
+     the argument in r2, so the pointer that the jump passes there proves that
+     a function starts at 0x2c. The call at 0x4 makes 0x1c a function before
+     the one at 0x10 is built. *)
+  [<TestMethod>]
+  member _.``A tail call passes its callee arguments as a call does``() =
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "040000eb" (* bl #0x1c *)
+        "000000eb" (* bl #0x10 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "00209fe5" (* ldr r2, [pc] *)
+        "000000ea" (* b #0x1c *)
+        "2c000000" (* .word 0x2c *)
+        "10402de9" (* push {r4, lr} *)
+        "0240a0e1" (* mov r4, r2 *)
+        "34ff2fe1" (* blx r4 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "000050e3" (* cmp r0, #0 *)
+        "0100a003" (* moveq r0, #1 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "armv7")).Functions
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x1cUL; 0x2cUL |], entries)
+
   (* GNU C lets a program take the address of a label, which this code stores
      but never calls, so nothing proves that a function starts at 0xc, where
      the label dispatches on through a register. *)

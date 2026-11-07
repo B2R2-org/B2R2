@@ -38,23 +38,37 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
-/// Represents the constants that every path to a point holds: in registers,
-/// and in the temporaries of the instruction it is in.
-type private Knowns =
-  { Registers: Map<RegisterID, uint64>
-    Temps: Map<int, uint64> }
+/// Represents what a register or a temporary holds on every path to a point:
+/// a constant, or the argument of the given index as the function received
+/// it.
+type private Known =
+  | Const of uint64
+  | Arg of int
 
-/// Represents a call that a recovered function makes, with the constants that
-/// registers hold as the call starts.
+/// Represents what every path to a point holds: in registers, and in the
+/// temporaries of the instruction it is in.
+type private Knowns =
+  { Registers: Map<RegisterID, Known>
+    Temps: Map<int, Known> }
+
+/// Represents a call that a recovered function makes, also as its tail, with
+/// what registers hold as the call starts.
 type private CallSite =
   { Instruction: IInstruction
-    Values: Map<RegisterID, uint64> }
+    Values: Map<RegisterID, Known> }
+
+/// Represents the calls that a recovered function makes, with the indices of
+/// the arguments that it calls through a register as it received them.
+type private Calls =
+  { Sites: CallSite[]
+    CalledArgs: int list }
 
 /// Represents the function identification for 32-bit ARM. It takes what the
 /// binary tells, as FunctionIdentification does, and then finds more in what
 /// the recovery builds. A code address that recovered code calls starts a
 /// function: as an argument that an external function is known to call, as
-/// __libc_start_main calls main, or as the constant target of an indirect
+/// __libc_start_main calls main, or a recovered function calls through a
+/// register as it received it, or as the constant target of an indirect
 /// call. A jump that leaves its function for code outside of it, up to the
 /// next function, calls a function as its tail, as code of 32-bit ARM keeps
 /// each function in one piece. A code address that the data of the binary
@@ -67,6 +81,27 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let file = hdl.File
 
   let cc = hdl.Conventions.Calling
+
+  /// What registers hold as a function starts: the arguments that its caller
+  /// passes in them.
+  let argsAtEntry =
+    cc.IntArgs
+    |> Array.indexed
+    |> Array.choose (fun (idx, loc) ->
+      match loc with
+      | ArgLocation.Reg r -> Some(r, Arg idx)
+      | _ -> None)
+    |> Map.ofArray
+
+  /// Checks if the function calls through a register, which is how it may call
+  /// an argument that it receives.
+  let callsThroughRegister (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.exists (fun v ->
+      let blk = v.VData.Internals
+      not blk.IsAbstract
+      && blk.LastInstruction.IsCall
+      && blk.LastInstruction.IsIndirectBranch)
 
   let wordMask = 0xFFFFFFFFUL
 
@@ -106,6 +141,12 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     let v = v >>> pos
     if width >= 64 then v else v &&& ((1UL <<< width) - 1UL)
 
+  /// Returns the constant that the given map holds for the key, if any.
+  let tryConstIn map key =
+    match Map.tryFind key map with
+    | Some(Const v) -> Some v
+    | _ -> None
+
   /// Evaluates the expression to the constant that it is on every path, if any,
   /// reading memory only where the loader leaves it as the binary says.
   let rec eval (knowns: Knowns) pc e =
@@ -115,9 +156,9 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | PCVar _ ->
       Some pc
     | Var(RegisterID = r) ->
-      Map.tryFind r knowns.Registers
+      tryConstIn knowns.Registers r
     | TempVar(Index = i) ->
-      Map.tryFind i knowns.Temps
+      tryConstIn knowns.Temps i
     | BinOp(Op = op; Type = rt; Left = l; Right = r) when rt = 32<rt> ->
       match eval knowns pc l, eval knowns pc r with
       | Some x, Some y -> fold op x y |> Option.map (fun v -> v &&& wordMask)
@@ -131,6 +172,18 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | _ ->
       None
 
+  /// Evaluates the expression to what it holds on every path, if known: what
+  /// the register or the temporary that it reads holds, as a copy passes an
+  /// argument on untouched, or else the constant that it is.
+  let evalKnown knowns pc e =
+    match e with
+    | Var(RegisterID = r) ->
+      Map.tryFind r knowns.Registers
+    | TempVar(Index = i) ->
+      Map.tryFind i knowns.Temps
+    | _ ->
+      eval knowns pc e |> Option.map Const
+
   let update key value map =
     match value with
     | Some v -> Map.add key v map
@@ -143,10 +196,10 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | ISMark _ ->
       { knowns with Temps = Map.empty }
     | Put(Dst = Var(RegisterID = r); Src = src) ->
-      let regs = update r (eval knowns pc src) knowns.Registers
+      let regs = update r (evalKnown knowns pc src) knowns.Registers
       { knowns with Registers = regs }
     | Put(Dst = TempVar(Index = i); Src = src) ->
-      { knowns with Temps = update i (eval knowns pc src) knowns.Temps }
+      { knowns with Temps = update i (evalKnown knowns pc src) knowns.Temps }
     | _ ->
       knowns
 
@@ -177,6 +230,20 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         let pc = lifted.Original.Address
         lifted.Stmts |> Array.fold (fun k s -> step k pc s) knowns) knowns
 
+  /// Checks if the recovery took the jump that ends the given vertex for a
+  /// tail call.
+  let callsTail (cfg: LowUIRCFG) v =
+    cfg.GetSuccEdges v |> Array.exists (fun e -> e.Label = TailCallEdge)
+
+  /// Notes the call that the jump ending the given vertex makes as its tail,
+  /// passing the arguments as any call does, if it jumps directly.
+  let noteTailCall (calls: Dictionary<Addr, CallSite>) v knowns =
+    let ins = (v: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
+    if ins.IsDirectBranch then
+      calls[ins.Address] <- { Instruction = ins; Values = knowns.Registers }
+    else
+      ()
+
   let join a b =
     { Registers =
         Map.filter (fun r v -> Map.tryFind r b.Registers = Some v) a.Registers
@@ -195,21 +262,50 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       knownsAt[succ] <- out
       work.Enqueue succ
 
-  /// Finds the calls that the function makes, each with the constants that
-  /// registers hold on every path to it.
+  /// Returns what the register that an indirect call jumps through holds.
+  let tryTargetOf (site: CallSite) =
+    match site.Instruction with
+    | :? ARM32.Instruction as ins ->
+      match ins.Operands with
+      | ARM32.OneOperand(ARM32.OprReg reg) ->
+        Map.tryFind (ARM32.Register.toRegID reg) site.Values
+      | _ ->
+        None
+    | _ ->
+      None
+
+  /// Returns the index of the argument that the call jumps to, if it calls an
+  /// argument of its function as the function received it.
+  let tryCalledArgOf site =
+    match tryTargetOf site with
+    | Some(Arg idx) -> Some idx
+    | _ -> None
+
+  /// Finds the calls that the function makes, each with what registers hold on
+  /// every path to it from the entry, where the function receives its
+  /// arguments, and the arguments that it calls. Only a call through a
+  /// register reads them, so a function that makes none leaves them out.
   let findCalls (fn: Function) =
     let cfg = fn.CFG
     let calls = Dictionary<Addr, CallSite>()
     let knownsAt = Dictionary<IVertex<LowUIRBasicBlock>, Knowns>()
     let work = Queue<IVertex<LowUIRBasicBlock>>()
+    let args = if callsThroughRegister fn then argsAtEntry else Map.empty
     for root in cfg.Roots do
-      knownsAt[root] <- { Registers = Map.empty; Temps = Map.empty }
+      let regs =
+        if root.VData.Internals.PPoint.Address = fn.EntryPoint then args
+        else Map.empty
+      knownsAt[root] <- { Registers = regs; Temps = Map.empty }
       work.Enqueue root
     while work.Count > 0 do
       let v = work.Dequeue()
       let out = transfer calls knownsAt[v] v.VData.Internals
+      if callsTail cfg v then noteTailCall calls v out else ()
       for succ in cfg.GetSuccs v do propagate knownsAt work succ out
-    calls.Values
+    let sites = Seq.toArray calls.Values
+    { Sites = sites
+      CalledArgs =
+        sites |> Array.choose tryCalledArgOf |> Array.distinct |> Array.toList }
 
   /// The calls that each recovered function makes, by its CFG, which stays the
   /// same until the function is built again, along with how many edges the CFG
@@ -223,7 +319,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | true, (edgeCount, calls) when edgeCount = fn.CFG.EdgeCount ->
       calls
     | _ ->
-      let calls = Seq.toArray (findCalls fn)
+      let calls = findCalls fn
       callsByCFG.AddOrUpdate(fn.CFG, (fn.CFG.EdgeCount, calls))
       calls
 
@@ -242,32 +338,46 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// call starts, if the argument is passed in a register.
   let tryArgOf (site: CallSite) idx =
     match cc.GetIntArgLocation idx with
-    | ArgLocation.Reg r -> Map.tryFind r site.Values
+    | ArgLocation.Reg r -> tryConstIn site.Values r
     | _ -> None
 
-  /// Returns the constant that an indirect call jumps to through a register.
-  let tryTargetOf (site: CallSite) =
-    match site.Instruction with
-    | :? ARM32.Instruction as ins ->
-      match ins.Operands with
-      | ARM32.OneOperand(ARM32.OprReg reg) ->
-        Map.tryFind (ARM32.Register.toRegID reg) site.Values
-      | _ ->
-        None
-    | _ ->
-      None
+  /// Returns the indices of the arguments that the function calls: those that
+  /// an external function, named without the tag of a reference to it, is
+  /// known to call back, or those that a function of the binary calls through
+  /// a register as it received them.
+  let argsCalledBy (fn: Function) =
+    if fn.IsExternal then
+      ELF.getCallbackArgsOfKnownFunc (fn.Name.Split('@')[0])
+    else
+      (findCallsOnce fn).CalledArgs
 
-  /// Finds the code addresses that the call proves to start functions.
-  let prove (externals: Dictionary<Addr, string>) (site: CallSite) =
+  /// Returns the indices of the arguments that each of the recovered functions
+  /// calls, by the address that calls reach it at.
+  let findCalledArgs (functions: Function[]) =
+    let calledArgs = Dictionary<Addr, int list>()
+    for fn in functions do
+      match argsCalledBy fn with
+      | [] -> ()
+      | idxs -> calledArgs[fn.EntryPoint] <- idxs
+    calledArgs
+
+  /// Finds the code addresses that the call proves to start functions: the
+  /// constants that it passes in the arguments that its callee calls, or the
+  /// constant that it jumps to through a register.
+  let prove (calledArgs: Dictionary<Addr, int list>) (site: CallSite) =
     match site.Instruction.DirectBranchTarget() with
     | true, target ->
-      match externals.TryGetValue(toCalleeAddr target) with
-      | true, name ->
-        ELF.getCallbackArgsOfKnownFunc name |> List.choose (tryArgOf site)
+      match calledArgs.TryGetValue(toCalleeAddr target) with
+      | true, idxs ->
+        List.choose (tryArgOf site) idxs
       | false, _ ->
         []
     | false, _ ->
-      Option.toList (tryTargetOf site)
+      match tryTargetOf site with
+      | Some(Const target) ->
+        [ target ]
+      | _ ->
+        []
 
   /// Lists the address ranges of the sections that link the binary to others,
   /// such as a PLT.
@@ -292,16 +402,6 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     file.IsExecutableAddr addr
     && not (isInLinkage addr)
     && (v &&& 1UL = 1UL || v &&& 3UL = 0UL)
-
-  /// Returns the names of the external functions by the addresses that calls
-  /// reach them at, without the tag of a reference to a function of this
-  /// binary.
-  let namesOfExternals (functions: Function[]) =
-    let names = Dictionary<Addr, string>()
-    for fn in functions do
-      if fn.IsExternal then names[fn.EntryPoint] <- fn.Name.Split('@')[0]
-      else ()
-    names
 
   /// Names the sections that hold nothing but pointers.
   let pointerSectionNames =
@@ -533,12 +633,12 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     member _.Identify() = metadata.Identify()
 
     member _.IdentifyMore recovered =
-      let externals = namesOfExternals recovered
+      let calledArgs = findCalledArgs recovered
       let evidence = ARM32EntryEvidence(hdl, recovered, toCalleeAddr)
       recovered
       |> Seq.filter (fun fn -> not fn.IsExternal)
-      |> Seq.collect findCallsOnce
-      |> Seq.collect (prove externals)
+      |> Seq.collect (fun fn -> (findCallsOnce fn).Sites)
+      |> Seq.collect (prove calledArgs)
       |> Seq.append (proveByTailCalls evidence recovered)
       |> Seq.append (findNextStarts evidence recovered)
       |> Seq.filter isCodePointer
