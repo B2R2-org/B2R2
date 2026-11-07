@@ -58,10 +58,13 @@ type private CallSite =
     Values: Map<RegisterID, Known> }
 
 /// Represents the calls that a recovered function makes, with the indices of
-/// the arguments that it calls through a register as it received them.
+/// the arguments that it calls through a register as it received them, and
+/// the jumps through a register with which it calls such an argument as its
+/// tail.
 type private Calls =
   { Sites: CallSite[]
-    CalledArgs: int list }
+    CalledArgs: int list
+    ArgJumps: Addr[] }
 
 /// Represents the function identification for 32-bit ARM. It takes what the
 /// binary tells, as FunctionIdentification does, and then finds more in what
@@ -102,6 +105,27 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       not blk.IsAbstract
       && blk.LastInstruction.IsCall
       && blk.LastInstruction.IsIndirectBranch)
+
+  /// Checks if the instruction jumps through a register other than the link
+  /// register, which is how a function may call an argument as its tail.
+  let isJumpThroughRegister (ins: ARM32.Instruction) =
+    match ins.Opcode, ins.Operands with
+    | ARM32.Opcode.BX, ARM32.OneOperand(ARM32.OprReg reg) ->
+      reg <> ARM32.Register.LR
+    | _ ->
+      false
+
+  /// Checks if the vertex ends with a jump through a register other than the
+  /// link register.
+  let endsInJumpThroughRegister (v: IVertex<LowUIRBasicBlock>) =
+    let blk = v.VData.Internals
+    not blk.IsAbstract
+    && isJumpThroughRegister (blk.LastInstruction :?> ARM32.Instruction)
+
+  /// Checks if the function jumps through a register other than the link
+  /// register, which is how it may call an argument as its tail.
+  let jumpsThroughRegister (fn: Function) =
+    Array.exists endsInJumpThroughRegister fn.CFG.Vertices
 
   let wordMask = 0xFFFFFFFFUL
 
@@ -244,6 +268,12 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     else
       ()
 
+  /// Notes the jump through a register that ends the given vertex, with what
+  /// registers hold as it jumps.
+  let noteJump (jumps: Dictionary<Addr, CallSite>) v knowns =
+    let ins = (v: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
+    jumps[ins.Address] <- { Instruction = ins; Values = knowns.Registers }
+
   let join a b =
     { Registers =
         Map.filter (fun r v -> Map.tryFind r b.Registers = Some v) a.Registers
@@ -283,14 +313,17 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   /// Finds the calls that the function makes, each with what registers hold on
   /// every path to it from the entry, where the function receives its
-  /// arguments, and the arguments that it calls. Only a call through a
-  /// register reads them, so a function that makes none leaves them out.
+  /// arguments, the arguments that it calls, and the jumps with which it calls
+  /// one as its tail. Only a call or a jump through a register reads them, so
+  /// a function that makes none leaves them out.
   let findCalls (fn: Function) =
     let cfg = fn.CFG
     let calls = Dictionary<Addr, CallSite>()
+    let jumps = Dictionary<Addr, CallSite>()
     let knownsAt = Dictionary<IVertex<LowUIRBasicBlock>, Knowns>()
     let work = Queue<IVertex<LowUIRBasicBlock>>()
-    let args = if callsThroughRegister fn then argsAtEntry else Map.empty
+    let readsArgs = callsThroughRegister fn || jumpsThroughRegister fn
+    let args = if readsArgs then argsAtEntry else Map.empty
     for root in cfg.Roots do
       let regs =
         if root.VData.Internals.PPoint.Address = fn.EntryPoint then args
@@ -301,11 +334,17 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       let v = work.Dequeue()
       let out = transfer calls knownsAt[v] v.VData.Internals
       if callsTail cfg v then noteTailCall calls v out else ()
+      if endsInJumpThroughRegister v then noteJump jumps v out else ()
       for succ in cfg.GetSuccs v do propagate knownsAt work succ out
     let sites = Seq.toArray calls.Values
     { Sites = sites
       CalledArgs =
-        sites |> Array.choose tryCalledArgOf |> Array.distinct |> Array.toList }
+        sites |> Array.choose tryCalledArgOf |> Array.distinct |> Array.toList
+      ArgJumps =
+        jumps.Values
+        |> Seq.filter (fun site -> Option.isSome (tryCalledArgOf site))
+        |> Seq.map (fun site -> site.Instruction.Address)
+        |> Seq.toArray }
 
   /// The calls that each recovered function makes, by its CFG, which stays the
   /// same until the function is built again, along with how many edges the CFG
@@ -360,6 +399,10 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       | [] -> ()
       | idxs -> calledArgs[fn.EntryPoint] <- idxs
     calledArgs
+
+  /// Returns the jumps with which the function calls an argument as it received
+  /// it, as its tail.
+  let argJumpsOf (fn: Function) = (findCallsOnce fn).ArgJumps
 
   /// Finds the code addresses that the call proves to start functions: the
   /// constants that it passes in the arguments that its callee calls, or the
@@ -634,7 +677,8 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
     member _.IdentifyMore recovered =
       let calledArgs = findCalledArgs recovered
-      let evidence = ARM32EntryEvidence(hdl, recovered, toCalleeAddr)
+      let evidence =
+        ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf)
       recovered
       |> Seq.filter (fun fn -> not fn.IsExternal)
       |> Seq.collect (fun fn -> (findCallsOnce fn).Sites)

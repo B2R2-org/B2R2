@@ -101,7 +101,7 @@ type private Lead =
 /// start at a veneer, which only branches on, nor in a literal that the code
 /// loads. The code past a recovered function and the literals that it loads
 /// also tells whether the next function starts there.
-type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
+type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   let cc = (hdl: BinHandle).Conventions.Calling
 
   let lu = hdl.NewLiftingUnit()
@@ -404,17 +404,22 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   /// so that no code of the function lies past what the recovery has built.
   /// A jump is known once a vertex of its instruction has targets, as a write
   /// to the PC in ARM splits into a jump for each instruction set, and the
-  /// recovery reads a table only through the one that stays in ARM.
+  /// recovery reads a table only through the one that stays in ARM. A jump to
+  /// an argument as the function received it is known too, as it leaves the
+  /// function: no caller passes a label of it.
   let isClosed (fn: Function) =
     let cfg = fn.CFG
+    let argJumps = argJumpsOf fn
     let hasTargets v =
       cfg.GetSuccEdges v |> Array.exists (fun e -> e.Label = IndirectJmpEdge)
+    let isKnown (addr, vs) =
+      Array.contains addr argJumps || Array.exists hasTargets vs
     cfg.Vertices
     |> Array.filter (fun v ->
       let blk = v.VData.Internals
       not blk.IsAbstract && isOpenJump blk.LastInstruction)
     |> Array.groupBy (fun v -> v.VData.Internals.LastInstruction.Address)
-    |> Array.forall (fun (_, vs) -> Array.exists hasTargets vs)
+    |> Array.forall isKnown
 
   /// Tells whether the code where the lead starts begins the function past
   /// the given one. Code that saves a preserved register before it calls,

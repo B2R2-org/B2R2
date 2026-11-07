@@ -622,10 +622,10 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
 
-  (* f jumps through a register that the recovery cannot follow, as Clang
-     does for a computed goto with a BX, so the code past its literal may be a
-     label of f, which saves no register and returns like a function does. It
-     starts none. *)
+  (* f jumps through a register that holds what it loads, which the recovery
+     cannot follow, as Clang does for a computed goto with a BX, so the code
+     past its literal may be a label of f, which saves no register and
+     returns like a function does. It starts none. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``Code past a function with an unknown jump starts none``() =
@@ -634,7 +634,8 @@ type ARMBinaryBrewTests() =
         [ "10402de9" (* main: push {r4, lr} *)
           "000000eb" (* bl f *)
           "1080bde8" (* pop {r4, pc} *)
-          "00109fe5" (* f: ldr r1, [pc, #0] *)
+          "000090e5" (* f: ldr r0, [r0] *)
+          "00109fe5" (* ldr r1, [pc, #0] *)
           "10ff2fe1" (* bx r0 *)
           "34120000" (* .word 0x1234 *)
           "0200a0e3" (* mov r0, #2 *)
@@ -674,6 +675,26 @@ type ARMBinaryBrewTests() =
           "1eff2fe1" (* h: bx lr *) ]
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x48UL; 0x50UL |], entries)
+
+  (* Once f pops its frame, it calls its third argument as its tail, as
+     `return cmp (a, b)` does through a pointer that f receives. No caller
+     passes a label of f, so the BX leaves f, and g, which saves no register
+     and returns, starts right past it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function past a tail call through an argument is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "10402de9" (* f: push {r4, lr} *)
+          "1040bde8" (* pop {r4, lr} *)
+          "12ff2fe1" (* bx r2 *)
+          "010080e2" (* g: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
 
   (* GCC puts a mov r0, r0 for a nop in ARMv5 code, here between f and the
      literal that it loads, and the word of the literal decodes as an andeq.
