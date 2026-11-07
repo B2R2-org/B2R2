@@ -56,6 +56,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let callsBeforeLiterals = HashSet<Addr>()
 
+  let blocksPastBoundary = List<AddrRange>()
+
   let jumpTables = Dictionary<Addr, JmpTableInfo>()
 
   let intraCallTable = IntraCallTable()
@@ -155,6 +157,10 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// keeps them, as the load that tells may again come after the call.
   member internal _.CallsBeforeLiterals with get() = callsBeforeLiterals
 
+  /// Ranges of the blocks that the function reaches but leaves out, as they
+  /// run past where the next function starts.
+  member internal _.BlocksPastBoundary with get() = blocksPastBoundary
+
   /// Jump tables associated with this function, keyed by table address.
   /// Recovery records a table once per entry it expands, so keying on the
   /// address keeps one slot per table.
@@ -250,6 +256,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
     this.ActionQueue.Clear()
     this.PendingCallActions.Clear()
     this.CallerVertices.Clear()
+    this.BlocksPastBoundary.Clear()
     this.UnwindingBytes <- 0
 
   /// Scans basic blocks starting from the given entry points. By discovering

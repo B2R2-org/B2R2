@@ -285,12 +285,14 @@ module internal CFGRecoveryCommon =
     | false, _ ->
       match ctx.BBLFactory.TryFind pp with
       | Ok bbl ->
-        let max = bbl.Internals.Range.Max
-        if isWithinFunction ctx ctx.FunctionAddress max
-           && not <| isWithinReachables ctx (pp: ProgramPoint).Address then
-          Ok(makeVertex ctx cfgRec pp bbl)
-        else
+        let range = bbl.Internals.Range
+        if not <| isWithinFunction ctx ctx.FunctionAddress range.Max then
+          ctx.BlocksPastBoundary.Add range
           Error ErrorCase.ItemNotFound
+        elif isWithinReachables ctx (pp: ProgramPoint).Address then
+          Error ErrorCase.ItemNotFound
+        else
+          Ok(makeVertex ctx cfgRec pp bbl)
       | Error _ ->
         Error ErrorCase.ItemNotFound
 

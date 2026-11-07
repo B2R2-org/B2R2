@@ -197,26 +197,33 @@ module private ARM32CFGRecoveryRules =
   let isFollowedWithin (ctx: CFGBuildingContext<_, _>) v =
     ctx.CFG.GetSuccEdges v |> Array.exists (fun e -> e.Label = InterJmpEdge)
 
-  /// Checks if the given vertex ends with a jump that the building followed
-  /// within its function to where a function of the given entries starts, as
-  /// none started there yet.
-  let jumpsWithinToEntry entries ctx (v: IVertex<LowUIRBasicBlock>) =
+  /// Checks if the building left out the code at the given address, as it
+  /// lies past where the next function starts.
+  let isLeftOut (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
+
+  /// Checks if the given vertex ends with a jump to where a function of the
+  /// given entries starts, which the building did not take for a tail call as
+  /// none started there yet: it followed the jump within its function, or left
+  /// out the code there as lying past where the next function starts.
+  let jumpsToEntryUncalled entries ctx (v: IVertex<LowUIRBasicBlock>) =
     match v.VData.Internals.Terminator with
     | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
-      let callee = toCalleeAddr ctx (n.ToUInt64())
+      let target = n.ToUInt64()
+      let callee = toCalleeAddr ctx target
       callee <> ctx.FunctionAddress
       && (entries: HashSet<Addr>).Contains callee
-      && isFollowedWithin ctx v
+      && (isFollowedWithin ctx v || isLeftOut ctx target)
     | _ ->
       false
 
-  /// Checks if the function that the given builder has built took for its own
-  /// the code of a function of the given entries.
-  let swallowsEntry entries (builder: ICFGBuildable<_, _>) =
+  /// Checks if the function that the given builder has built jumps to a
+  /// function of the given entries without calling it as its tail.
+  let missesTailCall entries (builder: ICFGBuildable<_, _>) =
     let ctx = builder.Context
     ctx.CFG.Vertices
     |> Array.exists (fun v ->
-      not v.VData.Internals.IsAbstract && jumpsWithinToEntry entries ctx v)
+      not v.VData.Internals.IsAbstract && jumpsToEntryUncalled entries ctx v)
 
 /// Represents the rules of the CFG recovery for 32-bit ARM. Besides the rules
 /// of every architecture, a call that switches Thumb code to ARM enters a PLT
@@ -224,8 +231,8 @@ module private ARM32CFGRecoveryRules =
 /// literal that the code loads never returns, and a jump table entry to such a
 /// literal is a hole, as a compiler lays a literal pool only where control
 /// never comes. Functions come to light as calls reach them, so a function may
-/// turn out to start in code that another one has taken for its own, which is
-/// then built again.
+/// turn out to start in code that another one has taken for its own or left
+/// out, which is then built again.
 type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -256,21 +263,22 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       ctx.CallsBeforeLiterals.UnionWith calls
       true
 
-  /// Finds the functions that took the code of another function for their
-  /// own: they followed a jump to it before any call told that a function
-  /// starts there. Built again, they call it as their tail.
+  /// Finds the functions that jump to another function without calling it as
+  /// their tail, as they jumped there before any call told that a function
+  /// starts there: they took its code for their own, or left it out as lying
+  /// past the next function. Built again, they call it as their tail.
   override _.FindFunctionsToRebuild builders =
     let entries =
       builders
       |> Array.filter (fun builder -> builder.BuilderState <> Invalid)
       |> Array.map (fun builder -> builder.EntryPoint)
       |> HashSet
-    let isSwallower (builder: IFunctionBuilder) =
+    let isToRebuild (builder: IFunctionBuilder) =
       match builder with
       | :? ICFGBuildable<'FnCtx, 'GlCtx> as built ->
-        built.BuilderState = Finished && swallowsEntry entries built
+        built.BuilderState = Finished && missesTailCall entries built
       | _ ->
         false
     builders
-    |> Array.filter isSwallower
+    |> Array.filter isToRebuild
     |> Array.map (fun builder -> builder.EntryPoint)

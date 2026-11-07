@@ -359,6 +359,54 @@ type ARMBinaryBrewTests() =
     let kinds = edgeKindsFrom fns[0x10UL] 0x14UL
     CollectionAssert.AreEqual([| TailCallEdge |], kinds)
 
+  (* f jumps to x before anything tells that x is a function, so its building
+     leaves out the code there as lying past h, which main has called, and f
+     seems never to return. g, found past h, calls x and so makes it a
+     function, after which f is built again to call x as its tail. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump past the next function calls what a later call proves``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "040000eb" (* bl h *)
+          "010000eb" (* bl f *)
+          "030000eb" (* bl g *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "030000ea" (* b x *)
+          "1eff2fe1" (* h: bx lr *)
+          "10402de9" (* g: push {r4, lr} *)
+          "000000eb" (* bl x *)
+          "1080bde8" (* pop {r4, pc} *)
+          "010080e2" (* x: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let kinds = edgeKindsFrom fns[0x14UL] 0x18UL
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
+  (* f branches to h on a condition and otherwise runs on into g, both of
+     which main calls. f takes g for its own until main calls g, and is then
+     built again to call both as its tail from its one branch, which leaves
+     nothing to build again. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Building again ends where one branch calls two functions``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "070000eb" (* bl h *)
+          "010000eb" (* bl f *)
+          "020000eb" (* bl g *)
+          "1080bde8" (* pop {r4, pc} *)
+          "000050e3" (* f: cmp r0, #0 *)
+          "0200000a" (* beq h *)
+          "10402de9" (* g: push {r4, lr} *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "1eff2fe1" (* h: bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x1cUL; 0x28UL |], entries)
+
   (* f flips the sign of an argument and runs into g, as libgcc writes
      __subdf3 by hand to run into __adddf3. main calls g first, so g is a
      function before f is built, and f calls it as its tail rather than lose
