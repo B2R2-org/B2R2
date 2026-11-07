@@ -123,32 +123,8 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
 
   let instructions = blocks |> Array.collect (fun blk -> blk.Instructions)
 
-  /// Returns how many bytes the load reads, if it reads a literal pool.
-  let tryLiteralSizeOf (ins: ARM32.Instruction) =
-    match ins.Opcode, ins.Operands with
-    | ARM32.Opcode.LDR, _ ->
-      Some 4UL
-    | ARM32.Opcode.VLDR,
-      ARM32.TwoOperands(ARM32.OprSIMD(ARM32.SFReg(ARM32.Vector r)), _)
-      when r >= ARM32.Register.D0 && r <= ARM32.Register.D31 ->
-      Some 8UL
-    | ARM32.Opcode.VLDR, _ ->
-      Some 4UL
-    | _ ->
-      None
-
-  /// Returns where the literal that the instruction loads lies, if it loads
-  /// one.
-  let tryLiteralRangeOf (ins: IInstruction) =
-    match ins.MemoryDereferences() with
-    | true, [| addr |] ->
-      tryLiteralSizeOf (ins :?> ARM32.Instruction)
-      |> Option.map (fun size -> AddrRange.create addr (addr + size - 1UL))
-    | _ ->
-      None
-
   let literalRanges =
-    instructions |> Array.choose tryLiteralRangeOf |> Array.distinct
+    instructions |> Array.choose ARM32Code.tryLiteralRangeOf |> Array.distinct
 
   let literalEnds =
     literalRanges |> Array.map (fun range -> range.Max + 1UL) |> HashSet
@@ -185,11 +161,6 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     | true, ins -> Some(ins, true)
     | false, _ -> tryDecodeAbove addr |> Option.map (fun ins -> ins, false)
 
-  let isConditional (ins: ARM32.Instruction) =
-    match ins.Condition with
-    | ARM32.Condition.AL | ARM32.Condition.NV | ARM32.Condition.UN -> false
-    | _ -> true
-
   let returning =
     recovered
     |> Array.filter (fun fn -> fn.NoRet = NotNoRet)
@@ -202,7 +173,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   /// one to __stack_chk_fail that a branch skips does, so it only tells that
   /// the code below is where a callee that returns comes back to.
   let hintOfCall (ins: IInstruction) isBuilt =
-    if isConditional (ins :?> ARM32.Instruction) then
+    if ARM32Code.isConditional (ins :?> ARM32.Instruction) then
       Refutes
     elif isBuilt then
       Supports
@@ -251,25 +222,6 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     else
       tryFindAbove addr |> Option.map hintOf |> Option.defaultValue Neutral
 
-  /// Tells whether the register keeps its value for the caller of a function
-  /// that writes it: one that the convention has the callee save, or the link
-  /// register, which holds where the function returns.
-  let isPreserved r =
-    r = ARM32.Register.LR || cc.IsCalleeSaved(ARM32.Register.toRegID r)
-
-  /// Tells whether the instruction saves a preserved register on the stack.
-  let saves (ins: ARM32.Instruction) =
-    match ins.Opcode, ins.Operands with
-    | (ARM32.Opcode.PUSH | ARM32.Opcode.VPUSH),
-      ARM32.OneOperand(ARM32.OprRegList regs) ->
-      List.exists isPreserved regs
-    | (ARM32.Opcode.STMDB | ARM32.Opcode.VSTMDB),
-      ARM32.TwoOperands(ARM32.OprReg ARM32.Register.SP,
-                        ARM32.OprRegList regs) ->
-      ins.WriteBack && List.exists isPreserved regs
-    | _ ->
-      false
-
   /// Tells whether the code from the address saves a preserved register on
   /// the stack within the given number of instructions, before it branches.
   let rec savesFrom addr count =
@@ -277,7 +229,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
       false
     else
       match lu.TryParseInstruction(addr: Addr) with
-      | Ok ins when saves (ins :?> ARM32.Instruction) -> true
+      | Ok ins when ARM32Code.saves cc (ins :?> ARM32.Instruction) -> true
       | Ok ins when ins.IsBranch || ins.IsExit -> false
       | Ok ins -> savesFrom (addr + uint64 ins.Length) (count - 1)
       | Error _ -> false
@@ -289,29 +241,11 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     | Neutral -> savesFrom addr 4
     | Refutes -> false
 
-  /// The farthest that a load lies from the literal it loads: an offset from
-  /// the PC reaches 4095 bytes, and the PC reads 8 bytes past the load in ARM.
-  let [<Literal>] LiteralReach = 4104UL
-
-  /// Tells whether code within reach of the address loads a literal that
-  /// covers it, reading an instruction at every word, as the code that loads
-  /// it may be code that the recovery has yet to build, such as a case of a
-  /// switch that a literal pool amid the switch serves. Only ARM code is read
-  /// this way, as one halfword in 32 reads as a load of a literal in Thumb,
-  /// whether it is data, ARM code or the second half of a Thumb instruction.
+  /// Tells whether ARM code within reach of the address loads a literal that
+  /// covers it, though the recovery may not have built that code.
   let isLoadedFromNearby (addr: Addr) =
-    let covers ins =
-      match tryLiteralRangeOf ins with
-      | Some(range: AddrRange) -> range.IsIncluding addr
-      | None -> false
-    let rec scan (insAddr: Addr) =
-      if insAddr > addr + LiteralReach then
-        false
-      else
-        match lu.TryParseInstruction insAddr with
-        | Ok ins when covers ins -> true
-        | _ -> scan (insAddr + 4UL)
-    not lu.IsThumb && scan ((addr - min addr LiteralReach) / 4UL * 4UL)
+    not lu.IsThumb
+    && ARM32Code.isLoadedNearby (fun a -> lu.TryParseInstruction(a: Addr)) addr
 
   /// Tells whether the code from the address reaches an unconditional direct
   /// branch through nothing but conditional ones, within the given number of
@@ -339,7 +273,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
       match lu.TryParseInstruction addr with
       | Ok ins ->
         let literals =
-          match tryLiteralRangeOf ins with
+          match ARM32Code.tryLiteralRangeOf ins with
           | Some range -> range :: literals
           | None -> literals
         sweepLiterals literals (addr + uint64 ins.Length) codeEnd
@@ -384,7 +318,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
     (ins.IsBranch || ins.IsExit)
     && not ins.IsCall
     && not ins.IsCondBranch
-    && not (isConditional (ins :?> ARM32.Instruction))
+    && not (ARM32Code.isConditional (ins :?> ARM32.Instruction))
 
   let entries =
     recovered |> Array.map (fun fn -> fn.EntryPoint) |> Array.sort
@@ -421,25 +355,26 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
   and leadOf span ins idx isAfterCondition =
     let arm = ins :?> ARM32.Instruction
     let next = ins.Address + uint64 ins.Length
-    if idx = 0 && isConditional arm then
+    let isConditional = ARM32Code.isConditional arm
+    if idx = 0 && isConditional then
       Unclear
-    elif saves arm then
+    elif ARM32Code.saves cc arm then
       Saves idx
     elif ins.IsCall || ins.IsExit || ins.IsInterrupt then
       Unclear
-    elif isReturn ins && isConditional arm then
+    elif isReturn ins && isConditional then
       leadFrom span next (idx + 1) true
     elif isReturn ins then
       Returns(idx, isAfterCondition)
     elif ins.IsBranch then
       leadOfBranch span ins idx isAfterCondition
     else
-      leadFrom span next (idx + 1) (isAfterCondition || isConditional arm)
+      leadFrom span next (idx + 1) (isAfterCondition || isConditional)
 
   and leadOfBranch (start, limit) ins idx isAfterCondition =
     let next = ins.Address + uint64 ins.Length
     let isGuarded =
-      ins.IsCondBranch || isConditional (ins :?> ARM32.Instruction)
+      ins.IsCondBranch || ARM32Code.isConditional (ins :?> ARM32.Instruction)
     match ins.DirectBranchTarget(), isGuarded with
     | (true, target), false when isEntry target ->
       CallsTail(idx, isAfterCondition)
@@ -554,7 +489,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr) =
       let built =
         fnBlocks
         |> Array.collect (fun blk -> blk.Instructions)
-        |> Array.choose tryLiteralRangeOf
+        |> Array.choose ARM32Code.tryLiteralRangeOf
         |> Array.toList
       lu.IsThumb <- first.IsThumb
       let literals =

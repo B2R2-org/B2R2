@@ -55,6 +55,7 @@
     <Compile Include="Strategies\EVMGlobalContext.fs" />
     <Compile Include="Strategies\EVMFunctionSummarizer.fs" />
     <Compile Include="Strategies\FunctionIdentification.fs" />
+    <Compile Include="Strategies\ARM32Code.fs" />
     <Compile Include="Strategies\ARM32EntryEvidence.fs" />
     <Compile Include="Strategies\ARM32FunctionIdentification.fs" />
     <Compile Include="Strategies\PythonFunctionIdentification.fs" />

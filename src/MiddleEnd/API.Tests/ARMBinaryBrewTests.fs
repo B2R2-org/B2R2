@@ -685,6 +685,117 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
 
+  (* Clang keeps the jump with which f calls g as its tail, though g starts
+     right past it. Nothing calls g, but g saves registers as a function
+     starts, so the jump calls it as its tail rather than runs into it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function that a jump enters right past another is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0120a0e1" (* f: mov r2, r1 *)
+          "ffffffea" (* b g *)
+          "10402de9" (* g: push {r4, lr} *)
+          "0040a0e1" (* mov r4, r0 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
+
+  (* f returns early, then jumps over the literal that it loads to where it
+     saves registers late, as Clang lays out Thumb code. The code there looks
+     like the start of a function, but a function lays its literal pool past
+     its code, so the code past a pool that it jumps over is its own. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a pool that its function jumps over is its own``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "08109fe5" (* f: ldr r1, [pc, #8] *)
+          "000050e3" (* cmp r0, #0 *)
+          "1eff2f01" (* bxeq lr *)
+          "000000ea" (* b 0x20 *)
+          "34120000" (* .word 0x1234 *)
+          "10402de9" (* push {r4, lr} *)
+          "010080e0" (* add r0, r0, r1 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
+  (* f jumps back to code that saves registers, which f also runs into. The
+     code that a function runs into is its own, so the jump stays within. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that its function runs into is its own``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "000050e3" (* f: cmp r0, #0 *)
+          "0300000a" (* beq 0x24 *)
+          "0100a0e3" (* mov r0, #1 *)
+          "10402de9" (* push {r4, lr} *)
+          "010080e2" (* add r0, r0, #1 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "fbffffea" (* b 0x18 *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
+  (* f jumps into its loop at the test, as GCC rotates a loop, and the test
+     branches back to the body before f saves registers. The code at the test
+     looks like the start of a function, but its code lies below where it
+     would start, so it is f's own. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that jumps back below itself starts no function``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "000052e3" (* f: cmp r2, #0 *)
+          "1eff2f01" (* bxeq lr *)
+          "020000ea" (* b 0x24 *)
+          "010080e2" (* add r0, r0, #1 *)
+          "012052e2" (* subs r2, r2, #1 *)
+          "1eff2f01" (* bxeq lr *)
+          "030010e3" (* tst r0, #3 *)
+          "faffff1a" (* bne 0x18 *)
+          "10402de9" (* push {r4, lr} *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
+  (* f saves registers late, on its slow path, which a jump and a conditional
+     branch of f both enter. A function that a branch enters on a condition is
+     no function that the jump calls as its tail. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that its function branches to on a condition is its own``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "000050e3" (* f: cmp r0, #0 *)
+          "0200000a" (* beq 0x20 *)
+          "000051e3" (* cmp r1, #0 *)
+          "0100000a" (* beq 0x24 *)
+          "1eff2fe1" (* bx lr *)
+          "ffffffea" (* b 0x24 *)
+          "10402de9" (* push {r4, lr} *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
   (* An ADD to the PC in ARM may switch to Thumb by the lowest bit of the sum,
      so it ends in a jump for each instruction set. A switch only ever jumps
      within its function, which stays in ARM, and the jump that does is the

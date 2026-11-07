@@ -61,6 +61,16 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx>
           manager.PostAndReply(fun _ ch ->
             AddDependency(caller, callee, ch))
 
+        member _.GuessTailCallee(callee) =
+          manager.PostAndReply(fun _ ch -> GuessTailCallee(callee, ch))
+
+        member _.AddTailCallDependency(caller, callee) =
+          manager.PostAndReply(fun _ ch ->
+            AddTailCallDependency(caller, callee, ch))
+
+        member _.RefuteTailCallee(callee) =
+          manager.Post <| RefuteTailCallee callee
+
         member _.GetCalleeStatus(addr) =
           manager.PostAndReply(fun _ ch -> GetCalleeStatus(addr, ch))
 

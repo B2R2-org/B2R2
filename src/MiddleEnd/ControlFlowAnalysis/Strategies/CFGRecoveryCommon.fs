@@ -337,6 +337,23 @@ module internal CFGRecoveryCommon =
   let isExecutableAddr (ctx: CFGBuildingContext<_, _>) targetAddr =
     ctx.BinHandle.File.IsExecutableAddr targetAddr
 
+  /// Adds the dependency of the function on the callee of the given action,
+  /// returning the status of the callee. The function notes a callee that it
+  /// calls as its tail only on the guess that a function starts there, which
+  /// it refutes once built if it reaches the code there otherwise.
+  let addDependency (ctx: CFGBuildingContext<_, _>) calleeAddr action =
+    let fnAddr = ctx.FunctionAddress
+    match action with
+    | MakeTlCall _ ->
+      match ctx.ManagerChannel.AddTailCallDependency(fnAddr, calleeAddr) with
+      | KnownTailCallee status ->
+        status
+      | GuessedTailCallee status ->
+        ctx.GuessedTailCallees.Add calleeAddr |> ignore
+        status
+    | _ ->
+      ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr)
+
   let handleResolvedCall ctx cfgRec callerPPoint callsite calleeAddr action =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let actionQueue = ctx.ActionQueue
@@ -345,7 +362,7 @@ module internal CFGRecoveryCommon =
     if fnAddr = calleeAddr then (* self-recursion *)
       actionQueue.Push(action)
     else
-      match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
+      match addDependency ctx calleeAddr action with
       (* Wait for the callee to finish. *)
       | Building
       | Failed ->
@@ -481,6 +498,49 @@ module internal CFGRecoveryCommon =
     | Building | Built _ -> true
     | Failed -> false
 
+  /// Checks if a block that the function has built covers the given address.
+  let coversAddr (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract && bbl.Range.IsIncluding addr)
+
+  /// Checks if a block that the function reaches but leaves out, as it runs
+  /// past where the next function starts, covers the given address.
+  let leavesOutAddr (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.BlocksPastBoundary
+    |> Seq.exists (fun (range: AddrRange) -> range.IsIncluding addr)
+
+  /// Checks if a block that the function has built branches to the given
+  /// address on a condition.
+  let branchesOnConditionTo (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && bbl.LastInstruction.IsCondBranch
+      && bbl.LastInstruction.DirectBranchTarget() = (true, addr))
+
+  /// Checks if a block that the function has built runs on into the given
+  /// address, ending right before it in an instruction that does not branch.
+  let runsOnInto (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && not bbl.LastInstruction.IsBranch
+      && bbl.LastInstruction.Address + uint64 bbl.LastInstruction.Length = addr)
+
+  /// Checks if the function reaches the given address otherwise than by a jump
+  /// that calls a function there as its tail: its code covers the address, or
+  /// branches there on a condition, or runs on into it, right up to it or past
+  /// where the next function starts.
+  let reachesOtherwise ctx addr =
+    coversAddr ctx addr
+    || leavesOutAddr ctx addr
+    || branchesOnConditionTo ctx addr
+    || runsOnInto ctx addr
+
   /// Connects the given vertex to the true target of the conditional jump that
   /// ends it, or calls the function there when the jump is a tail call.
   let connectTrueTarget ctx cfgRec rules queue useTCHeuristic srcVertex tpp =
@@ -495,6 +555,15 @@ module internal CFGRecoveryCommon =
     else
       connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
       MoveOn
+
+  /// Checks if the jump at jmpAddr calls the function at callee as its tail:
+  /// the rules tell so, or they guess so and no guess that a function starts
+  /// there has been refuted.
+  let isTailCall ctx (rules: ICFGRecoveryRules<_, _>) jmpAddr callee =
+    match rules.JudgeTailCall(ctx, jmpAddr, callee) with
+    | TailCall -> true
+    | TentativeTailCall -> ctx.ManagerChannel.GuessTailCallee callee
+    | NotTailCall -> false
 
   /// Calls the function that the call ending the given vertex enters at target.
   let handleDirectCall ctx cfgRec rules srcVertex target =
@@ -603,7 +672,7 @@ module internal CFGRecoveryCommon =
           let lastInsAddr = srcData.LastInstruction.Address
           if useTailcallHeuristic then
             let callee = rules.ToCalleeAddr(ctx, target)
-            if not <| rules.IsTailCall(ctx, lastInsAddr, callee) then
+            if not <| isTailCall ctx rules lastInsAddr callee then
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
             else
               let callSite = LeafCallSite lastInsAddr
@@ -1082,6 +1151,13 @@ module internal CFGRecoveryCommon =
     | Failed -> true
     | _ -> false
 
+  /// Checks if the function calls the callee as its tail on the guess that a
+  /// function starts there, which has been given up since. Built again, the
+  /// function takes the jump there to stay within.
+  let isGivenUpGuess (ctx: CFGBuildingContext<_, _>) calleeAddr =
+    ctx.GuessedTailCallees.Contains calleeAddr
+    && isFailedBuilding ctx calleeAddr
+
   let popOffJmpTblRecoveryAction (ctx: CFGBuildingContext<_, _>) =
     match ctx.ActionQueue.Pop() with
     | EndTblRec _ -> ()
@@ -1305,11 +1381,40 @@ module internal CFGRecoveryCommon =
     | _ ->
       finalizeRecovery ctx cfgRec postAnalysis
 
+  /// Refutes the guesses that the built function finds wrong: it calls the code
+  /// at an address as its tail on the guess that a function starts there, yet
+  /// it reaches the code there otherwise. Telling the manager so, it tells
+  /// whether it refuted any, which builds it again with its jumps there
+  /// staying within.
+  let refutesGuesses (ctx: CFGBuildingContext<_, _>) rules =
+    let refuted =
+      ctx.GuessedTailCallees
+      |> Seq.filter (fun callee ->
+        (rules: ICFGRecoveryRules<_, _>).RefutesTailCall(ctx, callee))
+      |> Seq.toArray
+    Array.iter ctx.ManagerChannel.RefuteTailCallee refuted
+    not (Array.isEmpty refuted)
+
+  /// Refutes the guess that the built function starts where it does, if it
+  /// starts only on that guess and its own code tells otherwise.
+  let refuteOwnGuess (ctx: CFGBuildingContext<_, _>) rules =
+    if ctx.IsGuessedEntry
+       && (rules: ICFGRecoveryRules<_, _>).RefutesEntry ctx then
+      ctx.ManagerChannel.RefuteTailCallee ctx.FunctionAddress
+    else
+      ()
+
   let onFinish (ctx: CFGBuildingContext<_, _>) cfgRec rules postAnalysis =
     assert (ctx.JumpTableRecoveryStatus.Count = 0)
-    if (rules: ICFGRecoveryRules<_, _>).RequiresRebuild ctx then StopAndReload
-    elif cutsAtNextEntry ctx then StopAndReload
-    else checkOverlap ctx cfgRec postAnalysis
+    if (rules: ICFGRecoveryRules<_, _>).RequiresRebuild ctx then
+      StopAndReload
+    elif refutesGuesses ctx rules then
+      StopAndReload
+    elif cutsAtNextEntry ctx then
+      StopAndReload
+    else
+      refuteOwnGuess ctx rules
+      checkOverlap ctx cfgRec postAnalysis
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
     let sorted = deps |> Array.sortBy fst

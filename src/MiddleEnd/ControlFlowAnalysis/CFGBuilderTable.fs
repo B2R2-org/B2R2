@@ -85,15 +85,35 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
     | Some builder -> builder
     | None -> invalidOp $"Nothing builds the external function at {addr:x}."
 
+  /// The functions that turned out to start nowhere, whose builders stay but
+  /// bound no function around them.
+  let retired = HashSet<Addr>()
+
+  /// Returns the index of the closest builder at or before the given index
+  /// that bounds the functions around it, or -1 if none does.
+  let rec boundingIndexAtOrBefore idx =
+    if idx >= 0 && retired.Contains builders.Keys[idx] then
+      boundingIndexAtOrBefore (idx - 1)
+    else
+      idx
+
+  /// Returns where the closest builder at or after the given index that bounds
+  /// the functions around it starts, if any does.
+  let rec tryBoundingEntryAtOrAfter idx =
+    if idx >= builders.Count then
+      None
+    elif retired.Contains builders.Keys[idx] then
+      tryBoundingEntryAtOrAfter (idx + 1)
+    else
+      Some builders.Keys[idx]
+
   let updateNextFunctionOfPrevBuilder idx addr =
-    if idx <= 0 then ()
-    else builders.Values[idx - 1].NextFunctionAddress <- Some addr
+    let prev = boundingIndexAtOrBefore (idx - 1)
+    if prev < 0 then ()
+    else builders.Values[prev].NextFunctionAddress <- Some addr
 
   let updateNextFunctionOfNewBuilder (newBuilder: IFunctionBuilder) idx =
-    let endPoint =
-      if idx = (builders.Count - 1) then None
-      else Some(builders.Values[idx + 1].EntryPoint)
-    newBuilder.NextFunctionAddress <- endPoint
+    newBuilder.NextFunctionAddress <- tryBoundingEntryAtOrAfter (idx + 1)
 
   let updateNextFunctionAddrs newBuilder addr =
     let idx = builders.IndexOfKey addr
@@ -267,6 +287,27 @@ type CFGBuilderTable<'FnCtx, 'GlCtx>
   /// Gets or creates an external function builder for the given reference.
   member _.GetOrCreateExternalBuilder(reference, name) =
     getOrCreateExternalBuilder reference name
+
+  /// Retires the builder of the function at the given address, which turns out
+  /// to start no function: the builder stays, but the function before it
+  /// reaches as far as the one after it.
+  member _.Retire(addr: Addr) =
+    if retired.Add addr then
+      let idx = builders.IndexOfKey addr
+      let prev = boundingIndexAtOrBefore (idx - 1)
+      if prev < 0 then
+        ()
+      else
+        builders.Values[prev].NextFunctionAddress <-
+          tryBoundingEntryAtOrAfter (idx + 1)
+    else
+      ()
+
+  /// Brings back the builder of the function at the given address, which turns
+  /// out to start a function after all, to bound the functions around it.
+  member _.Revive(addr: Addr) =
+    if retired.Remove addr then updateNextFunctionAddrs builders[addr] addr
+    else ()
 
   /// Tries to retrieve the builder of the function at the given address, which
   /// may be an external function.

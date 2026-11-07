@@ -55,6 +55,16 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   /// Functions with a jump table that finished while gap analysis waited.
   let functionsAwaitingGaps = HashSet<Addr>()
 
+  /// Functions that start only on the guess that the jumps to them call them
+  /// as their tail. A call or the identification proves one, which then is a
+  /// function like any other.
+  let guessedEntries = HashSet<Addr>()
+
+  /// Addresses where a guess that a function starts has been given up. A jump
+  /// there stays within its function, unless a call proves a function there
+  /// after all.
+  let refutedEntries = HashSet<Addr>()
+
   let mutable msgbox: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>> | null = null
 
   let assignCFGBuildingTaskNow (builder: ICFGBuildable<_, _>) =
@@ -156,9 +166,33 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       else
         ()
 
+  /// Gives up the guess that a function starts where the given builder does,
+  /// as its building failed or a function that calls it as its tail refuted
+  /// it. The functions that call it as their tail, which only jumps there do,
+  /// build again, and their jumps there stay within them from then on.
+  let giveUpGuess (builder: ICFGBuildable<_, _>) =
+    let fnAddr = builder.EntryPoint
+#if CFGDEBUG
+    dbglog ManagerTid "GiveUpGuess" $"{fnAddr:x}"
+#endif
+    let tempCallers = dependenceMap.RemoveTemporary fnAddr
+    let confirmedCallers = dependenceMap.RemoveConfirmed fnAddr
+    builder.Invalidate()
+    builders.Retire fnAddr
+    guessedEntries.Remove fnAddr |> ignore
+    refutedEntries.Add fnAddr |> ignore
+    for callerFnAddr in Array.append tempCallers confirmedCallers do
+      let caller = builders[callerFnAddr]
+      if caller.BuilderState <> Invalid then
+        restartBuilderIfNotInProgress caller
+      else
+        ()
+
   let rec rollback (builder: ICFGBuildable<_, _>) =
     if rollbackOnGapAnalysis builder || jumpTables.Rollback builder then
       restartBuilder builder
+    elif guessedEntries.Contains builder.EntryPoint then
+      giveUpGuess builder
     else
       let fnAddr = builder.EntryPoint
       let tempCallers = dependenceMap.RemoveTemporary fnAddr
@@ -189,6 +223,24 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     | ForceFinished -> ()
     | InProgress -> builder.DelayedBuilderRequests.Enqueue Rollback
     | _ -> rollback builder
+
+  /// Refutes the guess that a function starts at the given address. A builder
+  /// that is building there gives it up once it reports its result.
+  let refuteEntry addr =
+    match builders.TryGetBuilder addr with
+    | Ok builder when guessedEntries.Contains addr ->
+      refutedEntries.Add addr |> ignore
+      if builder.BuilderState <> InProgress then giveUpGuess builders[addr]
+      else ()
+    | Ok _ ->
+      ()
+    | Error _ ->
+      guessedEntries.Remove addr |> ignore
+
+  /// Checks if a function refuted the guess that a function starts at the
+  /// given address while it was being built.
+  let isRefutedGuess addr =
+    guessedEntries.Contains addr && refutedEntries.Contains addr
 
   let getAllStoppedCycle (cycleAddrs: Addr[]) =
     let tuples = Array.zeroCreate cycleAddrs.Length
@@ -243,13 +295,41 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       |> Seq.iter (fun cycleAddrs ->
         match getAllStoppedCycle cycleAddrs with
         | Ok deps ->
-          strategy.OnCyclicDependency deps |> forceFinish
+          (* A guess gives way first, as forcing a function to finish takes
+             for granted what a guess is yet to show. *)
+          match Array.tryFind guessedEntries.Contains cycleAddrs with
+          | Some addr -> refuteEntry addr
+          | None -> strategy.OnCyclicDependency deps |> forceFinish
         | Error _ ->
 #if CFGDEBUG
           dbglog ManagerTid "CyclicDependencies" "No stopped cycle found yet."
 #endif
           ()
       )
+
+  /// Proves that a function starts at the given address, as a call or the
+  /// identification shows: a guess there is a guess no more, and the builder
+  /// that a given-up guess left there starts over.
+  let proveEntry addr =
+    match builders.TryGetBuilder addr with
+    | Ok builder when refutedEntries.Contains addr ->
+      if builder.BuilderState = Invalid then
+        refutedEntries.Remove addr |> ignore
+        builders.Revive addr
+        resetBuilder builders[addr]
+      else
+        ()
+    | _ ->
+      guessedEntries.Remove addr |> ignore
+
+  /// Tells whether a function that the identification finds at the given
+  /// address is to be built: no builder starts there yet, or the one that a
+  /// given-up guess left there starts over, as the identification proves it.
+  let isToBuild addr =
+    proveEntry addr
+    match builders.TryGetBuilder addr with
+    | Ok builder -> builder.BuilderState = Initialized
+    | Error _ -> true
 
   /// Asks the identification for more functions in what has been built,
   /// keeping those that no builder starts at yet: a function that is built or
@@ -260,8 +340,8 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     |> Array.map (fun builder -> builder.ToFunction())
     |> identification.IdentifyMore
     |> Array.map builders.RegisterEntry
-    |> Array.filter (fun addr -> Result.isError (builders.TryGetBuilder addr))
     |> Array.distinct
+    |> Array.filter isToBuild
 
   /// Finds the functions to build once every builder is done: those that the
   /// strategy asks for and, while it identifies, those that the identification
@@ -348,9 +428,24 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     | nextCandidates ->
       nextCandidates |> Array.iter (msgbox.Post << StartBuilding)
 
+  /// Gives up the guesses that no function calls as its tail any longer, once
+  /// every builder is done, as the functions that did were built again since
+  /// without the jumps there. Giving up one may leave another uncalled.
+  let rec giveUpUncalledGuesses () =
+    let isUncalled addr =
+      dependenceMap.GetConfirmedCallers addr
+      |> Array.forall (fun caller -> builders[caller].BuilderState <> Finished)
+    match guessedEntries |> Seq.filter isUncalled |> Seq.toArray with
+    | [||] ->
+      ()
+    | uncalled ->
+      Array.iter refuteEntry uncalled
+      giveUpUncalledGuesses ()
+
   let terminateIfAllDone () =
     match builders.GetTerminationStatus() with
     | AllDone ->
+      giveUpUncalledGuesses ()
       if not (rebuildRevised ()) then buildMoreOrTerminate () else ()
 #if CFGDEBUG
       dbglog ManagerTid "Termination" "All done."
@@ -525,13 +620,22 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       (* invalid builder will be auto-reloaded later *)
       if builder.BuilderState = Invalid then () else rollback builder
 
+  /// Handles the result of a builder, or gives up the guess that a function
+  /// starts where it does, which a function refuted while it was building.
+  let handleResultOrGiveUp entryPoint result =
+    if isRefutedGuess entryPoint then
+      workingSet.Remove entryPoint |> ignore
+      giveUpGuess builders[entryPoint]
+    else
+      handleResult entryPoint result
+
   /// Handles the result of a builder, unless the recovery has been aborted.
   let reportResult entryPoint result =
     if fatalErrors.Count > 0 then
       ()
     else
       try
-        handleResult entryPoint result
+        handleResultOrGiveUp entryPoint result
         if workingSet.Count = 0 then terminateIfAllDone () else ()
       with e ->
         abort e
@@ -546,12 +650,53 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       failures.Add { EntryPoint = entryPoint; Exception = e }
       reportResult entryPoint (FailStop ErrorCase.UnexpectedError)
 
+  /// Adds the dependency of the caller on the callee, building the callee if
+  /// it is yet to be, and returns the status of the callee.
+  let addDependency caller callee =
+    builders.InheritEntryMode(callee, caller)
+    let builder = builders.TryGetBuilder callee
+    match builder with
+    | Ok(:? ICFGBuildable<'FnCtx, 'GlCtx> as builder)
+      when builder.Activation.IsDeactivated ->
+      assert builder.BuilderState.IsFinished
+      builder.Activation <- Activated
+      builder.ReInitialize()
+      scheduleCFGBuilding callee
+      dependenceMap.AddDependency(caller, callee, true)
+    | _ ->
+      scheduleCFGBuilding callee
+      dependenceMap.AddDependency(caller, callee, not <| isFinished callee)
+    toCalleeStatus builder
+
+  /// Takes the code at the given address for a function on the guess that a
+  /// jump calls it as its tail, telling whether it may: no guess there has
+  /// been given up, and no builder there has failed.
+  let guessEntry addr =
+    if refutedEntries.Contains addr then
+      false
+    else
+      match builders.TryGetBuilder addr with
+      | Ok builder ->
+        builder.BuilderState <> Invalid
+      | Error _ ->
+        guessedEntries.Add addr |> ignore
+        true
+
+  /// Tells the given status of a function that a jump calls as its tail, and
+  /// whether it is a function only on a guess.
+  let toTailCalleeStatus callee status =
+    if guessedEntries.Contains callee || refutedEntries.Contains callee then
+      GuessedTailCallee status
+    else
+      KnownTailCallee status
+
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive() with
       | StartBuilding entryPoint ->
         match builders.TryGetOrCreateBuilder(msgbox, entryPoint) with
         | Some builder when not (isBusyOrDone builder) ->
+          builder.Context.IsGuessedEntry <- guessedEntries.Contains entryPoint
           workingSet.Add entryPoint |> ignore
           strategy.OnCreate builder.Context
           assignCFGBuildingTaskNow builder
@@ -560,20 +705,16 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       | NoteEntryMode(addr, mode) ->
         builders.NoteEntryMode(addr, mode)
       | AddDependency(caller, callee, ch) ->
-        builders.InheritEntryMode(callee, caller)
-        let builder = builders.TryGetBuilder callee
-        match builder with
-        | Ok(:? ICFGBuildable<'FnCtx, 'GlCtx> as builder)
-          when builder.Activation.IsDeactivated ->
-          assert builder.BuilderState.IsFinished
-          builder.Activation <- Activated
-          builder.ReInitialize()
-          scheduleCFGBuilding callee
-          dependenceMap.AddDependency(caller, callee, true)
-        | _ ->
-          scheduleCFGBuilding callee
-          dependenceMap.AddDependency(caller, callee, not <| isFinished callee)
-        toCalleeStatus builder |> ch.Reply
+        proveEntry callee
+        addDependency caller callee |> ch.Reply
+      | GuessTailCallee(callee, ch) ->
+        guessEntry callee |> ch.Reply
+      | AddTailCallDependency(caller, callee, ch) ->
+        addDependency caller callee
+        |> toTailCalleeStatus callee
+        |> ch.Reply
+      | RefuteTailCallee callee ->
+        refuteEntry callee
       | ReportCFGResult(entryPoint, result) ->
         reportResult entryPoint result
       | ReportCFGException(entryPoint, e) ->

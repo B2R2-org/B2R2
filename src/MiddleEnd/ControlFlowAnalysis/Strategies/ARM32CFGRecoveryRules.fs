@@ -120,10 +120,6 @@ module private ARM32CFGRecoveryRules =
   /// whenever it runs.
   let alwaysLoadsLiteralAt addr ins = tryFindAlwaysLoadedLiteral ins = Some addr
 
-  /// The farthest that a load lies before the literal it loads: an offset from
-  /// the PC reaches 4095 bytes, and the PC reads 8 bytes past the load in ARM.
-  let [<Literal>] LiteralReach = 4104UL
-
   /// Returns the lifting unit with which the function reads code on its own,
   /// set to read from a start: in its instruction set, outside an IT block.
   let scanningUnitOf (ctx: CFGBuildingContext<_, _>) =
@@ -139,7 +135,8 @@ module private ARM32CFGRecoveryRules =
   /// from a start, as the scan may hit the middle of one in Thumb.
   let isLoadedLiteral (ctx: CFGBuildingContext<_, _>) addr =
     let step = if ctx.EntryMode = ARM32Mode.Thumb then 2UL else 4UL
-    let lowest = max ctx.FunctionAddress (addr - min addr LiteralReach)
+    let reach = min addr ARM32Code.LiteralReach
+    let lowest = max ctx.FunctionAddress (addr - reach)
     let loads insAddr =
       match (scanningUnitOf ctx).TryParseInstruction(insAddr: Addr) with
       | Ok ins -> alwaysLoadsLiteralAt addr (ins :?> ARM32.Instruction)
@@ -147,6 +144,108 @@ module private ARM32CFGRecoveryRules =
     let rec scan insAddr =
       loads insAddr || (insAddr >= lowest + step && scan (insAddr - step))
     addr >= lowest + step && scan (addr - step)
+
+  /// The most instructions that the code at an address runs before it saves a
+  /// preserved register, for it to look like the start of a function.
+  let [<Literal>] MaxPrologueLength = 24
+
+  /// Checks if the instruction branches only on a condition, as a branch that
+  /// tests a register for zero does, though its condition says always.
+  let branchesOnCondition (ins: IInstruction) =
+    let arm = ins :?> ARM32.Instruction
+    ins.IsCondBranch || (ins.IsBranch && ARM32Code.isConditional arm)
+
+  /// Checks if the code from the address saves a preserved register on the
+  /// stack within the given number of instructions, before it calls, returns,
+  /// or leaves otherwise. It passes what runs on a condition, as code that
+  /// starts a function may test its arguments before it saves registers, but
+  /// stops at a jump, which may well leave for another function that saves.
+  let rec savesFrom ctx (lu: LiftingUnit) (addr: Addr) count =
+    if count = 0 then
+      false
+    else
+      match lu.TryParseInstruction addr with
+      | Ok ins -> savesAt ctx lu ins count
+      | Error _ -> false
+
+  and savesAt (ctx: CFGBuildingContext<_, _>) lu (ins: IInstruction) count =
+    let arm = ins :?> ARM32.Instruction
+    let next = ins.Address + uint64 ins.Length
+    if ARM32Code.saves ctx.BinHandle.Conventions.Calling arm then
+      true
+    elif ins.IsCall || ins.IsExit || ins.IsInterrupt then
+      false
+    elif branchesOnCondition ins then
+      savesFrom ctx lu next (count - 1)
+    elif ins.IsBranch then
+      false
+    else
+      savesFrom ctx lu next (count - 1)
+
+  /// Checks if the instruction at the given address branches to the target on
+  /// no condition, rather than runs on to it, as an instruction that runs on a
+  /// condition does when the condition fails.
+  let branchesTo (ctx: CFGBuildingContext<_, _>) jmpAddr (target: Addr) =
+    match ctx.BBLFactory.PeekInstruction jmpAddr with
+    | Ok ins when not (branchesOnCondition ins) ->
+      ins.DirectBranchTarget() = (true, target)
+    | _ ->
+      false
+
+  /// Checks if the code at the given address looks like the start of a
+  /// function: code that the function has not built, which saves a preserved
+  /// register before it leaves, starting with an instruction that runs on no
+  /// condition.
+  let looksLikeEntry (ctx: CFGBuildingContext<_, _>) (addr: Addr) =
+    let lu = scanningUnitOf ctx
+    match lu.TryParseInstruction addr with
+    | Ok ins when not (ARM32Code.isConditional (ins :?> ARM32.Instruction)) ->
+      savesAt ctx lu ins MaxPrologueLength && not (coversAddr ctx addr)
+    | _ ->
+      false
+
+  /// Collects the addresses of the literals that the function loads.
+  let collectLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
+    ctx.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.collect instructionsOf
+    |> Array.choose tryFindAlwaysLoadedLiteral
+    |> HashSet
+
+  /// Checks if the function loads, wherever it has built code, the literal
+  /// at the given address.
+  let loadsBuiltLiteral ctx addr =
+    (collectLoadedLiterals ctx).Contains addr
+
+  /// Checks if the code at the given address is a literal that ARM code nearby
+  /// loads, which may be code that the function has yet to build. A literal is
+  /// data, whatever it decodes as.
+  let isLiteralNearby (ctx: CFGBuildingContext<_, _>) addr =
+    let lu = scanningUnitOf ctx
+    ctx.EntryMode = ARM32Mode.ARM
+    && ARM32Code.isLoadedNearby (fun a -> lu.TryParseInstruction(a: Addr)) addr
+
+  /// Checks if the jump at jmpAddr may call a function at target as its tail:
+  /// it branches there, and the code there looks like the start of one. A
+  /// jump that the function loads as a literal is no jump, and code that ARM
+  /// code nearby loads as a literal is no code.
+  let mayCallAsTail ctx jmpAddr target =
+    branchesTo ctx jmpAddr target
+    && looksLikeEntry ctx target
+    && not (loadsBuiltLiteral ctx jmpAddr)
+    && not (isLiteralNearby ctx target)
+
+  /// Checks if the function loads, wherever it has built code, the literal
+  /// that ends right at the given address.
+  let followsLoadedLiteral ctx addr =
+    addr >= 4UL && loadsBuiltLiteral ctx (addr - 4UL)
+
+  /// Checks if the function has built code below where it starts.
+  let hasCodeBelowEntry (ctx: CFGBuildingContext<_, _>) =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract && bbl.Range.Min < ctx.FunctionAddress)
 
   /// Checks if the indirect call at the given call site is taken to return.
   let isTakenToReturn (ctx: CFGBuildingContext<_, _>) callsite =
@@ -166,14 +265,6 @@ module private ARM32CFGRecoveryRules =
       if ctx.CallsBeforeLiterals.Contains ins.Address then None else Some ins
     else
       None
-
-  /// Collects the addresses of the literals that the function loads.
-  let collectLoadedLiterals (ctx: CFGBuildingContext<_, _>) =
-    ctx.CFG.Vertices
-    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
-    |> Array.collect instructionsOf
-    |> Array.choose tryFindAlwaysLoadedLiteral
-    |> HashSet
 
   /// Finds the indirect calls of the function that are taken to return while
   /// the function loads the literal right after them.
@@ -238,12 +329,6 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
   override _.ToCalleeAddr(ctx, target) = toCalleeAddr ctx target
 
-  /// Takes a jump to the entry of another function for a tail call. Code of
-  /// 32-bit ARM keeps each function in one piece, so no jump enters a part that
-  /// the current function splits off.
-  override _.IsTailCall(ctx, _, target) =
-    target <> ctx.FunctionAddress && isFuncEntryPoint ctx target
-
   override _.TryJudgeIndirectReturn(ctx, caller) =
     base.TryJudgeIndirectReturn(ctx, caller)
     |> Option.orElseWith (fun () -> tryJudgeReturnByLiteral ctx caller)
@@ -254,6 +339,26 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// past every block that the function has built can be one.
   override _.IsJumpTableHole(ctx, target) =
     liesPastBuiltCode ctx target && isLoadedLiteral ctx target
+
+  /// Judges a jump to the entry of another function a tail call. Code of
+  /// 32-bit ARM keeps each function in one piece, so no jump enters a part that
+  /// the current function splits off. A jump to code that looks like the start
+  /// of a function, where none starts yet, may call one there.
+  override _.JudgeTailCall(ctx, jmpAddr, target) =
+    if target = ctx.FunctionAddress then NotTailCall
+    elif isFuncEntryPoint ctx target then TailCall
+    elif mayCallAsTail ctx jmpAddr target then TentativeTailCall
+    else NotTailCall
+
+  /// Refutes the guess also if the function loads the literal right before the
+  /// callee: code amid a function may jump over its literal pool to where it
+  /// saves registers late.
+  override _.RefutesTailCall(ctx, callee) =
+    base.RefutesTailCall(ctx, callee) || followsLoadedLiteral ctx callee
+
+  /// Refutes the guess if the function has code below where it starts, as
+  /// code of 32-bit ARM starts each function at its lowest address.
+  override _.RefutesEntry ctx = hasCodeBelowEntry ctx
 
   override _.RequiresRebuild ctx =
     match findCallsBeforeLoadedLiterals ctx with

@@ -144,12 +144,25 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * target: Addr
     -> Addr
 
-  /// Checks if the jump at jmpAddr calls the function at target as its tail.
-  abstract IsTailCall:
+  /// Judges whether the jump at jmpAddr calls a function at target as its
+  /// tail.
+  abstract JudgeTailCall:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * jmpAddr: Addr
     * target: Addr
+    -> TailCallJudgment
+
+  /// Checks if the function that the given context has built refutes the guess
+  /// that it calls a function at callee as its tail.
+  abstract RefutesTailCall:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * callee: Addr
     -> bool
+
+  /// Checks if the function that the given context has built, which starts
+  /// only on the guess that a jump calls it as its tail, refutes the guess:
+  /// its own code shows that no function starts there.
+  abstract RefutesEntry: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
   /// Checks if the conditional jump at jmpAddr calls the function at target as
   /// its tail.
@@ -192,9 +205,17 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Returns the target itself.
   default _.ToCalleeAddr(_, target) = target
 
-  /// Checks if the jump leaves for the entry of another function rather than
-  /// for a part split off the current one.
-  default _.IsTailCall(ctx, jmpAddr, target) = isTailCall ctx jmpAddr target
+  /// Judges a jump that leaves for the entry of another function, rather than
+  /// for a part split off the current one, a tail call, and any other jump
+  /// one that stays within, guessing none.
+  default _.JudgeTailCall(ctx, jmpAddr, target) =
+    if isTailCall ctx jmpAddr target then TailCall else NotTailCall
+
+  /// Refutes the guess if the function reaches callee otherwise.
+  default _.RefutesTailCall(ctx, callee) = reachesOtherwise ctx callee
+
+  /// Refutes no guess on what the guessed function itself shows.
+  default _.RefutesEntry _ = false
 
   /// Checks if the jump leaves for the entry of another function with its own
   /// frame torn down.
@@ -221,8 +242,13 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   interface ICFGRecoveryRules<'FnCtx, 'GlCtx> with
     member this.ToCalleeAddr(ctx, target) = this.ToCalleeAddr(ctx, target)
 
-    member this.IsTailCall(ctx, jmpAddr, target) =
-      this.IsTailCall(ctx, jmpAddr, target)
+    member this.JudgeTailCall(ctx, jmpAddr, target) =
+      this.JudgeTailCall(ctx, jmpAddr, target)
+
+    member this.RefutesTailCall(ctx, callee) =
+      this.RefutesTailCall(ctx, callee)
+
+    member this.RefutesEntry ctx = this.RefutesEntry ctx
 
     member this.IsCondTailCall(ctx, jmpAddr, target) =
       this.IsCondTailCall(ctx, jmpAddr, target)

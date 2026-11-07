@@ -70,7 +70,8 @@ module private CFGRecovery =
       dbglog ctx.ThreadID (nameof MakeTlCall)
       <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-      connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo true
+      if isGivenUpGuess ctx calleeAddr then StopAndReload
+      else connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo true
     | MakeIndCall(callsiteAddr) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeIndCall)
@@ -102,7 +103,8 @@ module private CFGRecovery =
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof WaitForCallee) "-> failstop"
 #endif
-        FailStop ErrorCase.FailedToRecoverCFG
+        if isGivenUpGuess ctx calleeAddr then StopAndReload
+        else FailStop ErrorCase.FailedToRecoverCFG
       else
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"

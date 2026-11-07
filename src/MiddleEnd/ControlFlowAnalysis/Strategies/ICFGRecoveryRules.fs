@@ -30,6 +30,21 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
+/// Represents what a jump to a fixed address does with the code there: it
+/// stays within its function, it calls a function there as its tail, or it may
+/// call one there as its tail.
+type internal TailCallJudgment =
+  /// The jump stays within its function.
+  | NotTailCall
+  /// The jump calls the function there as its tail.
+  | TailCall
+  /// The jump may call a function there as its tail, as the code there looks
+  /// like the start of one, though nothing besides proves that one starts
+  /// there. The recovery builds the code there as a function on that guess,
+  /// which it gives up if the building fails or if the function that jumps
+  /// reaches the code there otherwise.
+  | TentativeTailCall
+
 /// Represents the rules that the CFG recovery follows where architectures
 /// differ: where a call enters its callee, whether a jump calls a function as
 /// its tail, whether a call calls a function at all, whether an indirect call
@@ -44,12 +59,25 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * target: Addr
     -> Addr
 
-  /// Checks if the jump at jmpAddr calls the function at target as its tail.
-  abstract IsTailCall:
+  /// Judges whether the jump at jmpAddr calls a function at target as its
+  /// tail.
+  abstract JudgeTailCall:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * jmpAddr: Addr
     * target: Addr
+    -> TailCallJudgment
+
+  /// Checks if the function that the given context has built refutes the guess
+  /// that it calls a function at callee as its tail.
+  abstract RefutesTailCall:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * callee: Addr
     -> bool
+
+  /// Checks if the function that the given context has built, which starts
+  /// only on the guess that a jump calls it as its tail, refutes the guess:
+  /// its own code shows that no function starts there.
+  abstract RefutesEntry: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
   /// Checks if the conditional jump at jmpAddr calls the function at target as
   /// its tail.
