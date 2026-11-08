@@ -476,6 +476,9 @@ module TransformerTuiInputController =
       | ConsoleKey.I when not control ->
         TransformerTuiModel.insertViewSelection model
         |> TuiInputResult.Update
+      | ConsoleKey.N when not control ->
+        TransformerTuiModel.findInViewDirection shift model
+        |> TuiInputResult.Update
       | ConsoleKey.Escape when selecting ->
         TransformerTuiModel.clearViewSelection model
         |> TuiInputResult.Update
@@ -521,6 +524,12 @@ module TransformerTuiInputController =
     (key: ConsoleKeyInfo)
     (model: TransformerTuiModel) =
     match key.Key with
+    | ConsoleKey.N when not control ->
+      let width, height = transcriptPageSize model
+      let reverse = hasModifier ConsoleModifiers.Shift key
+      TransformerTuiModel.findInTranscriptDirection
+        reverse width height model
+      |> TuiInputResult.Update
     | ConsoleKey.Escape ->
       TransformerTuiModel.focusShell model |> TuiInputResult.Update
     | ConsoleKey.Enter ->

@@ -1973,56 +1973,55 @@ module TransformerTuiModel =
         TranscriptFindText = text
         TranscriptFindCursor = cursor }
 
-  let private transcriptLineContains
-    (needle: string)
-    (line: TuiTranscriptLine) =
-    line.Line.Text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
+  let private findColumns (needle: string) (text: string) =
+    let rec collect start columns =
+      let index =
+        text.IndexOf(needle, start, StringComparison.OrdinalIgnoreCase)
+      if index < 0 then List.rev columns
+      else collect (index + 1) (index :: columns)
+    collect 0 []
 
-  let private transcriptFindCandidates width height model =
-    let layout = transcriptLayout width height model
-    let lines = layout.Rows
-    let cursor =
-      if model.Focus = TuiFocus.Transcript then
-        transcriptCursorRowIndex model lines
-        |> Option.defaultValue -1
-      else
-        layout.ViewportStart - 1
-    let start = max 0 (min lines.Length (cursor + 1))
-    let indexed = lines |> Array.mapi (fun index line -> index, line)
-    Array.append (indexed |> Array.skip start) (indexed |> Array.truncate start)
+  let private transcriptFindMatches width height model =
+    let rows = (transcriptLayout width height model).Rows
+    rows
+    |> Array.mapi (fun rowIndex row ->
+      match row.Source with
+      | TuiTranscriptSource.Line lineIndex ->
+        let text = TransformerTuiText.sanitize row.OriginalLine.Text
+        let fragment = text[row.TextStart..row.TextEnd - 1]
+        findColumns model.TranscriptFindText fragment
+        |> List.map (fun column ->
+          rowIndex, { Line = lineIndex; Column = row.TextStart + column })
+      | _ ->
+        [])
+    |> Array.toList
+    |> List.concat
 
-  let private transcriptFindCursor model (line: TuiTranscriptLine) =
-    let transcript = transcriptLines model
-    match line.Source with
-    | TuiTranscriptSource.Line index ->
-      let text =
-        transcript
-        |> List.tryItem index
-        |> Option.map (fun (line: TuiLine) -> line.Text)
-        |> Option.defaultValue ""
-      let column =
-        text.IndexOf(model.TranscriptFindText,
-                     StringComparison.OrdinalIgnoreCase)
-      { Line = index; Column = max 0 column }
-    | source ->
-      let line =
-        transcriptLineOfSource 0 model source
-        |> Option.defaultValue model.TranscriptCursor.Line
-      { Line = line; Column = 0 }
-    |> clampCursor transcript
+  let private findRelativeMatch reverse cursor matches =
+    let isAfter matchCursor =
+      matchCursor.Line > cursor.Line
+      || (matchCursor.Line = cursor.Line
+          && matchCursor.Column > cursor.Column)
+    let isBefore matchCursor =
+      matchCursor.Line < cursor.Line
+      || (matchCursor.Line = cursor.Line
+          && matchCursor.Column < cursor.Column)
+    let ordered = if reverse then List.rev matches else matches
+    let eligible = if reverse then isBefore else isAfter
+    ordered
+    |> List.tryFind (snd >> eligible)
+    |> Option.orElseWith (fun () -> List.tryHead ordered)
 
   /// Searches only rows kept in the compact transcript, never expanded output.
-  let findInTranscript width height model =
+  let findInTranscriptDirection reverse width height model =
     if String.IsNullOrEmpty model.TranscriptFindText then
       model
     else
-      let candidates = transcriptFindCandidates width height model
-      let contains =
-        snd >> transcriptLineContains model.TranscriptFindText
-      match candidates |> Array.tryFind contains with
-      | Some(index, line) ->
+      let matches = transcriptFindMatches width height model
+      let cursor = model.TranscriptCursor
+      match findRelativeMatch reverse cursor matches with
+      | Some(index, cursor) ->
         let transcript = transcriptLines model
-        let cursor = transcriptFindCursor model line
         let next =
           { model with
               Focus = TuiFocus.Transcript
@@ -2034,11 +2033,14 @@ module TransformerTuiModel =
               Status =
                 $"Found '{model.TranscriptFindText}' at "
                 + $"{cursor.Line + 1}:{cursor.Column + 1}" }
-        let lineCount = (transcriptLayout width height next).Rows.Length
-        let start = clampViewportStart height lineCount (index - (height / 2))
+        let count = (transcriptLayout width height next).Rows.Length
+        let start = clampViewportStart height count (index - (height / 2))
         { next with TranscriptViewportStart = Some start }
       | None ->
         { model with Status = $"Not found: {model.TranscriptFindText}" }
+
+  let findInTranscript width height model =
+    findInTranscriptDirection false width height model
 
   let private openViewPaneWithLines title blockIndex lines model =
     let lines =
@@ -2258,32 +2260,32 @@ module TransformerTuiModel =
       { pane with FindText = text; FindCursor = cursor }
     updateViewPane update model
 
-  let private lineContains (needle: string) (line: TuiLine) =
-    let text = TransformerTuiText.sanitize line.Text
-    text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
-
-  let findInView model =
+  let findInViewDirection reverse model =
     match model.ViewPane with
     | Some pane when not (String.IsNullOrEmpty pane.FindText) ->
-      let start = min (pane.Cursor.Line + 1) pane.Lines.Length
-      let indexed = pane.Lines |> Array.mapi (fun index line -> index, line)
-      let candidates =
-        Array.append (indexed |> Array.skip start)
-          (indexed |> Array.truncate start)
-      match candidates |> Array.tryFind (snd >> lineContains pane.FindText) with
-      | Some(index, line) ->
-        let text = TransformerTuiText.sanitize line.Text
-        let column =
-          text.IndexOf(pane.FindText, StringComparison.OrdinalIgnoreCase)
-        let cursor = { Line = index; Column = max 0 column }
+      let matches =
+        pane.Lines
+        |> Array.mapi (fun index line ->
+          let text = TransformerTuiText.sanitize line.Text
+          findColumns pane.FindText text
+          |> List.map (fun column ->
+            index, { Line = index; Column = column }))
+        |> Array.toList
+        |> List.concat
+      match findRelativeMatch reverse pane.Cursor matches with
+      | Some(index, cursor) ->
         let pane = { pane with Cursor = cursor; IsFinding = false }
         { model with
             ViewPane = Some pane
-            Status = $"Found '{pane.FindText}' at {index + 1}:{column + 1}" }
+            Status =
+              $"Found '{pane.FindText}' at "
+              + $"{index + 1}:{cursor.Column + 1}" }
       | None ->
         { model with Status = $"Not found: {pane.FindText}" }
     | _ ->
       model
+
+  let findInView model = findInViewDirection false model
 
   let private orderedSelection anchor cursor =
     if anchor.Line < cursor.Line then
