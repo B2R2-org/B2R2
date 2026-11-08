@@ -13,12 +13,12 @@ From the repository root:
 dotnet run -c Release --project src/RearEnd/Transformer
 ```
 
-The default pane layout shows input, suggestions, a transcript, and values.
-Use `Ctrl+G`, then `layout console`, to show input and results in sequence, or
-start there with:
+The default console layout shows input and results in sequence. To show
+suggestions, the transcript, and values in separate panes, use `Ctrl+G`, then
+`layout pane`, or start there with:
 
 ```sh
-dotnet run -c Release --project src/RearEnd/Transformer -- repl --layout console
+dotnet run -c Release --project src/RearEnd/Transformer -- repl --layout pane
 ```
 
 To run a saved script without the TUI:

@@ -54,7 +54,7 @@ let private parseReplOptions args =
       |> Option.bind (fun layout -> loop plugin layout rest)
     | _ ->
       None
-  loop None TuiLayout.Pane args
+  loop None TuiLayout.Console args
 
 let private runScript plugin path =
   ActionRegistry.create plugin
@@ -64,7 +64,7 @@ let private runScript plugin path =
 let main argv =
   match List.ofArray argv with
   | [] ->
-    runRepl None TuiLayout.Pane
+    runRepl None TuiLayout.Console
   | "repl" :: options ->
     match parseReplOptions options with
     | Some(plugin, layout) ->

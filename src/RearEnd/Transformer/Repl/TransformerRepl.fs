@@ -777,4 +777,4 @@ module TransformerRepl =
     else
       runLineMode registry
 
-  let run registry = runWithLayout TuiLayout.Pane registry
+  let run registry = runWithLayout TuiLayout.Console registry

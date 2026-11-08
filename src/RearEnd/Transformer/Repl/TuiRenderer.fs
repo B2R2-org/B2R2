@@ -504,9 +504,6 @@ module TransformerTuiRenderer =
     | ReplReplayMode.Exploratory ->
       "off"
 
-  let private scriptPath model =
-    model.Session.SessionPath |> Option.defaultValue "<none>"
-
   let private boxTop color width title =
     let inner = max 0 (width - 2)
     let dashes = max 0 (inner - String.length title - 2)
@@ -1295,10 +1292,9 @@ module TransformerTuiRenderer =
 
   let private contextFooter width model =
     let cwd = compactPath Environment.CurrentDirectory
-    let script = normalizePath (scriptPath model)
     let record = scriptRecordText model.Session.ReplayMode
     let text =
-      $" {model.Status}  cwd: {cwd}  script: {script}  record: {record}"
+      $" {model.Status}  cwd: {cwd}  record: {record}"
     paint dim (footerText width text model)
 
   let private consoleFooter width model =
