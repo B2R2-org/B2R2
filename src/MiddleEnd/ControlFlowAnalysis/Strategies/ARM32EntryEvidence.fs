@@ -74,7 +74,10 @@ type internal ARM32Gap =
     FollowsLiterals: bool
     /// Tells whether the code of the function ends in a jump that never goes
     /// on to the next instruction.
-    FollowsJump: bool }
+    FollowsJump: bool
+    /// Tells whether the code of the function ends in a call that never
+    /// returns, as the recovery builds the code past every call that does.
+    FollowsNoReturnCall: bool }
 
 /// Represents where the code from an address leads first, as a function that
 /// starts there runs.
@@ -87,8 +90,9 @@ type private Lead =
   /// Jumps to a recovered function as its tail at the instruction of the
   /// given index, telling whether one that runs on a condition came before.
   | CallsTail of int * bool
-  /// Calls, jumps back or past the next function, runs into what decodes as
-  /// no instruction or into the next function, or goes on for too long.
+  /// Calls, jumps back or past the next function, takes a return address from
+  /// the stack, runs into what decodes as no instruction or into the next
+  /// function, or goes on for too long.
   | Unclear
 
 /// Represents what the code that the recovery has built tells about an address
@@ -320,6 +324,10 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
     && not ins.IsCondBranch
     && not (ARM32Code.isConditional (ins :?> ARM32.Instruction))
 
+  /// Tells whether the instruction calls on no condition.
+  let callsUnconditionally (ins: IInstruction) =
+    ins.IsCall && not (ARM32Code.isConditional (ins :?> ARM32.Instruction))
+
   let entries =
     recovered |> Array.map (fun fn -> fn.EntryPoint) |> Array.sort
 
@@ -340,8 +348,11 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   /// within the span from where the reading started up to the next function,
   /// given how many instructions came before and whether one of them runs on
   /// a condition. No function starts with such an instruction, as the flags
-  /// mean nothing yet. A literal that recovered code loads ends the reading,
-  /// as it is data, whatever it decodes as.
+  /// mean nothing yet. Nor does one that saves nothing take a return address
+  /// from the stack: that is the epilogue of another function, which its
+  /// compiler may leave past a call that never returns. A literal that
+  /// recovered code loads ends the reading, as it is data, whatever it decodes
+  /// as.
   let rec leadFrom span (addr: Addr) idx isAfterCondition =
     if idx = MaxLeadLength || addr >= snd span then
       Unclear
@@ -361,6 +372,8 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
     elif ARM32Code.saves cc arm then
       Saves idx
     elif ins.IsCall || ins.IsExit || ins.IsInterrupt then
+      Unclear
+    elif ARM32Code.popsReturnAddress arm then
       Unclear
     elif isReturn ins && isConditional then
       leadFrom span next (idx + 1) true
@@ -425,8 +438,9 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   /// the given one. Code that saves a preserved register before it calls,
   /// returns or jumps back does, as no code in the middle of a function does.
   /// Code that saves nothing does if it returns or calls its tail first, and
-  /// the given function ends right above in literals or a jump, with no jump
-  /// that the recovery cannot follow, which may lead to a label past it.
+  /// the given function ends right above in literals, a jump or a call that
+  /// never returns, with no jump that the recovery cannot follow, which may
+  /// lead to a label past it.
   /// Only past literals may a return on a condition come first, as the code
   /// that libgcc writes by hand returns so in the middle of a function.
   let startsFunction fn (gap: ARM32Gap) lead =
@@ -434,7 +448,8 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
     | Saves _ ->
       true
     | Returns(_, false) | CallsTail(_, false) ->
-      (gap.FollowsLiterals || gap.FollowsJump) && isClosed fn
+      (gap.FollowsLiterals || gap.FollowsJump || gap.FollowsNoReturnCall)
+      && isClosed fn
     | Returns(_, true) ->
       gap.FollowsLiterals && isClosed fn
     | CallsTail(_, true) | Unclear ->
@@ -511,7 +526,8 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
         { Start = start
           IsThumb = first.IsThumb
           FollowsLiterals = hasSkippedLiteral
-          FollowsJump = leaves last.LastInstruction }
+          FollowsJump = leaves last.LastInstruction
+          FollowsNoReturnCall = callsUnconditionally last.LastInstruction }
 
   /// Finds the function that starts where code resumes past the given
   /// function, in the form that Identify gives, if one does.

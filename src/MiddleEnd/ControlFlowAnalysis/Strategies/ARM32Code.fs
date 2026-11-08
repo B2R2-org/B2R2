@@ -59,6 +59,25 @@ module internal ARM32Code =
     | _ ->
       false
 
+  /// Tells whether the instruction takes a return address back from the stack
+  /// into the link register or the PC, as only an epilogue does.
+  let popsReturnAddress (ins: ARM32.Instruction) =
+    let holdsReturn r = r = ARM32.Register.LR || r = ARM32.Register.PC
+    match ins.Opcode, ins.Operands with
+    | ARM32.Opcode.POP, ARM32.OneOperand(ARM32.OprRegList regs) ->
+      List.exists holdsReturn regs
+    | (ARM32.Opcode.LDM | ARM32.Opcode.LDMIA),
+      ARM32.TwoOperands(ARM32.OprReg ARM32.Register.SP,
+                        ARM32.OprRegList regs) ->
+      List.exists holdsReturn regs
+    | ARM32.Opcode.LDR,
+      ARM32.TwoOperands(ARM32.OprReg r,
+                        ARM32.OprMemory(ARM32.PostIdxMode(ARM32.ImmOffset(
+                          ARM32.Register.SP, _, _)))) ->
+      holdsReturn r
+    | _ ->
+      false
+
   /// Returns how many bytes the load reads, if it reads a literal pool.
   let tryLiteralSizeOf (ins: ARM32.Instruction) =
     match ins.Opcode, ins.Operands with

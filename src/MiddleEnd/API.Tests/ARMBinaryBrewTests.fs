@@ -696,6 +696,40 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
 
+  (* f ends in a call to h, which never returns, so the recovery builds
+     nothing past the call, as it does past a jump. g, which saves no
+     register and returns, then starts right past f. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function past a call that never returns is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "10402de9" (* f: push {r4, lr} *)
+          "010000eb" (* bl h *)
+          "010080e2" (* g: add r0, r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "feffffea" (* h: b h *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL; 0x1cUL |], entries)
+
+  (* f never returns, but the compiler of main need not know it, so main
+     keeps its epilogue past the call. The epilogue returns to what main
+     saved on the stack, which no function does as it starts. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``An epilogue past a call that never returns starts none``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "feffffea" (* f: b f *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
   (* GCC puts a mov r0, r0 for a nop in ARMv5 code, here between f and the
      literal that it loads, and the word of the literal decodes as an andeq.
      Read on through them, the code at 0x14 would save registers with the
