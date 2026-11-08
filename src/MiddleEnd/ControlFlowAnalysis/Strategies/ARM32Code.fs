@@ -46,7 +46,9 @@ module internal ARM32Code =
   let isPreserved (cc: CallingConvention) r =
     r = ARM32.Register.LR || cc.IsCalleeSaved(ARM32.Register.toRegID r)
 
-  /// Tells whether the instruction saves a preserved register on the stack.
+  /// Tells whether the instruction saves a preserved register on the stack,
+  /// with a push or with a store that moves the stack down first, which
+  /// libgcc writes to keep the stack aligned to eight bytes.
   let saves cc (ins: ARM32.Instruction) =
     match ins.Opcode, ins.Operands with
     | (ARM32.Opcode.PUSH | ARM32.Opcode.VPUSH),
@@ -56,6 +58,11 @@ module internal ARM32Code =
       ARM32.TwoOperands(ARM32.OprReg ARM32.Register.SP,
                         ARM32.OprRegList regs) ->
       ins.WriteBack && List.exists (isPreserved cc) regs
+    | ARM32.Opcode.STR,
+      ARM32.TwoOperands(ARM32.OprReg r,
+                        ARM32.OprMemory(ARM32.PreIdxMode(ARM32.ImmOffset(
+                          ARM32.Register.SP, Some ARM32.Minus, _)))) ->
+      isPreserved cc r
     | _ ->
       false
 

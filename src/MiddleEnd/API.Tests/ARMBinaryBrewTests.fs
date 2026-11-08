@@ -565,6 +565,27 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x18UL |], entries)
 
+  (* libgcc saves the link register with a store that moves the stack down by
+     eight bytes, which keeps it aligned, rather than with a push. Nothing
+     calls g, but g saves a register that its caller keeps first thing. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function that saves a register with a store is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "08e02de5" (* g: str lr, [sp, #-8]! *)
+          "fbffffeb" (* bl f *)
+          "0100a003" (* moveq r0, #1 *)
+          "0000a013" (* movne r0, #0 *)
+          "08f09de4" (* ldr pc, [sp], #8 *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
+
   (* g tests its argument before it saves the registers that its caller keeps,
      returning at once on zero, as a compiler lays out a function that needs
      its frame only on some paths. *)
