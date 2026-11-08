@@ -239,13 +239,32 @@ module private ARM32CFGRecoveryRules =
     ctx.EntryMode = ARM32Mode.ARM
     && ARM32Code.isLoadedNearby (fun a -> lu.TryParseInstruction(a: Addr)) addr
 
+  /// Checks if the code right above the address ends there rather than runs on
+  /// into it: an instruction that leaves for good, a nop that pads, or a
+  /// literal that ARM code nearby loads.
+  let endsRightAbove ctx addr =
+    match ARM32Code.tryDecodeAbove (scanningUnitOf ctx) addr with
+    | Some ins when ins.IsNop || ARM32Code.leaves ins -> true
+    | _ -> addr >= 4UL && isLiteralNearby ctx (addr - 4UL)
+
+  /// Checks if the target lies past where the next function starts, right
+  /// below code that ends there. Code of 32-bit ARM keeps each function in one
+  /// piece, so a jump there leaves its function, for one that starts there
+  /// even if it saves no register, unless the code above runs on into the
+  /// target, as libgcc enters __cmpdf2 past its first instruction.
+  let startsPastNextFunction (ctx: CFGBuildingContext<_, _>) target =
+    match ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress with
+    | Some nextFnAddr -> target > nextFnAddr && endsRightAbove ctx target
+    | None -> false
+
   /// Checks if the jump at jmpAddr may call a function at target as its tail:
-  /// it branches there, and the code there looks like the start of one. A
-  /// jump that the function loads as a literal is no jump, and code that ARM
-  /// code nearby loads as a literal is no code.
+  /// it branches there, and the code there looks like the start of one, or
+  /// starts past the next function. A jump that the function loads as a
+  /// literal is no jump, and code that ARM code nearby loads as a literal is
+  /// no code.
   let mayCallAsTail ctx jmpAddr target =
     branchesTo ctx jmpAddr target
-    && looksLikeEntry ctx target
+    && (looksLikeEntry ctx target || startsPastNextFunction ctx target)
     && not (loadsBuiltLiteral ctx jmpAddr)
     && not (isLiteralNearby ctx target)
 
@@ -358,7 +377,8 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// 32-bit ARM keeps each function in one piece, so no jump enters a part that
   /// the current function splits off. A jump with which a function starts to
   /// the instruction right past it, or a jump to code that looks like the start
-  /// of a function, where none starts yet, may call one there.
+  /// of a function or starts past the next function, where none starts yet,
+  /// may call one there.
   override _.JudgeTailCall(ctx, jmpAddr, target) =
     if target = ctx.FunctionAddress then NotTailCall
     elif isFuncEntryPoint ctx target then TailCall

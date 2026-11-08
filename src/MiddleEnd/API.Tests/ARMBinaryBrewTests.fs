@@ -384,6 +384,52 @@ type ARMBinaryBrewTests() =
     let kinds = edgeKindsFrom fns[0x14UL] 0x18UL
     CollectionAssert.AreEqual([| TailCallEdge |], kinds)
 
+  (* f only jumps to g, as file_type of gnulib does to c_file_type. g saves no
+     register and returns on a condition first, the way a leaf may, but the
+     jump goes past h, which main calls first. Code of 32-bit ARM keeps each
+     function in one piece, so the jump leaves f, and the code right above g
+     ends, so f calls g as its tail. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump past the next function calls a leaf there``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "020000eb" (* bl h *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "010000ea" (* f: b g *)
+          "0200a0e3" (* h: mov r0, #2 *)
+          "1eff2fe1" (* bx lr *)
+          "000050e3" (* g: cmp r0, #0 *)
+          "1eff2f01" (* bxeq lr *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    let kinds = edgeKindsFrom fns[0x10UL] 0x10UL
+    CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x14UL; 0x1cUL |], entries)
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
+  (* f jumps past c, which main calls first, to l right past the first
+     instruction of c, as __gedf2 of libgcc enters __cmpdf2. The code above l
+     runs on into it, so l is the middle of c rather than a function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump past the next function into its middle starts none``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "030000eb" (* bl c *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "00c0e0e3" (* f: mvn ip, #0 *)
+          "000000ea" (* b l *)
+          "01c0a0e3" (* c: mov ip, #1 *)
+          "0c00a0e1" (* l: mov r0, ip *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x18UL |], entries)
+
   (* f branches to h on a condition and otherwise runs on into g, both of
      which main calls. f takes g for its own until main calls g, and is then
      built again to call both as its tail from its one branch, which leaves

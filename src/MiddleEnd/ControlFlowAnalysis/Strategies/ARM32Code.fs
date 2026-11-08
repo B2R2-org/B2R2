@@ -40,6 +40,15 @@ module internal ARM32Code =
     | ARM32.Condition.AL | ARM32.Condition.NV | ARM32.Condition.UN -> false
     | _ -> true
 
+  /// Tells whether the instruction leaves for good whenever it is reached: a
+  /// branch, a return or an exit that runs on no condition, and no call, which
+  /// comes back.
+  let leaves (ins: IInstruction) =
+    (ins.IsBranch || ins.IsExit)
+    && not ins.IsCall
+    && not ins.IsCondBranch
+    && not (isConditional (ins :?> ARM32.Instruction))
+
   /// Tells whether the register keeps its value for the caller of a function
   /// that writes it: one that the convention has the callee save, or the link
   /// register, which holds where the function returns.
@@ -84,6 +93,17 @@ module internal ARM32Code =
       holdsReturn r
     | _ ->
       false
+
+  /// Returns the instruction that decodes right above the address, in the
+  /// instruction set that the lifting unit is in.
+  let tryDecodeAbove (lu: LiftingUnit) (addr: Addr) =
+    let endsAt (ins: IInstruction) = ins.Address + uint64 ins.Length = addr
+    [ 4UL; 2UL ]
+    |> List.filter (fun size -> addr >= size)
+    |> List.tryPick (fun size ->
+      match lu.TryParseInstruction(addr - size) with
+      | Ok ins when endsAt ins -> Some ins
+      | _ -> None)
 
   /// Returns how many bytes the load reads, if it reads a literal pool.
   let tryLiteralSizeOf (ins: ARM32.Instruction) =

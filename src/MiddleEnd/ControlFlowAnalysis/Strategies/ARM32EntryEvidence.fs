@@ -147,24 +147,15 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
     for ins in instructions do byEnd[ins.Address + uint64 ins.Length] <- ins
     byEnd
 
-  /// Returns the instruction that decodes right above the address, in the
-  /// instruction set the lifting unit is in.
-  let tryDecodeAbove addr =
-    let endsAt (ins: IInstruction) = ins.Address + uint64 ins.Length = addr
-    [ 4UL; 2UL ]
-    |> List.filter (fun size -> addr >= size)
-    |> List.tryPick (fun size ->
-      match lu.TryParseInstruction(addr - size) with
-      | Ok ins when endsAt ins -> Some ins
-      | _ -> None)
-
   /// Returns the instruction that ends right at the address, telling whether
   /// the recovery has built it: the one built there, or else the one that
   /// decodes there.
   let tryFindAbove addr =
     match instructionsByEnd.TryGetValue addr with
-    | true, ins -> Some(ins, true)
-    | false, _ -> tryDecodeAbove addr |> Option.map (fun ins -> ins, false)
+    | true, ins ->
+      Some(ins, true)
+    | false, _ ->
+      ARM32Code.tryDecodeAbove lu addr |> Option.map (fun ins -> ins, false)
 
   let returning =
     recovered
@@ -315,15 +306,6 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
           skipGap literals (addr + uint64 ins.Length) hasSkippedLiteral
         | _ ->
           addr, hasSkippedLiteral
-
-  /// Tells whether the instruction leaves for good whenever it is reached: a
-  /// branch, a return or an exit that runs on no condition, and no call,
-  /// which comes back.
-  let leaves (ins: IInstruction) =
-    (ins.IsBranch || ins.IsExit)
-    && not ins.IsCall
-    && not ins.IsCondBranch
-    && not (ARM32Code.isConditional (ins :?> ARM32.Instruction))
 
   /// Tells whether the instruction calls on no condition.
   let callsUnconditionally (ins: IInstruction) =
@@ -530,7 +512,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
         { Start = start
           IsThumb = first.IsThumb
           FollowsLiterals = hasSkippedLiteral
-          FollowsJump = leaves last.LastInstruction
+          FollowsJump = ARM32Code.leaves last.LastInstruction
           FollowsNoReturnCall = callsUnconditionally last.LastInstruction }
 
   /// Finds the function that starts where code resumes past the given
