@@ -1582,6 +1582,36 @@ module TransformerTuiRenderer =
       let cursorColumn = startCol + 3 + model.PaletteCursor - inputStart
       lines, Some(cursorRow, cursorColumn)
 
+  let private overlayResizeGuide width height model lines =
+    if model.ResizeOriginal.IsNone then
+      lines
+    else
+      let boxWidth = min width (paletteBoxWidth width)
+      let row text =
+        paint (noticeBg + noticeFg) (centerPad boxWidth text)
+      let blank = paint noticeBg (centerPad boxWidth "")
+      let boxRows =
+        [ blank
+          paint (noticeBg + noticeFg + bold)
+            (centerPad boxWidth "Resize pane layout")
+          blank
+          row "Left / h and Right / l: values width"
+          row "Up / k and Down / j: suggestions height"
+          blank
+          row "Enter: save    Esc: cancel"
+          blank ]
+      let boxHeight = List.length boxRows
+      let startCol, startRow =
+        paletteOrigin width height boxWidth boxHeight
+      boxRows
+      |> List.iteri (fun offset boxRow ->
+        let row = startRow + offset
+        if row < Array.length lines then
+          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row]
+        else
+          ())
+      lines
+
   let viewScrollOffset width height model =
     if model.Overlay = TuiOverlay.View then
       let bodyHeight = TransformerTuiModel.transcriptHeight height model
@@ -1755,6 +1785,7 @@ module TransformerTuiRenderer =
         |> overlayMessageBox width height model
       let lines, paletteCursor =
         overlayCommandPalette width height registry model lines
+      let lines = overlayResizeGuide width height model lines
       { Lines = lines
         CursorRow =
           paletteCursor
