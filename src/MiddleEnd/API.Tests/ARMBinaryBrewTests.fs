@@ -1200,6 +1200,45 @@ type ARMBinaryBrewTests() =
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x20UL; 0x28UL; 0x30UL; 0x34UL |], targets)
 
+  (* main switches through a table of bytes on an index that it sets to zero,
+     or to what g returns, which it calls once h returns, before it jumps back
+     to the switch. The recovery reads the switch once h returns, while it
+     waits to learn whether g does, when only the zero reaches the switch, so
+     the index looks constant and cannot be told from the table. The code
+     past the call of g is built later, after which the switch is read again. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A switch is read again once the code past a call is built``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* push {r4, lr} *)
+          "0040a0e3" (* mov r4, #0 *)
+          "000050e3" (* cmp r0, #0 *)
+          "0e00001a" (* bne 0x4c *)
+          "30309fe5" (* ldr r3, [pc, #0x30] *)
+          "03308fe0" (* add r3, pc, r3 *)
+          "030054e3" (* cmp r4, #3 *)
+          "0600008a" (* bhi 0x3c *)
+          "0400d3e7" (* ldrb r0, [r3, r4] *)
+          "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+          "00f020e3" (* nop *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "00020405" (* .byte 0, 2, 4, 5 *)
+          "28000000" (* .word 0x28, from the PC of the add to the table *)
+          "020000eb" (* bl h *)
+          "020000eb" (* bl g *)
+          "0040a0e1" (* mov r4, r0 *)
+          "ecffffea" (* b 0x10 *)
+          "1eff2fe1" (* h: bx lr *)
+          "1eff2fe1" (* g: bx lr *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x2cUL; 0x34UL; 0x3cUL; 0x40UL |], targets)
+
   (* A load of a halfword in ARM cannot scale its index, so GCC doubles the
      index with an ADD first. Here two cases lie before the jump, and their
      entries are negative, which ldrsh reads as such. *)

@@ -89,6 +89,12 @@ module private CFGRecovery =
       <| $"{insAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
       recoverIndirectBranches ctx jmptblAnalysis queue insAddr
+    | RetryIndEdges(insAddr, numEdges) ->
+#if CFGDEBUG
+      dbglog ctx.ThreadID (nameof RetryIndEdges)
+      <| $"{insAddr:x} @ {ctx.FunctionAddress:x}"
+#endif
+      retryIndirectBranches ctx jmptblAnalysis queue insAddr numEdges
     | WaitForCallee calleeAddr ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof WaitForCallee)

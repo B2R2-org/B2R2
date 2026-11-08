@@ -938,6 +938,7 @@ module private EVMCFGRecovery =
     | MakeIndCall _
     | MakeSyscall _
     | MakeIndEdges _
+    | RetryIndEdges _
     | StartTblRec _
     | EndTblRec _
     | StartGapAnalysis _

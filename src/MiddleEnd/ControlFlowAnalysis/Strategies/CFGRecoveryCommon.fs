@@ -61,7 +61,8 @@ module internal CFGRecoveryCommon =
           | UpdateCallEdges _ -> 1
           | StartTblRec _ -> 0
           | EndTblRec _ -> 0
-          | EndGapAnalysis -> -1 }
+          | RetryIndEdges _ -> -1
+          | EndGapAnalysis -> -2 }
 
   /// Notes that the vertex ends with the call at the call site, unless a vertex
   /// that starts where it does was noted first.
@@ -1129,6 +1130,10 @@ module internal CFGRecoveryCommon =
     | Overlapping _ ->
       MoveOn
 
+  /// Recovers the indirect branch at the given address. A branch whose analysis
+  /// fails is read again once nothing else is left to do, as the data flow of
+  /// the CFG built so far may lack the paths that give its index its values,
+  /// such as those past a call that the function waits to learn returns.
   let recoverIndirectBranches ctx jmptblAnalysis queue insAddr =
     let analysis: IJmpTableAnalyzable<_, _> = jmptblAnalysis
     match analysis.Identify(ctx, insAddr) with
@@ -1144,7 +1149,16 @@ module internal CFGRecoveryCommon =
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"
 #endif
-      MoveOn (* We ignore this indirect branch. *)
+      pushAction ctx <| RetryIndEdges(insAddr, ctx.CFG.EdgeCount)
+      MoveOn (* We ignore this indirect branch for now. *)
+
+  /// Recovers the indirect branch at the given address again if the CFG has
+  /// gained edges since its analysis failed with the given number of them.
+  let retryIndirectBranches ctx jmptblAnalysis queue insAddr numEdges =
+    if (ctx: CFGBuildingContext<_, _>).CFG.EdgeCount > numEdges then
+      recoverIndirectBranches ctx jmptblAnalysis queue insAddr
+    else
+      MoveOn
 
   let isFailedBuilding (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) calleeAddr =
     match ctx.ManagerChannel.GetCalleeStatus calleeAddr with
