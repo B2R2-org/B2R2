@@ -52,6 +52,7 @@ module ReplHelp =
       "Shell"
       "  Enter                          Insert a new line"
       "  ;; then Enter                  Execute the current input"
+      "  Ctrl+R / Ctrl+Enter            Execute the current input"
       "  Tab / Shift+Tab                Apply completion / insert spaces"
       "  Up / Down                      Browse history, suggestions, or lines"
       "  Ctrl+N / Ctrl+P                Select next / previous completion"

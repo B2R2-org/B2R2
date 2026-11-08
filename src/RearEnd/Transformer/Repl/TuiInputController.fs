@@ -1285,6 +1285,9 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
+  let private isExecuteKey (key: ConsoleKeyInfo) =
+    key.Key = ConsoleKey.Enter || key.Key = ConsoleKey.R
+
   let private handleFocusedKey completion control shift key model =
     let isShell =
       model.Overlay = TuiOverlay.None && model.Focus = TuiFocus.Shell
@@ -1305,7 +1308,7 @@ module TransformerTuiInputController =
         TuiInputResult.Stop model
       else
         TransformerTuiModel.delete model |> TuiInputResult.Update
-    elif control && key.Key = ConsoleKey.Enter && isShell then
+    elif control && isShell && isExecuteKey key then
       submitShellInput model
     elif isPipeShortcut control key && isShell then
       insertPipeOperator model |> TuiInputResult.Update
