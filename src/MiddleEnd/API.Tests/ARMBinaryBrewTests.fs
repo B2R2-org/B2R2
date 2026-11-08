@@ -879,6 +879,78 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
 
+  (* main builds the address of g and stores it, as basenc of coreutils sets
+     the function pointers of an encoding at run time, which no data section
+     holds. Nothing calls g directly, and the word above g keeps the code past
+     main from showing a start, but g saves registers as a function starts. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function whose address code stores is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "183000e3" (* movw r3, #0x18 *)
+          "003040e3" (* movt r3, #0 *)
+          "003080e5" (* str r3, [r0] *)
+          "1080bde8" (* pop {r4, pc} *)
+          "34120000" (* .word 0x1234, as andeq r1, r0, r4, lsr r2 *)
+          "10402de9" (* g: push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0x18UL |], entries)
+
+  (* main stores the address of g as a halfword, as code writes two characters
+     at once. A pointer of 32-bit ARM takes a word, so the halfword names no
+     function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A halfword that code stores names no function``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "183000e3" (* movw r3, #0x18 *)
+          "b030c0e1" (* strh r3, [r0] *)
+          "0000a0e1" (* mov r0, r0 *)
+          "1080bde8" (* pop {r4, pc} *)
+          "34120000" (* .word 0x1234, as andeq r1, r0, r4, lsr r2 *)
+          "10402de9" (* g: push {r4, lr} *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1080bde8" (* pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL |], entries)
+
+  (* With .fini_array cleared, main stores 0x6cd, which would name the Thumb
+     __do_global_dtors_aux, as a plain number. Code that the loader may place
+     anywhere computes an address from the PC or reads one where the loader
+     writes it, so the number names no function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A number that position-independent code stores is no pointer``() =
+    let bytes = readZippedBinary "elf_arm32_exidx"
+    System.BitConverter.GetBytes(0u).CopyTo(bytes, 0xea4)
+    System.BitConverter.GetBytes(0xe30036cdu).CopyTo(bytes, 0x784)
+    System.BitConverter.GetBytes(0xe3403000u).CopyTo(bytes, 0x788)
+    System.BitConverter.GetBytes(0xe58d3000u).CopyTo(bytes, 0x78c)
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x6ccUL)
+
+  (* main stores the address of its own label l, as GNU C lets a program take
+     one. The code of main covers l, so l starts no function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A label whose address its function stores starts none``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "143000e3" (* movw r3, #0x14 *)
+          "003040e3" (* movt r3, #0 *)
+          "003080e5" (* str r3, [r0] *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1080bde8" (* l: pop {r4, pc} *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL |], entries)
+
   (* Clang keeps the jump with which f calls g as its tail, though g starts
      right past it. Nothing calls g, but g saves registers as a function
      starts, so the jump calls it as its tail rather than runs into it. *)

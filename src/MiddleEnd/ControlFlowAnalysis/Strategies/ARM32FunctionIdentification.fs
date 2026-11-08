@@ -39,10 +39,12 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
 /// Represents what a register or a temporary holds on every path to a point:
-/// a constant, or the argument of the given index as the function received
-/// it.
+/// a constant, telling whether it moves with the binary as the loader places
+/// it, as an address does that the code computes from the PC or reads where
+/// the loader writes one, or the argument of the given index as the function
+/// received it.
 type private Known =
-  | Const of uint64
+  | Const of value: uint64 * isPlaced: bool
   | Arg of int
 
 /// Represents what every path to a point holds: in registers, and in the
@@ -58,13 +60,15 @@ type private CallSite =
     Values: Map<RegisterID, Known> }
 
 /// Represents the calls that a recovered function makes, with the indices of
-/// the arguments that it calls through a register as it received them, and
-/// the jumps through a register with which it calls such an argument as its
-/// tail.
+/// the arguments that it calls through a register as it received them, the
+/// jumps through a register with which it calls such an argument as its tail,
+/// and the constants that it stores to memory, among which are the function
+/// pointers that it sets for calls to go through.
 type private Calls =
   { Sites: CallSite[]
     CalledArgs: int list
-    ArgJumps: Addr[] }
+    ArgJumps: Addr[]
+    StoredConstants: uint64[] }
 
 /// Represents the function identification for 32-bit ARM. It takes what the
 /// binary tells, as FunctionIdentification does, and then finds more in what
@@ -75,9 +79,10 @@ type private Calls =
 /// call. A jump that leaves its function for code outside of it, up to the
 /// next function, calls a function as its tail, as code of 32-bit ARM keeps
 /// each function in one piece. A code address that the data of the binary
-/// holds may name a label instead, whose address GNU C lets a program take,
-/// so it starts a function only once the code there shows one starting, as
-/// ARM32EntryEvidence tells, which the target of such a jump also has to.
+/// holds, or that recovered code stores to memory, may name a label instead,
+/// whose address GNU C lets a program take, so it starts a function only once
+/// the code there shows one starting, as ARM32EntryEvidence tells, which the
+/// target of such a jump also has to.
 type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -139,14 +144,19 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | _ ->
       file.IsExecutableAddr addr
 
-  /// Reads the word at the given address as the loader leaves it: what a
-  /// relocation writes there, or what the file holds where only the loader
-  /// writes.
+  /// Reads the word at the given address as the loader leaves it, telling
+  /// whether it moves with the binary: what a relocation writes there, which
+  /// does, or what the file holds where only the loader writes.
   let tryReadWord addr =
     match BinFileOps.tryComputeRelocationValue file addr with
-    | Ok v -> Some(v &&& wordMask)
-    | Error _ when isStable addr -> Result.toOption (hdl.TryReadUInt(addr, 4))
-    | Error _ -> None
+    | Ok v ->
+      Some(v &&& wordMask, true)
+    | Error _ when isStable addr ->
+      hdl.TryReadUInt(addr, 4)
+      |> Result.toOption
+      |> Option.map (fun v -> v, false)
+    | Error _ ->
+      None
 
   let fold op (x: uint64) (y: uint64) =
     match op with
@@ -160,37 +170,50 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | BinOpType.XOR -> Some(x ^^^ y)
     | _ -> None
 
+  /// Tells whether what the operation yields moves with the binary, given
+  /// whether its operands do: an address plus an offset does, while the
+  /// distance between two addresses does not.
+  let isPlacedBy op isLeftPlaced isRightPlaced =
+    match op with
+    | BinOpType.SUB -> isLeftPlaced && not isRightPlaced
+    | _ -> isLeftPlaced || isRightPlaced
+
   let extract (v: uint64) rt pos =
     let width = RegType.toBitWidth rt
     let v = v >>> pos
     if width >= 64 then v else v &&& ((1UL <<< width) - 1UL)
 
-  /// Returns the constant that the given map holds for the key, if any.
+  /// Returns the constant that the given map holds for the key, if any, telling
+  /// whether it moves with the binary.
   let tryConstIn map key =
     match Map.tryFind key map with
-    | Some(Const v) -> Some v
+    | Some(Const(v, isPlaced)) -> Some(v, isPlaced)
     | _ -> None
 
   /// Evaluates the expression to the constant that it is on every path, if any,
-  /// reading memory only where the loader leaves it as the binary says.
+  /// reading memory only where the loader leaves it as the binary says, and
+  /// telling whether the constant moves with the binary as the loader places
+  /// it.
   let rec eval (knowns: Knowns) pc e =
     match e with
     | Num(Value = bv) ->
-      Some(bv.ToUInt64())
+      Some(bv.ToUInt64(), false)
     | PCVar _ ->
-      Some pc
+      Some(pc, true)
     | Var(RegisterID = r) ->
       tryConstIn knowns.Registers r
     | TempVar(Index = i) ->
       tryConstIn knowns.Temps i
     | BinOp(Op = op; Type = rt; Left = l; Right = r) when rt = 32<rt> ->
       match eval knowns pc l, eval knowns pc r with
-      | Some x, Some y -> fold op x y |> Option.map (fun v -> v &&& wordMask)
-      | _ -> None
+      | Some(x, px), Some(y, py) ->
+        fold op x y |> Option.map (fun v -> v &&& wordMask, isPlacedBy op px py)
+      | _ ->
+        None
     | Load(Type = rt; Addr = a) when rt = 32<rt> ->
-      eval knowns pc a |> Option.bind tryReadWord
+      eval knowns pc a |> Option.bind (fst >> tryReadWord)
     | Extract(Operand = x; Type = rt; StartPos = pos) ->
-      eval knowns pc x |> Option.map (fun v -> extract v rt pos)
+      eval knowns pc x |> Option.map (fun (v, p) -> extract v rt pos, p)
     | Cast(Kind = CastKind.ZeroExt; Operand = x) ->
       eval knowns pc x
     | _ ->
@@ -241,18 +264,40 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       | _ ->
         ()
 
+  /// Notes the word that the statement stores to memory, if it is a constant on
+  /// every path that may name code. A narrower store, as of a character or
+  /// two, holds no pointer, nor does a number that stays put where the loader
+  /// may place the binary anywhere, as code there computes an address from the
+  /// PC or reads one where the loader writes it.
+  let noteStore (stores: HashSet<uint64>) knowns pc stmt =
+    match stmt with
+    | Store(Value = v) when Expr.typeOf v = 32<rt> ->
+      match eval knowns pc v with
+      | Some(value, isPlaced) when isPlaced || not file.IsBaseRelative ->
+        stores.Add value |> ignore
+      | _ ->
+        ()
+    | _ ->
+      ()
+
+  /// Applies the instruction to what a path knows, noting the call that it
+  /// starts and the constants that it stores.
+  let applyInstruction calls stores knowns (lifted: LiftedInstruction) =
+    noteCall calls knowns lifted
+    let pc = lifted.Original.Address
+    let apply k s =
+      noteStore stores k pc s
+      step k pc s
+    Array.fold apply knowns lifted.Stmts
+
   /// Applies the block to what a path knows. A callee may write any register
   /// that its caller saves, so a call forgets those.
-  let transfer calls knowns (blk: ILowUIRBasicBlock) =
+  let transfer calls stores knowns (blk: ILowUIRBasicBlock) =
     if blk.IsAbstract then
       let isKept r _ = not (cc.IsCallerSaved r)
       { Registers = Map.filter isKept knowns.Registers; Temps = Map.empty }
     else
-      blk.LiftedInstructions
-      |> Array.fold (fun knowns lifted ->
-        noteCall calls knowns lifted
-        let pc = lifted.Original.Address
-        lifted.Stmts |> Array.fold (fun k s -> step k pc s) knowns) knowns
+      Array.fold (applyInstruction calls stores) knowns blk.LiftedInstructions
 
   /// Checks if the recovery took the jump that ends the given vertex for a
   /// tail call.
@@ -313,13 +358,15 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   /// Finds the calls that the function makes, each with what registers hold on
   /// every path to it from the entry, where the function receives its
-  /// arguments, the arguments that it calls, and the jumps with which it calls
-  /// one as its tail. Only a call or a jump through a register reads them, so
-  /// a function that makes none leaves them out.
+  /// arguments, the arguments that it calls, the jumps with which it calls
+  /// one as its tail, and the constants that it stores. Only a call or a jump
+  /// through a register reads the arguments, so a function that makes none
+  /// leaves them out.
   let findCalls (fn: Function) =
     let cfg = fn.CFG
     let calls = Dictionary<Addr, CallSite>()
     let jumps = Dictionary<Addr, CallSite>()
+    let stores = HashSet<uint64>()
     let knownsAt = Dictionary<IVertex<LowUIRBasicBlock>, Knowns>()
     let work = Queue<IVertex<LowUIRBasicBlock>>()
     let readsArgs = callsThroughRegister fn || jumpsThroughRegister fn
@@ -332,7 +379,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       work.Enqueue root
     while work.Count > 0 do
       let v = work.Dequeue()
-      let out = transfer calls knownsAt[v] v.VData.Internals
+      let out = transfer calls stores knownsAt[v] v.VData.Internals
       if callsTail cfg v then noteTailCall calls v out else ()
       if endsInJumpThroughRegister v then noteJump jumps v out else ()
       for succ in cfg.GetSuccs v do propagate knownsAt work succ out
@@ -344,7 +391,8 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         jumps.Values
         |> Seq.filter (fun site -> Option.isSome (tryCalledArgOf site))
         |> Seq.map (fun site -> site.Instruction.Address)
-        |> Seq.toArray }
+        |> Seq.toArray
+      StoredConstants = Seq.toArray stores }
 
   /// The calls that each recovered function makes, by its CFG, which stays the
   /// same until the function is built again, along with how many edges the CFG
@@ -377,7 +425,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// call starts, if the argument is passed in a register.
   let tryArgOf (site: CallSite) idx =
     match cc.GetIntArgLocation idx with
-    | ArgLocation.Reg r -> tryConstIn site.Values r
+    | ArgLocation.Reg r -> tryConstIn site.Values r |> Option.map fst
     | _ -> None
 
   /// Returns the indices of the arguments that the function calls: those that
@@ -417,7 +465,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         []
     | false, _ ->
       match tryTargetOf site with
-      | Some(Const target) ->
+      | Some(Const(target, _)) ->
         [ target ]
       | _ ->
         []
@@ -515,6 +563,16 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Seq.filter isCodePointer
     |> Seq.distinct
     |> Seq.toArray
+
+  /// Lists the code addresses that the given functions store to memory, in the
+  /// form that Identify gives, as code does that sets a function pointer at
+  /// run time, such as one in .bss, which no data section holds.
+  let pointersStoredBy (recovered: Function[]) =
+    recovered
+    |> Array.filter (fun fn -> not fn.IsExternal)
+    |> Array.collect (fun fn -> (findCallsOnce fn).StoredConstants)
+    |> Array.filter isCodePointer
+    |> Array.distinct
 
   /// Pairs each of the recovered functions that the binary defines, in the
   /// order of their entries, with the entry of the next one.
@@ -679,6 +737,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       let calledArgs = findCalledArgs recovered
       let evidence =
         ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf)
+      let pointers = Array.append dataPointers (pointersStoredBy recovered)
       recovered
       |> Seq.filter (fun fn -> not fn.IsExternal)
       |> Seq.collect (fun fn -> (findCallsOnce fn).Sites)
@@ -686,6 +745,6 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       |> Seq.append (proveByTailCalls evidence recovered)
       |> Seq.append (findNextStarts evidence recovered)
       |> Seq.filter isCodePointer
-      |> Seq.append (Array.filter evidence.IsLikelyEntry dataPointers)
+      |> Seq.append (Array.filter evidence.IsLikelyEntry pointers)
       |> Seq.distinct
       |> Seq.toArray
