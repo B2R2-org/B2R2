@@ -831,6 +831,41 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
 
+  (* f does nothing but jump to g, which a compiler lays right past f as f
+     only calls g as its tail. No function starts with a jump that does
+     nothing else, so g, which saves no register, is a function of its own. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump that starts a function calls the next one as its tail``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "ffffffea" (* f: b g *)
+          "0010a0e3" (* g: mov r1, #0 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x10UL |], entries)
+
+  (* f starts by jumping to the test of its loop, as GCC lays out a loop to
+     save room. The jump passes the body of the loop, so it stays within f. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump that starts a function past its loop stays within``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "000000ea" (* f: b 0x14 *)
+          "010080e2" (* add r0, r0, #1 *)
+          "0a0050e3" (* cmp r0, #10 *)
+          "fcffffba" (* blt 0x10 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
   (* f returns early, then jumps over the literal that it loads to where it
      saves registers late, as Clang lays out Thumb code. The code there looks
      like the start of a function, but a function lays its literal pool past

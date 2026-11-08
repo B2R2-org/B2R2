@@ -192,6 +192,20 @@ module private ARM32CFGRecoveryRules =
     | _ ->
       false
 
+  /// Checks if the jump at jmpAddr starts the function and branches to the
+  /// instruction right past it on no condition. No function starts with a jump
+  /// that does nothing, so the function only calls the code there as its tail,
+  /// which a compiler lays right past it.
+  let jumpsPastEntry (ctx: CFGBuildingContext<_, _>) jmpAddr target =
+    if jmpAddr <> ctx.FunctionAddress then
+      false
+    else
+      match ctx.BBLFactory.PeekInstruction jmpAddr with
+      | Ok ins ->
+        target = jmpAddr + uint64 ins.Length && branchesTo ctx jmpAddr target
+      | Error _ ->
+        false
+
   /// Checks if the code at the given address looks like the start of a
   /// function: code that the function has not built, which saves a preserved
   /// register before it leaves, starting with an instruction that runs on no
@@ -342,11 +356,13 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
   /// Judges a jump to the entry of another function a tail call. Code of
   /// 32-bit ARM keeps each function in one piece, so no jump enters a part that
-  /// the current function splits off. A jump to code that looks like the start
+  /// the current function splits off. A jump with which a function starts to
+  /// the instruction right past it, or a jump to code that looks like the start
   /// of a function, where none starts yet, may call one there.
   override _.JudgeTailCall(ctx, jmpAddr, target) =
     if target = ctx.FunctionAddress then NotTailCall
     elif isFuncEntryPoint ctx target then TailCall
+    elif jumpsPastEntry ctx jmpAddr target then TentativeTailCall
     elif mayCallAsTail ctx jmpAddr target then TentativeTailCall
     else NotTailCall
 
