@@ -152,6 +152,60 @@ module TransformerReplParser =
       fixedForm [ "quit" ] "Leave the Transformer TUI" Quit
       { fixedForm [ "q" ] "" Quit with Suggest = false } ]
 
+  let private rootAliases =
+    Map.ofList
+      [ "h", "help"
+        "a", "actions"
+        "hi", "history"
+        "v", "values"
+        "t", "type"
+        "i", "inspect"
+        "n", "needs"
+        "lg", "log"
+        "e", "export"
+        "r", "restore"
+        "u", "undo"
+        "rs", "reset"
+        "s", "script"
+        "p", "plugin"
+        "l", "layout"
+        "q", "quit" ]
+
+  let private childAliases =
+    Map.ofList
+      [ ("script", "s"), "save"
+        ("script", "l"), "load"
+        ("script", "r"), "record"
+        ("plugin", "l"), "load"
+        ("layout", "c"), "console"
+        ("layout", "p"), "pane"
+        ("layout", "r"), "resize"
+        ("layout", "o"), "order=toggle" ]
+
+  let private firstWord (input: string) =
+    let index = input.IndexOfAny([| ' '; '\t'; '\r'; '\n' |])
+    if index < 0 then input, ""
+    else input[..index - 1], input[index..]
+
+  let expandControlAliases (input: string) =
+    let input = input.TrimStart()
+    let colon = input.StartsWith ':'
+    let input = if colon then input[1..] else input
+    let root, rest = firstWord input
+    let canonicalRoot = Map.tryFind root rootAliases |> Option.defaultValue root
+    let rest =
+      if String.IsNullOrWhiteSpace rest then
+        rest
+      else
+        let padding = rest[..rest.Length - rest.TrimStart().Length - 1]
+        let child, suffix = firstWord (rest.TrimStart())
+        let canonical =
+          Map.tryFind (canonicalRoot, child) childAliases
+          |> Option.defaultValue child
+        padding + canonical + suffix
+    let normalized = canonicalRoot + rest
+    if colon then ":" + normalized else normalized
+
   let private startsWithWords prefix words =
     List.length prefix <= List.length words
     && List.forall2 (=) prefix (words |> List.take (List.length prefix))
@@ -268,7 +322,8 @@ module TransformerReplParser =
     paths @ exportPaths
 
   let controlCandidates registry state (input: string) =
-    let input = input.TrimStart().TrimStart ':'
+    let input = expandControlAliases input
+    let input = input.TrimStart ':'
     let staticCandidates =
       controlForms
       |> List.filter (fun entry -> entry.Suggest)
@@ -291,7 +346,8 @@ module TransformerReplParser =
       tokens
 
   let parseControl (input: string) =
-    InputAnalysis.tokenizeStrict input
+    expandControlAliases input
+    |> InputAnalysis.tokenizeStrict
     |> Result.bind
       (List.map ReplLanguage.unquote
        >> normalizeControlTokens

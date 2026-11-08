@@ -571,7 +571,9 @@ module TransformerTuiInputController =
       TuiInputResult.Update model
 
   let private submitCommandPalette model =
-    let command = model.PaletteInput.Trim()
+    let command =
+      model.PaletteInput.Trim()
+      |> TransformerReplParser.expandControlAliases
     let viewPane = model.ViewPane
     let model = TransformerTuiModel.closeOverlay model
     if String.IsNullOrEmpty command then
