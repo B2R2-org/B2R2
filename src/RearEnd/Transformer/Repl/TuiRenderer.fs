@@ -1234,13 +1234,69 @@ module TransformerTuiRenderer =
           let local = max 0 (min line.Length (start + column - 3))
           lineStart + local)
 
+  let private keyName (key: ConsoleKeyInfo) =
+    match int key.Key with
+    | 16 ->
+      "Shift"
+    | 17 ->
+      "Ctrl"
+    | 18 ->
+      "Alt"
+    | _ ->
+      match key.Key with
+      | ConsoleKey.UpArrow ->
+        "Up"
+      | ConsoleKey.DownArrow ->
+        "Down"
+      | ConsoleKey.LeftArrow ->
+        "Left"
+      | ConsoleKey.RightArrow ->
+        "Right"
+      | ConsoleKey.Escape ->
+        "Esc"
+      | ConsoleKey.Enter ->
+        "Enter"
+      | ConsoleKey.Spacebar ->
+        "Space"
+      | _ when not (Char.IsControl key.KeyChar) ->
+        string key.KeyChar
+      | _ ->
+        key.Key.ToString()
+
+  let private keyIndicator model =
+    match model.LastKey with
+    | None ->
+      ""
+    | Some key ->
+      let name = keyName key
+      let modifierKey = int key.Key >= 16 && int key.Key <= 18
+      let modifier flag label =
+        if not modifierKey && key.Modifiers.HasFlag flag then
+          label + "+"
+        else
+          ""
+      let control = modifier ConsoleModifiers.Control "Ctrl"
+      let alt = modifier ConsoleModifiers.Alt "Alt"
+      let shift = modifier ConsoleModifiers.Shift "Shift"
+      " " + control + alt + shift + name + " "
+
+  let private footerText width text model =
+    let indicator = keyIndicator model
+    let indicator =
+      if indicator.Length > width then indicator[..width - 1]
+      else indicator
+    fit (width - indicator.Length) text + indicator
+
   let private contextFooter width model =
     let cwd = compactPath Environment.CurrentDirectory
     let script = normalizePath (scriptPath model)
     let record = scriptRecordText model.Session.ReplayMode
     let text =
       $" {model.Status}  cwd: {cwd}  script: {script}  record: {record}"
-    paint dim (fit width text)
+    paint dim (footerText width text model)
+
+  let private consoleFooter width model =
+    paint dim (footerText width "" model)
 
   let private activeFindInput model =
     match model.ViewPane with
@@ -1256,11 +1312,12 @@ module TransformerTuiRenderer =
     max 0 (cursor - inputWidth + 1) |> min text.Length
 
   let tryFindCursorAt width height model row column =
+    let available = width - (keyIndicator model).Length
     match activeFindInput model with
     | Some(text, cursor) when row = height
                               && column >= 1
-                              && column <= width ->
-      let start = findInputStart width text cursor
+                              && column <= available ->
+      let start = findInputStart available text cursor
       let position = start + max 0 (column - " find: ".Length - 1)
       Some(min text.Length position)
     | _ ->
@@ -1270,12 +1327,16 @@ module TransformerTuiRenderer =
     match activeFindInput model with
     | Some(findText, cursor) ->
       let prompt = " find: "
-      let inputWidth = max 0 (width - prompt.Length)
-      let start = findInputStart width findText cursor
+      let indicator = keyIndicator model
+      let available = width - indicator.Length
+      let inputWidth = max 0 (available - prompt.Length)
+      let start = findInputStart available findText cursor
       let length = min inputWidth (findText.Length - start)
       let input = findText.Substring(start, length)
       let padding = String.replicate (inputWidth - input.Length) " "
-      let row = paint (paletteInputBg + paletteFg) (prompt + input + padding)
+      let row =
+        paint (paletteInputBg + paletteFg) (prompt + input + padding)
+        + paint dim indicator
       row, Some(prompt.Length + cursor - start + 1)
     | _ ->
       contextFooter width model, None
@@ -1650,7 +1711,7 @@ module TransformerTuiRenderer =
             suggestionCount width completion model.SuggestionIndex
       let context, findCursor =
         match model.Layout, activeFindInput model with
-        | TuiLayout.Console, None -> "", None
+        | TuiLayout.Console, None -> consoleFooter width model, None
         | _ -> findFooter width model
       let bottomRows =
         if model.Layout = TuiLayout.Console then
@@ -1664,8 +1725,7 @@ module TransformerTuiRenderer =
       let inputStartRow = TransformerTuiModel.inputStartRow height model
       let rows =
         if model.Layout = TuiLayout.Console then
-          bodyRows @ bottomRows
-          @ (if findCursor.IsSome then [ context ] else [])
+          bodyRows @ bottomRows @ [ context ]
         else
           [ titleBar
             keyHeader width model

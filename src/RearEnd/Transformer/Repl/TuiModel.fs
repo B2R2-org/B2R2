@@ -349,6 +349,7 @@ type TransformerTuiModel =
     BottomPaneOrder: TuiBottomPaneOrder
     Layout: TuiLayout
     Status: string
+    LastKey: ConsoleKeyInfo option
     IsBusy: bool
     SpinnerFrame: int }
 
@@ -379,10 +380,7 @@ module TransformerTuiModel =
     | TuiLayout.Pane ->
       paneFrameRows
     | TuiLayout.Console ->
-      let viewFind =
-        model.Overlay = TuiOverlay.View
-        && (model.ViewPane |> Option.exists _.IsFinding)
-      if model.IsFindingTranscript || viewFind then 1 else 0
+      1
 
   let bodyStartRow model =
     match model.Layout with
@@ -498,6 +496,7 @@ module TransformerTuiModel =
       BottomPaneOrder = TuiBottomPaneOrder.ShellAboveSuggestions
       Layout = TuiLayout.Pane
       Status = "Ready"
+      LastKey = None
       IsBusy = false
       SpinnerFrame = 0 }
 
@@ -637,6 +636,9 @@ module TransformerTuiModel =
 
   let setStatus status (model: TransformerTuiModel) =
     { model with Status = status }
+
+  let setLastKey key (model: TransformerTuiModel) =
+    { model with LastKey = Some key }
 
   let private clearTranscriptFocusStatus model =
     if model.Status = "Transcript focused" then

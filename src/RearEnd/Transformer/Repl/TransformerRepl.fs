@@ -553,17 +553,19 @@ module TransformerRepl =
     let readTextBurst first =
       let builder = StringBuilder()
       builder.Append((first: ConsoleKeyInfo).KeyChar) |> ignore
+      let mutable lastKey = first
       let mutable keepReading = true
       while keepReading do
         match inputReader.Read() with
         | Some(TuiInputEvent.Key key) when isTextKey key ->
           builder.Append(key.KeyChar) |> ignore
+          lastKey <- key
         | Some input ->
           inputReader.PutBack input
           keepReading <- false
         | None ->
           keepReading <- false
-      builder.ToString()
+      builder.ToString(), lastKey
     let repeatedKeyCount first =
       let mutable count = 1
       let mutable keepReading = true
@@ -695,6 +697,7 @@ module TransformerRepl =
             |> applyInputResult
           dirty <- true
         | Some(TuiInputEvent.Key key) ->
+          model <- TransformerTuiModel.setLastKey key model
           match running with
           | Some runningEvaluation
             when hasModifier ConsoleModifiers.Control key
@@ -704,7 +707,8 @@ module TransformerRepl =
                         && model.Overlay = TuiOverlay.None
                         && not model.IsFindingTranscript
                         && model.Focus = TuiFocus.Shell ->
-            let text = readTextBurst key
+            let text, lastKey = readTextBurst key
+            model <- TransformerTuiModel.setLastKey lastKey model
             TransformerTuiInputController.appendShellText text model
             |> applyInputResult
           | Some _ ->
@@ -713,7 +717,8 @@ module TransformerRepl =
                       && model.Overlay = TuiOverlay.None
                       && not model.IsFindingTranscript
                       && model.Focus = TuiFocus.Shell ->
-            let text = readTextBurst key
+            let text, lastKey = readTextBurst key
+            model <- TransformerTuiModel.setLastKey lastKey model
             TransformerTuiInputController.appendShellText text model
             |> applyInputResult
           | None when isViewNavigationKey model key ->
