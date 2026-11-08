@@ -571,10 +571,14 @@ module TransformerTuiInputController =
       TuiInputResult.Update model
 
   let private submitCommandPalette model =
+    let entered = model.PaletteInput.Trim()
     let command =
-      model.PaletteInput.Trim()
+      entered
       |> TransformerReplParser.expandControlAliases
     let viewPane = model.ViewPane
+    let model =
+      if entered = "" then model
+      else TransformerTuiModel.recordPaletteCommand entered model
     let model = TransformerTuiModel.closeOverlay model
     if String.IsNullOrEmpty command then
       TuiInputResult.Update model
@@ -600,6 +604,12 @@ module TransformerTuiInputController =
       submitCommandPalette model
     | ConsoleKey.Tab ->
       TransformerTuiModel.applyPaletteSuggestion candidates model
+      |> TuiInputResult.Update
+    | ConsoleKey.P when hasModifier ConsoleModifiers.Control key ->
+      TransformerTuiModel.paletteHistoryPrevious model
+      |> TuiInputResult.Update
+    | ConsoleKey.N when hasModifier ConsoleModifiers.Control key ->
+      TransformerTuiModel.paletteHistoryNext model
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow ->
       TransformerTuiModel.selectPaletteSuggestion -1 candidates model

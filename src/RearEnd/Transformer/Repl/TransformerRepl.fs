@@ -453,8 +453,12 @@ module TransformerRepl =
   let private finishCancellation running (model: TransformerTuiModel) =
     let duration = DateTimeOffset.Now - running.StartedAt
     let session =
-      model.Session
-      |> TransformerReplState.recordCommand running.Command
+      if running.Origin = ShellEvaluation then
+        TransformerReplState.recordCommand running.Command model.Session
+      else
+        model.Session
+    let session =
+      session
       |> TransformerReplState.recordExecution
         running.StartedAt
         duration

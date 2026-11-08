@@ -36,6 +36,7 @@ module ReplHelp =
       ""
       "Controls"
       "  Ctrl+G                         Open the control command prompt"
+      "  Ctrl+P / Ctrl+N in controls    Browse control command history"
       "  help                           Show this guide"
       "  help @<action>                 Show action usage and examples"
       "  actions                        List action documentation"

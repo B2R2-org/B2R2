@@ -321,6 +321,9 @@ type TransformerTuiModel =
     PaletteCursor: int
     PaletteFilter: string
     PaletteSuggestionIndex: int
+    PaletteHistory: string list
+    PaletteHistoryIndex: int option
+    PaletteHistoryDraft: string option
     PreferredInputColumn: int option
     ScrollOffset: int
     TranscriptViewportStart: int option
@@ -475,6 +478,9 @@ module TransformerTuiModel =
       PaletteCursor = 0
       PaletteFilter = ""
       PaletteSuggestionIndex = 0
+      PaletteHistory = []
+      PaletteHistoryIndex = None
+      PaletteHistoryDraft = None
       PreferredInputColumn = None
       ScrollOffset = 0
       TranscriptViewportStart = None
@@ -701,7 +707,9 @@ module TransformerTuiModel =
         PaletteInput = ""
         PaletteCursor = 0
         PaletteFilter = ""
-        PaletteSuggestionIndex = 0 }
+        PaletteSuggestionIndex = 0
+        PaletteHistoryIndex = None
+        PaletteHistoryDraft = None }
 
   let openCommandPaletteWith input model =
     { openCommandPalette model with
@@ -792,7 +800,49 @@ module TransformerTuiModel =
         PaletteInput = input
         PaletteCursor = max 0 (min cursor input.Length)
         PaletteFilter = input
-        PaletteSuggestionIndex = 0 }
+        PaletteSuggestionIndex = 0
+        PaletteHistoryIndex = None
+        PaletteHistoryDraft = None }
+
+  let recordPaletteCommand command model =
+    { model with
+        PaletteHistory = command :: model.PaletteHistory
+        PaletteHistoryIndex = None
+        PaletteHistoryDraft = None }
+
+  let private setPaletteHistory index command model =
+    let draft =
+      model.PaletteHistoryDraft
+      |> Option.orElseWith (fun () -> Some model.PaletteInput)
+    { setPaletteInput command command.Length model with
+        PaletteHistoryIndex = Some index
+        PaletteHistoryDraft = draft }
+
+  let paletteHistoryPrevious model =
+    let index =
+      model.PaletteHistoryIndex
+      |> Option.map ((+) 1)
+      |> Option.defaultValue 0
+    match List.tryItem index model.PaletteHistory with
+    | Some command ->
+      setPaletteHistory index command model
+    | None ->
+      model
+
+  let paletteHistoryNext model =
+    match model.PaletteHistoryIndex with
+    | Some index when index > 0 ->
+      let index = index - 1
+      match List.tryItem index model.PaletteHistory with
+      | Some command ->
+        setPaletteHistory index command model
+      | None ->
+        model
+    | Some _ ->
+      let draft = model.PaletteHistoryDraft |> Option.defaultValue ""
+      setPaletteInput draft draft.Length model
+    | None ->
+      model
 
   let insertPaletteText text model =
     if String.IsNullOrEmpty text then

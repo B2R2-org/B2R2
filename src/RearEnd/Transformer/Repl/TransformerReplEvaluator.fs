@@ -251,7 +251,6 @@ module TransformerReplEvaluator =
   let evaluateControlCommand registry state input ct =
     let timestamp = DateTimeOffset.Now
     let stopwatch = Stopwatch.StartNew()
-    let state = TransformerReplState.recordCommand input state
     let evaluation =
       evaluateControlCore false registry state input ct
     stopwatch.Stop()
