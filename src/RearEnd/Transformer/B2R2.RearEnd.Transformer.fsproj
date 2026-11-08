@@ -67,7 +67,10 @@
     <Compile Include="Repl\Completion.fs" />
     <Compile Include="Repl\TuiModel.fs" />
     <Compile Include="Repl\TuiRenderer.fs" />
+    <Compile Include="Repl\TuiMouseEvent.fs" />
+    <Compile Include="Repl\TransformerTuiWindowsConsole.fs" />
     <Compile Include="Repl\TuiTerminal.fs" />
+    <Compile Include="Repl\TuiInputReader.fs" />
     <Compile Include="Repl\TuiInputController.fs" />
     <Compile Include="Repl\TransformerRepl.fs" />
     <Compile Include="Program.fs" />

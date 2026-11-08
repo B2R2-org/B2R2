@@ -493,63 +493,6 @@ module TransformerRepl =
       | ControlEvaluation ->
         TransformerTuiModel.setStatus "Cancelling command" model
 
-  let private restoreKey key =
-    ConsoleKeyInfo(char 0, key, false, false, false)
-
-  let private restoreEscapeSequence addPendingKey first keys sequence =
-    match sequence with
-    | "[A" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.UpArrow)
-    | "[B" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.DownArrow)
-    | "[C" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.RightArrow)
-    | "[D" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.LeftArrow)
-    | "[H"
-    | "[1~" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.Home)
-    | "[F"
-    | "[4~" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.End)
-    | "[3~" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.Delete)
-    | "[5~" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.PageUp)
-    | "[6~" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.PageDown)
-    | "[17~" ->
-      TuiInputEvent.Key(restoreKey ConsoleKey.F6)
-    | _ ->
-      keys |> Seq.iter addPendingKey
-      TuiInputEvent.Key first
-
-  let private readEscapeSequence addPendingKey first =
-    if not Console.KeyAvailable then
-      TuiInputEvent.Key first
-    else
-      let keys = ResizeArray<ConsoleKeyInfo>()
-      let text = StringBuilder()
-      let mutable isComplete = false
-      while Console.KeyAvailable && text.Length < 64 && not isComplete do
-        let key = Console.ReadKey true
-        keys.Add key
-        text.Append key.KeyChar |> ignore
-        let sequence = text.ToString()
-        isComplete <-
-          if sequence.StartsWith("[<", StringComparison.Ordinal) then
-            key.KeyChar = 'M' || key.KeyChar = 'm'
-          elif sequence.StartsWith("[", StringComparison.Ordinal) then
-            Char.IsLetter key.KeyChar || key.KeyChar = '~'
-          else
-            true
-      let sequence = text.ToString()
-      match TransformerTuiTerminal.tryParseInputEvent sequence with
-      | Some input ->
-        input
-      | None ->
-        restoreEscapeSequence addPendingKey first keys sequence
-
   let private isViewNavigationKey (model: TransformerTuiModel) key =
     not (hasModifier ConsoleModifiers.Control key)
     && not (hasModifier ConsoleModifiers.Alt key)
@@ -604,34 +547,19 @@ module TransformerRepl =
     let mutable shouldExit = false
     let mutable dirty = true
     let mutable suggestionCache: SuggestionCache option = None
-    let pendingInput = Queue<TuiInputEvent>()
+    let inputReader = TuiInputReader()
     let mutable lastWidth, lastHeight = 0, 0
     let mutable lastSpinner = Environment.TickCount64
-    let addPending input = pendingInput.Enqueue input
-    let addPendingKey key = pendingInput.Enqueue(TuiInputEvent.Key key)
-    let readInput () =
-      if pendingInput.Count > 0 then
-        Some(pendingInput.Dequeue())
-      elif TransformerTuiTerminal.usesNativeInput () then
-        TransformerTuiTerminal.tryReadNativeInputEvent ()
-      elif Console.KeyAvailable then
-        let key = Console.ReadKey true
-        if key.Key = ConsoleKey.Escape && key.KeyChar = '\u001b' then
-          Some(readEscapeSequence addPendingKey key)
-        else
-          Some(TuiInputEvent.Key key)
-      else
-        None
     let readTextBurst first =
       let builder = StringBuilder()
       builder.Append((first: ConsoleKeyInfo).KeyChar) |> ignore
       let mutable keepReading = true
       while keepReading do
-        match readInput () with
+        match inputReader.Read() with
         | Some(TuiInputEvent.Key key) when isTextKey key ->
           builder.Append(key.KeyChar) |> ignore
         | Some input ->
-          addPending input
+          inputReader.PutBack input
           keepReading <- false
         | None ->
           keepReading <- false
@@ -640,11 +568,11 @@ module TransformerRepl =
       let mutable count = 1
       let mutable keepReading = true
       while keepReading do
-        match readInput () with
+        match inputReader.Read() with
         | Some(TuiInputEvent.Key key) when samePhysicalKey first key ->
           count <- count + 1
         | Some input ->
-          addPending input
+          inputReader.PutBack input
           keepReading <- false
         | None ->
           keepReading <- false
@@ -751,7 +679,7 @@ module TransformerRepl =
         ()
     let dispatchInput width height =
       if not shouldExit then
-        match readInput () with
+        match inputReader.Read() with
         | None ->
           ()
         | Some(TuiInputEvent.Mouse mouse) ->
