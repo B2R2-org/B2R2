@@ -14,8 +14,8 @@ dotnet run -c Release --project src/RearEnd/Transformer
 ```
 
 The default pane layout shows input, suggestions, a transcript, and values.
-Press `F6` to switch to a console layout that shows input and results in
-sequence, or start there with:
+Use `Ctrl+G`, then `layout console`, to show input and results in sequence, or
+start there with:
 
 ```sh
 dotnet run -c Release --project src/RearEnd/Transformer -- repl --layout console
@@ -40,35 +40,42 @@ current input and the kinds of values available.
 | --- | --- |
 | `Tab` / `Shift+Tab` | Complete / insert indentation. |
 | `Ctrl+N` / `Ctrl+P` | Select the next / previous completion. |
-| `F1` | Open the guide. |
-| `F2` | Open the control prompt. |
-| `F3` | Find text in the transcript or current view. |
-| `Ctrl+F` in view mode | Find text in the current view. |
-| `F4` or `Enter` on a result | Open the full result in view mode. |
-| `F6` | Switch between pane and console layouts. |
+| `Ctrl+G` | Open the control prompt. |
+| `Ctrl+T` | Switch between input and the last transcript or view position. |
+| `Ctrl+F` | Find in the transcript, or in the current view. |
+| `Enter` in transcript | Open the selected result in view mode. |
 | `Up` / `Down` | Move through input, history, or suggestions. |
 | `Home` / `End` | Move to the first / last item or line. |
 | `PageUp` / `PageDown` | Scroll the active pane. |
-| `Shift+Up` / `Shift+Down` | Enter / leave transcript focus. |
 | `Ctrl+Up` / `Ctrl+Down` | Move through transcript commands. |
 | `Ctrl+A` / `Ctrl+E` | Move to the start or end of the input. |
 | `Ctrl+W` / `Ctrl+Backspace` | Delete the previous word. |
 | `Ctrl+U` / `Ctrl+K` | Delete input before / after the cursor. |
 | `Ctrl+L` | Clear the transcript. |
-| `Shift+Arrow` in view mode | Select text. |
-| `Ctrl+Enter` in view mode | Send selected text to the input. |
-| `Alt+Arrow` | Resize the pane layout. |
-| `Ctrl+C` | Copy selected text or cancel a running action. |
+| `v`, arrows in view | Select text with the keyboard. |
+| `i` in view | Send selected text to the input. |
+| `Ctrl+Enter` in view (Windows) | Also send selected text to the input. |
+| `Ctrl+C` | Copy the REPL selection or cancel a running action. |
 | `Ctrl+D` | Exit when the input is empty. |
 | `Esc` | Close an open panel or clear the input. |
 
-Click a suggestion to apply its completion. Use the terminal's usual paste
-shortcut to paste text.
+Click a suggestion to apply its completion. In view, `Esc` cancels a selection
+before returning to the transcript. In the transcript, `Esc` returns to input.
+On Windows, `Ctrl+Enter` also executes the input. `;;` then `Enter` works on
+both Windows and macOS.
 
-The `F2` prompt accepts `help`, `help @<action>`, and `actions`. Use
+Drag over REPL text and press `Ctrl+C` to copy only the selected text, without
+pane borders or surrounding spaces. On macOS, the REPL uses `pbcopy`. Mac
+Terminal handles `Command+V` for pasting. On Windows Terminal, the REPL sends
+an OSC 52 clipboard request. In view, `v` and the arrow keys select text for
+`i` to insert into the input.
+
+The `Ctrl+G` prompt accepts `help`, `help @<action>`, and `actions`. Use
 `help @<action>` for parameters and examples; `actions` lists all registered
 actions. Other controls include `values`, `history`, `script save`, `script
-load`, `plugin load`, `layout`, and `quit`.
+load`, `plugin load`, `layout`, and `quit`. In pane layout, `layout resize`
+starts keyboard resizing. Use arrows or `h/j/k/l` to move the dividers,
+`Enter` to save, or `Esc` to cancel.
 
 ## Write a pipeline
 
@@ -87,7 +94,7 @@ a collection, for example `matches |> iter @disasm |> @print`.
 Actions cover loading and assembly (`@load`, `@asm`), inspection (`@slice`,
 `@grep`, `@disasm`, `@lift`, `@list`, `@recover-cfg`), selection (`@filter`,
 `@pick`, `@require-one`), editing (`@edit`), comparison (`@compare`), and
-execution (`@run-symbolic`, `@run-concrete`). Use `F2`, then `actions`, for the
+execution (`@run-symbolic`, `@run-concrete`). Use `Ctrl+G`, then `actions`, for the
 complete list and `help @<action>` for exact syntax.
 
 For example, a symbolic run can make two registers symbolic and provide a

@@ -64,9 +64,11 @@ module TransformerTuiRenderer =
     width >= MinimumTerminalWidth && height >= MinimumTerminalHeight
 
   type HeaderHit =
-    | HeaderKey of ConsoleKey
+    | HeaderHelp
+    | HeaderControl
+    | HeaderFind
+    | HeaderView
     | HeaderRun
-    | HeaderCopy
 
   type PaletteHit =
     | PaletteInput of int
@@ -1300,7 +1302,13 @@ module TransformerTuiRenderer =
     paint dim (footerText width text model)
 
   let private consoleFooter width model =
-    paint dim (footerText width "" model)
+    let text =
+      match model.Overlay, model.ViewPane with
+      | TuiOverlay.View, Some pane when pane.Anchor.IsSome ->
+        " -- VISUAL --"
+      | _ ->
+        ""
+    paint dim (footerText width text model)
 
   let private activeFindInput model =
     match model.ViewPane with
@@ -1349,12 +1357,11 @@ module TransformerTuiRenderer =
     if active then paint reverse $" {label} " else paint dim $" {label} "
 
   let private headerButtons =
-    [ HeaderKey ConsoleKey.F1, "F1 help"
-      HeaderKey ConsoleKey.F2, "F2 command"
-      HeaderKey ConsoleKey.F3, "F3 find"
-      HeaderKey ConsoleKey.F4, "F4 view"
-      HeaderRun, "Run"
-      HeaderCopy, "Copy" ]
+    [ HeaderHelp, "Help"
+      HeaderControl, "Control"
+      HeaderFind, "Find"
+      HeaderView, "View"
+      HeaderRun, "Run" ]
 
   let private headerMargin = " "
 
@@ -1372,13 +1379,13 @@ module TransformerTuiRenderer =
       |> List.map (fun (hit, label) ->
         let active =
           match hit with
-          | HeaderKey ConsoleKey.F1 ->
+          | HeaderHelp ->
             isHelpView
-          | HeaderKey ConsoleKey.F2 ->
+          | HeaderControl ->
             model.Overlay = TuiOverlay.CommandPalette
-          | HeaderKey ConsoleKey.F3 ->
+          | HeaderFind ->
             activeFindInput model |> Option.isSome
-          | HeaderKey ConsoleKey.F4 ->
+          | HeaderView ->
             model.Overlay = TuiOverlay.View
           | _ ->
             false

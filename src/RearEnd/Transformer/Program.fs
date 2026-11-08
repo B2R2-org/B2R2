@@ -31,7 +31,7 @@ let private usage = """Usage:
   b2r2 transformer script [-d <plugin>] <script>
 
 Start the interactive Transformer REPL, or evaluate a saved REPL script.
-Press F1 in the interactive REPL for the usage guide."""
+Press Ctrl+G in the interactive REPL for the control prompt."""
 
 let private printUsage () =
   printfn "%s" usage

@@ -330,6 +330,12 @@ type TransformerTuiModel =
     TranscriptFindCursor: int
     IsFindingTranscript: bool
     ViewPane: TuiViewPane option
+    SuspendedView: (TuiViewPane * int) option
+    HasVisitedTranscript: bool
+    PaletteReturnFocus: TuiFocus option
+    PaletteReturnOverlay: TuiOverlay
+    PaletteReturnScrollOffset: int
+    ResizeOriginal: (int option * int) option
     HistoryIndex: int option
     HistoryDraft: (string * int) option
     ShellInputMode: TuiShellInputMode
@@ -455,7 +461,7 @@ module TransformerTuiModel =
         Text = "Welcome to B2R2 Transformer interactive analysis." }
       { Kind = TuiLineKind.System
         Text =
-          "Enter a pipeline below. Tab completes; F1 opens the guide." } ]
+          "Enter a pipeline below. Tab completes; Ctrl+G opens controls." } ]
 
   let initial =
     { Session = TransformerReplState.empty
@@ -478,6 +484,12 @@ module TransformerTuiModel =
       TranscriptFindCursor = 0
       IsFindingTranscript = false
       ViewPane = None
+      SuspendedView = None
+      HasVisitedTranscript = false
+      PaletteReturnFocus = None
+      PaletteReturnOverlay = TuiOverlay.None
+      PaletteReturnScrollOffset = 0
+      ResizeOriginal = None
       HistoryIndex = None
       HistoryDraft = None
       ShellInputMode = TuiShellInputMode.Normal
@@ -610,7 +622,10 @@ module TransformerTuiModel =
 
   let appendCommand command model =
     let model = appendTuiLines (commandLines command) model
-    { model with FoldTarget = Some(commandCount model) }
+    { model with
+        FoldTarget = Some(commandCount model)
+        SuspendedView = None
+        HasVisitedTranscript = false }
 
   let clearTranscript model =
     { model with
@@ -623,6 +638,8 @@ module TransformerTuiModel =
         TranscriptFindCursor = 0
         IsFindingTranscript = false
         ViewPane = None
+        SuspendedView = None
+        HasVisitedTranscript = false
         CollapsedCommands = Set.empty
         FoldTarget = None
         ScrollOffset = 0
@@ -665,10 +682,22 @@ module TransformerTuiModel =
         ScrollOffset = 0 }
 
   let closeOverlay model =
-    { setOverlay TuiOverlay.None model with ViewPane = None }
+    if model.Overlay = TuiOverlay.CommandPalette then
+      { model with
+          Overlay = model.PaletteReturnOverlay
+          Focus =
+            model.PaletteReturnFocus |> Option.defaultValue TuiFocus.Shell
+          PaletteReturnFocus = None
+          PaletteReturnOverlay = TuiOverlay.None
+          ScrollOffset = model.PaletteReturnScrollOffset }
+    else
+      { setOverlay TuiOverlay.None model with ViewPane = None }
 
   let openCommandPalette model =
     { setOverlay TuiOverlay.CommandPalette model with
+        PaletteReturnFocus = Some model.Focus
+        PaletteReturnOverlay = model.Overlay
+        PaletteReturnScrollOffset = model.ScrollOffset
         PaletteInput = ""
         PaletteCursor = 0
         PaletteFilter = ""
@@ -683,7 +712,9 @@ module TransformerTuiModel =
   let closeViewPane model =
     { model with
         Overlay = TuiOverlay.None
+        Focus = TuiFocus.Transcript
         ViewPane = None
+        SuspendedView = None
         ScrollOffset = 0
         TranscriptViewportStart = None
         Status = "View closed" }
@@ -706,6 +737,7 @@ module TransformerTuiModel =
           Some index
     { model with
         Focus = TuiFocus.Transcript
+        HasVisitedTranscript = true
         FoldTarget = target }
 
   let private setInputState input cursor model =
@@ -1761,11 +1793,38 @@ module TransformerTuiModel =
       |> clampCursor transcript
     { model with
         Focus = TuiFocus.Transcript
+        HasVisitedTranscript = true
         TranscriptCursor = cursor
         TranscriptAnchor = None
         FoldTarget = blockAtLine cursor.Line transcript
         ScrollOffset = 0
         Status = "Transcript focused" }
+
+  let toggleResultFocus model =
+    match model.Overlay, model.Focus, model.ViewPane with
+    | TuiOverlay.View, _, Some pane ->
+      { model with
+          Overlay = TuiOverlay.None
+          ViewPane = None
+          SuspendedView = Some(pane, model.ScrollOffset) }
+      |> focusShell
+    | TuiOverlay.None, TuiFocus.Transcript, _ ->
+      focusShell model
+    | TuiOverlay.None, TuiFocus.Shell, _ ->
+      match model.SuspendedView with
+      | Some(pane, scroll) ->
+        { model with
+            Overlay = TuiOverlay.View
+            Focus = TuiFocus.Transcript
+            ViewPane = Some pane
+            SuspendedView = None
+            ScrollOffset = scroll }
+      | None when model.HasVisitedTranscript ->
+        focusTranscript model
+      | None ->
+        focusTranscriptAt 0 model
+    | _ ->
+      model
 
   let moveTranscriptCursor lineDelta columnDelta model =
     let transcript = transcriptLines model
@@ -2106,6 +2165,22 @@ module TransformerTuiModel =
       { pane with Cursor = cursor; Anchor = anchor }
     updateViewPane update model
 
+  let toggleViewSelection model =
+    match model.ViewPane with
+    | Some pane ->
+      let selecting = pane.Anchor.IsNone
+      let anchor = if selecting then Some pane.Cursor else None
+      let status =
+        if selecting then "Visual selection" else "View selection cleared"
+      { model with
+          ViewPane = Some { pane with Anchor = anchor }
+          Status = status }
+    | None ->
+      model
+
+  let clearViewSelection model =
+    updateViewPane (fun pane -> { pane with Anchor = None }) model
+
   let setViewFind active model =
     let update pane =
       { pane with IsFinding = active; FindText = ""; FindCursor = 0 }
@@ -2170,93 +2245,66 @@ module TransformerTuiModel =
     else
       cursor, anchor
 
-  let selectedViewText pane =
-    let cleanText = TransformerTuiText.sanitize
-    let sliceText start finish (text: string) =
-      let text = cleanText text
+  let private selectedRangeText (lines: string array) anchor cursor =
+    let first, last = orderedSelection anchor cursor
+    [ first.Line .. last.Line ]
+    |> List.map (fun index ->
+      let text = TransformerTuiText.sanitize lines[index]
+      let start = if index = first.Line then first.Column else 0
+      let finish = if index = last.Line then last.Column else text.Length
       let start = max 0 (min start text.Length)
       let finish = max start (min finish text.Length)
-      if start >= finish then "" else text[start..finish - 1]
+      if start = finish then "" else text[start..finish - 1])
+    |> String.concat "\n"
+
+  let selectedViewText pane =
     match pane.Anchor with
     | None ->
       pane.Lines
       |> Array.tryItem pane.Cursor.Line
-      |> Option.map (fun line -> cleanText line.Text)
+      |> Option.map (fun line -> TransformerTuiText.sanitize line.Text)
       |> Option.defaultValue ""
     | Some anchor ->
-      let first, last = orderedSelection anchor pane.Cursor
       pane.Lines
-      |> Array.mapi (fun index line -> index, line.Text)
-      |> Array.choose (fun (index, text) ->
-        let text = cleanText text
-        if index < first.Line || index > last.Line then
-          None
-        elif first.Line = last.Line then
-          Some(sliceText first.Column last.Column text)
-        elif index = first.Line then
-          Some(sliceText first.Column text.Length text)
-        elif index = last.Line then
-          Some(sliceText 0 last.Column text)
-        else
-          Some text)
-      |> String.concat "\n"
-
-  let selectedInputText model =
-    model.InputAnchor
-    |> Option.map (fun anchor ->
-      min anchor model.Cursor, max anchor model.Cursor)
-    |> Option.bind (fun (first, last) ->
-      if first = last then None else Some model.Input[first..last - 1])
-    |> Option.defaultValue ""
-
-  let selectedTranscriptText model =
-    let cleanText = TransformerTuiText.sanitize
-    let sliceText start finish (text: string) =
-      let text = cleanText text
-      let start = max 0 (min start text.Length)
-      let finish = max start (min finish text.Length)
-      if start >= finish then "" else text[start..finish - 1]
-    let transcript = transcriptLines model
-    match model.TranscriptAnchor with
-    | None ->
-      transcript
-      |> List.tryItem model.TranscriptCursor.Line
-      |> Option.map (fun line -> cleanText line.Text)
-      |> Option.defaultValue ""
-    | Some anchor ->
-      let first, last = orderedSelection anchor model.TranscriptCursor
-      transcript
-      |> List.mapi (fun index line -> index, line.Text)
-      |> List.choose (fun (index, text) ->
-        let text = cleanText text
-        if index < first.Line || index > last.Line then
-          None
-        elif first.Line = last.Line then
-          Some(sliceText first.Column last.Column text)
-        elif index = first.Line then
-          Some(sliceText first.Column text.Length text)
-        elif index = last.Line then
-          Some(sliceText 0 last.Column text)
-        else
-          Some text)
-      |> String.concat "\n"
+      |> Array.map (fun line -> line.Text)
+      |> fun lines -> selectedRangeText lines anchor pane.Cursor
 
   let selectedText model =
     match model.Overlay, model.ViewPane, model.Focus with
-    | TuiOverlay.View, Some pane, _ ->
+    | TuiOverlay.View, Some pane, _ when pane.Anchor.IsSome ->
       selectedViewText pane
     | TuiOverlay.None, _, TuiFocus.Transcript ->
-      selectedTranscriptText model
+      match model.TranscriptAnchor with
+      | Some anchor ->
+        transcriptLines model
+        |> List.toArray
+        |> Array.map (fun line -> line.Text)
+        |> fun lines ->
+          selectedRangeText lines anchor model.TranscriptCursor
+      | None ->
+        ""
+    | TuiOverlay.None, _, TuiFocus.Shell ->
+      match model.InputAnchor with
+      | Some anchor ->
+        let start = min anchor model.Cursor
+        let finish = max anchor model.Cursor
+        if start = finish then "" else model.Input[start..finish - 1]
+      | None ->
+        ""
     | _ ->
-      selectedInputText model
+      ""
 
   let insertViewSelection model =
     match model.ViewPane with
     | Some pane ->
       let text = selectedViewText pane
-      model
-      |> closeViewPane
-      |> insertText text
-      |> setStatus "Inserted view selection"
+      if String.IsNullOrEmpty text then
+        setStatus "There is no selected text" model
+      else
+        model
+        |> closeViewPane
+        |> focusShell
+        |> insertText text
+        |> setStatus "Inserted view selection"
     | None ->
       model

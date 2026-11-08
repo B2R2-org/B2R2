@@ -26,7 +26,6 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.Runtime.InteropServices
-open System.Text
 
 module internal TransformerTuiWindowsConsole =
   [<Literal>]
@@ -80,12 +79,6 @@ module internal TransformerTuiWindowsConsole =
   [<Literal>]
   let InputEventOffset = 4
 
-  [<Literal>]
-  let ClipboardUnicodeText = 13u
-
-  [<Literal>]
-  let GlobalMoveable = 0x0002u
-
   [<DllImport(
     "kernel32.dll",
     EntryPoint = "GetStdHandle",
@@ -114,38 +107,6 @@ module internal TransformerTuiWindowsConsole =
     uint32 length,
     uint32& count)
 
-  [<DllImport("user32.dll", EntryPoint = "OpenClipboard",
-    SetLastError = true)>]
-  extern bool openClipboard(nativeint owner)
-
-  [<DllImport("user32.dll", EntryPoint = "CloseClipboard",
-    SetLastError = true)>]
-  extern bool closeClipboard()
-
-  [<DllImport("user32.dll", EntryPoint = "EmptyClipboard",
-    SetLastError = true)>]
-  extern bool emptyClipboard()
-
-  [<DllImport("user32.dll", EntryPoint = "SetClipboardData",
-    SetLastError = true)>]
-  extern nativeint setClipboardData(uint32 format, nativeint memory)
-
-  [<DllImport("kernel32.dll", EntryPoint = "GlobalAlloc",
-    SetLastError = true)>]
-  extern nativeint globalAlloc(uint32 flags, nativeint bytes)
-
-  [<DllImport("kernel32.dll", EntryPoint = "GlobalLock",
-    SetLastError = true)>]
-  extern nativeint globalLock(nativeint memory)
-
-  [<DllImport("kernel32.dll", EntryPoint = "GlobalUnlock",
-    SetLastError = true)>]
-  extern bool globalUnlock(nativeint memory)
-
-  [<DllImport("kernel32.dll", EntryPoint = "GlobalFree",
-    SetLastError = true)>]
-  extern nativeint globalFree(nativeint memory)
-
   let mutable private inputHandle: nativeint option = None
   let mutable private inputMode: uint32 option = None
   let mutable private recordBuffer: nativeint option = None
@@ -155,44 +116,6 @@ module internal TransformerTuiWindowsConsole =
 
   let isValidHandle handle =
     handle <> nativeint 0 && handle <> nativeint -1
-
-  let tryCopyText (text: string) =
-    if not (OperatingSystem.IsWindows()) || String.IsNullOrEmpty text then
-      false
-    else
-      let bytes = Encoding.Unicode.GetBytes(text + "\000")
-      let byteCount = nativeint bytes.Length
-      let mutable memory = globalAlloc (GlobalMoveable, byteCount)
-      if memory = nativeint 0 then
-        false
-      else
-        let pointer = globalLock memory
-        if pointer = nativeint 0 then
-          globalFree memory |> ignore
-          false
-        else
-          Marshal.Copy(bytes, 0, pointer, bytes.Length)
-          globalUnlock memory |> ignore
-          if not (openClipboard(nativeint 0)) then
-            globalFree memory |> ignore
-            false
-          else
-            try
-              let isStored =
-                if emptyClipboard () then
-                  setClipboardData (ClipboardUnicodeText, memory)
-                  <> nativeint 0
-                else
-                  false
-              if isStored then
-                memory <- nativeint 0
-                true
-              else
-                false
-            finally
-              closeClipboard () |> ignore
-              if memory <> nativeint 0 then globalFree memory |> ignore
-              else ()
 
   let keyModifiers state =
     let shift = hasFlag state ShiftPressed

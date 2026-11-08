@@ -515,25 +515,28 @@ module TransformerRepl =
 
   let private applyViewNavigation count (key: ConsoleKeyInfo) model =
     let shift = hasModifier ConsoleModifiers.Shift key
+    let selecting =
+      model.ViewPane |> Option.exists (fun pane -> pane.Anchor.IsSome)
+    let extend = shift || selecting
     let width, height = TransformerTuiTerminal.dimensions ()
     let pageHeight = TransformerTuiModel.transcriptHeight height model
     match key.Key with
     | ConsoleKey.UpArrow ->
       TransformerTuiRenderer.moveViewCursorByRows
-        width height -count shift model
+        width height -count extend model
     | ConsoleKey.DownArrow ->
       TransformerTuiRenderer.moveViewCursorByRows
-        width height count shift model
+        width height count extend model
     | ConsoleKey.LeftArrow ->
-      TransformerTuiModel.moveViewCursor 0 -count shift model
+      TransformerTuiModel.moveViewCursor 0 -count extend model
     | ConsoleKey.RightArrow ->
-      TransformerTuiModel.moveViewCursor 0 count shift model
+      TransformerTuiModel.moveViewCursor 0 count extend model
     | ConsoleKey.PageUp ->
       TransformerTuiRenderer.moveViewCursorByRows
-        width height (-(pageHeight * count)) shift model
+        width height (-(pageHeight * count)) extend model
     | ConsoleKey.PageDown ->
       TransformerTuiRenderer.moveViewCursorByRows
-        width height (pageHeight * count) shift model
+        width height (pageHeight * count) extend model
     | _ ->
       model
 
@@ -709,6 +712,7 @@ module TransformerRepl =
           | Some _ when isTextKey key
                         && model.Overlay = TuiOverlay.None
                         && not model.IsFindingTranscript
+                        && model.ResizeOriginal.IsNone
                         && model.Focus = TuiFocus.Shell ->
             let text, lastKey = readTextBurst key
             model <- TransformerTuiModel.setLastKey lastKey model
@@ -719,6 +723,7 @@ module TransformerRepl =
           | None when isTextKey key
                       && model.Overlay = TuiOverlay.None
                       && not model.IsFindingTranscript
+                      && model.ResizeOriginal.IsNone
                       && model.Focus = TuiFocus.Shell ->
             let text, lastKey = readTextBurst key
             model <- TransformerTuiModel.setLastKey lastKey model

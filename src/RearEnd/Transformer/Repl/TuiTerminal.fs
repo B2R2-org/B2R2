@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Diagnostics
 open System.Text
 
 module TransformerTuiTerminal =
@@ -77,11 +78,26 @@ module TransformerTuiTerminal =
   let isInteractive () =
     not Console.IsInputRedirected && not Console.IsOutputRedirected
 
+  let private tryCopyOnMac text =
+    try
+      let info = ProcessStartInfo "pbcopy"
+      info.UseShellExecute <- false
+      info.CreateNoWindow <- true
+      info.RedirectStandardInput <- true
+      info.StandardInputEncoding <- Encoding.UTF8
+      use clipboardProc = Process.Start info
+      clipboardProc.StandardInput.Write(text: string)
+      clipboardProc.StandardInput.Close()
+      clipboardProc.WaitForExit()
+      clipboardProc.ExitCode = 0
+    with _ ->
+      false
+
   let tryCopyText text =
     if String.IsNullOrEmpty text then
       false
-    elif OperatingSystem.IsWindows() then
-      TransformerTuiWindowsConsole.tryCopyText text
+    elif OperatingSystem.IsMacOS() then
+      tryCopyOnMac text
     else
       try
         Console.Write(Ansi.copyToClipboard text)
