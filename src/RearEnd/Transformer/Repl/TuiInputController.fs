@@ -176,18 +176,6 @@ module TransformerTuiInputController =
           Ok(TransformerTuiModel.setSuggestionHeight height model)
         | None ->
           Error "suggestions must be a number."
-      | "order", "toggle" ->
-        Ok(TransformerTuiModel.toggleBottomPaneOrder model)
-      | "order", "shell-first" ->
-        Ok(TransformerTuiModel.setBottomPaneOrder
-             TuiBottomPaneOrder.ShellAboveSuggestions
-             model)
-      | "order", "suggestions-first" ->
-        Ok(TransformerTuiModel.setBottomPaneOrder
-             TuiBottomPaneOrder.SuggestionsAboveShell
-             model)
-      | "order", _ ->
-        Error "order must be toggle, shell-first, or suggestions-first."
       | "sidebar", "auto" ->
         Ok(TransformerTuiModel.setSidebarWidth None model)
       | "sidebar", "off" ->
@@ -212,6 +200,11 @@ module TransformerTuiInputController =
       match words with
       | [ ":layout" ] ->
         Ok model
+      | [ ":layout"; "pane"; "swap" ]
+        when model.Layout = TuiLayout.Pane ->
+        Ok(TransformerTuiModel.toggleBottomPaneOrder model)
+      | [ ":layout"; "pane"; "swap" ] ->
+        Error "Switch to the pane layout before swapping panes."
       | [ ":layout"; "resize" ] when model.Layout = TuiLayout.Pane ->
         Ok { model with
                ResizeOriginal =

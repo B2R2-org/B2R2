@@ -76,7 +76,8 @@ The `Ctrl+G` prompt accepts `help`, `help @<action>`, and `actions`. Use
 actions. Other controls include `values`, `history`, `script save`, `script
 load`, `plugin load`, `layout`, and `quit`. In pane layout, `layout resize`
 starts keyboard resizing. Use arrows or `h/j/k/l` to move the dividers,
-`Enter` to save, or `Esc` to cancel.
+`Enter` to save, or `Esc` to cancel. `layout pane swap` (or `l p s`) swaps
+the input and suggestion panes.
 
 ## Write a pipeline
 

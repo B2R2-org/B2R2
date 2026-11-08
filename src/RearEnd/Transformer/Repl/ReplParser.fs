@@ -131,9 +131,10 @@ module TransformerReplParser =
       layoutOption "pane" "Show pane layout"
       layoutOption "console" "Show console layout"
       layoutOption "resize" "Adjust pane sizes"
-      layoutOption "order=toggle" "Swap order"
-      layoutOption "order=shell-first" "Shell first"
-      layoutOption "order=suggestions-first" "Suggestions first"
+      layoutForm
+        [ "layout"; "pane"; "swap" ]
+        "Swap input and suggestions"
+        [ "pane"; "swap" ]
       layoutOption "sidebar=auto" "Auto sidebar"
       layoutOption "sidebar=off" "Hide sidebar"
       layoutOption "suggestions=auto" "Auto suggestions"
@@ -152,59 +153,57 @@ module TransformerReplParser =
       fixedForm [ "quit" ] "Leave the Transformer TUI" Quit
       { fixedForm [ "q" ] "" Quit with Suggest = false } ]
 
-  let private rootAliases =
+  let private controlAliases =
     Map.ofList
-      [ "h", "help"
-        "a", "actions"
-        "hi", "history"
-        "v", "values"
-        "t", "type"
-        "i", "inspect"
-        "n", "needs"
-        "lg", "log"
-        "e", "export"
-        "r", "restore"
-        "u", "undo"
-        "rs", "reset"
-        "s", "script"
-        "p", "plugin"
-        "l", "layout"
-        "q", "quit" ]
-
-  let private childAliases =
-    Map.ofList
-      [ ("script", "s"), "save"
-        ("script", "l"), "load"
-        ("script", "r"), "record"
-        ("plugin", "l"), "load"
-        ("layout", "c"), "console"
-        ("layout", "p"), "pane"
-        ("layout", "r"), "resize"
-        ("layout", "o"), "order=toggle" ]
+      [ ([], "h"), "help"
+        ([], "a"), "actions"
+        ([], "hi"), "history"
+        ([], "v"), "values"
+        ([], "t"), "type"
+        ([], "i"), "inspect"
+        ([], "n"), "needs"
+        ([], "lg"), "log"
+        ([], "e"), "export"
+        ([], "r"), "restore"
+        ([], "u"), "undo"
+        ([], "rs"), "reset"
+        ([], "s"), "script"
+        ([], "p"), "plugin"
+        ([], "l"), "layout"
+        ([], "q"), "quit"
+        ([ "script" ], "s"), "save"
+        ([ "script" ], "l"), "load"
+        ([ "script" ], "r"), "record"
+        ([ "plugin" ], "l"), "load"
+        ([ "layout" ], "c"), "console"
+        ([ "layout" ], "p"), "pane"
+        ([ "layout" ], "r"), "resize"
+        ([ "layout"; "pane" ], "s"), "swap" ]
 
   let private firstWord (input: string) =
     let index = input.IndexOfAny([| ' '; '\t'; '\r'; '\n' |])
     if index < 0 then input, ""
     else input[..index - 1], input[index..]
 
+  let rec private expandAliasWords context input =
+    let word, rest = firstWord input
+    let canonical =
+      Map.tryFind (context, word) controlAliases
+      |> Option.defaultValue word
+    let next = rest.TrimStart()
+    if String.IsNullOrEmpty next then
+      canonical + rest
+    else
+      let padding = rest[..rest.Length - next.Length - 1]
+      canonical + padding
+      + expandAliasWords (context @ [ canonical ]) next
+
   let expandControlAliases (input: string) =
     let input = input.TrimStart()
-    let colon = input.StartsWith ':'
-    let input = if colon then input[1..] else input
-    let root, rest = firstWord input
-    let canonicalRoot = Map.tryFind root rootAliases |> Option.defaultValue root
-    let rest =
-      if String.IsNullOrWhiteSpace rest then
-        rest
-      else
-        let padding = rest[..rest.Length - rest.TrimStart().Length - 1]
-        let child, suffix = firstWord (rest.TrimStart())
-        let canonical =
-          Map.tryFind (canonicalRoot, child) childAliases
-          |> Option.defaultValue child
-        padding + canonical + suffix
-    let normalized = canonicalRoot + rest
-    if colon then ":" + normalized else normalized
+    if input.StartsWith ':' then
+      ":" + expandAliasWords [] input[1..]
+    else
+      expandAliasWords [] input
 
   let private startsWithWords prefix words =
     List.length prefix <= List.length words
