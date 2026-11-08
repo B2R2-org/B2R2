@@ -1427,6 +1427,18 @@ module TransformerTuiRenderer =
          paint (noticeBg + noticeFg + bold) (centerPad boxWidth line)))
     @ [ blank; dismiss ]
 
+  let private commandWithTypedPrefix (input: string) (command: string) =
+    let words = input.Split ' '
+    let command =
+      if input.StartsWith ':' then ":" + command else command
+    command.Split ' '
+    |> Array.mapi (fun index word ->
+      if index < words.Length - 1 then
+        words |> Array.tryItem index |> Option.defaultValue word
+      else
+        word)
+    |> String.concat " "
+
   let private commandPaletteGhost
     inputWidth
     (input: string)
@@ -1437,6 +1449,7 @@ module TransformerTuiRenderer =
         candidates
         |> List.tryItem model.PaletteSuggestionIndex
         |> Option.map fst
+        |> Option.map (commandWithTypedPrefix model.PaletteInput)
         |> Option.filter (fun command ->
           command.StartsWith(model.PaletteInput,
                              StringComparison.OrdinalIgnoreCase))
