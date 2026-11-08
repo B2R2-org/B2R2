@@ -587,8 +587,10 @@ module TransformerTuiInputController =
     else
       TuiInputResult.ExecuteCommand(model, command)
 
-  let private handleCommandPaletteKey (key: ConsoleKeyInfo) model =
-    let candidates = Suggestions.commandPaletteCandidates model.PaletteFilter
+  let private handleCommandPaletteKey registry (key: ConsoleKeyInfo) model =
+    let candidates =
+      Suggestions.commandPaletteCandidates
+        registry model.Session model.PaletteFilter
     match key.Key with
     | ConsoleKey.Escape ->
       TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
@@ -621,7 +623,8 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
-  let private scrollWithMouse width height completion mouse direction model =
+  let private scrollWithMouse
+    width height registry completion mouse direction model =
     let row = (mouse: TuiMouseEvent).Row
     let column = mouse.Column
     match model.Overlay with
@@ -666,11 +669,12 @@ module TransformerTuiInputController =
         model
     | TuiOverlay.CommandPalette ->
       match TransformerTuiRenderer.paletteHitAt
-              width height model row column with
+              width height registry model row column with
       | TransformerTuiRenderer.PaletteCandidate _
       | TransformerTuiRenderer.PaletteInside ->
         let candidates =
-          Suggestions.commandPaletteCandidates model.PaletteFilter
+          Suggestions.commandPaletteCandidates
+            registry model.Session model.PaletteFilter
         TransformerTuiModel.selectPaletteSuggestion
           (if direction > 0 then -1 else 1) candidates model
       | _ ->
@@ -744,9 +748,9 @@ module TransformerTuiInputController =
       TuiInputResult.Update model
 
   let private applyPaletteClick
-    width height (mouse: TuiMouseEvent) clickCount model =
+    width height registry (mouse: TuiMouseEvent) clickCount model =
     match TransformerTuiRenderer.paletteHitAt
-            width height model mouse.Row mouse.Column with
+            width height registry model mouse.Row mouse.Column with
     | TransformerTuiRenderer.PaletteOutside ->
       TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
     | TransformerTuiRenderer.PaletteInput cursor ->
@@ -755,7 +759,8 @@ module TransformerTuiInputController =
       |> TuiInputResult.Update
     | TransformerTuiRenderer.PaletteCandidate index ->
       let candidates =
-        Suggestions.commandPaletteCandidates model.PaletteFilter
+        Suggestions.commandPaletteCandidates
+          registry model.Session model.PaletteFilter
       let model =
         model
         |> TransformerTuiModel.selectPaletteSuggestion
@@ -1035,7 +1040,7 @@ module TransformerTuiInputController =
       handleContentClick width height completion mouse clickCount model
 
   let private handleMousePress
-    width height completion (mouse: TuiMouseEvent) clickCount model =
+    width height registry completion (mouse: TuiMouseEvent) clickCount model =
     let header =
       TransformerTuiRenderer.tryHeaderHitAt
         width model mouse.Row mouse.Column
@@ -1050,7 +1055,7 @@ module TransformerTuiInputController =
     elif mouse.Button &&& 3 <> 0 || mouse.Button >= 64 then
       TuiInputResult.Update model
     elif model.Overlay = TuiOverlay.CommandPalette then
-      applyPaletteClick width height mouse clickCount model
+      applyPaletteClick width height registry mouse clickCount model
     elif model.Overlay = TuiOverlay.Message then
       TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
     elif header.IsSome then
@@ -1070,11 +1075,12 @@ module TransformerTuiInputController =
       handleBodyPress width height completion mouse clickCount model
 
   let private handleMouseAtSize
-    width height completion (mouse: TuiMouseEvent) model =
+    width height registry completion (mouse: TuiMouseEvent) model =
     let model, clickCount = rememberClick mouse model
     if mouse.Button = 64 || mouse.Button = 65 then
       let direction = if mouse.Button = 64 then 3 else -3
-      scrollWithMouse width height completion mouse direction model
+      scrollWithMouse
+        width height registry completion mouse direction model
       |> TuiInputResult.Update
     elif mouse.IsDrag && mouse.Button = 0 then
       match model.MouseDragTarget with
@@ -1095,18 +1101,20 @@ module TransformerTuiInputController =
       { model with MouseDragTarget = None; MouseDragPosition = None }
       |> TuiInputResult.Update
     else
-      handleMousePress width height completion mouse clickCount model
+      handleMousePress
+        width height registry completion mouse clickCount model
 
-  let handleMouse width height completion (mouse: TuiMouseEvent) model =
+  let handleMouse width height registry completion mouse model =
+    let isRelease = (mouse: TuiMouseEvent).IsRelease
     if not (TransformerTuiRenderer.isInteractiveSize width height) then
       let model =
-        if mouse.IsRelease then
+        if isRelease then
           { model with MouseDragTarget = None; MouseDragPosition = None }
         else
           model
       TuiInputResult.Update model
     else
-      handleMouseAtSize width height completion mouse model
+      handleMouseAtSize width height registry completion mouse model
 
   let private handlePassiveSelection width height mouse model =
     if model.Overlay = TuiOverlay.View then
@@ -1130,11 +1138,11 @@ module TransformerTuiInputController =
       model
 
   let private handlePassiveMouseAtSize
-    width height completion mouse model =
+    width height registry completion mouse model =
     let isWheel = mouse.Button = 64 || mouse.Button = 65
     let isMotion = mouse.IsDrag || mouse.IsRelease
     if isWheel || isMotion then
-      handleMouse width height completion mouse model
+      handleMouse width height registry completion mouse model
     elif mouse.Button = 2 then
       cancelTransientWithMouse model |> TuiInputResult.Update
     elif mouse.Button = 0 then
@@ -1143,11 +1151,11 @@ module TransformerTuiInputController =
     else
       TuiInputResult.Update model
 
-  let handlePassiveMouse width height completion mouse model =
+  let handlePassiveMouse width height registry completion mouse model =
     if TransformerTuiRenderer.isInteractiveSize width height then
-      handlePassiveMouseAtSize width height completion mouse model
+      handlePassiveMouseAtSize width height registry completion mouse model
     else
-      handleMouse width height completion mouse model
+      handleMouse width height registry completion mouse model
 
   let private handleDefaultKey completion shift (key: ConsoleKeyInfo) model =
     match key.Key with
@@ -1285,7 +1293,7 @@ module TransformerTuiInputController =
     else
       handleDefaultKey completion shift key model
 
-  let handle completion (key: ConsoleKeyInfo) model =
+  let handle registry completion (key: ConsoleKeyInfo) model =
     let control = hasModifier ConsoleModifiers.Control key
     let shift = hasModifier ConsoleModifiers.Shift key
     let plainOverlay = model.Overlay = TuiOverlay.None
@@ -1300,7 +1308,7 @@ module TransformerTuiInputController =
     elif control && key.Key = ConsoleKey.C then
       copySelection model |> TuiInputResult.Update
     elif model.Overlay = TuiOverlay.CommandPalette then
-      handleCommandPaletteKey key model
+      handleCommandPaletteKey registry key model
     elif control && key.Key = ConsoleKey.F && viewOverlay then
       TransformerTuiModel.setViewFind true model |> TuiInputResult.Update
     elif control && key.Key = ConsoleKey.F && plainOverlay then

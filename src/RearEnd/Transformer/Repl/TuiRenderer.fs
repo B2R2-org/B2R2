@@ -1470,8 +1470,10 @@ module TransformerTuiRenderer =
           noticeBg + noticeFg
       paint style (fit boxWidth $"{marker}{command}  {detail}"))
 
-  let private commandPaletteRows boxWidth model =
-    let candidates = Suggestions.commandPaletteCandidates model.PaletteFilter
+  let private commandPaletteRows boxWidth registry model =
+    let candidates =
+      Suggestions.commandPaletteCandidates
+        registry model.Session model.PaletteFilter
     let inputWidth = max 1 (boxWidth - 2)
     let start = max 0 (model.PaletteCursor - inputWidth + 1)
     let length = min inputWidth (model.PaletteInput.Length - start)
@@ -1499,7 +1501,7 @@ module TransformerTuiRenderer =
     let startRow = max 0 ((height - boxHeight) / 2)
     startCol, startRow
 
-  let paletteHitAt width height model row column =
+  let paletteHitAt width height registry model row column =
     let boxWidth = paletteBoxWidth width
     let boxHeight = Suggestions.commandPaletteMaxItems + 3
     let startCol, startRow =
@@ -1518,7 +1520,8 @@ module TransformerTuiRenderer =
          && row < startRow + 3 + Suggestions.commandPaletteMaxItems then
       let index = row - startRow - 3
       let candidates =
-        Suggestions.commandPaletteCandidates model.PaletteFilter
+        Suggestions.commandPaletteCandidates
+          registry model.Session model.PaletteFilter
       if index < List.length candidates then
         PaletteCandidate index
       else
@@ -1559,12 +1562,12 @@ module TransformerTuiRenderer =
           ())
       lines
 
-  let private overlayCommandPalette width height model lines =
+  let private overlayCommandPalette width height registry model lines =
     if model.Overlay <> TuiOverlay.CommandPalette then
       lines, None
     else
       let boxWidth = paletteBoxWidth width
-      let boxRows, inputStart = commandPaletteRows boxWidth model
+      let boxRows, inputStart = commandPaletteRows boxWidth registry model
       let boxHeight = List.length boxRows
       let startCol, startRow =
         paletteOrigin width height boxWidth boxHeight
@@ -1636,7 +1639,7 @@ module TransformerTuiRenderer =
     | _ ->
       None
 
-  let render width height _registry model completion =
+  let render width height registry model completion =
     if not (isInteractiveSize width height) then
       let message = "Terminal too small. Resize to at least 40 x 15."
       { Lines = [| clearLine + fit width message |]
@@ -1751,7 +1754,7 @@ module TransformerTuiRenderer =
         |> List.toArray
         |> overlayMessageBox width height model
       let lines, paletteCursor =
-        overlayCommandPalette width height model lines
+        overlayCommandPalette width height registry model lines
       { Lines = lines
         CursorRow =
           paletteCursor

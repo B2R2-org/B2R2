@@ -76,37 +76,10 @@ module Suggestions =
   let private addressCache =
     ConditionalWeakTable<Binary, Lazy<(string * string) list>>()
 
-  let private metaCommands =
-    [ ":actions", "Show every available Transformer action"
-      ":help", "Show interactive help"
-      ":history", "Show commands evaluated in this REPL"
-      ":inspect", "Select functions and sections from a binary"
-      ":export", "Export a named value"
-      ":layout", "Configure REPL layout"
-      ":layout pane", "Show the pane layout"
-      ":layout console", "Show input and output in one column"
-      ":layout order=toggle", "Swap shell and suggestion panes"
-      ":log", "Show detailed command execution records"
-      ":needs", "List missing concrete execution context"
-      ":plugin", "Load REPL actions from a plugin DLL"
-      ":quit", "Leave the Transformer TUI"
-      ":reset", "Clear values and reset the analysis state"
-      ":restore", "Restore a value-history entry"
-      ":script", "Save, load, or configure replay recording"
-      ":type", "Show the current, named, or expression type"
-      ":undo", "Undo the most recent value change"
-      ":values", "Show retained value history" ]
-
   let commandPaletteMaxItems = 5
 
-  let commandPaletteCandidates (input: string) =
-    let input = input.TrimStart()
-    let input =
-      if input.StartsWith ':' then input[1..] else input
-    metaCommands
-    |> List.map (fun (command, detail) -> command[1..], detail)
-    |> List.filter (fun (command, _) ->
-      command.StartsWith(input, StringComparison.OrdinalIgnoreCase))
+  let commandPaletteCandidates registry state input =
+    TransformerReplParser.controlCandidates registry state input
     |> List.truncate commandPaletteMaxItems
 
   let private matches prefix (candidate: string) =

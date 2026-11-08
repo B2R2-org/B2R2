@@ -692,11 +692,11 @@ module TransformerRepl =
           match running with
           | Some _ ->
             TransformerTuiInputController.handlePassiveMouse
-              width height completion mouse model
+              width height registry completion mouse model
             |> applyInputResult
           | None ->
             TransformerTuiInputController.handleMouse
-              width height completion mouse model
+              width height registry completion mouse model
             |> applyInputResult
           dirty <- true
         | Some(TuiInputEvent.UnknownKey sequence) ->
@@ -737,7 +737,8 @@ module TransformerRepl =
             model <- { model with ScrollOffset = scrollOffset }
           | None ->
             let completion = currentSuggestions ()
-            TransformerTuiInputController.handle completion key model
+            TransformerTuiInputController.handle
+              registry completion key model
             |> applyInputResult
           dirty <- true
       else
