@@ -84,11 +84,12 @@ type internal ARM32Gap =
 type private Lead =
   /// Saves a preserved register at the instruction of the given index.
   | Saves of int
-  /// Returns at the instruction of the given index, telling whether one that
-  /// runs on a condition came before.
+  /// Returns at the instruction of the given index, telling whether a branch
+  /// or a return that runs on a condition came before.
   | Returns of int * bool
   /// Jumps to a recovered function as its tail at the instruction of the
-  /// given index, telling whether one that runs on a condition came before.
+  /// given index, telling whether a branch or a return that runs on a
+  /// condition came before.
   | CallsTail of int * bool
   /// Calls, jumps back or past the next function, takes a return address from
   /// the stack, runs into what decodes as no instruction or into the next
@@ -346,13 +347,15 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
 
   /// Reads where the code from the address leads, along the jumps forward
   /// within the span from where the reading started up to the next function,
-  /// given how many instructions came before and whether one of them runs on
-  /// a condition. No function starts with such an instruction, as the flags
-  /// mean nothing yet. Nor does one that saves nothing take a return address
-  /// from the stack: that is the epilogue of another function, which its
-  /// compiler may leave past a call that never returns. A literal that
-  /// recovered code loads ends the reading, as it is data, whatever it decodes
-  /// as.
+  /// given how many instructions came before and whether a branch or a return
+  /// among them runs on a condition. Any other instruction that runs on a
+  /// condition, as a compiler writes a short if, leads nowhere else. Still, no
+  /// function starts with an instruction that runs on a condition, as the
+  /// flags mean nothing yet, nor does a function that saves nothing take a
+  /// return address from the stack: that is the epilogue of another function,
+  /// which its compiler may leave past a call that never returns. A literal
+  /// that recovered code loads ends the reading, as it is data, whatever it
+  /// decodes as.
   let rec leadFrom span (addr: Addr) idx isAfterCondition =
     if idx = MaxLeadLength || addr >= snd span then
       Unclear
@@ -382,7 +385,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
     elif ins.IsBranch then
       leadOfBranch span ins idx isAfterCondition
     else
-      leadFrom span next (idx + 1) (isAfterCondition || isConditional)
+      leadFrom span next (idx + 1) isAfterCondition
 
   and leadOfBranch (start, limit) ins idx isAfterCondition =
     let next = ins.Address + uint64 ins.Length
@@ -441,8 +444,9 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   /// the given function ends right above in literals, a jump or a call that
   /// never returns, with no jump that the recovery cannot follow, which may
   /// lead to a label past it.
-  /// Only past literals may a return on a condition come first, as the code
-  /// that libgcc writes by hand returns so in the middle of a function.
+  /// Only past literals may a branch or a return on a condition come first, as
+  /// the code that libgcc writes by hand returns so in the middle of a
+  /// function.
   let startsFunction fn (gap: ARM32Gap) lead =
     match lead with
     | Saves _ ->

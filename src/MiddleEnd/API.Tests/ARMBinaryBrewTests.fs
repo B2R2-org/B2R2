@@ -604,6 +604,45 @@ type ARMBinaryBrewTests() =
     let entries = Seq.toArray fns.Addresses
     CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
 
+  (* g keeps the greater of its arguments with a move that runs on a
+     condition, as a compiler writes a short if, which leads nowhere else. g
+     thus returns first right past f, which ends in a jump. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function that moves on a condition past a jump is found``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "010050e1" (* g: cmp r0, r1 *)
+          "0100a031" (* movcc r0, r1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], entries)
+
+  (* libgcc returns on a condition in the middle of its functions, so code
+     past a jump that returns so first may be a label of the function above.
+     It starts none. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that returns on a condition past a jump starts none``() =
+    let fns =
+      recoverCode
+        [ "10402de9" (* main: push {r4, lr} *)
+          "000000eb" (* bl f *)
+          "1080bde8" (* pop {r4, pc} *)
+          "0100a0e3" (* f: mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "000050e3" (* cmp r0, #0 *)
+          "1eff2f11" (* bxne lr *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *) ]
+    let entries = Seq.toArray fns.Addresses
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL |], entries)
+
   (* g only sets an argument and jumps to f as its tail, saving nothing, the
      way a wrapper does. It follows the literal of f. *)
   [<TestMethod>]
