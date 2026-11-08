@@ -49,11 +49,14 @@ type TuiRendererTests() =
   let emptyCompletion =
     { itemsCompletion with Items = []; Hint = None }
 
+  let paneModel =
+    { TransformerTuiModel.initial with Layout = TuiLayout.Pane }
+
   [<TestMethod>]
   member _.``suggestion list is labeled when items are shown``() =
     let frame =
       TransformerTuiRenderer.render
-        80 30 registry.Value TransformerTuiModel.initial itemsCompletion
+        80 30 registry.Value paneModel itemsCompletion
     let hasCaption =
       frame.Lines
       |> Array.exists (fun line -> line.Contains "Suggestions")
@@ -63,7 +66,7 @@ type TuiRendererTests() =
   member _.``empty completion keeps its own placeholder text``() =
     let frame =
       TransformerTuiRenderer.render
-        80 30 registry.Value TransformerTuiModel.initial emptyCompletion
+        80 30 registry.Value paneModel emptyCompletion
     let hasPlaceholder =
       frame.Lines
       |> Array.exists (fun line ->

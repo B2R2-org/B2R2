@@ -400,9 +400,9 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Control prompt does not recognize show``() =
     let _, _, output =
-      evaluateControlOutput registry.Value TransformerReplState.empty ":show"
+      evaluateControlOutput registry.Value TransformerReplState.empty "show"
     Assert.AreEqual<string list>(
-      [ "Error: Unknown REPL command: :show" ],
+      [ "Error: Unknown REPL command: show" ],
       output.Lines |> Seq.toList
     )
 
