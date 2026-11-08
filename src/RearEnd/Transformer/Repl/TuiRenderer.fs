@@ -1290,11 +1290,28 @@ module TransformerTuiRenderer =
     let indicator = keyIndicator width model
     fit (width - indicator.Length) text + indicator
 
+  let private searchNavigationHint (model: TransformerTuiModel) =
+    let isReady = function
+      | Some text -> not (String.IsNullOrEmpty text)
+      | None -> false
+    let query =
+      match model.Overlay, model.ViewPane, model.Focus with
+      | TuiOverlay.View, Some pane, _ when not pane.IsFinding ->
+        Some pane.FindText
+      | TuiOverlay.None, _, TuiFocus.Transcript
+        when not model.IsFindingTranscript ->
+        Some model.TranscriptFindText
+      | _ ->
+        None
+    if isReady query then Some "n: next  N: previous" else None
+
   let private contextFooter width model =
     let cwd = compactPath Environment.CurrentDirectory
     let record = scriptRecordText model.Session.ReplayMode
     let text =
-      $" {model.Status}  cwd: {cwd}  record: {record}"
+      match searchNavigationHint model with
+      | Some hint -> $" {hint}  {model.Status}"
+      | None -> $" {model.Status}  cwd: {cwd}  record: {record}"
     paint dim (footerText width text model)
 
   let private consoleFooter width model =
@@ -1303,7 +1320,9 @@ module TransformerTuiRenderer =
       | TuiOverlay.View, Some pane when pane.Anchor.IsSome ->
         " -- VISUAL --"
       | _ ->
-        ""
+        searchNavigationHint model
+        |> Option.map (fun hint -> " " + hint)
+        |> Option.defaultValue ""
     paint dim (footerText width text model)
 
   let private activeFindInput model =
