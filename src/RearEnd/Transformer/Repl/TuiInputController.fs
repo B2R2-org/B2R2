@@ -521,14 +521,26 @@ module TransformerTuiInputController =
 
   let private handleTranscriptKey
     control
+    shift
     (key: ConsoleKeyInfo)
     (model: TransformerTuiModel) =
+    let selecting = model.TranscriptAnchor.IsSome
+    let extend = shift || selecting
     match key.Key with
+    | ConsoleKey.V when not control ->
+      TransformerTuiModel.toggleTranscriptSelection model
+      |> TuiInputResult.Update
+    | ConsoleKey.I when not control ->
+      TransformerTuiModel.insertTranscriptSelection model
+      |> TuiInputResult.Update
     | ConsoleKey.N when not control ->
       let width, height = transcriptPageSize model
       let reverse = hasModifier ConsoleModifiers.Shift key
       TransformerTuiModel.findInTranscriptDirection
         reverse width height model
+      |> TuiInputResult.Update
+    | ConsoleKey.Escape when selecting ->
+      TransformerTuiModel.clearTranscriptSelection model
       |> TuiInputResult.Update
     | ConsoleKey.Escape ->
       TransformerTuiModel.focusShell model |> TuiInputResult.Update
@@ -545,12 +557,12 @@ module TransformerTuiInputController =
     | ConsoleKey.PageUp ->
       let width, height = transcriptPageSize model
       TransformerTuiModel.moveTranscriptCursorInView
-        width height (-height) 0 model
+        width height (-height) 0 extend model
       |> TuiInputResult.Update
     | ConsoleKey.PageDown ->
       let width, height = transcriptPageSize model
       TransformerTuiModel.moveTranscriptCursorInView
-        width height height 0 model
+        width height height 0 extend model
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow when control ->
       let width, height = transcriptPageSize model
@@ -562,19 +574,23 @@ module TransformerTuiInputController =
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow ->
       let width, height = transcriptPageSize model
-      TransformerTuiModel.moveTranscriptCursorInView width height -1 0 model
+      TransformerTuiModel.moveTranscriptCursorInView
+        width height -1 0 extend model
       |> TuiInputResult.Update
     | ConsoleKey.DownArrow ->
       let width, height = transcriptPageSize model
-      TransformerTuiModel.moveTranscriptCursorInView width height 1 0 model
+      TransformerTuiModel.moveTranscriptCursorInView
+        width height 1 0 extend model
       |> TuiInputResult.Update
     | ConsoleKey.LeftArrow ->
       let width, height = transcriptPageSize model
-      TransformerTuiModel.moveTranscriptCursorInView width height 0 -1 model
+      TransformerTuiModel.moveTranscriptCursorInView
+        width height 0 -1 extend model
       |> TuiInputResult.Update
     | ConsoleKey.RightArrow ->
       let width, height = transcriptPageSize model
-      TransformerTuiModel.moveTranscriptCursorInView width height 0 1 model
+      TransformerTuiModel.moveTranscriptCursorInView
+        width height 0 1 extend model
       |> TuiInputResult.Update
     | _ ->
       TuiInputResult.Update model
@@ -1302,7 +1318,7 @@ module TransformerTuiInputController =
       handleViewKey control shift key model
     elif model.Focus = TuiFocus.Transcript
          && model.Overlay = TuiOverlay.None then
-      handleTranscriptKey control key model
+      handleTranscriptKey control shift key model
     elif control && key.Key = ConsoleKey.D then
       if String.IsNullOrEmpty model.Input then
         TuiInputResult.Stop model

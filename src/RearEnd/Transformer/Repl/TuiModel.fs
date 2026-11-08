@@ -1777,7 +1777,8 @@ module TransformerTuiModel =
     else
       column + offset
 
-  let moveTranscriptCursorInView width height rowDelta columnDelta model =
+  let moveTranscriptCursorInView
+    width height rowDelta columnDelta extend model =
     let transcript = transcriptLines model
     let layout = transcriptLayout width height model
     let current =
@@ -1811,7 +1812,12 @@ module TransformerTuiModel =
     let next =
       { model with
           TranscriptCursor = cursor
-          TranscriptAnchor = None
+          TranscriptAnchor =
+            if extend then
+              model.TranscriptAnchor
+              |> Option.orElse (Some model.TranscriptCursor)
+            else
+              None
           FoldTarget = blockAtLine cursor.Line transcript
           ScrollOffset = 0
           Status = "Transcript focused" }
@@ -1887,6 +1893,18 @@ module TransformerTuiModel =
         TranscriptAnchor = None
         FoldTarget = blockAtLine cursor.Line transcript
         Status = "Transcript focused" }
+
+  let toggleTranscriptSelection model =
+    let selecting = model.TranscriptAnchor.IsNone
+    let anchor =
+      if selecting then Some model.TranscriptCursor else None
+    let status =
+      if selecting then "Visual selection" else "Transcript selection cleared"
+    { model with TranscriptAnchor = anchor; Status = status }
+
+  let clearTranscriptSelection model =
+    { model with TranscriptAnchor = None
+                 Status = "Transcript selection cleared" }
 
   let private selectTranscriptCommand
     width height (positions: int list) index model =
@@ -2360,3 +2378,13 @@ module TransformerTuiModel =
         |> setStatus "Inserted view selection"
     | None ->
       model
+
+  let insertTranscriptSelection model =
+    let text = selectedText model
+    if String.IsNullOrEmpty text then
+      setStatus "There is no selected text" model
+    else
+      model
+      |> focusShell
+      |> insertText text
+      |> setStatus "Inserted transcript selection"

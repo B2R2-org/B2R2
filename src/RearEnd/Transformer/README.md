@@ -41,6 +41,7 @@ current input and the kinds of values available.
 | `Tab` / `Shift+Tab` | Complete / insert indentation. |
 | `Ctrl+N` / `Ctrl+P` | Select the next / previous completion. |
 | `Ctrl+G` | Open the control prompt. |
+| `Ctrl+R` | Execute the current input. |
 | `Ctrl+T` | Switch between input and the last transcript or view position. |
 | `Ctrl+F` | Find in the transcript, or in the current view. |
 | `Enter` in transcript | Open the selected result in view mode. |
@@ -52,8 +53,8 @@ current input and the kinds of values available.
 | `Ctrl+W` / `Ctrl+Backspace` | Delete the previous word. |
 | `Ctrl+U` / `Ctrl+K` | Delete input before / after the cursor. |
 | `Ctrl+L` | Clear the transcript. |
-| `v`, arrows in view | Select text with the keyboard. |
-| `i` in view | Send selected text to the input. |
+| `v`, arrows in transcript or view | Select text with the keyboard. |
+| `i` in transcript or view | Send selected text to the input. |
 | `Ctrl+Enter` in view (Windows) | Also send selected text to the input. |
 | `Ctrl+C` | Copy the REPL selection or cancel a running action. |
 | `Ctrl+D` | Exit when the input is empty. |
@@ -61,14 +62,14 @@ current input and the kinds of values available.
 
 Click a suggestion to apply its completion. In view, `Esc` cancels a selection
 before returning to the transcript. In the transcript, `Esc` returns to input.
-On Windows, `Ctrl+Enter` also executes the input. `;;` then `Enter` works on
-both Windows and macOS.
+`Ctrl+R` and `;;` then `Enter` work on both Windows and macOS. On Windows,
+`Ctrl+Enter` also executes the input.
 
 Drag over REPL text and press `Ctrl+C` to copy only the selected text, without
 pane borders or surrounding spaces. On macOS, the REPL uses `pbcopy`. Mac
 Terminal handles `Command+V` for pasting. On Windows Terminal, the REPL sends
-an OSC 52 clipboard request. In view, `v` and the arrow keys select text for
-`i` to insert into the input.
+an OSC 52 clipboard request. In transcript or view, `v` and the arrow keys
+select text for `i` to insert into the input.
 
 The `Ctrl+G` prompt accepts `help`, `help @<action>`, and `actions`. Use
 `help @<action>` for parameters and examples; `actions` lists all registered
