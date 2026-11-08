@@ -350,6 +350,7 @@ type TransformerTuiModel =
     Layout: TuiLayout
     Status: string
     LastKey: ConsoleKeyInfo option
+    LastKeySequence: string option
     IsBusy: bool
     SpinnerFrame: int }
 
@@ -497,6 +498,7 @@ module TransformerTuiModel =
       Layout = TuiLayout.Pane
       Status = "Ready"
       LastKey = None
+      LastKeySequence = None
       IsBusy = false
       SpinnerFrame = 0 }
 
@@ -638,7 +640,10 @@ module TransformerTuiModel =
     { model with Status = status }
 
   let setLastKey key (model: TransformerTuiModel) =
-    { model with LastKey = Some key }
+    { model with LastKey = Some key; LastKeySequence = None }
+
+  let setLastKeySequence sequence (model: TransformerTuiModel) =
+    { model with LastKey = None; LastKeySequence = Some sequence }
 
   let private clearTranscriptFocusStatus model =
     if model.Status = "Transcript focused" then

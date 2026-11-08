@@ -38,3 +38,4 @@ type TuiMouseEvent =
 type TuiInputEvent =
   | Key of ConsoleKeyInfo
   | Mouse of TuiMouseEvent
+  | UnknownKey of string

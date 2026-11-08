@@ -696,6 +696,9 @@ module TransformerRepl =
               width height completion mouse model
             |> applyInputResult
           dirty <- true
+        | Some(TuiInputEvent.UnknownKey sequence) ->
+          model <- TransformerTuiModel.setLastKeySequence sequence model
+          dirty <- true
         | Some(TuiInputEvent.Key key) ->
           model <- TransformerTuiModel.setLastKey key model
           match running with

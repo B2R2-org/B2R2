@@ -1263,28 +1263,32 @@ module TransformerTuiRenderer =
       | _ ->
         key.Key.ToString()
 
-  let private keyIndicator model =
-    match model.LastKey with
-    | None ->
-      ""
-    | Some key ->
-      let name = keyName key
-      let modifierKey = int key.Key >= 16 && int key.Key <= 18
-      let modifier flag label =
-        if not modifierKey && key.Modifiers.HasFlag flag then
-          label + "+"
-        else
-          ""
-      let control = modifier ConsoleModifiers.Control "Ctrl"
-      let alt = modifier ConsoleModifiers.Alt "Alt"
-      let shift = modifier ConsoleModifiers.Shift "Shift"
-      " " + control + alt + shift + name + " "
+  let private keyIndicator width model =
+    let text =
+      match model.LastKeySequence, model.LastKey with
+      | Some sequence, _ ->
+        " ESC " + sequence + " "
+      | None, None ->
+        ""
+      | None, Some key ->
+        let name = keyName key
+        let modifierKey = int key.Key >= 16 && int key.Key <= 18
+        let modifier flag label =
+          if not modifierKey && key.Modifiers.HasFlag flag then
+            label + "+"
+          else
+            ""
+        let control = modifier ConsoleModifiers.Control "Ctrl"
+        let alt = modifier ConsoleModifiers.Alt "Alt"
+        let shift = modifier ConsoleModifiers.Shift "Shift"
+        " " + control + alt + shift + name + " "
+    let available = max 0 (width - " find: ".Length - 1)
+    if text.Length <= available then text
+    elif available > 4 then text[..available - 5] + "... "
+    else ""
 
   let private footerText width text model =
-    let indicator = keyIndicator model
-    let indicator =
-      if indicator.Length > width then indicator[..width - 1]
-      else indicator
+    let indicator = keyIndicator width model
     fit (width - indicator.Length) text + indicator
 
   let private contextFooter width model =
@@ -1312,7 +1316,7 @@ module TransformerTuiRenderer =
     max 0 (cursor - inputWidth + 1) |> min text.Length
 
   let tryFindCursorAt width height model row column =
-    let available = width - (keyIndicator model).Length
+    let available = width - (keyIndicator width model).Length
     match activeFindInput model with
     | Some(text, cursor) when row = height
                               && column >= 1
@@ -1327,7 +1331,7 @@ module TransformerTuiRenderer =
     match activeFindInput model with
     | Some(findText, cursor) ->
       let prompt = " find: "
-      let indicator = keyIndicator model
+      let indicator = keyIndicator width model
       let available = width - indicator.Length
       let inputWidth = max 0 (available - prompt.Length)
       let start = findInputStart available findText cursor
