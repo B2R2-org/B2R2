@@ -560,19 +560,17 @@ module TransformerRepl =
     let readTextBurst first =
       let builder = StringBuilder()
       builder.Append((first: ConsoleKeyInfo).KeyChar) |> ignore
-      let mutable lastKey = first
       let mutable keepReading = true
       while keepReading do
         match inputReader.Read() with
         | Some(TuiInputEvent.Key key) when isTextKey key ->
           builder.Append(key.KeyChar) |> ignore
-          lastKey <- key
         | Some input ->
           inputReader.PutBack input
           keepReading <- false
         | None ->
           keepReading <- false
-      builder.ToString(), lastKey
+      builder.ToString()
     let repeatedKeyCount first =
       let mutable count = 1
       let mutable keepReading = true
@@ -703,11 +701,9 @@ module TransformerRepl =
               width height registry completion mouse model
             |> applyInputResult
           dirty <- true
-        | Some(TuiInputEvent.UnknownKey sequence) ->
-          model <- TransformerTuiModel.setLastKeySequence sequence model
-          dirty <- true
+        | Some(TuiInputEvent.UnknownKey _) ->
+          ()
         | Some(TuiInputEvent.Key key) ->
-          model <- TransformerTuiModel.setLastKey key model
           match running with
           | Some runningEvaluation
             when hasModifier ConsoleModifiers.Control key
@@ -718,8 +714,7 @@ module TransformerRepl =
                         && not model.IsFindingTranscript
                         && model.ResizeOriginal.IsNone
                         && model.Focus = TuiFocus.Shell ->
-            let text, lastKey = readTextBurst key
-            model <- TransformerTuiModel.setLastKey lastKey model
+            let text = readTextBurst key
             TransformerTuiInputController.appendShellText text model
             |> applyInputResult
           | Some _ ->
@@ -729,8 +724,7 @@ module TransformerRepl =
                       && not model.IsFindingTranscript
                       && model.ResizeOriginal.IsNone
                       && model.Focus = TuiFocus.Shell ->
-            let text, lastKey = readTextBurst key
-            model <- TransformerTuiModel.setLastKey lastKey model
+            let text = readTextBurst key
             TransformerTuiInputController.appendShellText text model
             |> applyInputResult
           | None when isViewNavigationKey model key ->

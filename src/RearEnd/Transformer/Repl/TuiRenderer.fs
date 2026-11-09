@@ -1233,63 +1233,6 @@ module TransformerTuiRenderer =
           let local = max 0 (min line.Length (start + column - 3))
           lineStart + local)
 
-  let private keyName (key: ConsoleKeyInfo) =
-    match int key.Key with
-    | 16 ->
-      "Shift"
-    | 17 ->
-      "Ctrl"
-    | 18 ->
-      "Alt"
-    | _ ->
-      match key.Key with
-      | ConsoleKey.UpArrow ->
-        "Up"
-      | ConsoleKey.DownArrow ->
-        "Down"
-      | ConsoleKey.LeftArrow ->
-        "Left"
-      | ConsoleKey.RightArrow ->
-        "Right"
-      | ConsoleKey.Escape ->
-        "Esc"
-      | ConsoleKey.Enter ->
-        "Enter"
-      | ConsoleKey.Spacebar ->
-        "Space"
-      | _ when not (Char.IsControl key.KeyChar) ->
-        string key.KeyChar
-      | _ ->
-        key.Key.ToString()
-
-  let private keyIndicator width model =
-    let text =
-      match model.LastKeySequence, model.LastKey with
-      | Some sequence, _ ->
-        " ESC " + sequence + " "
-      | None, None ->
-        ""
-      | None, Some key ->
-        let name = keyName key
-        let modifierKey = int key.Key >= 16 && int key.Key <= 18
-        let modifier flag label =
-          if not modifierKey && key.Modifiers.HasFlag flag then
-            label + "+"
-          else
-            ""
-        let control = modifier ConsoleModifiers.Control "Ctrl"
-        let alt = modifier ConsoleModifiers.Alt "Alt"
-        let shift = modifier ConsoleModifiers.Shift "Shift"
-        " " + control + alt + shift + name + " "
-    let available = max 0 (width - " find: ".Length - 1)
-    if text.Length <= available then text
-    elif available > 4 then text[..available - 5] + "... "
-    else ""
-
-  let private footerText width text model =
-    let indicator = keyIndicator width model
-    fit (width - indicator.Length) text + indicator
-
   let private searchNavigationHint (model: TransformerTuiModel) =
     let isReady = function
       | Some text -> not (String.IsNullOrEmpty text)
@@ -1312,7 +1255,7 @@ module TransformerTuiRenderer =
       match searchNavigationHint model with
       | Some hint -> $" {hint}  {model.Status}"
       | None -> $" {model.Status}  cwd: {cwd}  record: {record}"
-    paint dim (footerText width text model)
+    paint dim (fit width text)
 
   let private consoleFooter width model =
     let text =
@@ -1323,7 +1266,7 @@ module TransformerTuiRenderer =
         searchNavigationHint model
         |> Option.map (fun hint -> " " + hint)
         |> Option.defaultValue ""
-    paint dim (footerText width text model)
+    paint dim (fit width text)
 
   let private activeFindInput model =
     match model.ViewPane with
@@ -1339,12 +1282,11 @@ module TransformerTuiRenderer =
     max 0 (cursor - inputWidth + 1) |> min text.Length
 
   let tryFindCursorAt width height model row column =
-    let available = width - (keyIndicator width model).Length
     match activeFindInput model with
     | Some(text, cursor) when row = height
                               && column >= 1
-                              && column <= available ->
-      let start = findInputStart available text cursor
+                              && column <= width ->
+      let start = findInputStart width text cursor
       let position = start + max 0 (column - " find: ".Length - 1)
       Some(min text.Length position)
     | _ ->
@@ -1354,16 +1296,13 @@ module TransformerTuiRenderer =
     match activeFindInput model with
     | Some(findText, cursor) ->
       let prompt = " find: "
-      let indicator = keyIndicator width model
-      let available = width - indicator.Length
-      let inputWidth = max 0 (available - prompt.Length)
-      let start = findInputStart available findText cursor
+      let inputWidth = max 0 (width - prompt.Length)
+      let start = findInputStart width findText cursor
       let length = min inputWidth (findText.Length - start)
       let input = findText.Substring(start, length)
       let padding = String.replicate (inputWidth - input.Length) " "
       let row =
         paint (paletteInputBg + paletteFg) (prompt + input + padding)
-        + paint dim indicator
       row, Some(prompt.Length + cursor - start + 1)
     | _ ->
       contextFooter width model, None
