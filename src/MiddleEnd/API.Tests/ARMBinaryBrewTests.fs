@@ -1898,3 +1898,17 @@ type ARMBinaryBrewTests() =
     System.BitConverter.GetBytes(0x104bcu).CopyTo(bytes, 0x4b4)
     let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
     CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x103fcUL)
+
+  (* The address of __do_global_dtors_aux sits next to 0x10000 this time, where
+     the loader maps the ELF header, which no section holds. That is a number
+     that happens to name the header, as stat holds 0x10000 next to 0x20000,
+     rather than an address. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A code address next to the header's address is no pointer``() =
+    let bytes = readZippedBinary "elf_arm32"
+    System.BitConverter.GetBytes(0u).CopyTo(bytes, 0xf14)
+    System.BitConverter.GetBytes(0x103fdu).CopyTo(bytes, 0x4b0)
+    System.BitConverter.GetBytes(0x10000u).CopyTo(bytes, 0x4b4)
+    let fns = recoverStripped (BinHandle.LoadFileBytes(bytes, ISA "armv7"))
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x103fcUL)

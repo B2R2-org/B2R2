@@ -526,13 +526,20 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       |> Array.map (fun addr -> hdl.TryReadUInt(addr, 4))
       |> Array.map (Result.defaultValue 0UL)
 
+  /// Tells whether the value is an address that lies in a section of the
+  /// binary, as what a pointer points to does. The loader also maps the
+  /// headers of the file, which no section holds and no pointer points to, so
+  /// a number that happens to name one is no address.
+  let isInSection v =
+    file.IsValidAddr v && Result.isOk (BinFileOps.tryFindSectionByAddr file v)
+
   /// Tells whether a word next to the one at the given index is an address of
   /// the binary. Pointers sit together, in tables and in structures, while a
   /// number that happens to look like a code address sits among numbers.
   let hasAddressNext (words: uint64[]) idx =
     [ idx - 1; idx + 1 ]
     |> List.exists (fun i ->
-      i >= 0 && i < words.Length && file.IsValidAddr words[i])
+      i >= 0 && i < words.Length && isInSection words[i])
 
   /// Returns the words of the section that may be pointers.
   let pointersIn (section: BinSection) =
