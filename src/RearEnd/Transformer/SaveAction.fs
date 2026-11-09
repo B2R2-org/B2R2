@@ -28,9 +28,8 @@ open System.Threading
 
 /// The `save` action.
 type SaveAction() =
-  let save cancellationToken fname (input: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let save (ct: CancellationToken) fname (input: obj) =
+    ct.ThrowIfCancellationRequested()
     match input with
     | :? Binary as bin ->
       ReplArtifactWriter.writeBinary fname bin
@@ -40,10 +39,10 @@ type SaveAction() =
       invalidArg (nameof input)
         "save only supports Binary or BinarySlice values."
 
-  let transform cancellationToken (args: string list) collection =
+  let transform ct (args: string list) collection =
     match args, collection.Values with
     | [ fname ], [| value |] ->
-      save cancellationToken fname value
+      save ct fname value
       { Values = [||] }
     | [ _ ], _ ->
       invalidArg (nameof collection)
@@ -63,5 +62,5 @@ type SaveAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

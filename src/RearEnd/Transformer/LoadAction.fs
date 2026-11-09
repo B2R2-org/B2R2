@@ -34,9 +34,8 @@ type LoadAction() =
   let loadFile isa path =
     BinHandle.LoadFile(path, isa, None)
 
-  let loadPath cancellationToken isa path =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let loadPath (ct: CancellationToken) isa path =
+    ct.ThrowIfCancellationRequested()
     if File.Exists(path = path) then
       lazy loadFile isa path
       |> Binary.PlainInit
@@ -47,7 +46,7 @@ type LoadAction() =
       |> Array.sortWith (fun left right ->
         System.StringComparer.OrdinalIgnoreCase.Compare(left, right))
       |> Array.map (fun f ->
-        cancellationToken.ThrowIfCancellationRequested()
+        ct.ThrowIfCancellationRequested()
         lazy loadFile isa f
         |> Binary.PlainInit |> box)
     else
@@ -59,33 +58,70 @@ type LoadAction() =
     |> box
     |> Array.singleton
 
-  let transform cancellationToken (args: string list) collection =
-    if collection.Values |> Array.forall isNull then
-      ()
-    else
-      invalidArg (nameof collection) "Invalid argument type."
-    match args with
-    | [ value; isaName ] when File.Exists value || Directory.Exists value ->
-      let isa = ISA isaName
-      { Values = loadPath cancellationToken isa value }
-    | [ hex; isaName ] ->
-      let isa = ISA isaName
-      { Values = loadHex isa hex }
-    | [ value ] ->
-      let isa = ISA Architecture.Intel
-      { Values = loadPath cancellationToken isa value }
+  let loadBytes (ct: CancellationToken) input =
+    ct.ThrowIfCancellationRequested()
+    match (input: obj) with
+    | :? BinaryBytes as bytes ->
+      let hdl =
+        lazy (
+          BinHandle.LoadRawImage(
+            bytes.Bytes, bytes.ISA, bytes.BaseAddress, bytes.OS
+          )
+        )
+      Binary.Init(bytes.Annotation, hdl) |> box
     | _ ->
-      invalidArg (nameof args) "Invalid arguments given."
+      invalidArg (nameof input) "load expects ByteArray input."
+
+  let transform ct (args: string list) collection =
+    if collection.Values |> Array.forall isNull then
+      match args with
+      | [ value; isaName ] when File.Exists value || Directory.Exists value ->
+        let isa = ISA isaName
+        { Values = loadPath ct isa value }
+      | [ hex; isaName ] ->
+        let isa = ISA isaName
+        { Values = loadHex isa hex }
+      | [ value ] ->
+        let isa = ISA Architecture.Intel
+        { Values = loadPath ct isa value }
+      | _ ->
+        invalidArg (nameof args) "Invalid arguments given."
+    elif List.isEmpty args then
+      { Values = collection.Values |> Array.map (loadBytes ct) }
+    else
+      invalidArg (nameof args) "ByteArray input takes no load parameters."
+
+  let transformNamed ct args collection =
+    let options = Map.ofList args
+    if collection.Values |> Array.forall isNull then
+      let isa =
+        options
+        |> Map.tryFind "isa"
+        |> Option.map (fun (name: string) -> ISA name)
+        |> Option.defaultWith (fun () -> ISA Architecture.Intel)
+      match Map.tryFind "path" options, Map.tryFind "hex" options with
+      | Some path, None ->
+        { Values = loadPath ct isa path }
+      | None, Some hex ->
+        { Values = loadHex isa hex }
+      | _ ->
+        invalidArg (nameof args) "Invalid load source."
+    elif Map.isEmpty options then
+      { Values = collection.Values |> Array.map (loadBytes ct) }
+    else
+      invalidArg (nameof args) "ByteArray input takes no load parameters."
 
   interface IAction with
     member _.ActionID with get() = "load"
     member _.Signature with get() =
-      "Unit -> load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
+      "Unit -> load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> "
+      + "| ByteArray -> load -> Binary"
     member _.Description with get() =
       """
     Take in a file path and return a binary object. If the given string is a
     valid directory path, then every file in the directory will be loaded in
     bulk. Use `hex=<hex> isa=<isa>` to load hexadecimal bytes as a raw image.
+    With ByteArray input, reconstruct a binary retaining its metadata.
 
       - [isa] : parse the binary for the given ISA.
 """
@@ -93,5 +129,9 @@ type LoadAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection

@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.Collections.Generic
 open System.Threading
 open B2R2
 open B2R2.RearEnd.Transformer.Utils
@@ -64,13 +63,15 @@ type DiffAction() =
     appendText color (byteText byte) cs
 
   let appendSide (bytes: byte[]) (other: byte[]) color offset cs =
-    [ 0 .. NumBytesPerLine - 1 ]
+    let count =
+      min NumBytesPerLine (max bytes.Length other.Length - offset)
+    [ 0 .. count - 1 ]
     |> List.fold (fun cs column ->
       let index = offset + column
       let byte = byteAt bytes index
       let otherByte = byteAt other index
       let cs = appendByte (byteColor byte otherByte color) byte cs
-      if column = NumBytesPerLine - 1 then cs else appendText NoColor " " cs)
+      if column = count - 1 then cs else appendText NoColor " " cs)
       cs
 
   let appendByteRow marker bytes other color baseAddress (offset: int) cs =
@@ -114,20 +115,10 @@ type DiffAction() =
     leftBase
     rightBase
     (changed: int list)
-    rowCount
     cs =
-    let changed = HashSet<int>(changed)
-    let rec loop row equalRows cs =
-      if row = rowCount then
-        appendEqualRows equalRows cs
-      elif changed.Contains row then
-        cs
-        |> appendEqualRows equalRows
-        |> appendChangedByteRow left right leftBase rightBase row
-        |> loop (row + 1) 0
-      else
-        loop (row + 1) (equalRows + 1) cs
-    loop 0 0 cs
+    (cs, changed)
+    ||> List.fold (fun cs row ->
+      appendChangedByteRow left right leftBase rightBase row cs)
 
   let buildLcsTable (left: string[]) (right: string[]) =
     let table = Array2D.zeroCreate (left.Length + 1) (right.Length + 1)
@@ -210,28 +201,25 @@ type DiffAction() =
     hdl.File.RawBytes.ToArray()
 
   let diffBytes
-    cancellationToken
-    title
+    (ct: CancellationToken)
     leftBase
     rightBase
     (bs1: byte[])
     (bs2: byte[]) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+    ct.ThrowIfCancellationRequested()
     let maxLength = max bs1.Length bs2.Length
     let rowCount = (maxLength + NumBytesPerLine - 1) / NumBytesPerLine
     let changedRows =
       [ 0 .. rowCount - 1 ]
       |> List.filter (fun row ->
-        cancellationToken.ThrowIfCancellationRequested()
+        ct.ThrowIfCancellationRequested()
         rowChanged bs1 bs2 (row * NumBytesPerLine))
     if List.isEmpty changedRows then
       OutputColored(ColoredString(NoColor, "No diff."))
     else
       let cs = ColoredString()
       cs
-      |> appendLine NoColor title
-      |> appendByteDiffRows bs1 bs2 leftBase rightBase changedRows rowCount
+      |> appendByteDiffRows bs1 bs2 leftBase rightBase changedRows
       |> OutputColored
 
   let binaryBase (bin: Binary) =
@@ -247,10 +235,9 @@ type DiffAction() =
     | _ ->
       None
 
-  let diffBinary cancellationToken bin1 bin2 =
+  let diffBinary ct bin1 bin2 =
     diffBytes
-      cancellationToken
-      "byte diff"
+      ct
       (binaryBase bin1)
       (binaryBase bin2)
       (binaryBytes bin1)
@@ -272,12 +259,11 @@ type DiffAction() =
     | NoCFG error ->
       [| $"error: {error}" |]
 
-  let diffValues cancellationToken (left: obj) (right: obj) =
+  let diffValues ct (left: obj) (right: obj) =
     match tryBinaryInput left, tryBinaryInput right with
     | Some(leftBase, leftBytes), Some(rightBase, rightBytes) ->
       diffBytes
-        cancellationToken
-        "byte diff"
+        ct
         leftBase
         rightBase
         leftBytes
@@ -286,8 +272,7 @@ type DiffAction() =
       match left, right with
       | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
         diffBytes
-          cancellationToken
-          "byte diff"
+          ct
           left.BaseAddress
           right.BaseAddress
           left.Bytes
@@ -313,20 +298,20 @@ type DiffAction() =
           + "CFG, Text, and ConcExecutor pairs."
         invalidArg (nameof DiffAction) message
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     let values = collection.Values
     if values.Length <> 2 then
       invalidArg (nameof DiffAction) "Can only diff exactly two values."
     else
       match args with
       | [] ->
-        let outstr = diffValues cancellationToken values[0] values[1]
+        let outstr = diffValues ct values[0] values[1]
         { Values = [| box outstr |] }
       | _ ->
         invalidArg (nameof DiffAction) "Invalid input to diff"
 
   interface IAction with
-    member _.ActionID with get() = "diff"
+    member _.ActionID with get() = "compare"
     member _.Signature with get() =
       "Binary|BinarySlice|ByteArray|InstructionArray|CFG|Text|ConcExecutor "
       + "pair -> OutString"
@@ -338,5 +323,5 @@ type DiffAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

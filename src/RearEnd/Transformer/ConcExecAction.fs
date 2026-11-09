@@ -27,9 +27,9 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Collections.Generic
 open System.Globalization
-open System.Security.Cryptography
 open System.Threading
 open B2R2
+open B2R2.ABI
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.Collections
@@ -113,18 +113,8 @@ module private ConcRegionPerm =
 module private ConcActionParsing =
   let parseUInt64 value = ContextParsing.parseAddress value
 
-  let randomAddress minAddress maxAddress: AddressValue =
-    if minAddress >= maxAddress then
-      invalidArg (nameof maxAddress) "max must be greater than min."
-    else
-      let span = maxAddress - minAddress
-      let bytes = Array.zeroCreate<byte> 8
-      RandomNumberGenerator.Fill bytes
-      let offset = BitConverter.ToUInt64(bytes, 0) % span
-      { Address = minAddress + offset }
-
-  let alignDown align (value: Addr) =
-    if align = 0UL then value else value - (value % align)
+module private ConcRunDefaults =
+  let instructionLimit = 1000
 
 type private TracingMemory(inner: ConcMemory,
                            regions: ConcMemoryRegion list) =
@@ -370,20 +360,22 @@ type ConcExecutorValue private(binary: Binary,
       false
 
   let registerDiffs beforeState afterState =
-    hdl.RegisterFactory.GetAllRegisterNames()
-    |> Array.choose (fun name ->
-      match tryGetRegisterID name with
-      | None ->
+    hdl.RegisterFactory.GetAllRegVars()
+    |> Array.choose (function
+      | Var(RegisterID = rid) -> Some rid
+      | PCVar _ -> Some hdl.RegisterFactory.ProgramCounter
+      | _ -> None)
+    |> Array.distinct
+    |> Array.choose (fun rid ->
+      let before = registerText beforeState rid
+      let after = registerText afterState rid
+      if before = after then
         None
-      | Some rid ->
-        let before = registerText beforeState rid
-        let after = registerText afterState rid
-        if before = after then
-          None
-        else
-          let before = before |> Option.defaultValue "<undef>"
-          let after = after |> Option.defaultValue "<undef>"
-          Some $"{name}: {before} -> {after}")
+      else
+        let name = hdl.RegisterFactory.GetRegisterName rid
+        let before = before |> Option.defaultValue "<undef>"
+        let after = after |> Option.defaultValue "<undef>"
+        Some $"{name}: {before} -> {after}")
     |> Array.toList
 
   let instructionAt (addr: Addr) =
@@ -817,7 +809,7 @@ type ConcExecutorValue private(binary: Binary,
           loop stack regs memory nextRegions rest
         | _ ->
           invalidArg (nameof args)
-            $"Unknown make-concrete-context parameter: {key}"
+            $"Unknown concrete execution parameter: {key}"
     loop None [] [] [] args
 
   let lastRunLines () =
@@ -922,6 +914,9 @@ type ConcExecutorValue private(binary: Binary,
 
   member _.LastTrace = previousTrace
 
+  member _.LastStopReasons =
+    previousResult |> Option.map _.StopReasons
+
   member _.SummaryLines =
     let path =
       if String.IsNullOrWhiteSpace hdl.File.Path then
@@ -942,19 +937,14 @@ type ConcExecutorValue private(binary: Binary,
 
   member this.Summary = String.concat Environment.NewLine this.SummaryLines
 
-  member _.Run(args: string list, ct) =
-    let start, limit, breakpoint =
-      match args with
-      | [] ->
-        defaultStart (), 50000, None
-      | [ entry ] ->
-        parseUInt64 entry, 50000, None
-      | [ entry; limit ] ->
-        parseUInt64 entry, parseInt limit, None
-      | [ entry; limit; breakpoint ] ->
-        parseUInt64 entry, parseInt limit, Some(parseUInt64 breakpoint)
-      | _ ->
-        invalidArg (nameof args) "Invalid run argument layout."
+  member _.RunNamed(entry, limit, breakpoint, ct) =
+    let start =
+      entry |> Option.map parseUInt64 |> Option.defaultWith defaultStart
+    let limit =
+      limit
+      |> Option.map parseInt
+      |> Option.defaultValue ConcRunDefaults.instructionLimit
+    let breakpoint = breakpoint |> Option.map parseUInt64
     let stops =
       breakpoint
       |> Option.map ConcStopCondition.StopAtAddress
@@ -964,6 +954,57 @@ type ConcExecutorValue private(binary: Binary,
       runWithTrace ct start limit runState None stops
     match result with
     | Some result ->
+      withState result.State (Some result) (Some trace) memoryRanges regions
+    | None ->
+      withState runState None (Some trace) memoryRanges regions
+
+  member this.Run(args: string list, ct) =
+    match args with
+    | [] ->
+      this.RunNamed(None, None, None, ct)
+    | [ entry ] ->
+      this.RunNamed(Some entry, None, None, ct)
+    | [ entry; limit ] ->
+      this.RunNamed(Some entry, Some limit, None, ct)
+    | [ entry; limit; breakpoint ] ->
+      this.RunNamed(Some entry, Some limit, Some breakpoint, ct)
+    | _ ->
+      invalidArg (nameof args) "Invalid run argument layout."
+
+  member _.RunUntilReturn(start, limit, returnSP, ct) =
+    if limit <= 0 then
+      invalidArg (nameof limit) "Instruction limit must be positive."
+    else
+      ()
+    let predicate =
+      StopPredicate<ConcState>(fun point ->
+        match point.Instruction with
+        | Some instruction when instruction.IsRET ->
+          let accessor = ConcStateAccessor(hdl, point.State)
+          match accessor.TryGetStackPointer() with
+          | Ok stackPointer ->
+            stackPointer = returnSP
+          | Error _ ->
+            false
+        | _ ->
+          false)
+    let runState = state.Clone()
+    let stops = [ ConcStopCondition.StopWhen predicate ]
+    let result, trace = runWithTrace ct start limit runState None stops
+    match result with
+    | Some result ->
+      let reasons =
+        result.StopReasons
+        |> List.map (function
+          | ConcStopReason.UserStopConditionMet addr ->
+            ConcStopReason.StoppedAtReturn addr
+          | reason ->
+            reason)
+      let result = { result with StopReasons = reasons }
+      let trace =
+        { trace with
+            StopReasons =
+              stopReasonsForTrace result trace.MemoryAccesses }
       withState result.State (Some result) (Some trace) memoryRanges regions
     | None ->
       withState runState None (Some trace) memoryRanges regions
@@ -1017,7 +1058,15 @@ type ConcExecutorValue private(binary: Binary,
       let value = parseUInt64 value
       let nextState = state.Clone()
       let accessor = accessorFor nextState
-      accessor.SetArgument(index, accessor.WordValue value)
+      let argument = accessor.WordValue value
+      match hdl.Conventions.Calling.GetIntArgLocation index with
+      | ArgLocation.Reg rid ->
+        accessor.SetRegister(rid, argument)
+      | ArgLocation.Stack slot ->
+        let addr = accessor.StackPointer + uint64 slot.FirstOffset
+        accessor.WriteValue(addr, argument)
+      | _ ->
+        invalidArg (nameof args) "Unsupported argument location."
       clearRunState nextState memoryRanges regions
     | _ ->
       invalidArg (nameof args) "Invalid arg argument layout."
@@ -1056,6 +1105,39 @@ type ConcExecutorValue private(binary: Binary,
         accessor.WriteBytes(addr, bytes)
         (addr, bytes.Length) :: ranges) memoryRanges
     clearRunState nextState ranges (nextRegions @ regions)
+
+  member _.WithExecutionSetup(layout: ExecutionLayout, registers) =
+    (registers |> List.map fst)
+    @ (layout.Buffers |> List.map _.Register)
+    |> ExecutionSetup.validateRegisterNames hdl
+    let nextState = state.Clone()
+    let accessor = accessorFor nextState
+    accessor.SetStackPointer layout.InitialStackPointer
+    if Option.isSome hdl.RegisterFactory.FramePointer then
+      accessor.InitializeFramePointer()
+    else
+      ()
+    let setRegister (name, value) =
+      match tryGetRegisterID name with
+      | Some rid ->
+        accessor.SetRegister(rid, accessor.WordValue value)
+      | None ->
+        invalidArg (nameof registers) $"Unknown register: {name}"
+    registers |> List.iter setRegister
+    layout.Buffers
+    |> List.iter (fun buffer ->
+      setRegister (buffer.Register, buffer.Address))
+    let nextRegions =
+      ExecutionSetup.regions layout
+      |> List.map (fun region ->
+        { Name = region.Name
+          Start = region.Start
+          Finish = region.Finish
+          Permission =
+            { Read = region.Permission.Read
+              Write = region.Permission.Write
+              Execute = region.Permission.Execute } })
+    clearRunState nextState memoryRanges (nextRegions @ regions)
 
   member _.ReadMemory(args: string list) =
     match args with
@@ -1113,155 +1195,262 @@ type ConcExecutorValue private(binary: Binary,
   override this.ToString() = this.Summary
 
 /// Create a concrete executor from a Binary.
+module private ConcExecutorSetup =
+  let private contextKeys = Set.ofList [ "stack"; "regs"; "mem"; "regions" ]
+
+  let parseRegisters text =
+    ContextParsing.entries text
+    |> Array.map (fun entry ->
+      let name, value = ContextParsing.splitAssignment entry
+      name, ContextParsing.parseAddress value)
+    |> Array.toList
+
+  let parseArguments text =
+    ContextParsing.entries text
+    |> Array.map (fun entry ->
+      let index, value = ContextParsing.splitAssignment entry
+      Int32.Parse index, value)
+    |> Array.toList
+
+  let contextArguments options hasBuffers =
+    options
+    |> Map.toList
+    |> List.choose (fun (key, value) ->
+      if Set.contains key contextKeys
+         && (not hasBuffers || (key <> "regs" && key <> "stack")) then
+        Some $"{key}={value}"
+      else
+        None)
+
+  let create (binary: Binary) options =
+    let executor = ConcExecutorValue binary
+    let hdl = Binary.Handle binary
+    let arguments =
+      options
+      |> Map.tryFind "args"
+      |> Option.map parseArguments
+      |> Option.defaultValue []
+    let layout =
+      ExecutionSetup.requestedBufferSpec options (not (List.isEmpty arguments))
+      |> Option.map (fun buffers ->
+        let stack =
+          Map.tryFind "stack" options
+          |> Option.map ContextParsing.parseAddress
+        let indices = arguments |> List.map fst
+        ExecutionSetup.layoutForStack hdl stack buffers indices)
+    let executor =
+      match layout with
+      | Some layout ->
+        let registers =
+          options
+          |> Map.tryFind "regs"
+          |> Option.map parseRegisters
+          |> Option.defaultValue []
+        executor.WithExecutionSetup(layout, registers)
+      | None ->
+        executor
+    let context = contextArguments options (Option.isSome layout)
+    let executor =
+      if List.isEmpty context then executor else executor.SetContext context
+    let executor =
+      arguments
+      |> List.fold (fun (current: ConcExecutorValue) (index, value) ->
+        current.SetArgument([ string index; value ])) executor
+    executor, layout
+
+  let parseOptions args =
+    args
+    |> List.map ContextParsing.splitParameter
+    |> Map.ofList
+
 type ConcExecAction() =
-  let transform cancellationToken _args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transformNamed (ct: CancellationToken) options collection =
+    let options = Map.ofList options
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? Binary as binary ->
-            ConcExecutorValue(binary) |> box
+            ConcExecutorSetup.create binary options |> fst |> box
           | :? BinarySlice as slice ->
-            ConcExecutorValue(slice.ToBinary()) |> box
+            ConcExecutorSetup.create (slice.ToBinary()) options
+            |> fst
+            |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
+
+  let transform ct args collection =
+    ConcExecutorSetup.parseOptions args
+    |> Map.toList
+    |> fun options -> transformNamed ct options collection
 
   interface IAction with
     member _.ActionID with get() = "make-concrete-executor"
     member _.Signature with get() =
-      "Binary | BinarySlice -> make-concrete-executor -> ConcExecutor"
+      "Binary | BinarySlice -> make-concrete-executor "
+      + "[stack=<addr>] [regs=[...]] [mem=[...]] [regions=[...]] "
+      + "[args=[...]] [ptr-regs=[...]] -> ConcExecutor"
     member _.Description with get() =
       "Create a stateful concrete executor backed by binary section memory."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection
 
 /// Run a concrete executor.
 type RunAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let runBinaryNamed ct options (binary: Binary) =
+    let entry = Map.find "entry" options
+    let setup =
+      if Map.containsKey "ptr-regs" options
+         || Map.containsKey "stack" options then
+        options
+      else
+        Map.add "ptr-regs" "[]" options
+    let executor, _ = ConcExecutorSetup.create binary setup
+    let accessor = ConcStateAccessor(Binary.Handle binary, executor.State)
+    let returnSP =
+      match accessor.TryGetStackPointer() with
+      | Ok stackPointer ->
+        stackPointer
+      | Error error ->
+        invalidOp $"Cannot determine the initial stack pointer: {error}"
+    let limit =
+      options
+      |> Map.tryFind "limit"
+      |> Option.map Int32.Parse
+      |> Option.defaultValue ConcRunDefaults.instructionLimit
+    let start = ContextParsing.parseAddress entry
+    executor.RunUntilReturn(start, limit, returnSP, ct) |> box
+
+  let runBinary ct args binary =
+    match args with
+    | [ entry; regs; buffers ] ->
+      [ "entry", entry; "regs", regs; "ptr-regs", buffers ]
+      |> Map.ofList
+      |> fun options -> runBinaryNamed ct options binary
+    | [ entry; regs; buffers; limit ] ->
+      [ "entry", entry
+        "regs", regs
+        "ptr-regs", buffers
+        "limit", limit ]
+      |> Map.ofList
+      |> fun options -> runBinaryNamed ct options binary
+    | _ ->
+      invalidArg (nameof args) "Invalid binary run-concrete arguments."
+
+  let runExecutorNamed ct options (executor: ConcExecutorValue) =
+    executor.RunNamed(Map.tryFind "entry" options,
+                      Map.tryFind "limit" options,
+                      Map.tryFind "break" options,
+                      ct)
+    |> box
+
+  let transformNamed (ct: CancellationToken) args collection =
+    let options = Map.ofList args
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.Run(args, cancellationToken) |> box
+            runExecutorNamed ct options executor
+          | :? Binary as binary ->
+            runBinaryNamed ct options binary
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
+
+  let transform (ct: CancellationToken) args collection =
+    { Values =
+        collection.Values
+        |> Array.map (fun input ->
+          ct.ThrowIfCancellationRequested()
+          match input with
+          | :? ConcExecutorValue as executor ->
+            executor.Run(args, ct) |> box
+          | :? Binary as binary ->
+            runBinary ct args binary
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "run-concrete"
     member _.Signature with get() =
-      "ConcExecutor -> run-concrete [entry=<addr>] [limit=<n>] "
-      + "[break=<addr>] -> ConcExecutor"
+      "Binary -> run-concrete entry=<addr> [stack=<addr>] "
+      + "[regs=[...]] [mem=[...]] [regions=[...]] [args=[...]] "
+      + "[ptr-regs=[...]] [limit=<n>] | ConcExecutor -> run-concrete "
+      + "[entry=<addr>] [limit=<n>] [break=<addr>] -> ConcExecutor"
     member _.Description with get() =
       "Run concrete execution and update the executor state."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
-/// Set one integer or pointer argument register for concrete execution.
-type ArgAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection
+
+/// Read concrete executor memory.
+type ReadMemoryAction() =
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.SetArgument args |> box
+            executor.ReadMemory args |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "arg"
+    member _.ActionID with get() = "read-memory"
     member _.Signature with get() =
-      "ConcExecutor -> arg index=<n> value=<addr> -> ConcExecutor"
+      "ConcExecutor -> read-memory addr=<addr> size=<n> -> MemoryView"
     member _.Description with get() =
-      "Set an integer or pointer argument register for concrete execution."
+      "Read concrete bytes from executor memory."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
-/// Set multiple concrete registers and memory ranges.
-type SetContextAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+/// Write concrete executor memory.
+type WriteMemoryAction() =
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.SetContext args |> box
+            executor.WriteMemory args |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "make-concrete-context"
+    member _.ActionID with get() = "write-memory"
     member _.Signature with get() =
-      "ConcExecutor -> make-concrete-context [stack=<addr>] [regs=[...]]"
-      + " [mem=[...]]"
-      + " [regions=[additional regions]]"
-      + " -> ConcExecutor"
+      "ConcExecutor -> write-memory addr=<addr> bytes=<hex> -> ConcExecutor"
     member _.Description with get() =
-      "Create a concrete context with automatic image permissions."
+      "Write concrete bytes to executor memory."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
-
-/// Read or write concrete executor memory.
-type MemAction() =
-  let transformOne args (executor: ConcExecutorValue) =
-    match args with
-    | "read" :: args ->
-      executor.ReadMemory args |> box
-    | "write" :: args ->
-      executor.WriteMemory args |> box
-    | _ ->
-      invalidArg (nameof args) "Expected: mem read|write ..."
-
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    { Values =
-        collection.Values
-        |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
-          match input with
-          | :? ConcExecutorValue as executor ->
-            executor |> transformOne args
-          | _ ->
-            invalidArg (nameof input) "Invalid input type.") }
-
-  interface IAction with
-    member _.ActionID with get() = "mem"
-    member _.Signature with get() =
-      "ConcExecutor -> mem read addr=<addr> size=<n> -> MemoryView | "
-      + "mem write addr=<addr> bytes=<hex> -> ConcExecutor"
-    member _.Description with get() =
-      "Read or write concrete bytes in executor memory."
-    member _.Transform(args, collection) =
-      transform CancellationToken.None args collection
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Step a concrete executor by a small instruction count.
 type StepAction() =
@@ -1273,16 +1462,15 @@ type StepAction() =
     | _ ->
       invalidArg "args" "At most one step count is allowed."
 
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     let count = parseCount args
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.Step(count, cancellationToken) |> box
+            executor.Step(count, ct) |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
@@ -1296,20 +1484,19 @@ type StepAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Trace concrete execution without replacing the executor value.
 type TraceAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor.Trace(args, cancellationToken) |> box
+            executor.Trace(args, ct) |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
@@ -1324,76 +1511,16 @@ type TraceAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
-
-/// Produce a random address in the half-open range [min, max).
-type RandomAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    let minAddress =
-      match args with
-      | [ minAddress; maxAddress ] ->
-        ConcActionParsing.parseUInt64 minAddress
-      | _ ->
-        invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
-    let maxAddress =
-      match args with
-      | [ minAddress; maxAddress ] ->
-        ConcActionParsing.parseUInt64 maxAddress
-      | _ ->
-        invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
-    cancellationToken.ThrowIfCancellationRequested()
-    let address = ConcActionParsing.randomAddress minAddress maxAddress
-    { Values = [| address |> box |] }
-
-  interface IAction with
-    member _.ActionID with get() = "random"
-    member _.Signature with get() =
-      "Unit -> random min=<addr> max=<addr> -> Address"
-    member _.Description with get() =
-      "Return a random address in the half-open range [min, max)."
-    member _.Transform(args, collection) =
-      transform CancellationToken.None args collection
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
-
-/// Produce a randomized high user-space stack address.
-type UserStackAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    let top = 0x7fffffffe000UL
-    let window = 0x100000UL
-    let address =
-      ConcActionParsing.randomAddress (top - window) top
-    let address =
-      { address with
-          Address = ConcActionParsing.alignDown 16UL address.Address }
-    cancellationToken.ThrowIfCancellationRequested()
-    { Values = [| address |> box |] }
-
-  interface IAction with
-    member _.ActionID with get() = "user-stack"
-    member _.Signature with get() = "Unit -> Address"
-    member _.Description with get() =
-      "Return an aligned random address near the top of user stack space."
-    member _.Transform(args, collection) =
-      transform CancellationToken.None args collection
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 /// Show defined concrete registers.
 type RegsAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     { Values =
         collection.Values
         |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
+          ct.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
             executor.Registers args |> box
@@ -1401,14 +1528,14 @@ type RegsAction() =
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "regs"
+    member _.ActionID with get() = "inspect-registers"
     member _.Signature with get() =
-      "ConcExecutor -> regs [name=<register>] -> RegisterView"
+      "ConcExecutor -> inspect-registers [name=<register>] -> RegisterView"
     member _.Description with get() =
       "Show currently defined concrete register values."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

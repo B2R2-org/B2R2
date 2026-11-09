@@ -93,9 +93,8 @@ type AsmAction() =
     assemblyCandidates code
     |> tryAssemble []
 
-  let transformOne cancellationToken args =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let transformOne (ct: CancellationToken) args =
+    ct.ThrowIfCancellationRequested()
     let code, isa, baseAddress = parseArgs args
     let bytes = assemble code isa baseAddress
     { Bytes = bytes
@@ -105,12 +104,12 @@ type AsmAction() =
       Annotation = code }
     |> box
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     if collection.Values |> Array.forall isNull then
       ()
     else
       invalidArg (nameof collection) "Invalid argument type."
-    { Values = [| transformOne cancellationToken args |] }
+    { Values = [| transformOne ct args |] }
 
   interface IAction with
     member _.ActionID with get() = "asm"
@@ -124,5 +123,5 @@ type AsmAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

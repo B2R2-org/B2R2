@@ -27,8 +27,8 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Threading
 
-/// The `find` action.
-type FindAction() =
+/// The `filter` action.
+type FilterAction() =
   let parseArgument (args: string list) =
     match args with
     | [ argument ] ->
@@ -40,31 +40,32 @@ type FindAction() =
     | _ ->
       invalidArg "args" "Expected exactly one property=value argument."
 
-  let filter cancellationToken property expected (collection: ObjCollection) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
-    ReplQueryCapabilities.tryFilterValues property expected collection.Values
+  let filter (ct: CancellationToken) property expected collection =
+    ct.ThrowIfCancellationRequested()
+    let values = (collection: ObjCollection).Values
+    ReplQueryCapabilities.tryFilterValues property expected values
     |> Result.map (fun values -> { Values = values })
     |> Result.defaultWith invalidOp
 
   let transform
-    cancellationToken
+    ct
     (args: string list)
     (collection: ObjCollection) =
     let property, expected = parseArgument args
-    filter cancellationToken property expected collection
+    filter ct property expected collection
 
-  let transformNamed cancellationToken arguments collection =
+  let transformNamed ct arguments collection =
     match arguments with
     | [ property, expected ] ->
-      filter cancellationToken property expected collection
+      filter ct property expected collection
     | _ ->
       invalidArg "arguments" "Expected exactly one named query argument."
 
   interface IAction with
-    member _.ActionID with get() = "find"
+    member _.ActionID with get() = "filter"
     member _.Signature with get() =
-      "FunctionInfo collection -> find symbol=<name>|entry=<addr> -> collection"
+      "FunctionInfo collection -> filter symbol=<name>|entry=<addr> "
+      + "-> collection"
     member _.Description with get() =
       """
     Filter functions by one searchable property.
@@ -73,13 +74,13 @@ type FindAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
   interface INamedArgumentsAction with
     member _.TransformNamed(arguments, collection) =
       transformNamed CancellationToken.None arguments collection
 
   interface ICancellableNamedArgumentsAction with
-    member _.TransformNamed(arguments, collection, cancellationToken) =
-      transformNamed cancellationToken arguments collection
+    member _.TransformNamed(arguments, collection, ct) =
+      transformNamed ct arguments collection

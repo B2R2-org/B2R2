@@ -52,14 +52,13 @@ type HexdumpAction() =
     |> OutputColored
     |> box
 
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
+  let transform (ct: CancellationToken) args collection =
     match args with
     | [] ->
       { Values =
           collection.Values
           |> Array.map (fun value ->
-            cancellationToken.ThrowIfCancellationRequested()
+            ct.ThrowIfCancellationRequested()
             hexdump value) }
     | _ ->
       invalidArg (nameof args) "Invalid argument given."
@@ -75,5 +74,5 @@ type HexdumpAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection

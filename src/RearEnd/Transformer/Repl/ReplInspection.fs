@@ -57,7 +57,7 @@ module TransformerReplInspection =
       |> Array.map (fun address ->
         { Label = $"function  0x{address:x}"
           Detail = "recover this function's CFG"
-          Command = $"@cfg entry=0x{address:x}" })
+          Command = $"@recover-cfg entry=0x{address:x}" })
       |> Array.toList
     sections @ functions
 
@@ -84,8 +84,7 @@ module TransformerReplInspection =
     |> Array.choose id
     |> Array.toList
 
-  let inspect value =
-    let value: ReplValue = value
+  let inspect (value: ReplValue) =
     value.Collection.Values
     |> Array.tryPick (function
       | :? Binary as binary ->

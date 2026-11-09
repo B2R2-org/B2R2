@@ -42,9 +42,8 @@ type DOTAction() =
       |> String.concat "\\l"
     $"[label=\"[{addr:x}]\\l{instrs}\\l\"]"
 
-  let toDOT cancellationToken o =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let toDOT (ct: CancellationToken) o =
+    ct.ThrowIfCancellationRequested()
     let artifact =
       match unbox<CFG> o with
       | CFG(addr, cfg, _) ->
@@ -59,11 +58,11 @@ type DOTAction() =
           Content = $"Failed to construct CFG: {e}" }
     box artifact
 
-  let transform cancellationToken collection =
-    { Values = collection.Values |> Array.map (toDOT cancellationToken) }
+  let transform ct collection =
+    { Values = collection.Values |> Array.map (toDOT ct) }
 
   interface IAction with
-    member _.ActionID with get() = "dot"
+    member _.ActionID with get() = "export-dot"
     member _.Signature with get() = "CFG -> TextArtifact"
     member _.Description with get() =
       """
@@ -78,9 +77,9 @@ type DOTAction() =
         invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
+    member _.Transform(args, collection, ct) =
       match args with
       | [] ->
-        transform cancellationToken collection
+        transform ct collection
       | _ ->
         invalidArg (nameof args) "Invalid argument."

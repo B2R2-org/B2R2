@@ -96,7 +96,17 @@ module ContextParsing =
     let key, value = splitAssignment token
     key.ToLowerInvariant(), value
 
-  let private parseRegionPermission (entry: string) (text: string) =
+  let parseQuotedName (entry: string) (text: string) =
+    let text = text.Trim()
+    if text.Length >= 2
+       && text[0] = '"'
+       && text[text.Length - 1] = '"'
+       && not (String.IsNullOrWhiteSpace text[1..text.Length - 2]) then
+      text[1..text.Length - 2]
+    else
+      invalidArg (nameof entry) $"Expected a quoted name: {entry}"
+
+  let parseRegionPermission (entry: string) (text: string) =
     let text = text.Trim().ToLowerInvariant()
     let valid =
       text.Length > 0

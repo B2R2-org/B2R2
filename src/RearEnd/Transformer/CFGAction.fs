@@ -44,69 +44,67 @@ type CFGAction() =
     | _ ->
       invalidArg (nameof args) "Expected: cfg entry=<address>."
 
-  let tryGetFunctionCFG cancellationToken source (fn: Function) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let tryGetFunctionCFG (ct: CancellationToken) source (fn: Function) =
+    ct.ThrowIfCancellationRequested()
     try
       CFG.Init(fn.EntryPoint, fn.CFG, source)
     with e ->
       NoCFG e.Message
 
-  let getAllCFGs cancellationToken source =
+  let getAllCFGs ct source =
     BinaryAnalysis.recoveredFunctions source
     |> fun functions -> functions.Sequence
-    |> Seq.map (tryGetFunctionCFG cancellationToken source)
+    |> Seq.map (tryGetFunctionCFG ct source)
     |> Seq.map box
     |> Seq.toArray
 
-  let getOneCFG cancellationToken args (bin: Binary) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let getOneCFG (ct: CancellationToken) args (bin: Binary) =
+    ct.ThrowIfCancellationRequested()
     let address = parseAddress args
     match BinaryAnalysis.tryFindFunction bin address with
     | Some fn ->
-      [| tryGetFunctionCFG cancellationToken bin fn |> box |]
+      [| tryGetFunctionCFG ct bin fn |> box |]
     | None ->
       [| NoCFG $"Function not found: {address:x}" |> box |]
 
-  let getFunctionCFG cancellationToken (fn: FunctionInfo) =
+  let getFunctionCFG ct (fn: FunctionInfo) =
     match BinaryAnalysis.tryFindFunction fn.Source fn.Entry with
     | Some func ->
-      [| tryGetFunctionCFG cancellationToken fn.Source func |> box |]
+      [| tryGetFunctionCFG ct fn.Source func |> box |]
     | None ->
       [| NoCFG $"Function not found: {fn.Entry:x}" |> box |]
 
-  let getCFGs cancellationToken args (input: obj) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
+  let getCFGs (ct: CancellationToken) args (input: obj) =
+    ct.ThrowIfCancellationRequested()
     match input with
     | :? Binary as bin ->
       try
-        cancellationToken.ThrowIfCancellationRequested()
+        ct.ThrowIfCancellationRequested()
         match args with
         | [] ->
-          getAllCFGs cancellationToken bin
+          getAllCFGs ct bin
         | _ ->
-          getOneCFG cancellationToken args bin
+          getOneCFG ct args bin
       with e ->
         [| e.ToString() |> NoCFG |> box |]
     | :? FunctionInfo as fn ->
       if List.isEmpty args then
-        getFunctionCFG cancellationToken fn
+        getFunctionCFG ct fn
       else
         invalidArg (nameof args) "FunctionInfo input accepts no arguments."
     | _ ->
       invalidArg (nameof input) "Invalid argument."
 
-  let transform cancellationToken args collection =
+  let transform ct args collection =
     { Values =
         collection.Values
-        |> Array.collect (getCFGs cancellationToken args) }
+        |> Array.collect (getCFGs ct args) }
 
   interface IAction with
-    member _.ActionID with get() = "cfg"
+    member _.ActionID with get() = "recover-cfg"
     member _.Signature with get() =
-      "Binary -> cfg -> CFG collection | cfg entry=<address> -> CFG"
+      "Binary -> recover-cfg -> CFG collection | recover-cfg entry=<address> "
+      + "-> CFG"
     member _.Description with get() =
       """
     Take in a Binary as input and returns an IR-level Control Flow Graph (CFG)
@@ -119,5 +117,5 @@ type CFGAction() =
       transform CancellationToken.None args collection
 
   interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
