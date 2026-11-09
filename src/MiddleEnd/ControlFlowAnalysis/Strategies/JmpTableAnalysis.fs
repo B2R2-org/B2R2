@@ -765,27 +765,6 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           StartsAt = startsAt findDef domGuards jmptbl o }
     jmptbl, Option.map guard origin
 
-  /// Checks if only the loader writes to the given address, so that the code
-  /// reads there what the binary holds, unless a relocation applies.
-  let isLoaderOnly (file: IBinFile) addr =
-    match file with
-    | :? ELFBinFile as elf -> elf.IsReadOnlyAfterLoading addr
-    | _ -> file.IsExecutableAddr addr
-
-  /// Reads the word that the binary holds at the given address, where only the
-  /// loader writes and no relocation does, e.g., the offset to a table in the
-  /// literal pool of ARM code.
-  let tryReadLoaderOnlyWord (hdl: BinHandle) addr =
-    let file = hdl.File
-    let rt = WordSize.toRegType file.ISA.WordSize
-    let isRelocated = BinFileOps.isRelocationAddr file addr
-    if isLoaderOnly file addr && not isRelocated then
-      match hdl.TryReadUInt(addr, RegType.toByteWidth rt) with
-      | Ok value -> Some(BitVector(value, rt))
-      | Error _ -> None
-    else
-      None
-
   /// Finds the constant that the given variable holds, as the given function
   /// finds it, or else as the binary holds it, if the variable is memory that
   /// only the loader writes. The data flow names memory at a constant address
@@ -797,7 +776,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       c
     | c, StackVar(_, offset) when v.Identifier = 0 ->
       let addr = Constants.InitialStackPointer + uint64 (int64 offset)
-      tryReadLoaderOnlyWord hdl addr
+      let rt = WordSize.toRegType (hdl: BinHandle).File.ISA.WordSize
+      LoaderOnlyMemory.tryRead hdl addr rt
       |> Option.map ConstantDomain.Const
       |> Option.defaultValue c
     | c, _ ->

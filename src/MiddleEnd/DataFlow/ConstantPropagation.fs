@@ -33,6 +33,29 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type ConstantPropagation(hdl, vs, ?initialValueProvider) =
   let initialValueProvider =
     defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
+
+  /// Checks if no definition in the function reaches the given use of the
+  /// memory at the given offset, which then holds what it held on entry.
+  let readsEntryValue (state: LowUIRSparseDataFlow.State<_>) pp offset =
+    let vp = { ProgramPoint = pp; VarKind = StackLocal offset }
+    match state.UseDefMap.TryGetValue vp with
+    | true, defVp -> defVp.ProgramPoint.IsFake
+    | false, _ -> false
+
+  /// Loads a value of the given type from the address that the given value
+  /// names, where the memory holds what it held on entry: what the binary
+  /// holds there if only the loader writes there, as ARM code loads the
+  /// address of a table from its literal pool, or else the given base case. A
+  /// stack slot has no constant address, as the stack pointer has no value.
+  let loadEntryValue rt baseCase addr =
+    match addr with
+    | ConstantDomain.Const bv ->
+      LoaderOnlyMemory.tryRead hdl (bv.ToUInt64()) rt
+      |> Option.map ConstantDomain.Const
+      |> Option.defaultValue baseCase
+    | _ ->
+      baseCase
+
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | PCVar(Type = rt) ->
@@ -46,15 +69,15 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
     | Load(Endian = _m; Type = rt; Addr = addr) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
-        let addr = bv.ToUInt64()
-        let offset = LowUIRStackPointer.toFrameOffset addr
-        let c = state.GetAbsValueOfUse(pp, StackLocal offset)
-        match c with
+        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
+        match state.GetAbsValueOfUse(pp, StackLocal offset) with
         | ConstantDomain.Const bv when bv.Length < rt ->
           ConstantDomain.Const <| BitVector.ZExt(bv, rt)
         | ConstantDomain.Const bv when bv.Length > rt ->
           ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
-        | _ ->
+        | c when readsEntryValue state pp offset ->
+          evaluateExpr state pp addr |> loadEntryValue rt c
+        | c ->
           c
       | StackPointerDomain.NotConstSP ->
         ConstantDomain.NotAConst

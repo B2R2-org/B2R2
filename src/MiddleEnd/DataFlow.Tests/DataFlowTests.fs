@@ -359,6 +359,28 @@ type DataFlowTests() =
     Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0u 32<rt>, out)
 
   [<TestMethod>]
+  member _.``Constant Propagation Test 4``() =
+    let brew = Binaries.loadOne Binaries.sample11
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    (* Only the loader writes the image, so both loads of ECX read the word
+       that it holds at 0x16, and the phi at 0x6 joins one constant. *)
+    let out = state.GetAbsValue(irReg 0x13UL 1 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0x12345678u 32<rt>, out)
+
+  [<TestMethod>]
+  member _.``Constant Propagation Test 5``() =
+    let brew = Binaries.loadAt 0x80000000UL Binaries.sample12
+    let cfg = brew.Functions[0x80000000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    (* The argument comes from the caller, not from the image, although the
+       data flow names its slot by an address that the image covers. *)
+    let out = state.GetAbsValue(irReg 0x80000000UL 1 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+
+  [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
