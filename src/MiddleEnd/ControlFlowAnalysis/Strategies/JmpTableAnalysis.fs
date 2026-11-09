@@ -767,15 +767,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   /// Finds the constant that the given variable holds, as the given function
   /// finds it, or else as the binary holds it, if the variable is memory that
-  /// only the loader writes. The data flow names memory at a constant address
-  /// as a stack slot, at its offset from the initial stack pointer, and leaves
-  /// unknown what it holds before the function writes it.
+  /// only the loader writes. The data flow leaves unknown what a global
+  /// variable holds before the function writes it.
   let findConstOrLoaded hdl findConst (v: Variable) =
     match findConst v, v.Kind with
     | ConstantDomain.Const _ as c, _ ->
       c
-    | c, StackVar(_, offset) when v.Identifier = 0 ->
-      let addr = Constants.InitialStackPointer + uint64 (int64 offset)
+    | c, GlobalVar(_, addr) when v.Identifier = 0 ->
       let rt = WordSize.toRegType (hdl: BinHandle).File.ISA.WordSize
       LoaderOnlyMemory.tryRead hdl addr rt
       |> Option.map ConstantDomain.Const

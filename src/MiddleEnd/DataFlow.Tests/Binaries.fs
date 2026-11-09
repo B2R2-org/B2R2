@@ -766,3 +766,49 @@ let private code12 =
      0x12uy |]
 
 let sample12 = Binary(code12, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 13: A function that stores 1 to its slot at ESP - 8 and then loads
+  the word at 0x7ffffff8, in an image that runs from 0x7fffffe0. Taking the
+  stack pointer to be 0x80000000 on entry, as InitialStackPointer does, puts
+  the slot at the word's address, yet the store writes the stack rather than
+  the image.
+
+  7FFFFFE0: C7 44 24 F8 01 00  mov         dword ptr [esp-8],1
+            00 00
+  7FFFFFE8: A1 F8 FF FF 7F     mov         eax,dword ptr ds:[7FFFFFF8h]
+  7FFFFFED: C3                 ret
+  7FFFFFEE: 90 (x 10)          nop
+  7FFFFFF8: 78 56 34 12        dd          12345678h
+*)
+let private code13 =
+  [| 0xC7uy
+     0x44uy
+     0x24uy
+     0xF8uy
+     0x01uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xA1uy
+     0xF8uy
+     0xFFuy
+     0xFFuy
+     0x7Fuy
+     0xC3uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x78uy
+     0x56uy
+     0x34uy
+     0x12uy |]
+
+let sample13 = Binary(code13, Architecture.Intel, WordSize.Bit32)

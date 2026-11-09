@@ -381,6 +381,17 @@ type DataFlowTests() =
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
 
   [<TestMethod>]
+  member _.``Constant Propagation Test 6``() =
+    let brew = Binaries.loadAt 0x7fffffe0UL Binaries.sample13
+    let cfg = brew.Functions[0x7fffffe0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    (* The store writes the stack, which lies wherever the stack pointer
+       points, so the load still reads the word that the image holds. *)
+    let out = state.GetAbsValue(irReg 0x7fffffe8UL 1 Register.EAX)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0x12345678u 32<rt>, out)
+
+  [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG

@@ -34,31 +34,31 @@ open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 type SSAStackPointerPropagation(hdl: BinHandle) =
   let rec evalExpr (state: State<_>) = function
     | Num bv ->
-      StackPointerDomain.ConstSP bv
+      AddressDomain.Const bv
     | Var v ->
       state.GetRegValue v
     | ExprList _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Load _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | UnOp _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | FuncName _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | BinOp(op, _, e1, e2) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
-      StackPointerDomain.evalBinOp op c1 c2
+      AddressDomain.evalBinOp op c1 c2
     | RelOp _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Ite _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Cast _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Extract _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Undefined _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | _ ->
       Terminator.impossible ()
 
@@ -71,7 +71,7 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
     | RegVar(_, regid, _) when isStackRelatedRegister regid ->
       state.SetRegValue(var, evalExpr state e)
     | RegVar _ ->
-      state.SetRegValue(var, StackPointerDomain.NotConstSP)
+      state.SetRegValue(var, AddressDomain.NotAConst)
     | TempVar _ ->
       state.SetRegValue(var, evalExpr state e)
     | _ ->
@@ -82,26 +82,27 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
     | RegVar _ | TempVar _ -> true
     | _ -> false
 
-  let lattice = StackPointerDomain.createLattice ()
+  let lattice = AddressDomain.createLattice ()
 
   let rec scheme =
-    { new IScheme<StackPointerDomain.Lattice> with
+    { new IScheme<AddressDomain.Lattice> with
         member _.EvalDef(var, e) = evalDef state var e
         member _.IsPhiTarget var = isPhiTarget var
         member _.ReadMemFromBinaryFile(_rt, _addr) =
-          StackPointerDomain.NotConstSP
-        member _.GetBaseCase _ = StackPointerDomain.NotConstSP
+          AddressDomain.NotAConst
+        member _.GetBaseCase _ = AddressDomain.NotAConst
         member _.EvalExpr e = evalExpr state e }
 
   and state =
-    let state = State<StackPointerDomain.Lattice>(hdl, lattice, scheme)
-    state.SeedStackPointer(StackPointerDomain.ConstSP)
+    let state = State<AddressDomain.Lattice>(hdl, lattice, scheme)
+    state.SeedStackPointer(fun sp ->
+      AddressDomain.StackAddr(BitVector.Zero sp.Length))
     state
 
   /// Returns the underlying state of this analysis.
   member _.State with get() = state
 
   interface IDataFlowComputable<SSAVarPoint,
-                                StackPointerDomain.Lattice,
+                                AddressDomain.Lattice,
                                 SSABasicBlock> with
     member _.Compute cfg = compute cfg state

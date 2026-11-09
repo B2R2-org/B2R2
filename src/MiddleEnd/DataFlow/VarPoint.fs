@@ -42,11 +42,15 @@ and VarKind =
   | Regular of RegisterID
   /// Temporary variable that represents a temporary variable used in our IR.
   | Temporary of int
-  /// Memory instance. The optional field is used only when the memory address
-  /// is a constant.
-  | Memory of Addr option
-  /// Stack local variable at a specific offset.
+  /// Memory instance, which stands for all the memory that the code reaches
+  /// through an address that is not known.
+  | Memory
+  /// Stack local variable at a specific offset from where the stack pointer
+  /// points on entry.
   | StackLocal of int
+  /// Global variable at the given address, which the code reaches through a
+  /// constant address.
+  | Global of Addr
 
 /// Provides utility functions for VarKind.
 module VarKind =
@@ -63,6 +67,7 @@ module VarKind =
     | SSA.RegVar(_, rid, _) -> Regular rid
     | SSA.TempVar(_, n) -> Temporary n
     | SSA.StackVar(_, offset) -> StackLocal offset
+    | SSA.GlobalVar(_, addr) -> Global addr
     | _ -> Terminator.impossible ()
 
   /// Returns true if the given VarKind is a temporary variable.
@@ -72,35 +77,35 @@ module VarKind =
     | _ -> false
 
   /// Walks the given expression and hands the kind of every variable it reads
-  /// to `onVarRead`. A load reads a stack slot too whenever `tryStackOffset`
-  /// can turn its address into a frame offset.
-  let rec iterUses onVarRead tryStackOffset (e: LowUIR.Expr) =
+  /// to `onVarRead`. A load reads a variable in memory too whenever
+  /// `tryMemoryVarKind` can name the memory at its address.
+  let rec iterUses onVarRead tryMemoryVarKind (e: LowUIR.Expr) =
     match e with
     | LowUIR.Var(RegisterID = rid) ->
       onVarRead (Regular rid)
     | LowUIR.TempVar(Index = n) ->
       onVarRead (Temporary n)
     | LowUIR.ExprList(Elements = exprs) ->
-      for e in exprs do iterUses onVarRead tryStackOffset e
+      for e in exprs do iterUses onVarRead tryMemoryVarKind e
     | LowUIR.Load(Addr = addr) ->
-      iterUses onVarRead tryStackOffset addr
-      match tryStackOffset addr with
-      | Some offset -> onVarRead (StackLocal offset)
+      iterUses onVarRead tryMemoryVarKind addr
+      match tryMemoryVarKind addr with
+      | Some vk -> onVarRead vk
       | None -> ()
     | LowUIR.UnOp(Operand = e)
     | LowUIR.Cast(Operand = e)
     | LowUIR.Extract(Operand = e) ->
-      iterUses onVarRead tryStackOffset e
+      iterUses onVarRead tryMemoryVarKind e
     | LowUIR.BinOp(Left = e1; Right = e2)
     | LowUIR.RelOp(Left = e1; Right = e2) ->
-      iterUses onVarRead tryStackOffset e1
-      iterUses onVarRead tryStackOffset e2
+      iterUses onVarRead tryMemoryVarKind e1
+      iterUses onVarRead tryMemoryVarKind e2
     | LowUIR.Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
-      iterUses onVarRead tryStackOffset e1
-      iterUses onVarRead tryStackOffset e2
-      iterUses onVarRead tryStackOffset e3
+      iterUses onVarRead tryMemoryVarKind e1
+      iterUses onVarRead tryMemoryVarKind e2
+      iterUses onVarRead tryMemoryVarKind e3
     | LowUIR.RoundCtrl(Mode = mode; Body = body) ->
-      iterUses onVarRead tryStackOffset mode
-      iterUses onVarRead tryStackOffset body
+      iterUses onVarRead tryMemoryVarKind mode
+      iterUses onVarRead tryMemoryVarKind body
     | _ ->
       ()

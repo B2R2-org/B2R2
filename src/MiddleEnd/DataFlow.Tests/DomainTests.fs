@@ -38,7 +38,9 @@ type DomainTests() =
 
   let c256 (v: bigint) = ConstantDomain.Const(BitVector(v, 256<rt>))
 
-  let sp (v: uint32) = StackPointerDomain.ConstSP(BitVector(v, 32<rt>))
+  let stackAddr (v: uint32) = AddressDomain.StackAddr(BitVector(v, 32<rt>))
+
+  let addrConst (v: uint32) = AddressDomain.Const(BitVector(v, 32<rt>))
 
   let untouched r =
     Regular(Register.toRegID r)
@@ -77,15 +79,33 @@ type DomainTests() =
                         ConstantDomain.NotAConst
 
   [<TestMethod>]
-  member _.``Stack pointer domain lattice laws``() =
-    [ StackPointerDomain.Undef
-      sp 0x80000000u
-      sp 0x7ffffff8u
-      StackPointerDomain.NotConstSP ]
-    |> checkLatticeLaws StackPointerDomain.join
-                        StackPointerDomain.subsume
-                        StackPointerDomain.Undef
-                        StackPointerDomain.NotConstSP
+  member _.``Address domain lattice laws``() =
+    [ AddressDomain.Undef
+      stackAddr 0u
+      stackAddr 0xfffffff8u
+      addrConst 0xfffffff8u
+      AddressDomain.NotAConst ]
+    |> checkLatticeLaws AddressDomain.join
+                        AddressDomain.subsume
+                        AddressDomain.Undef
+                        AddressDomain.NotAConst
+
+  [<TestMethod>]
+  member _.``Address domain keeps an aligned stack address``() =
+    (* Code aligns the stack pointer by clearing its low bits, which keeps it
+       on the stack, whereas a mask that clears high bits keeps nothing. *)
+    let sp = stackAddr 0xfffffffcu
+    let aligned = AddressDomain.``and`` sp (addrConst 0xfffffff0u)
+    let masked = AddressDomain.``and`` sp (addrConst 0xffu)
+    let top = AddressDomain.NotAConst
+    Assert.AreEqual<AddressDomain.Lattice>(stackAddr 0xfffffff0u, aligned)
+    Assert.AreEqual<AddressDomain.Lattice>(top, masked)
+
+  [<TestMethod>]
+  member _.``Address domain puts stack addresses a constant apart``() =
+    let lower = stackAddr 0xfffffff0u
+    let distance = AddressDomain.sub (stackAddr 0xfffffff8u) lower
+    Assert.AreEqual<AddressDomain.Lattice>(addrConst 8u, distance)
 
   [<TestMethod>]
   member _.``Untouched value domain lattice laws``() =

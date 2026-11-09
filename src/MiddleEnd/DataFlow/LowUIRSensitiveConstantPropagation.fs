@@ -56,6 +56,17 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         evaluateDef state defSvp
         |> ConstantDomain.join acc) ConstantDomain.Undef
 
+  /// Loads a value of the given type from the given variable in memory, which
+  /// has no type of its own.
+  let loadVar state spp rt vk =
+    match evaluateVarPoint state spp vk with
+    | ConstantDomain.Const bv when bv.Length < rt ->
+      ConstantDomain.Const <| BitVector.ZExt(bv, rt)
+    | ConstantDomain.Const bv when bv.Length > rt ->
+      ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
+    | c ->
+      c
+
   let rec evaluateExpr state spp e =
     match e with
     | PCVar(Type = rt) ->
@@ -67,22 +78,11 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     | Var _ | TempVar _ ->
       evaluateVarPoint state spp (VarKind.ofIRExpr e)
     | Load(Endian = _m; Type = rt; Addr = addr) ->
-      match state.StackPointerSubState.EvalExpr(spp, addr) with
-      | StackPointerDomain.ConstSP bv ->
-        let addr = bv.ToUInt64()
-        let offset = LowUIRStackPointer.toFrameOffset addr
-        let c = evaluateVarPoint state spp (StackLocal offset)
-        match c with
-        | ConstantDomain.Const bv when bv.Length < rt ->
-          ConstantDomain.Const <| BitVector.ZExt(bv, rt)
-        | ConstantDomain.Const bv when bv.Length > rt ->
-          ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
-        | _ ->
-          c
-      | StackPointerDomain.NotConstSP ->
-        ConstantDomain.NotAConst
-      | StackPointerDomain.Undef ->
-        ConstantDomain.Undef
+      let addrValue = state.StackPointerSubState.EvalExpr(spp, addr)
+      match LowUIRAddress.tryGetMemoryVarKind addrValue, addrValue with
+      | Some vk, _ -> loadVar state spp rt vk
+      | None, AddressDomain.Undef -> ConstantDomain.Undef
+      | None, _ -> ConstantDomain.NotAConst
     | UnOp(Op = op; Operand = e) ->
       evaluateExpr state spp e
       |> ConstantDomain.evalUnOp op

@@ -32,25 +32,24 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
 module private SSAPromoterFactory =
-  let memStore pp rt addr src =
+  /// Gets the variable that names the memory at the given address, if it is a
+  /// known one: a stack variable, whose offset grows downward from where the
+  /// stack pointer points on entry, or a global variable.
+  let tryGetMemoryVar rt addr =
     match addr with
-    | StackPointerDomain.ConstSP addr ->
-      let addr = addr.ToUInt64()
-      let offset = int (int64 Constants.InitialStackPointer - int64 addr)
-      let v = { Kind = StackVar(rt, offset); Identifier = 0 }
-      Some(pp, Def(v, src))
+    | AddressDomain.StackAddr offset ->
+      let offset = -(LowUIRAddress.toFrameOffset offset)
+      Some { Kind = StackVar(rt, offset); Identifier = 0 }
+    | AddressDomain.Const addr ->
+      Some { Kind = GlobalVar(rt, addr.ToUInt64()); Identifier = 0 }
     | _ ->
       None
 
+  let memStore pp rt addr src =
+    tryGetMemoryVar rt addr |> Option.map (fun v -> pp, Def(v, src))
+
   let loadToVar rt addr =
-    match addr with
-    | StackPointerDomain.ConstSP addr ->
-      let addr = addr.ToUInt64()
-      let offset = int (int64 Constants.InitialStackPointer - int64 addr)
-      let v = { Kind = StackVar(rt, offset); Identifier = 0 }
-      Some(Var v)
-    | _ ->
-      None
+    tryGetMemoryVar rt addr |> Option.map Var
 
   let rec replaceLoad (state: SSASparseDataFlow.State<_>) e =
     match e with

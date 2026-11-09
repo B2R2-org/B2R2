@@ -32,48 +32,48 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Performs sparse stack pointer propagation over the LowUIR representation.
 type StackPointerPropagation(hdl: BinHandle, vs) =
-  let spInitial = LowUIRStackPointer.initialValue hdl
+  let spInitial = LowUIRAddress.initialValue hdl
 
   let getBaseCase varKind =
     match spInitial with
     | Some(stackVar, c) when varKind = stackVar -> c
-    | _ -> StackPointerDomain.Undef
+    | _ -> AddressDomain.Undef
 
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | Num(Value = bv) ->
-      StackPointerDomain.ConstSP bv
+      AddressDomain.Const bv
     | Var _ | TempVar _ ->
       state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
     | ExprList _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Load _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | UnOp _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | FuncName _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | BinOp(Op = op; Left = e1; Right = e2) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
-      StackPointerDomain.evalBinOp op c1 c2
+      AddressDomain.evalBinOp op c1 c2
     | RelOp _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Ite _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Cast _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Extract _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | Undefined _ ->
-      StackPointerDomain.NotConstSP
+      AddressDomain.NotAConst
     | _ ->
       Terminator.impossible ()
 
-  let lattice = StackPointerDomain.createLattice ()
+  let lattice = AddressDomain.createLattice ()
 
   let rec scheme =
-    { new LowUIRSparseDataFlow.IScheme<StackPointerDomain.Lattice> with
+    { new LowUIRSparseDataFlow.IScheme<AddressDomain.Lattice> with
         member _.GetBaseCase varKind = getBaseCase varKind
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
@@ -87,6 +87,6 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
   member _.State with get() = state
 
   interface IDataFlowComputable<VarPoint,
-                                StackPointerDomain.Lattice,
+                                AddressDomain.Lattice,
                                 LowUIRBasicBlock> with
     member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state

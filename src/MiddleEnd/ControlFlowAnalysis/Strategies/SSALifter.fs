@@ -47,9 +47,8 @@ type SSALifter() =
 
   let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG) state v sp =
     match (state: SSASparseDataFlow.State<_>).GetRegValue sp with
-    | StackPointerDomain.ConstSP bv ->
-      let spValue = bv.ToUInt64()
-      let offset = Constants.InitialStackPointer - spValue |> int
+    | AddressDomain.StackAddr bv ->
+      let offset = -(LowUIRAddress.toFrameOffset bv)
       let intraCallTable = (ctx: CFGBuildingContext<_, _>).IntraCallTable
       (* A call that switches instruction sets reaches its callee from a vertex
          for each of them, but they all end with the call. *)

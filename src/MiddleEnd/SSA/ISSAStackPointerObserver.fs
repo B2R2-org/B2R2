@@ -39,5 +39,5 @@ type ISSAStackPointerObserver =
   abstract Observe:
       SSACFG
     * IForwardDominance<SSABasicBlock>
-    * SSASparseDataFlow.State<StackPointerDomain.Lattice>
+    * SSASparseDataFlow.State<AddressDomain.Lattice>
     -> unit

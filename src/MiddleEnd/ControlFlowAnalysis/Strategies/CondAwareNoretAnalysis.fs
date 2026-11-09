@@ -291,8 +291,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     |> Array.tryPick (fun (stmt, pp) ->
       match stmt with
       | LowUIR.Put(Dst = dst) when isStackPointer hdl dst ->
-        match state.EvaluateStackPointerExpr(pp, dst) with
-        | StackPointerDomain.ConstSP sp -> Some sp
+        match state.EvaluateAddressExpr(pp, dst) with
+        | AddressDomain.StackAddr sp -> Some sp
         | _ -> None
       | _ ->
         None)
@@ -306,7 +306,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | ArgLocation.Stack layout ->
       tryGetCalleeEntrySP hdl state absV
       |> Option.map (fun sp ->
-        let offset = LowUIRStackPointer.toFrameOffset (sp.ToUInt64())
+        let offset = LowUIRAddress.toFrameOffset sp
         StackLocal(offset + layout.FirstOffset))
     | ArgLocation.RegPair _ ->
       None

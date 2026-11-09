@@ -12,13 +12,13 @@
     <Compile Include="IExprEvaluatable.fs" />
     <Compile Include="IDataFlowComputable.fs" />
     <Compile Include="ConstantDomain.fs" />
-    <Compile Include="StackPointerDomain.fs" />
+    <Compile Include="AddressDomain.fs" />
     <Compile Include="IRegisterInitialValueProvider.fs" />
     <Compile Include="RegisterInitialValueProvider.fs" />
     <Compile Include="UntouchedValueDomain.fs" />
     <Compile Include="VarDefDomain.fs" />
     <Compile Include="Stmts.fs" />
-    <Compile Include="LowUIRStackPointer.fs" />
+    <Compile Include="LowUIRAddress.fs" />
     <Compile Include="LoaderOnlyMemory.fs" />
     <Compile Include="WorklistDataFlow.fs" />
     <Compile Include="ReachingDefinition.fs" />

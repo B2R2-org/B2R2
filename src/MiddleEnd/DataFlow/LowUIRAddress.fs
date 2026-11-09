@@ -23,19 +23,25 @@
 *)
 
 
-/// Provides the stack-pointer reasoning that the LowUIR-based data-flow
+/// Provides the reasoning about addresses that the LowUIR-based data-flow
 /// frameworks share.
 [<RequireQualifiedAccess>]
-module B2R2.MiddleEnd.DataFlow.LowUIRStackPointer
+module B2R2.MiddleEnd.DataFlow.LowUIRAddress
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 
-/// Translates the given stack pointer address to a local frame offset.
-let inline toFrameOffset stackAddr =
-  int (stackAddr - Constants.InitialStackPointer)
+/// Translates the given address on the stack, i.e., its offset from where the
+/// stack pointer points on entry, to a local frame offset. The offset wraps
+/// around in the width of the stack pointer, which may be narrower or wider
+/// than the frame offset.
+let toFrameOffset (offset: BitVector) =
+  let low =
+    if offset.Length > 32<rt> then BitVector.Extract(offset, 32<rt>, 0)
+    else BitVector.SExt(offset, 32<rt>)
+  int (low.ToUInt64())
 
 /// Returns the variable kind of the stack pointer along with the value it
 /// holds on function entry, or None when the architecture has none.
@@ -45,31 +51,36 @@ let initialValue (hdl: BinHandle) =
     None
   | Some rid ->
     let rt = hdl.RegisterFactory.GetRegType rid
-    let bv = BitVector(Constants.InitialStackPointer, rt)
-    Some(Regular rid, StackPointerDomain.ConstSP bv)
+    Some(Regular rid, AddressDomain.StackAddr(BitVector.Zero rt))
 
-/// Evaluates the given expression in the stack-pointer domain at the given
-/// point, resolving every variable it reads through `evalVar`.
+/// Gets the kind of the variable that names the memory at the given address,
+/// if the address is a known one: a slot of the stack frame or a global
+/// variable.
+let tryGetMemoryVarKind = function
+  | AddressDomain.StackAddr off -> Some(StackLocal(toFrameOffset off))
+  | AddressDomain.Const addr -> Some(Global(addr.ToUInt64()))
+  | _ -> None
+
+/// Evaluates the given expression in the address domain at the given point,
+/// resolving every variable it reads through `evalVar`.
 let rec evalExpr evalVar pt (e: Expr) =
   match e with
   | Num(Value = bv) ->
-    StackPointerDomain.ConstSP bv
+    AddressDomain.Const bv
   | Var _ | TempVar _ ->
     evalVar (VarKind.ofIRExpr e) pt
   | Load(Addr = addr) ->
-    match evalExpr evalVar pt addr with
-    | StackPointerDomain.ConstSP bv ->
-      let offset = bv.ToUInt64() |> toFrameOffset
-      evalVar (StackLocal offset) pt
-    | c ->
-      c
+    let c = evalExpr evalVar pt addr
+    match tryGetMemoryVarKind c with
+    | Some vk -> evalVar vk pt
+    | None -> c
   | BinOp(Op = binOpType; Left = e1; Right = e2) ->
     let v1 = evalExpr evalVar pt e1
     let v2 = evalExpr evalVar pt e2
     match binOpType with
-    | BinOpType.ADD -> StackPointerDomain.add v1 v2
-    | BinOpType.SUB -> StackPointerDomain.sub v1 v2
-    | BinOpType.AND -> StackPointerDomain.``and`` v1 v2
-    | _ -> StackPointerDomain.NotConstSP
+    | BinOpType.ADD -> AddressDomain.add v1 v2
+    | BinOpType.SUB -> AddressDomain.sub v1 v2
+    | BinOpType.AND -> AddressDomain.``and`` v1 v2
+    | _ -> AddressDomain.NotAConst
   | _ ->
-    StackPointerDomain.NotConstSP
+    AddressDomain.NotAConst

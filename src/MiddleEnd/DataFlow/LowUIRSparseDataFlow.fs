@@ -40,8 +40,8 @@ type State<'Lattice when 'Lattice: equality>
          lattice: ILattice<'Lattice>,
          scheme: IScheme<'Lattice>) =
 
-  /// Holds the initial stack pointer value in the stack pointer domain.
-  let spInitial = LowUIRStackPointer.initialValue hdl
+  /// Holds the initial stack pointer value in the address domain.
+  let spInitial = LowUIRAddress.initialValue hdl
 
   let initialValueProvider = RegisterInitialValueProvider.create hdl
 
@@ -52,8 +52,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Maps a VarPoint to its abstract value in the user's domain.
   let domainAbsValues = Dictionary<VarPoint, 'Lattice>()
 
-  /// Maps a VarPoint to its abstract value in the stack-pointer domain.
-  let spAbsValues = Dictionary<VarPoint, StackPointerDomain.Lattice>()
+  /// Maps a VarPoint to its abstract value in the address domain.
+  let spAbsValues = Dictionary<VarPoint, AddressDomain.Lattice>()
 
   let phiInfos = Dictionary<IVertex<LowUIRBasicBlock>, PhiInfo>()
 
@@ -106,22 +106,22 @@ type State<'Lattice when 'Lattice: equality>
     | _ ->
       match RegisterInitialValueProvider.tryGetInitialVarValue
               initialValueProvider varKind with
-      | Some bv -> StackPointerDomain.ConstSP bv
-      | None -> StackPointerDomain.Undef
+      | Some bv -> AddressDomain.Const bv
+      | None -> AddressDomain.Undef
 
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with
     | true, c -> c
     | false, _ when vp.ProgramPoint.IsFake -> spGetInitialAbsValue vp.VarKind
-    | false, _ -> StackPointerDomain.Undef
+    | false, _ -> AddressDomain.Undef
 
   let spEvaluateVar varKind pp =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match useDefMap.TryGetValue vp with
     | true, defVp -> spGetAbsValue defVp
-    | false, _ -> StackPointerDomain.Undef
+    | false, _ -> AddressDomain.Undef
 
-  let spEvaluateExpr pp e = LowUIRStackPointer.evalExpr spEvaluateVar pp e
+  let spEvaluateExpr pp e = LowUIRAddress.evalExpr spEvaluateVar pp e
 
   let getStatements v = stmtCache.GetStmtInfos v
 
@@ -138,12 +138,12 @@ type State<'Lattice when 'Lattice: equality>
       let rt = hdl.RegisterFactory.GetRegType rid
       let rname = hdl.RegisterFactory.GetRegisterName rid
       SSA.RegVar(rt, rid, rname)
-    | Memory(Some _) ->
-      SSA.MemVar
-    | Memory None ->
+    | Memory ->
       SSA.MemVar
     | StackLocal offset ->
       SSA.StackVar(0<rt>, offset)
+    | Global addr ->
+      SSA.GlobalVar(0<rt>, addr)
     | Temporary n ->
       let rt = 0<rt>
       SSA.TempVar(rt, n)
@@ -189,14 +189,13 @@ type State<'Lattice when 'Lattice: equality>
       List.map (translateToSSAExpr pp) exprs
       |> SSA.ExprList
     | Load(Type = rt; Addr = addr) ->
-      match spEvaluateExpr pp addr with
-      | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
-        let vk = StackLocal offset
+      let addrValue = spEvaluateExpr pp addr
+      match LowUIRAddress.tryGetMemoryVarKind addrValue with
+      | Some vk ->
         let ssaVar = getSSAVarFromUse pp vk
         SSA.Var ssaVar
-      | _ ->
-        let emptyMemVar = mkEmptySSAVar (Memory None)
+      | None ->
+        let emptyMemVar = mkEmptySSAVar Memory
         let e = translateToSSAExpr pp addr
         SSA.Load(emptyMemVar, rt, e)
     | BinOp(Op = binOpType; Type = rt; Left = e1; Right = e2) ->
@@ -252,17 +251,16 @@ type State<'Lattice when 'Lattice: equality>
       let e = translateToSSAExpr pp src
       SSA.Def(v, e)
     | Store(Addr = addr; Value = value) ->
-      match spEvaluateExpr pp addr with
-      | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
-        let vk = StackLocal offset
+      let addrValue = spEvaluateExpr pp addr
+      match LowUIRAddress.tryGetMemoryVarKind addrValue with
+      | Some vk ->
         let vp = { ProgramPoint = pp; VarKind = vk }
         let v = getSSAVar vp
         let e = translateToSSAExpr pp value
         SSA.Def(v, e)
-      | _ ->
-        let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
-        let newMemVar = getSSAVar { ProgramPoint = pp; VarKind = Memory None }
+      | None ->
+        let prevMemVar = mkEmptySSAVar Memory (* empty one *)
+        let newMemVar = getSSAVar { ProgramPoint = pp; VarKind = Memory }
         let rt = Expr.typeOf value
         let e1 = translateToSSAExpr pp addr
         let e2 = translateToSSAExpr pp value
@@ -320,8 +318,9 @@ type State<'Lattice when 'Lattice: equality>
     | SSA.RegVar(_, rid, _) -> Some(Regular rid)
     | SSA.TempVar(_, n) -> Some(Temporary n)
     | SSA.StackVar(_, offset) -> Some(StackLocal offset)
-    | SSA.MemVar -> Some(Memory None)
-    | SSA.PCVar _ | SSA.GlobalVar _ -> None
+    | SSA.GlobalVar(_, addr) -> Some(Global addr)
+    | SSA.MemVar -> Some Memory
+    | SSA.PCVar _ -> None
     |> Option.map (fun vk -> { ProgramPoint = ProgramPoint.Fake; VarKind = vk })
 
   let domainSubState =
@@ -348,17 +347,17 @@ type State<'Lattice when 'Lattice: equality>
     let phiQueue = Queue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
-    { new ISubState<StackPointerDomain.Lattice> with
+    { new ISubState<AddressDomain.Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.PhiQueue = phiQueue
         member _.ExecutedFlows = executedFlows
         member _.ExecutedVertices = executedVertices
-        member _.Bottom = StackPointerDomain.Undef
+        member _.Bottom = AddressDomain.Undef
         member _.GetAbsValue vp = spGetAbsValue vp
         member _.SetAbsValue(vp, absVal) = spAbsValues[vp] <- absVal
-        member _.Join(a, b) = StackPointerDomain.join a b
-        member _.Subsume(a, b) = StackPointerDomain.subsume a b }
+        member _.Join(a, b) = AddressDomain.join a b
+        member _.Subsume(a, b) = AddressDomain.subsume a b }
 
   let resetSubState (subState: ISubState<_>) =
     subState.FlowQueue.Clear()
@@ -432,7 +431,7 @@ type State<'Lattice when 'Lattice: equality>
   /// statement and its corresponding vertex that contains the statement.
   member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
-  /// Returns the sub-state for the stack-pointer domain.
+  /// Returns the sub-state for the address domain.
   member internal _.StackPointerSubState with get() = spSubState
 
   /// Returns the sub-state for the user's domain.
@@ -442,10 +441,9 @@ type State<'Lattice when 'Lattice: equality>
   member _.PendingVertices with get(): IEnumerable<IVertex<LowUIRBasicBlock>> =
     verticesForProcessing
 
-  /// Evaluates the given expression at the given program point in the
-  /// stack-pointer domain in order to retrieve a concrete stack pointer value
-  /// if exists.
-  member _.EvaluateStackPointerExpr(pp, e: Expr) = spEvaluateExpr pp e
+  /// Evaluates the given expression at the given program point in the address
+  /// domain, telling an address on the stack from a constant.
+  member _.EvaluateAddressExpr(pp, e: Expr) = spEvaluateExpr pp e
 
   /// Marks the given vertex as pending, which means that the vertex needs to be
   /// processed.
@@ -620,10 +618,11 @@ module internal AnalysisCore = begin
     | false, _ ->
       ()
 
-  let getStackValue (state: State<_>) pp e =
-    match state.EvaluateStackPointerExpr(pp, e) with
-    | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
-    | _ -> Error ErrorCase.InvalidExprEvaluation
+  /// Gets the kind of the variable that names the memory at the address that
+  /// the given expression gives at the given point, if that is a known one.
+  let tryGetMemoryVarKind (state: State<_>) pp e =
+    state.EvaluateAddressExpr(pp, e)
+    |> LowUIRAddress.tryGetMemoryVarKind
 
   /// Computes the inverse dominance frontier in linear time.
   let computeInverseDF g (dom: IForwardDominance<_>) v =
@@ -677,11 +676,8 @@ module internal AnalysisCore = begin
           let vk = VarKind.ofIRExpr dst
           varKinds.Add vk |> ignore
         | Store(Addr = addr) ->
-          getStackValue state pp addr
-          |> Result.iter (fun loc ->
-            let offset = LowUIRStackPointer.toFrameOffset loc
-            let vk = StackLocal offset
-            varKinds.Add vk |> ignore)
+          tryGetMemoryVarKind state pp addr
+          |> Option.iter (fun vk -> varKinds.Add vk |> ignore)
         | _ ->
           ()
       memo[v] <- varKinds
@@ -697,23 +693,19 @@ module internal AnalysisCore = begin
     | false, _ ->
       let varKinds = HashSet()
       let onVarRead vk = varKinds.Add vk |> ignore
-      let tryStackOffset pp e =
-        match getStackValue state pp e with
-        | Ok loc -> Some(LowUIRStackPointer.toFrameOffset loc)
-        | Error _ -> None
       for (stmt, pp) in state.GetStmtInfos v do
         match stmt with
         | Put(Src = src) ->
-          VarKind.iterUses onVarRead (tryStackOffset pp) src
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) src
         | Store(Addr = addr; Value = src) ->
-          VarKind.iterUses onVarRead (tryStackOffset pp) addr
-          VarKind.iterUses onVarRead (tryStackOffset pp) src
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) addr
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) src
         | Jmp(Target = e) | CJmp(Cond = e) | InterJmp(Target = e) ->
-          VarKind.iterUses onVarRead (tryStackOffset pp) e
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) e
         | InterCJmp(Cond = c; TrueTarget = e1; FalseTarget = e2) ->
-          VarKind.iterUses onVarRead (tryStackOffset pp) c
-          VarKind.iterUses onVarRead (tryStackOffset pp) e1
-          VarKind.iterUses onVarRead (tryStackOffset pp) e2
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) c
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) e1
+          VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) e2
         | _ ->
           ()
       memo[v] <- varKinds
@@ -846,11 +838,7 @@ module internal AnalysisCore = begin
 
   let updateWithExpr state defs (pp: ProgramPoint) expr =
     let onVarRead vk = updateChains state vk defs pp
-    let tryStackOffset e =
-      match getStackValue state pp e with
-      | Ok loc -> Some(LowUIRStackPointer.toFrameOffset loc)
-      | Error _ -> None
-    VarKind.iterUses onVarRead tryStackOffset expr
+    VarKind.iterUses onVarRead (tryGetMemoryVarKind state pp) expr
 
   let updateWithJmp state defs pp = function
     | Jmp(Target = expr) ->
@@ -884,15 +872,13 @@ module internal AnalysisCore = begin
     | Store(Addr = addr; Value = value) ->
       updateWithExpr state defs pp addr
       updateWithExpr state defs pp value
-      match getStackValue state pp addr with
-      | Ok loc ->
-        let offset = LowUIRStackPointer.toFrameOffset loc
-        let kind = StackLocal offset
+      match tryGetMemoryVarKind state pp addr with
+      | Some kind ->
         let vp = { ProgramPoint = pp; VarKind = kind }
         defs <- Map.add kind vp defs
         if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
         else ()
-      | _ ->
+      | None ->
         ()
     | Jmp _
     | CJmp _
@@ -981,9 +967,9 @@ module internal AnalysisCore = begin
 
   /// Queues a phi operand that the chains have just added or replaced, since
   /// the phi may belong to a vertex that has already run, and no flow is bound
-  /// to bring the operand in. The stack-pointer domain has already run when
-  /// the second pass of the chains adds operands, so it joins those on its
-  /// next run.
+  /// to bring the operand in. The stack pointer propagation has already run
+  /// when the second pass of the chains adds operands, so it joins those on
+  /// its next run.
   let enqueuePhiOperand (state: State<_>) phi def =
     state.StackPointerSubState.PhiQueue.Enqueue((phi, def))
     state.DomainSubState.PhiQueue.Enqueue((phi, def))
@@ -1071,12 +1057,12 @@ module internal AnalysisCore = begin
       let currConst =
         match varKind with
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
-          state.EvaluateStackPointerExpr(pp, src)
+          state.EvaluateAddressExpr(pp, src)
           |> Some
         | Regular _ ->
-          StackPointerDomain.NotConstSP |> Some
+          AddressDomain.NotAConst |> Some
         | Temporary _ ->
-          state.EvaluateStackPointerExpr(pp, src) |> Some
+          state.EvaluateAddressExpr(pp, src) |> Some
         | _ ->
           None
       match currConst with
@@ -1102,18 +1088,15 @@ module internal AnalysisCore = begin
       let defUseMap = state.DefUseMap
       updateAbsValue subState defUseMap vp prev curr
     | Store(Addr = addr; Value = value) ->
-      match state.EvaluateStackPointerExpr(pp, addr) with
-      | StackPointerDomain.ConstSP bv ->
-        let loc = bv.ToUInt64()
-        let offset = LowUIRStackPointer.toFrameOffset loc
-        let varKind = StackLocal offset
+      match tryGetMemoryVarKind state pp addr with
+      | Some varKind ->
         let vp = { ProgramPoint = pp; VarKind = varKind }
         let subState = state.DomainSubState
         let prev = subState.GetAbsValue vp
         let curr = state.Scheme.EvalExpr(pp, value)
         let defUseMap = state.DefUseMap
         updateAbsValue subState defUseMap vp prev curr
-      | _ ->
+      | None ->
         ()
     | _ ->
       ()

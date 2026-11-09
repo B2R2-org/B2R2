@@ -101,7 +101,7 @@ and EVMFuncUserContext() =
     (hdl: BinHandle).RegisterFactory.StackPointer.Value
 
   let convertStackPointerToInt32 (bv: BitVector) =
-    bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
+    LowUIRAddress.toFrameOffset bv
 
   /// Computes the stack pointer delta for the given vertex in a lightweight
   /// manner, assuming that the stack pointer is always computed only using the
@@ -111,7 +111,7 @@ and EVMFuncUserContext() =
     let spId = getStackPointerId state.BinHandle
     let spRegType = state.BinHandle.RegisterFactory.GetRegType spId
     let stmtInfos = state.GetStmtInfos v
-    let initialBV = BitVector(Constants.InitialStackPointer, spRegType)
+    let initialBV = BitVector.Zero spRegType
     stmtInfos
     |> Array.fold (fun offBV (stmt, _) ->
       match stmt with
