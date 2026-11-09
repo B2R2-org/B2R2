@@ -92,4 +92,11 @@ module internal ReplEvaluation =
 
   let fail registry state message =
     let state = TransformerReplState.setError message state
-    continueWith registry state [ $"Error: {message}" ]
+    let lines =
+      message.Replace("\r\n", "\n").Split('\n')
+      |> Array.toList
+    match lines with
+    | first :: rest ->
+      continueWith registry state ($"Error: {first}" :: rest)
+    | [] ->
+      continueWith registry state [ "Error:" ]

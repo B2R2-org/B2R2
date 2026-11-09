@@ -277,10 +277,12 @@ module internal ReplArguments =
     args
     detail =
     let signature =
-      ActionMetadata.typedSignatureFor metadata (Some input.Kind) args
+      ActionMetadata.typedSignatureForLines metadata (Some input.Kind) args
+      |> List.map (fun line -> "  " + line)
+      |> String.concat "\n"
     Error(
-      $"Invalid arguments for {metadata.ID}: {detail} "
-      + $"Expected: {signature}")
+      $"Invalid arguments for {metadata.ID}: {detail}\n"
+      + $"Expected:\n{signature}")
 
   let validateArguments
     (input: ReplValue)
