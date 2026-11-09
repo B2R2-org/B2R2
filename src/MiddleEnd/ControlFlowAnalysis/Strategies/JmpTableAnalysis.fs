@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
@@ -130,14 +131,22 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Some v -> Ok v.VData.Internals.PPoint
     | None -> Error ErrorCase.ItemNotFound
 
+  /// Gets the terminator of the given vertex of an IR CFG in an SSA form, as
+  /// the data flow of the given state translates it, unless the vertex is
+  /// abstract.
+  let extractTerminatorFromIRCFG state (v: IVertex<LowUIRBasicBlock>) =
+    if v.VData.Internals.IsAbstract then None
+    else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
+
+  /// Finds the expression that the indirect branch at pp jumps to, along with
+  /// the vertex that the branch ends.
   let findIndBranchExprFromIRCFG (g: LowUIRCFG) state pp =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = g.FindVertexBy(fun v -> v.VData.Internals.PPoint = pp)
-    let stmExtractor (v: IVertex<LowUIRBasicBlock>) =
-      if v.VData.Internals.IsAbstract then None
-      else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
+    let stmExtractor = extractTerminatorFromIRCFG state
     let tryGetPhiOperand var pred v = state.TryGetSSAPhiOperand(var, pred, v)
     findJumpExpr stmExtractor tryGetPhiOperand g v [ v ]
+    |> Result.map (fun found -> v, found)
 
   /// Tries to get the operand that the phi of v defining the given variable
   /// takes from pred, which is the operand at the index of pred among the
@@ -669,8 +678,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let findDefFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.TryGetSSADef v
 
-  let expandPhiFromIRCFG findConst v _ e =
-    match findConst v with
+  /// Expands the phi that defines the given variable into the constant that
+  /// the data flow gives it, which holds wherever the phi goes. The phi stays
+  /// otherwise, even where it folds along the branch toward the jump, so that
+  /// an index that it defines stays one for the range check to bound.
+  let expandPhiFromIRCFG fromCP _ v _ e =
+    match fromCP v with
     | ConstantDomain.Const bv -> Num bv
     | _ -> e
 
@@ -790,18 +803,233 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | c, _ ->
       c
 
+  /// Finds the vertex that starts with the phi defining the given variable,
+  /// if a phi defines it.
+  let tryFindPhiVertex (state: LowUIRSparseDataFlow.State<_>) var =
+    match state.SSAVarToVp.TryGetValue var with
+    | true, vp ->
+      match state.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+      | true, (_, v) when v.VData.Internals.PPoint = vp.ProgramPoint -> Some v
+      | _ -> None
+    | false, _ ->
+      None
+
+  /// This is a practical limit for the number of vertices to walk from a phi
+  /// to the branch that tells where its operands go.
+  let [<Literal>] MaxWalk = 16
+
+  /// Gets the vertices that the conditional jump ending v goes to when its
+  /// condition holds and when it does not.
+  let tryGetWays (g: IDiGraph<_, _>) v =
+    let tryFindWay holds =
+      g.GetSuccEdges v
+      |> Array.tryPick (fun e ->
+        match e.Label with
+        | InterCJmpTrueEdge | IntraCJmpTrueEdge when holds ->
+          Some e.Second
+        | InterCJmpFalseEdge | IntraCJmpFalseEdge when not holds ->
+          Some e.Second
+        | _ ->
+          None)
+    match tryFindWay true, tryFindWay false with
+    | Some t, Some f -> Some(t, f)
+    | _ -> None
+
+  /// Checks if the given way of a conditional jump only runs some code before
+  /// it rejoins the other way, as an ARM instruction runs what it does on its
+  /// condition.
+  let rejoins (g: IDiGraph<_, _>) (way: IVertex<LowUIRBasicBlock>) other =
+    match g.GetPreds way, g.GetSuccs way with
+    | [| _ |], [| next |] -> not way.VData.Internals.IsAbstract && next = other
+    | _ -> false
+
+  /// Checks if the given kind of edge leads on to the code that runs next,
+  /// rather than to a callee or through a table.
+  let isFlowOn = function
+    | FallThroughEdge | IntraJmpEdge | InterJmpEdge -> true
+    | _ -> false
+
+  /// Walks from v down the code that every path from v runs, up to the first
+  /// conditional jump whose ways do not just rejoin after some code, as those
+  /// of an ARM instruction do, and gets its condition and its ways. Adds every
+  /// vertex it walks to the given set.
+  let rec tryWalkToBranch condOf (g: IDiGraph<_, _>) (walked: HashSet<_>) v =
+    let isAbstract = (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
+    if isAbstract || walked.Count >= MaxWalk || not (walked.Add v) then
+      None
+    else
+      match condOf v, tryGetWays g v with
+      | Some _, Some(t, f) when rejoins g t f ->
+        walked.Add t |> ignore
+        tryWalkToBranch condOf g walked f
+      | Some cond, Some(t, f) ->
+        Some(cond, t, f)
+      | Some _, None ->
+        None
+      | None, _ ->
+        match g.GetSuccEdges v with
+        | [| e |] when isFlowOn e.Label ->
+          tryWalkToBranch condOf g walked e.Second
+        | _ ->
+          None
+
+  /// Checks if the given kind of edge is one that a conditional jump takes.
+  let isCondJmpEdge = function
+    | InterCJmpTrueEdge | InterCJmpFalseEdge
+    | IntraCJmpTrueEdge | IntraCJmpFalseEdge -> true
+    | _ -> false
+
+  /// Collects the variables that the given expression reads.
+  let rec collectVars acc = function
+    | Var v ->
+      v :: acc
+    | Load(_, _, e) | UnOp(_, _, e) | Cast(_, _, e) | Extract(e, _, _) ->
+      collectVars acc e
+    | BinOp(_, _, e1, e2) | RelOp(_, _, e1, e2) | RoundCtrl(e1, _, e2) ->
+      collectVars (collectVars acc e1) e2
+    | Ite(e1, _, e2, e3) ->
+      collectVars (collectVars (collectVars acc e1) e2) e3
+    | _ ->
+      acc
+
+  /// Checks if none of the given vertices defines a variable that the given
+  /// expression reads.
+  let definesNone (state: LowUIRSparseDataFlow.State<_>) (vs: HashSet<_>) e =
+    collectVars [] e
+    |> List.forall (fun var ->
+      match state.SSAVarToVp.TryGetValue var with
+      | true, vp ->
+        match state.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+        | true, (_, v) -> not (vs.Contains v)
+        | false, _ -> false
+      | false, _ ->
+        true)
+
+  /// Checks if the branch on the given condition, which every path from p
+  /// reaches through the walked vertices, sends the code on as the guards on
+  /// the edges into p tell: the indirect jump ending jmpV comes after it, and
+  /// no vertex from the conditional jumps of the guards to the branch defines
+  /// what the condition reads, which would change it on the way. Those are
+  /// the walked ones and the ways into p that do not end in such a jump.
+  let branchDecides state (g: IDiGraph<_, _>) walked jmpV p cond =
+    let between = HashSet(walked: HashSet<_>)
+    g.GetPredEdges p
+    |> Array.filter (fun e -> not (isCondJmpEdge e.Label))
+    |> Array.iter (fun e -> between.Add e.First |> ignore)
+    not (walked.Contains jmpV) && definesNone state between cond
+
+  /// Collects the vertices from which the code can reach the given target
+  /// without passing through the given vertex to avoid.
+  let collectReaching (g: IDiGraph<_, _>) target avoid =
+    let reached = HashSet<IVertex<LowUIRBasicBlock>>([ target ])
+    let queue = Queue<IVertex<LowUIRBasicBlock>>([ target ])
+    while queue.Count > 0 do
+      for pred in g.GetPreds(queue.Dequeue()) do
+        if pred <> avoid && reached.Add pred then queue.Enqueue pred else ()
+    reached
+
+  /// Tells which way of a branch on the given condition the given guard leads
+  /// to, true for the one that the branch takes when its condition holds, if
+  /// the guard decides it: its condition is that of the branch or the
+  /// negation of it.
+  let tryOrient cond (guardCond, holds) =
+    match guardCond, cond with
+    | _ when guardCond = cond -> Some holds
+    | UnOp(UnOpType.NOT, _, c), _ when c = cond -> Some(not holds)
+    | _, UnOp(UnOpType.NOT, _, c) when c = guardCond -> Some(not holds)
+    | _ -> None
+
+  /// Gets the guard on the edge from pred to v as Guard.tryGet does, or else,
+  /// where pred falls through to v, the guard on the way into pred, as what an
+  /// ARM instruction runs on its condition falls through to its end.
+  let tryGetGuardInto condOf (g: IDiGraph<_, _>) pred v =
+    match g.FindEdge(pred, v).Label with
+    | FallThroughEdge -> Guard.tryGetOfWay condOf g pred
+    | _ -> Guard.tryGet condOf g pred v
+
+  /// Collects the vertices whose edges into p the code may take on its way to
+  /// the indirect jump ending jmpV, without passing through p again, as the
+  /// branch that every path from p reaches first tells: an edge whose guard
+  /// leads to the way of the branch from which no path reaches the jump is
+  /// not one. Returns None if the branch cannot tell.
+  let tryCollectPredsToward state (g: IDiGraph<_, _>) jmpV p =
+    let condOf = tryGetCondition (extractTerminatorFromIRCFG state)
+    let walked = HashSet()
+    match tryWalkToBranch condOf g walked p with
+    | Some(cond, t, f) when branchDecides state g walked jmpV p cond ->
+      let reaching = collectReaching g jmpV p
+      let leadsToJump guard =
+        match tryOrient cond guard with
+        | Some holds -> reaching.Contains(if holds then t else f)
+        | None -> true
+      g.GetPreds p
+      |> Array.filter (fun pred ->
+        tryGetGuardInto condOf g pred p |> Option.forall leadsToJump)
+      |> Some
+    | _ ->
+      None
+
+  /// Folds what a phi takes along the edges from the given vertices, which
+  /// operandOf gives for each, into the one constant that all of them hold.
+  let tryFoldOperands findConst findDef operandOf preds =
+    let fold o = constantFold findConst findDef (Var o)
+    let folded = preds |> Array.map (operandOf >> Option.map fold)
+    match Array.distinct folded with
+    | [| Some(Num bv) |] -> Some bv
+    | _ -> None
+
+  /// Folds the phi that defines the given variable, if one does, into the one
+  /// constant that its operands hold along the edges that the code may take
+  /// on its way to the indirect jump ending jmpV.
+  let tryFoldPhiAlongBranch g state jmpV findConst findDef var =
+    match tryFindPhiVertex state var with
+    | Some p ->
+      let operandOf pred = state.TryGetSSAPhiOperand(var, pred, p)
+      tryCollectPredsToward state g jmpV p
+      |> Option.bind (tryFoldOperands findConst findDef operandOf)
+    | None ->
+      None
+
+  /// Finds the constant that the given variable holds where the indirect jump
+  /// ending jmpV reads it, as findConst finds it, or else as the phi defining
+  /// it folds along the branch toward the jump, which it does once per phi.
+  /// The data flow merges all that reaches a phi, while a branch on the
+  /// condition on which an ARM instruction defines the variable sends some of
+  /// that away from the jump, as GCC loads the address of a table there.
+  let findConstAlongBranch g state jmpV findDef findConst =
+    let folded = Dictionary<Variable, BitVector option>()
+    let tryFold var =
+      match folded.TryGetValue var with
+      | true, bv ->
+        bv
+      | false, _ ->
+        let bv = tryFoldPhiAlongBranch g state jmpV findConst findDef var
+        folded[var] <- bv
+        bv
+    fun var ->
+      match findConst var with
+      | ConstantDomain.Const _ as c ->
+        c
+      | c ->
+        match tryFold var with
+        | Some bv -> ConstantDomain.Const bv
+        | None -> c
+
   let analyzeSymbolicallyWithIRCFG ctx state insAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
     let found =
       findIndBranchPPoint ctx insAddr
       |> Result.bind (findIndBranchExprFromIRCFG cfg state)
     match found with
-    | Ok(exp, guards, domGuards) ->
+    | Ok(v, (exp, guards, domGuards)) ->
       let fromCP = findConstFromIRCFG state
-      let findConst = findConstOrLoaded ctx.BinHandle fromCP
       let findDef = findDefFromIRCFG state
+      let expandPhi = expandPhiFromIRCFG fromCP
+      let findConst =
+        findConstOrLoaded ctx.BinHandle fromCP
+        |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
-      findSymbPattern expandPhiFromIRCFG findConst findDef fnAddr insAddr 0 exp
+      findSymbPattern expandPhi findConst findDef fnAddr insAddr 0 exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e

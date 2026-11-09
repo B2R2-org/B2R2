@@ -1374,6 +1374,136 @@ type ARMBinaryBrewTests() =
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x8UL; 0x10UL; 0x38UL; 0x3cUL |], targets)
 
+  (* GCC moves code from past a branch above it, where it runs on the
+     condition on which the branch falls through, as nm loads the address of
+     a table of bytes there. The data flow merges the address with what the
+     register held before, but only the address goes on past the branch to
+     the switch. *)
+  [<TestMethod>]
+  member _.``A table loaded unless a branch leaves is read past the branch``() =
+    let fns =
+      recoverCode
+        [ "110000eb" (* bl g *)
+          "000051e3" (* cmp r1, #0 *)
+          "34209f15" (* ldrne r2, [pc, #0x34] *)
+          "0360a011" (* movne r6, r3 *)
+          "0a00000a" (* beq out *)
+          "030050e3" (* cmp r0, #3 *)
+          "0800008a" (* bhi out *)
+          "0000d2e7" (* ldrb r0, [r2, r0] *)
+          "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+          "00f020e3" (* nop *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1eff2fe1" (* bx lr *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1eff2fe1" (* bx lr *)
+          "1eff2fe1" (* out: bx lr *)
+          "48000000" (* .word 0x48, the table *)
+          "00020406" (* .byte 0, 2, 4, 6 *)
+          "1eff2fe1" (* g: bx lr *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x28UL; 0x30UL; 0x38UL; 0x40UL |], targets)
+
+  (* sort loads the address of a table on the condition on which it branches
+     to the switch, keeping the address of another table otherwise, which
+     never reaches this switch. A raw image has no sections to bound a table
+     by, so the other table comes first, where reading this one does not run
+     on into it. *)
+  [<TestMethod>]
+  member _.``A table loaded as a branch goes to the switch is read there``() =
+    let fns =
+      recoverCode
+        [ "140000eb" (* bl g *)
+          "40209fe5" (* ldr r2, [pc, #0x40] *)
+          "000051e3" (* cmp r1, #0 *)
+          "34209f15" (* ldrne r2, [pc, #0x34] *)
+          "0000001a" (* bne sw *)
+          "1eff2fe1" (* bx lr *)
+          "030050e3" (* sw: cmp r0, #3 *)
+          "0800008a" (* bhi out *)
+          "0000d2e7" (* ldrb r0, [r2, r0] *)
+          "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+          "00f020e3" (* nop *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1eff2fe1" (* bx lr *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1eff2fe1" (* bx lr *)
+          "1eff2fe1" (* out: bx lr *)
+          "54000000" (* .word 0x54, the table *)
+          "50000000" (* .word 0x50, the other table *)
+          "01010101" (* .byte 1, 1, 1, 1 *)
+          "00020406" (* .byte 0, 2, 4, 6 *)
+          "1eff2fe1" (* g: bx lr *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x2cUL; 0x34UL; 0x3cUL; 0x44UL |], targets)
+
+  (* Once the code compares anew, the branch tells nothing of the condition
+     on which it loaded the address of the table, so the switch may read
+     either table. *)
+  [<TestMethod>]
+  member _.``A branch on flags set after a table load picks no table``() =
+    let fns =
+      recoverCode
+        [ "140000eb" (* bl g *)
+          "40209fe5" (* ldr r2, [pc, #0x40] *)
+          "000051e3" (* cmp r1, #0 *)
+          "34209f15" (* ldrne r2, [pc, #0x34] *)
+          "090050e3" (* cmp r0, #9 *)
+          "0a00000a" (* beq out *)
+          "030050e3" (* cmp r0, #3 *)
+          "0800008a" (* bhi out *)
+          "0000d2e7" (* ldrb r0, [r2, r0] *)
+          "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+          "00f020e3" (* nop *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1eff2fe1" (* bx lr *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1eff2fe1" (* bx lr *)
+          "1eff2fe1" (* out: bx lr *)
+          "54000000" (* .word 0x54, the table *)
+          "50000000" (* .word 0x50, the other table *)
+          "01010101" (* .byte 1, 1, 1, 1 *)
+          "00020406" (* .byte 0, 2, 4, 6 *)
+          "1eff2fe1" (* g: bx lr *) ]
+    CollectionAssert.AreEqual([||], indirectJumpTargetsOf fns[0x0UL])
+
+  (* Both ways of the branch go on to the switch, which may then read either
+     table. *)
+  [<TestMethod>]
+  member _.``A branch whose ways rejoin before a switch picks no table``() =
+    let fns =
+      recoverCode
+        [ "140000eb" (* bl g *)
+          "40209fe5" (* ldr r2, [pc, #0x40] *)
+          "000051e3" (* cmp r1, #0 *)
+          "34209f15" (* ldrne r2, [pc, #0x34] *)
+          "0000000a" (* beq sw *)
+          "0130a0e3" (* mov r3, #1 *)
+          "030050e3" (* sw: cmp r0, #3 *)
+          "0800008a" (* bhi out *)
+          "0000d2e7" (* ldrb r0, [r2, r0] *)
+          "00f18fe0" (* add pc, pc, r0, lsl #2 *)
+          "00f020e3" (* nop *)
+          "0000a0e3" (* mov r0, #0 *)
+          "1eff2fe1" (* bx lr *)
+          "0100a0e3" (* mov r0, #1 *)
+          "1eff2fe1" (* bx lr *)
+          "0200a0e3" (* mov r0, #2 *)
+          "1eff2fe1" (* bx lr *)
+          "1eff2fe1" (* out: bx lr *)
+          "54000000" (* .word 0x54, the table *)
+          "50000000" (* .word 0x50, the other table *)
+          "01010101" (* .byte 1, 1, 1, 1 *)
+          "00020406" (* .byte 0, 2, 4, 6 *)
+          "1eff2fe1" (* g: bx lr *) ]
+    CollectionAssert.AreEqual([||], indirectJumpTargetsOf fns[0x0UL])
+
   (* A TBB of Thumb jumps through a table of bytes right after it, each of
      which counts halfwords from the table. Like any branch of Thumb, the jump
      clears the lowest bit of its target. *)
