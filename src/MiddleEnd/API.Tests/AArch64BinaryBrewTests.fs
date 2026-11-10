@@ -155,3 +155,29 @@ type AArch64BinaryBrewTests() =
     let rodata = "0002040103" (* .byte 0, 2, 4, then 1, 3 *)
     let actual = countEntriesInPatchedMain code rodata
     CollectionAssert.AreEqual([| 3 |], actual)
+
+  (* Clang at -Oz outlines the allocation of a variable-length array into a
+     function that lowers SP by a size its caller passes in X9, so SP is
+     unknown where the function returns. RET returns through X30, which the
+     function leaves alone, so the function still returns, and the code after
+     the call to it belongs to main. *)
+  [<TestMethod>]
+  member _.``A function that moves SP returns through X30``() =
+    let fns =
+      recoverCode
+        [ "e903002a" (* mov w9, w0 *)
+          "03000094" (* bl 0x10 *)
+          "20008052" (* mov w0, #1 *)
+          "c0035fd6" (* ret *)
+          "ea030091" (* mov x10, sp *)
+          "29f17dd3" (* lsl x9, x9, #3 *)
+          "293d0091" (* add x9, x9, #0xf *)
+          "29ed7c92" (* and x9, x9, #0xfffffffffffffff0 *)
+          "490109cb" (* sub x9, x10, x9 *)
+          "3f010091" (* mov sp, x9 *)
+          "c0035fd6" (* ret *) ]
+    let afterCall =
+      fns[0x0UL].CFG.TryFindVertexBy(fun v ->
+        v.VData.Internals.BlockAddress = 0x8UL)
+    let actual = fns[0x10UL].NoRet, Option.isSome afterCall
+    Assert.AreEqual<NonReturningStatus * bool>((NotNoRet, true), actual)

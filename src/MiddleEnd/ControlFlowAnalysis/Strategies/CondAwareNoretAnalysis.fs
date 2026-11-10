@@ -29,6 +29,7 @@ open System.Runtime.InteropServices
 open B2R2
 open B2R2.ABI
 open B2R2.BinIR
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ConcEval
@@ -453,15 +454,36 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | Some callerLoc -> ConditionalNoRet callerLoc
     | None -> judgeReturn exit
 
+  /// Finds the expressions that the given statement reads.
+  let exprsReadBy stmt =
+    match stmt with
+    | LowUIR.Put(Src = e) | LowUIR.InterJmp(Target = e) -> [| e |]
+    | LowUIR.Store(Addr = addr; Value = value) -> [| addr; value |]
+    | _ -> [||]
+
+  /// Checks if the return instruction that ends the given vertex reads the
+  /// register with the given ID.
+  let returnReads rid (v: IVertex<LowUIRBasicBlock>) =
+    let rset = RegisterSet()
+    (Array.last v.VData.Internals.LiftedInstructions).Stmts
+    |> Array.collect exprsReadBy
+    |> Array.iter (LowUIR.AST.updateRegsUses rset)
+    rset.Contains(int rid)
+
   /// Checks if the given exit vertex has a corrupted stack pointer value before
-  /// executing the return instruction. This means we cannot statically decide
-  /// whether the return instruction will jump to the caller or not.
+  /// executing the return instruction, which reads it when it pops the return
+  /// address. This means we cannot statically decide whether the return
+  /// instruction will jump to the caller or not. A return through a link
+  /// register, which reads no stack pointer, jumps to the caller whatever the
+  /// stack pointer holds.
   let hasUndecidableReturnTarget (ctx: CFGBuildingContext<_, _>) v =
     let hdl = ctx.BinHandle
     let st = CFGEvaluator.evalBlockFromScratch hdl v
     let rid = hdl.RegisterFactory.StackPointer.Value
     match st.TryGetReg(rid) with
     | Def(_) ->
+      false
+    | _ when not (returnReads rid v) ->
       false
     | _ ->
 #if CFGDEBUG
