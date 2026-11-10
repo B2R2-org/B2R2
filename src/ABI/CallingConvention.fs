@@ -222,6 +222,23 @@ module CallingConvention =
               yield! vfpDoubles 16 31 ]
       ReturnAddressLocation = InRegister(arm32 ARM32.Register.LR) }
 
+  /// Returns the general registers from X(first) to X(last).
+  let private generals first last =
+    [ for i in first .. last ->
+        arm64 (enum<ARM64.Register>(int ARM64.Register.X0 + i)) ]
+
+  /// Returns the low 64-bit halves of V(first) to V(last), which are D(first)
+  /// to D(last). The lifter keeps a SIMD register in two halves, which are
+  /// what a statement writes, and AAPCS64 sorts the two apart.
+  let private lowHalves first last =
+    [ for i in first .. last ->
+        arm64 (enum<ARM64.Register>(int ARM64.Register.V0A + 2 * i)) ]
+
+  /// Returns the high 64-bit halves of V(first) to V(last).
+  let private highHalves first last =
+    [ for i in first .. last ->
+        arm64 (enum<ARM64.Register>(int ARM64.Register.V0B + 2 * i)) ]
+
   let private linuxAArch64 () = (* AAPCS64 *)
     { IntArgs =
         [| ArgLocation.Reg(arm64 ARM64.Register.X0)
@@ -229,7 +246,10 @@ module CallingConvention =
            ArgLocation.Reg(arm64 ARM64.Register.X2)
            ArgLocation.Reg(arm64 ARM64.Register.X3)
            ArgLocation.Reg(arm64 ARM64.Register.X4)
-           ArgLocation.Reg(arm64 ARM64.Register.X5) |]
+           ArgLocation.Reg(arm64 ARM64.Register.X5)
+           ArgLocation.Reg(arm64 ARM64.Register.X6)
+           ArgLocation.Reg(arm64 ARM64.Register.X7)
+           ArgLocation.Stack { FirstOffset = 0; SlotSize = 8 } |]
       FloatArgs =
         [| ArgLocation.Reg(arm64 ARM64.Register.V0)
            ArgLocation.Reg(arm64 ARM64.Register.V1)
@@ -242,26 +262,16 @@ module CallingConvention =
       IntReturnLocation = ArgLocation.Reg(arm64 ARM64.Register.X0)
       FloatReturnLocation = ArgLocation.Reg(arm64 ARM64.Register.V0)
       ArgClassification = Independent
-      CalleeSavedRegisters =
-        set [ arm64 ARM64.Register.X19
-              arm64 ARM64.Register.X20
-              arm64 ARM64.Register.X21
-              arm64 ARM64.Register.X22
-              arm64 ARM64.Register.X23
-              arm64 ARM64.Register.X24
-              arm64 ARM64.Register.X25
-              arm64 ARM64.Register.X26
-              arm64 ARM64.Register.X27
-              arm64 ARM64.Register.X28
-              arm64 ARM64.Register.X29 ]
-      CallerSavedRegisters =
-        set [ arm64 ARM64.Register.X9
-              arm64 ARM64.Register.X10
-              arm64 ARM64.Register.X11
-              arm64 ARM64.Register.X12
-              arm64 ARM64.Register.X13
-              arm64 ARM64.Register.X14
-              arm64 ARM64.Register.X15 ]
+      CalleeSavedRegisters = (* X29 is the frame pointer *)
+        set [ yield! generals 19 29
+              arm64 ARM64.Register.SP
+              yield! lowHalves 8 15 ]
+      CallerSavedRegisters = (* X16 to X18 are IP0, IP1 and the platform's *)
+        set [ yield! generals 0 18
+              arm64 ARM64.Register.X30
+              yield! lowHalves 0 7
+              yield! lowHalves 16 31
+              yield! highHalves 0 31 ]
       ReturnAddressLocation = InRegister(arm64 ARM64.Register.X30) }
 
   let private linuxMIPS () = (* o32/n64 differ in FP arg regs; not modeled *)

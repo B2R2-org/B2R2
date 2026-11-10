@@ -134,6 +134,49 @@ type CallingConventionTests() =
       InRegister lr, cc.ReturnAddressLocation
     )
 
+  (* AAPCS64 passes the first eight words in X0 to X7 and the rest on the
+     stack, the first of them right at the stack pointer, as BL pushes
+     nothing. *)
+  [<TestMethod>]
+  member _.``AAPCS64 passes eight words in registers and then on the stack``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv8)
+    let x7 = ARM64.Register.toRegID ARM64.Register.X7
+    let slot = ArgLocation.Stack { FirstOffset = 0; SlotSize = 8 }
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg x7, cc.GetIntArgLocation 7)
+    Assert.AreEqual<ArgLocation>(slot, cc.GetIntArgLocation 8)
+
+  (* IP0 and IP1 are free for the veneers and PLT entries that a linker puts in
+     front of a callee, X18 is a temporary on GNU/Linux, and X30 takes the
+     return address, so none of them survives a call, while X19 to X29 and the
+     stack pointer do. *)
+  [<TestMethod>]
+  member _.``AAPCS64 clobbers X0 to X18 and LR and keeps X19 to X29``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv8)
+    let arm64 r = ARM64.Register.toRegID r
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.X9))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.X16))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.X18))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.X30))
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm64 ARM64.Register.X19))
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm64 ARM64.Register.X29))
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm64 ARM64.Register.SP))
+
+  (* AAPCS64 has a callee keep only the low halves of V8 to V15, which are D8
+     to D15, and the lifter keeps every SIMD register in two halves, which are
+     what a statement writes; every other half is lost across a call. *)
+  [<TestMethod>]
+  member _.``AAPCS64 keeps the low halves of V8 to V15 across a call``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv8)
+    let arm64 r = ARM64.Register.toRegID r
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm64 ARM64.Register.V8A))
+    Assert.AreEqual<bool>(true, cc.IsCalleeSaved(arm64 ARM64.Register.V15A))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.V8B))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.V0A))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.V7B))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.V16A))
+    Assert.AreEqual<bool>(true, cc.IsCallerSaved(arm64 ARM64.Register.V31B))
+    Assert.AreEqual<bool>(false, cc.IsCallerSaved(arm64 ARM64.Register.V8A))
+
   (* AAPCS passes the first four words in R0 to R3 and the rest on the stack,
      the first of them right at the stack pointer, as BL pushes nothing. *)
   [<TestMethod>]
