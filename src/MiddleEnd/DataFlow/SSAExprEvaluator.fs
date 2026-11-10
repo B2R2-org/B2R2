@@ -27,7 +27,8 @@
 /// holds a given value, following the definitions of the other variables it
 /// reads. A temporary or a stack slot of the IR data flow carries no width, so
 /// such a variable takes the width of the expression that reads it, or, when a
-/// comparison reads two of them, that of their definitions.
+/// comparison reads two of them, that of their definitions, as the root does
+/// where a cast reads it.
 module B2R2.MiddleEnd.DataFlow.SSAExprEvaluator
 
 open B2R2
@@ -56,6 +57,18 @@ let private widthByDef findDef e =
   | Var v when widthOf e = 0<rt> ->
     match findDef v with
     | Some(Def(_, d)) -> widthOf d
+    | _ -> 0<rt>
+  | _ ->
+    widthOf e
+
+/// Finds the width of the given expression, or, for a variable that carries
+/// none, that of the definition it copies, following copies of variables that
+/// carry none either, as a stack slot holds what a temporary held.
+let rec private widthByCopies findDef e =
+  match e with
+  | Var v when widthOf e = 0<rt> ->
+    match findDef v with
+    | Some(Def(_, d)) -> widthByCopies findDef d
     | _ -> 0<rt>
   | _ ->
     widthOf e
@@ -98,8 +111,9 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
   | Num bv ->
     ConstantDomain.Const bv
   | Var v when v = root ->
-    match widthAt rt e, value with
-    | w, Some n when w > 0<rt> -> ConstantDomain.Const(BitVector(n, w))
+    let w = if rt = 0<rt> then widthByCopies findDef e else widthAt rt e
+    match value with
+    | Some n when w > 0<rt> -> ConstantDomain.Const(BitVector(n, w))
     | _ -> ConstantDomain.NotAConst
   | Var v when depth > 0 ->
     match findDef v with
