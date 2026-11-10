@@ -208,6 +208,16 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       RelOp(op, rt, simplify e1, simplify e2)
     | Ite(c, rt, e1, e2) ->
       Ite(simplify c, rt, simplify e1, simplify e2)
+    (* AArch64 zero-extends what it writes to a W register into X, so a byte
+       that LDRB loads is extended twice. An extension by the sign of what the
+       inner one zero-extended finds the sign bit clear. *)
+    | Cast(CastKind.ZeroExt, rt, Cast(CastKind.ZeroExt, _, e)) ->
+      Cast(CastKind.ZeroExt, rt, simplify e)
+    | Cast(CastKind.SignExt, rt, Cast(CastKind.ZeroExt, mid, e))
+      when Expr.typeOf e < mid ->
+      Cast(CastKind.ZeroExt, rt, simplify e)
+    | Cast(CastKind.SignExt, rt, Cast(CastKind.SignExt, _, e)) ->
+      Cast(CastKind.SignExt, rt, simplify e)
     | Cast(k, rt, e) ->
       Cast(k, rt, simplify e)
     | RoundCtrl(mode, rt, body) ->

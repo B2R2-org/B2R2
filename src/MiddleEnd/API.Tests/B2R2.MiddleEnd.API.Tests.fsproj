@@ -16,6 +16,7 @@
     <Compile Include="JmpTableInfoTests.fs" />
     <Compile Include="BinaryBrewTests.fs" />
     <Compile Include="ARMBinaryBrewTests.fs" />
+    <Compile Include="AArch64BinaryBrewTests.fs" />
     <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
 
