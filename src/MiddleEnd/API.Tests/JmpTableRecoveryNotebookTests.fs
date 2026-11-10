@@ -47,6 +47,7 @@ type JmpTableRecoveryNotebookTests() =
       WaitingInstructions = []
       IsSingleEntry = false
       OwnRangeEntries = ownRange
+      MaskedEntries = None
       IsFunctionPointerTable = false }
 
   (* Eight entries, the last four of which are where the folded table is

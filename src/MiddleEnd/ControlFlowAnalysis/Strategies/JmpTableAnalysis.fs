@@ -45,6 +45,8 @@ type private IndexOrigin =
     ZeroAddr: int64
     /// The index itself, whose value is the number of the entry it selects.
     Index: Expr
+    /// The largest value that the root can hold, if a constant mask bounds it.
+    MaxRoot: uint64 option
     /// Tells whether the range check of the branch lets the index select the
     /// entry at the given address.
     Admits: int64 -> bool
@@ -472,6 +474,23 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       None
 
+  /// Finds the constant mask that the value of the given expression lies
+  /// under, looking through copies and zero extensions, as UBFX takes the bits
+  /// of a value under one.
+  let rec tryFindMask findDef e =
+    match e with
+    | Var v ->
+      match findDef v with
+      | Some(Def(_, def)) -> tryFindMask findDef def
+      | _ -> None
+    | Cast(CastKind.ZeroExt, _, e) ->
+      tryFindMask findDef e
+    | BinOp(BinOpType.AND, _, _, Num m)
+    | BinOp(BinOpType.AND, _, Num m, _) ->
+      Some(m.ToUInt64())
+    | _ ->
+      None
+
   /// Finds how the index of the given table selects its entries, leaving the
   /// range check of the indirect branch to be found later.
   let findIndexOrigin findDef (jmptbl: JmpTableInfo) tblExpr =
@@ -483,6 +502,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         { Root = root
           ZeroAddr = int64 jmptbl.TableAddress + offset * size
           Index = idx
+          MaxRoot = tryFindMask findDef (Var root)
           Admits = fun _ -> false
           StartsAt = fun _ -> false })
     | None ->
@@ -504,6 +524,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           WaitingInstructions = []
           IsSingleEntry = singleEntry
           OwnRangeEntries = None
+          MaskedEntries = None
           IsFunctionPointerTable = false }
       Ok(jmptbl, findIndexOrigin findDef jmptbl tblExpr)
     | _ ->
@@ -1162,6 +1183,22 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | Some o -> countAdmittedEntries file jmptbl o
       | None -> None
 
+  /// Counts the entries of the given table, from the first, that a constant
+  /// mask on the root of its index lets the index select. Returns None, as for
+  /// a range check, if the mask keeps the index from the first entry, or lets
+  /// it select an entry that does not fit in the section.
+  let countMaskedEntries file (jmptbl: JmpTableInfo) origin =
+    let tblAddr = int64 jmptbl.TableAddress
+    match origin with
+    | Some { ZeroAddr = zeroAddr; MaxRoot = Some m } when zeroAddr <= tblAddr ->
+      let before = uint64 ((tblAddr - zeroAddr) / int64 jmptbl.EntrySize)
+      if m >= before && m - before < countFittingEntries file jmptbl then
+        Some(int (m - before + 1UL))
+      else
+        None
+    | _ ->
+      None
+
   /// Identifies the jump table of the indirect branch at insAddr, using the
   /// given analysis of indirect branches for its enclosing branch as well.
   let identify ctx analyze insAddr =
@@ -1169,7 +1206,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     |> Result.map (fun (jmptbl, origin) ->
       let jmptbl = rebase ctx analyze (jmptbl, origin)
       let file = (ctx: CFGBuildingContext<_, _>).BinHandle.File
-      { jmptbl with OwnRangeEntries = countOwnRange file jmptbl origin })
+      { jmptbl with
+          OwnRangeEntries = countOwnRange file jmptbl origin
+          MaskedEntries = countMaskedEntries file jmptbl origin })
 
   /// Checks if the address is in a section that may host a jump table,
   /// according to the file format's heuristic.

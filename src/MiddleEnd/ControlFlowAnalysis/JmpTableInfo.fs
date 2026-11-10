@@ -60,6 +60,11 @@ type JmpTableInfo =
     /// the indirect branch admits, or None if no such check bounds the table
     /// from its first entry.
     OwnRangeEntries: int option
+    /// The number of entries, from the first, that a constant mask on the
+    /// index lets it select, or None if no mask bounds the table within its
+    /// section. Unlike a range check, a mask may let the index select more
+    /// entries than the table has.
+    MaskedEntries: int option
     /// Indicates whether the jump table is accessed via a function pointer
     /// table.
     mutable IsFunctionPointerTable: bool }
@@ -68,13 +73,14 @@ type JmpTableInfo =
 [<RequireQualifiedAccess>]
 module JmpTableInfo =
   /// Tells whether the given index lies past the entries that the range check
-  /// of the given table admits, when the code shifts its entries. Whatever a
-  /// shifted entry holds sends the jump close by, so the bytes after such a
-  /// table pass for more of its entries, and only the check tells its end.
-  let private isPastRangeCheck jmptbl idx =
-    match jmptbl.OwnRangeEntries with
-    | Some n when jmptbl.EntryShift > 0 -> idx >= n
-    | _ -> false
+  /// of the given table admits, or that a mask on its index lets it select,
+  /// when the code shifts its entries. Whatever a shifted entry holds sends the
+  /// jump close by, so the bytes after such a table pass for more of its
+  /// entries, and only the check or the mask keeps them out.
+  let private isPastIndexBound jmptbl idx =
+    let isPast = Option.exists (fun n -> idx >= n)
+    jmptbl.EntryShift > 0
+    && (isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries)
 
   /// Tells whether the entries of the given table are addresses of their own,
   /// as wide as a pointer, in an ELF binary, where a relocation of a slot says
@@ -107,11 +113,12 @@ module JmpTableInfo =
   /// holds what the relocation of its slot writes, which the file may leave
   /// out, and in a binary that the loader rebases, a slot without one holds no
   /// address. A slot that lies past the bytes of the binary holds no entry
-  /// either, nor does one of shifted entries past what the range check admits.
+  /// either, nor does one of shifted entries past what the range check, or a
+  /// mask on the index, admits.
   let tryReadTarget (hdl: BinHandle) jmptbl idx =
     let file = hdl.File
     let addr = jmptbl.TableAddress + uint64 (idx * jmptbl.EntrySize)
-    if isPastRangeCheck jmptbl idx then
+    if isPastIndexBound jmptbl idx then
       None
     elif isRelocatable file jmptbl then
       match BinFileOps.tryComputeRelocationValue file addr with

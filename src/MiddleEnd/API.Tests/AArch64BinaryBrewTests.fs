@@ -239,3 +239,31 @@ type AArch64BinaryBrewTests() =
           "c0035fd6" (* ret *) ]
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x28UL; 0x30UL |], targets)
+
+  (* Clang checks no range when the switch covers every value that the bits
+     of the index can take, as zlib's does on the two bits that give the type
+     of a block, so only the mask that UBFX applies tells where the table
+     ends. Here the two bits take four values, and the bytes past the table,
+     1 and 3, would send the jump to the RET of the first two cases. UBFX
+     writes W8, which X8 holds zero-extended. *)
+  [<TestMethod>]
+  member _.``A clang table ends at the mask of its index``() =
+    let code =
+      [ "08080153" (* ubfx w8, w0, #1, #2 *)
+        "09000090" (* adrp x9, 0x400000 *)
+        "29411c91" (* add x9, x9, #0x710 *)
+        "8a000010" (* adr x10, 0x40059c *)
+        "2b696838" (* ldrb w11, [x9, x8] *)
+        "4a090b8b" (* add x10, x10, x11, lsl #2 *)
+        "40011fd6" (* br x10 *)
+        "00008052" (* mov w0, #0 *)
+        "c0035fd6" (* ret *)
+        "20008052" (* mov w0, #1 *)
+        "c0035fd6" (* ret *)
+        "40008052" (* mov w0, #2 *)
+        "c0035fd6" (* ret *)
+        "60008052" (* mov w0, #3 *)
+        "c0035fd6" (* ret *) ]
+    let rodata = "000204060103" (* .byte 0, 2, 4, 6, then 1, 3 *)
+    let actual = countEntriesInPatchedMain code rodata
+    CollectionAssert.AreEqual([| 4 |], actual)

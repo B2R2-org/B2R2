@@ -50,6 +50,7 @@ type JmpTableInfoTests() =
       WaitingInstructions = []
       IsSingleEntry = false
       OwnRangeEntries = None
+      MaskedEntries = None
       IsFunctionPointerTable = false }
 
   (* A table can end right where the bytes of the file do, and the slot after
