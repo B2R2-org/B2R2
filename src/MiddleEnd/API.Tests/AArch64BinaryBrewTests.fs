@@ -181,3 +181,30 @@ type AArch64BinaryBrewTests() =
         v.VData.Internals.BlockAddress = 0x8UL)
     let actual = fns[0x10UL].NoRet, Option.isSome afterCall
     Assert.AreEqual<NonReturningStatus * bool>((NotNoRet, true), actual)
+
+  (* Clang may put a table last in .rodata, as here, where its twelve entries
+     fill the section. The range check then lets the index select every entry
+     up to the end of the section, and none past it, so the check still ends
+     the table there. The first byte past the section, of .eh_frame_hdr,
+     would send the jump to the RET of the first case. *)
+  [<TestMethod>]
+  member _.``A range check bounds a table that ends its section``() =
+    let code =
+      [ "1f2c0071" (* cmp w0, #11 *)
+        "88010054" (* b.hi 0x4005b4 *)
+        "e803002a" (* mov w8, w0 *)
+        "09000090" (* adrp x9, 0x400000 *)
+        "29411c91" (* add x9, x9, #0x710 *)
+        "8a000010" (* adr x10, 0x4005a4 *)
+        "2b696838" (* ldrb w11, [x9, x8] *)
+        "4a090b8b" (* add x10, x10, x11, lsl #2 *)
+        "40011fd6" (* br x10 *)
+        "00008052" (* mov w0, #0 *)
+        "c0035fd6" (* ret *)
+        "20008052" (* mov w0, #1 *)
+        "c0035fd6" (* ret *)
+        "20018052" (* mov w0, #9 *)
+        "c0035fd6" (* ret *) ]
+    let rodata = String.replicate 6 "0002" (* .byte 0, 2, six times over *)
+    let actual = countEntriesInPatchedMain code rodata
+    CollectionAssert.AreEqual([| 12 |], actual)

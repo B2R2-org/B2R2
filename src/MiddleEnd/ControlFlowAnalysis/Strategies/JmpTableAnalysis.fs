@@ -1136,14 +1136,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// Counts the entries of the given table, from the first, that the range
   /// check of its indirect branch lets the index select. Returns None if the
   /// check keeps the index from the first entry, since then the table may not
-  /// start there, or lets it select the last entry that fits in the section,
-  /// since then the check bounds nothing.
+  /// start there, or lets it select an entry that does not fit in the section,
+  /// since then the check bounds nothing. A table may come last in its
+  /// section, so the check may end it right where the section ends.
   let countAdmittedEntries file (jmptbl: JmpTableInfo) origin =
     let size = uint64 jmptbl.EntrySize
     let admitsEntry n = origin.Admits(int64 (jmptbl.TableAddress + n * size))
     let rec count n = if admitsEntry n then count (n + 1UL) else n
     match countFittingEntries file jmptbl with
-    | fits when fits > 0UL && not (admitsEntry (fits - 1UL)) ->
+    | fits when fits > 0UL && not (admitsEntry fits) ->
       match count 0UL with
       | 0UL -> None
       | n -> Some(int n)
