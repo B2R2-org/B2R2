@@ -51,3 +51,24 @@ type RegisterFactoryTests() =
     Assert.AreEqual<Expr>(halves Register.V0, v0)
     Assert.AreEqual<RegType>(128<rt>, Expr.typeOf v0)
     Assert.AreEqual<Expr>(halves Register.V31, v31)
+
+  (* The ID of a half that a statement writes leads back to the half, and D0
+     is the low half. *)
+  [<TestMethod>]
+  member _.``[ARM64] a half of a V register is a register of its own test``() =
+    let idOf e = Register.ofRegID (factory.GetRegisterID(e: Expr))
+    let v0a = regVar Register.V0A
+    Assert.AreEqual<Expr>(half Register.V0 1, v0a)
+    Assert.AreEqual<Register>(Register.V0A, idOf v0a)
+    Assert.AreEqual<Register>(Register.V31B, idOf (regVar Register.V31B))
+    Assert.AreEqual<Expr>(v0a, regVar Register.D0)
+
+  (* AAPCS64 makes X29 the frame pointer, through which code built without
+     optimization reads its locals. *)
+  [<TestMethod>]
+  member _.``[ARM64] X29 is the frame pointer test``() =
+    let fp = Register.toRegID Register.X29
+    let x0 = Register.toRegID Register.X0
+    Assert.AreEqual<RegisterID option>(Some fp, factory.FramePointer)
+    Assert.AreEqual<bool>(true, factory.IsFramePointer fp)
+    Assert.AreEqual<bool>(false, factory.IsFramePointer x0)
