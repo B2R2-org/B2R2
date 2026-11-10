@@ -431,13 +431,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     BitVector.SExt(n, max n.Length 64<rt>).ToInt64()
 
   /// Checks if the given expression is a variable that carries no width and
-  /// that no definition computes, as a stack slot that only a callee writes.
-  /// The evaluator cannot give such a variable a value where a cast reads it,
-  /// since nothing tells how wide the value is.
-  let isWidthlessLeaf findDef e =
+  /// that no definition computes, as a stack slot that only a callee writes,
+  /// or a copy of one, as a temporary that a load of AArch64 copies the slot
+  /// into. The evaluator cannot give such a variable a value where a cast
+  /// reads it, since nothing tells how wide the value is.
+  let rec isWidthlessLeaf findDef e =
     match e with
     | Var v when Expr.typeOf e = 0<rt> ->
       match findDef v with
+      | Some(Def(_, (Var _ as copied))) -> isWidthlessLeaf findDef copied
       | Some(Def _) -> false
       | _ -> true
     | _ ->

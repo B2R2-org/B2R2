@@ -36,9 +36,9 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type AArch64BinaryBrewTests() =
   /// Recovers the functions of the given AArch64 code, which starts at address
   /// zero with the entry of the binary. A raw image has no section to hold a
-  /// table, so the tests below read their tables as ones of labels, which
-  /// have to point into their function, before the next one: the code starts
-  /// by calling a function that lies past its table.
+  /// table, so a test on one reads its table as one of labels, which has to
+  /// point into its function, before the next one: the code starts by calling
+  /// a function that lies past its table.
   static let recoverCode (code: string list) =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "aarch64")).Functions
@@ -49,6 +49,21 @@ type AArch64BinaryBrewTests() =
     |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
     |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
     |> Array.sort
+
+  /// Returns how many entries each jump table of main has, once main becomes
+  /// the given code and .rodata starts with the given bytes. Main is at
+  /// 0x400580 with room for sixteen instructions, and .rodata at 0x400710 with
+  /// room for twelve bytes. Unlike a raw image, the binary has a section for
+  /// tables, within which a range check can end one.
+  static let countEntriesInPatchedMain code rodata =
+    let bytes = readZippedBinary "elf_aarch64"
+    let patch (offset: int) (hex: string) =
+      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+    patch 0x580 (String.concat "" code)
+    patch 0x710 rodata
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "aarch64")
+    BinaryBrew(hdl).Functions[0x400580UL].JumpTables
+    |> Array.map _.NumEntries
 
   (* Clang adds a byte of the table, shifted, to the address of the first case.
      LDRB writes the byte to W11, which X11 holds zero-extended, so the byte is
@@ -110,3 +125,33 @@ type AArch64BinaryBrewTests() =
           "c0035fd6" (* ret *) ]
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x10UL; 0x30UL; 0x38UL; 0x40UL |], targets)
+
+  (* As on ARM, GCC may switch on a halfword that a callee has written into a
+     structure on the stack, a slot that the function itself never writes.
+     LDRH copies the slot into a temporary, which X2 then holds extended, so
+     the range check has to bound X2 rather than the slot, whose width the
+     data flow does not know. Here main switches on a halfword that helper
+     is to write, and the bytes past the table, 1 and 3, would send the jump
+     to the RET of each case. *)
+  [<TestMethod>]
+  member _.``A GCC switch on a stack halfword ends at its range check``() =
+    let code =
+      [ "e0430091" (* add x0, sp, #16 *)
+        "5b000094" (* bl helper *)
+        "e2234079" (* ldrh w2, [sp, #16] *)
+        "5f080071" (* cmp w2, #2 *)
+        "68010054" (* b.hi 0x4005bc *)
+        "00000090" (* adrp x0, 0x400000 *)
+        "00401c91" (* add x0, x0, #0x710 *)
+        "00486238" (* ldrb w0, [x0, w2, uxtw] *)
+        "61000010" (* adr x1, 0x4005ac *)
+        "2088208b" (* add x0, x1, w0, sxtb #2 *)
+        "00001fd6" (* br x0 *)
+        "00008052" (* mov w0, #0 *)
+        "c0035fd6" (* ret *)
+        "20008052" (* mov w0, #1 *)
+        "c0035fd6" (* ret *)
+        "c0035fd6" (* ret *) ]
+    let rodata = "0002040103" (* .byte 0, 2, 4, then 1, 3 *)
+    let actual = countEntriesInPatchedMain code rodata
+    CollectionAssert.AreEqual([| 3 |], actual)
