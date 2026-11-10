@@ -208,3 +208,34 @@ type AArch64BinaryBrewTests() =
     let rodata = String.replicate 6 "0002" (* .byte 0, 2, six times over *)
     let actual = countEntriesInPatchedMain code rodata
     CollectionAssert.AreEqual([| 12 |], actual)
+
+  (* At -O0, clang adds an entry of four bytes to the address of an ADR that
+     names itself, in the middle of the code that dispatches the switch. The
+     zero that follows the table here would send the jump back to that ADR,
+     where no case starts, so the table ends before it. *)
+  [<TestMethod>]
+  member _.``A clang table ends at an entry to its own ADR``() =
+    let fns =
+      recoverCode
+        [ "13000094" (* bl 0x4c *)
+          "1f040071" (* cmp w0, #1 *)
+          "88010054" (* b.hi 0x38 *)
+          "e903002a" (* mov w9, w0 *)
+          "0a000090" (* adrp x10, 0x0 *)
+          "4a010191" (* add x10, x10, #0x40 *)
+          "08000010" (* adr x8, 0x18 *)
+          "4979a9b8" (* ldrsw x9, [x10, x9, lsl #2] *)
+          "0801098b" (* add x8, x8, x9 *)
+          "00011fd6" (* br x8 *)
+          "00008052" (* mov w0, #0 *)
+          "c0035fd6" (* ret *)
+          "20008052" (* mov w0, #1 *)
+          "c0035fd6" (* ret *)
+          "20018052" (* mov w0, #9 *)
+          "c0035fd6" (* ret *)
+          "10000000" (* .word 0x10 *)
+          "18000000" (* .word 0x18 *)
+          "00000000" (* .word 0 *)
+          "c0035fd6" (* ret *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x28UL; 0x30UL |], targets)

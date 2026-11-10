@@ -1177,6 +1177,28 @@ module internal CFGRecoveryCommon =
     | EndTblRec _ -> ()
     | _ -> assert false
 
+  /// Checks if the given target is the base of the given table and lies within
+  /// the block ending with its indirect jump, after the start of the block and
+  /// before the jump, as the ADR of clang names itself the base. No case starts
+  /// in the middle of the code that dispatches the switch, since the jump would
+  /// only run that code again, so an entry past the first that sends the jump
+  /// there lies past the table.
+  let isOwnDispatchBase (srcVertex: IVertex<LowUIRBasicBlock>) jmptbl dstAddr =
+    let blkAddr = srcVertex.VData.Internals.PPoint.Address
+    dstAddr = (jmptbl: JmpTableInfo).JumpBase
+    && blkAddr < dstAddr && dstAddr < jmptbl.InsAddr
+
+  /// Ends the given table right before the entry at the given index, which
+  /// lies past the table, and moves on without recovering the entry.
+  let endTableBefore ctx (jmptbl: JmpTableInfo) idx =
+    let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
+    let tblAddr = jmptbl.TableAddress
+    let success = ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx)
+    assert success
+    popOffJmpTblRecoveryAction ctx
+    ctx.JumpTableRecoveryStatus.Pop() |> ignore
+    MoveOn
+
   let rec isNopRunTo (instrs: IInstruction list) addr endAddr =
     if addr = endAddr then
       true
@@ -1234,15 +1256,11 @@ module internal CFGRecoveryCommon =
         MoveOn
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
+    elif idx > 0 && isOwnDispatchBase srcVertex jmptbl dstAddr then
+      endTableBefore ctx jmptbl idx
     elif jmptbl.IsFunctionPointerTable then
       if not isDstFuncEntry then (* End of the table. *)
-        let tblAddr = jmptbl.TableAddress
-        let success =
-          ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx)
-        assert success
-        popOffJmpTblRecoveryAction ctx
-        ctx.JumpTableRecoveryStatus.Pop() |> ignore
-        MoveOn
+        endTableBefore ctx jmptbl idx
       else
         let lastInsAddr = srcVertex.VData.Internals.LastInstruction.Address
         let callsite = LeafCallSite lastInsAddr
