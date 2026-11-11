@@ -124,7 +124,7 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    LowUIRSparseDataFlow.State(hdl, lattice, scheme)
+    LowUIRSparseDataFlow.State(hdl, lattice, scheme, initialValueProvider)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state

@@ -42,7 +42,9 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable cfg = LowUIRCFG.create Mutable
 
-  let cp = ConstantPropagation((hdl: BinHandle), cfg.Vertices)
+  let cp =
+    let provider = RegisterInitialValueProvider.createForFunction hdl entryPoint
+    ConstantPropagation((hdl: BinHandle), cfg.Vertices, provider)
 
   let uva = UntouchedValueAnalysis(hdl, cfg.Vertices)
 

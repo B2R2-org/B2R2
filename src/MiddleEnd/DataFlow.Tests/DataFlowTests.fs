@@ -405,6 +405,23 @@ type DataFlowTests() =
     let six = mkConst 6u 32<rt>
     Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
 
+  /// A MIPS PIC function finds gp from t9, which holds its own address on
+  /// entry when the data flow is told which function it runs in.
+  [<TestMethod>]
+  member _.``Constant Propagation gives t9 the MIPS function address``() =
+    (* lui gp, 0x1 ; addu gp, gp, t9 ; jr ra ; nop *)
+    let hex = "3c1c00010399e02103e0000800000000"
+    let brew = Binaries.loadMIPSAt 0x400000UL hex
+    let hdl = brew.BinHandle
+    let cfg = brew.Functions[0x400000UL].CFG
+    let gp = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R28)
+    let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = gp }
+    let provider = RegisterInitialValueProvider.createForFunction hdl 0x400000UL
+    let cp = ConstantPropagation(hdl, cfg.Vertices, provider)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let gpValue = mkConst 0x410000u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(gpValue, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2

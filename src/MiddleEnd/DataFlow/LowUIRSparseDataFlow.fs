@@ -38,12 +38,14 @@ open B2R2.MiddleEnd.BinGraph
 type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
          lattice: ILattice<'Lattice>,
-         scheme: IScheme<'Lattice>) =
+         scheme: IScheme<'Lattice>,
+         ?initialValueProvider) =
 
   /// Holds the initial stack pointer value in the address domain.
   let spInitial = LowUIRAddress.initialValue hdl
 
-  let initialValueProvider = RegisterInitialValueProvider.create hdl
+  let initialValueProvider =
+    defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
 
   /// Caches the statements of every CFG vertex, along with their program
   /// points.
