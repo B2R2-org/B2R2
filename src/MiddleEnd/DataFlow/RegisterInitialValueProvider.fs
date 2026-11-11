@@ -45,10 +45,22 @@ module RegisterInitialValueProvider =
     interface IRegisterInitialValueProvider with
       member _.TryGetInitialValue _ = None
 
+  /// Gives the MIPS zero register zero, which it always holds: the lifter
+  /// keeps it from being written, so it holds its initial value throughout.
+  type private MIPSRegisterInitialValueProvider(hdl: BinHandle) =
+    let zero = MIPS.Register.toRegID MIPS.Register.R0
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = zero then
+          Some(BitVector.Zero(hdl.RegisterFactory.GetRegType rid))
+        else
+          None
+
   /// Creates the architecture-specific provider of initial values for a binary.
   let create (hdl: BinHandle): IRegisterInitialValueProvider =
     match hdl.RegisterFactory.ISA.Arch with
     | Architecture.Intel -> IntelRegisterInitialValueProvider(hdl)
+    | Architecture.MIPS -> MIPSRegisterInitialValueProvider(hdl)
     | _ -> DefaultRegisterInitialValueProvider()
 
   /// Returns the initial value of a regular register variable.

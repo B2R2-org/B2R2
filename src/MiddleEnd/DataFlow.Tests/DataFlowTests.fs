@@ -391,6 +391,20 @@ type DataFlowTests() =
     let out = state.GetAbsValue(irReg 0x7fffffe8UL 1 Register.EAX)
     Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0x12345678u 32<rt>, out)
 
+  /// MIPS reads zero from its zero register, whose initial value no
+  /// instruction replaces.
+  [<TestMethod>]
+  member _.``Constant Propagation reads the MIPS zero register as zero``() =
+    (* addiu v0, zero, 6 ; jr ra ; nop *)
+    let brew = Binaries.loadMIPSAt 0x400000UL "2402000603e0000800000000"
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400000UL, 1); VarKind = v0 }
+    let six = mkConst 6u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2

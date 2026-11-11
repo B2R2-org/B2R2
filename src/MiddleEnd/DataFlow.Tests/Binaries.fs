@@ -41,6 +41,13 @@ let loadAt baseAddr (Binary(code, arch, wordSize)) =
   let hdl = BinHandle.LoadRawImage(code, isa, baseAddr, OS.BareMetal)
   BinaryBrew hdl
 
+/// Loads the given big-endian MIPS32 code at the given address, written as
+/// the hex of its words.
+let loadMIPSAt baseAddr (hex: string) =
+  let code = ByteArray.ofHexString hex
+  let hdl = BinHandle.LoadRawImage(code, ISA "mips32", baseAddr, OS.Linux)
+  BinaryBrew hdl
+
 (*
   Example 1: Fibonacci function
 
