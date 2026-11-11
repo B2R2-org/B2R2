@@ -187,7 +187,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
   /// Simply over-approximates the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
   default _.Summarize(ctx, callee, calleeInfo, callInstruction) =
-    let returnAddress = callInstruction.Address + uint64 callInstruction.Length
+    let returnAddress = ReturnAddress.ofCall callInstruction
     let stmts = (* For abstraction, we check which var can be defined. *)
       computeLiveDefs ctx.BinHandle callee calleeInfo
       |> Array.map (fun (dst, src) -> AST.put dst src)
@@ -205,7 +205,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
                       calleeInfo.Status)
 
     member _.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes) =
-      let returnAddress = callIns.Address + uint64 callIns.Length
+      let returnAddress = ReturnAddress.ofCall callIns
       let wordSize = hdl.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
       let fallThrough = AST.num <| BitVector(returnAddress, regType)

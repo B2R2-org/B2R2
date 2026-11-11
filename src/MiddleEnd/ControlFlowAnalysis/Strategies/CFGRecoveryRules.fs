@@ -120,7 +120,7 @@ module private CFGRecoveryRules =
     let hdl = ctx.BinHandle
     match hdl.File with
     | :? BinFile.ELFBinFile as elf ->
-      let nextAddr = skipPadding ctx (ins.Address + uint64 ins.Length)
+      let nextAddr = skipPadding ctx (ReturnAddress.ofCall ins)
       match elf.TryFindFDERange ins.Address with
       | Some frame when frame.IsIncluding nextAddr ->
         judgeByFrameDepth hdl elf ins.Address nextAddr

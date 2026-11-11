@@ -849,7 +849,7 @@ module internal CFGRecoveryCommon =
     let callee = getAbsVertex ctx cfgRec callsite (Some calleeAddr) abs
     let edgeKind = if isTail then TailCallEdge else CallEdge
     connectEdge ctx cfgRec caller callee edgeKind
-    callee, callsiteAddr + uint64 callIns.Length
+    callee, ReturnAddress.ofCall callIns
 
   let connectRet ctx cfgRec (callee, fallthroughAddr) =
     scanBBLsAndConnect ctx cfgRec callee fallthroughAddr RetEdge |> ignore
@@ -1034,7 +1034,7 @@ module internal CFGRecoveryCommon =
     let absV = getAbsVertex ctx cfgRec callSite None abs
     for caller in ctx.CallerVertices[callsiteAddr] do
       connectEdge ctx cfgRec caller absV CallEdge
-    connectIndirectRet ctx cfgRec absV (callSiteAddr + uint64 callIns.Length)
+    connectIndirectRet ctx cfgRec absV (ReturnAddress.ofCall callIns)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec callIns.Address)
     |> toCFGResult
 

@@ -52,6 +52,7 @@
     <Compile Include="Strategies\JmpTableAnalysis.fs" />
     <Compile Include="Strategies\SRetAnalysis.fs" />
     <Compile Include="Strategies\SyscallAnalysis.fs" />
+    <Compile Include="Strategies\ReturnAddress.fs" />
     <Compile Include="Strategies\FunctionSummarizer.fs" />
     <Compile Include="Strategies\EVMGlobalContext.fs" />
     <Compile Include="Strategies\EVMFunctionSummarizer.fs" />
