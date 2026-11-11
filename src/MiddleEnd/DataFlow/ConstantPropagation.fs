@@ -33,6 +33,40 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type ConstantPropagation(hdl, vs, ?initialValueProvider) =
   let initialValueProvider =
     defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
+
+  /// Checks if no definition in the function reaches the given use of the
+  /// given variable, which then holds what it held on entry.
+  let readsEntryValue (state: LowUIRSparseDataFlow.State<_>) pp vk =
+    match state.UseDefMap.TryGetValue { ProgramPoint = pp; VarKind = vk } with
+    | true, defVp -> defVp.ProgramPoint.IsFake
+    | false, _ -> false
+
+  /// Loads a value of the given type from the given variable in memory, which
+  /// holds what it held on entry: what the binary holds there if it is a
+  /// global variable where only the loader writes, as ARM code loads the
+  /// address of a table from its literal pool, or else the given base case.
+  let loadEntryValue rt baseCase vk =
+    match vk with
+    | Global addr ->
+      LoaderOnlyMemory.tryRead hdl addr rt
+      |> Option.map ConstantDomain.Const
+      |> Option.defaultValue baseCase
+    | _ ->
+      baseCase
+
+  /// Loads a value of the given type from the given variable in memory, which
+  /// has no type of its own.
+  let loadVar (state: LowUIRSparseDataFlow.State<_>) pp rt vk =
+    match state.GetAbsValueOfUse(pp, vk) with
+    | ConstantDomain.Const bv when bv.Length < rt ->
+      ConstantDomain.Const <| BitVector.ZExt(bv, rt)
+    | ConstantDomain.Const bv when bv.Length > rt ->
+      ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
+    | c when readsEntryValue state pp vk ->
+      loadEntryValue rt c vk
+    | c ->
+      c
+
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | PCVar(Type = rt) ->
@@ -44,22 +78,11 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
     | Var _ | TempVar _ ->
       state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
     | Load(Endian = _m; Type = rt; Addr = addr) ->
-      match state.EvaluateStackPointerExpr(pp, addr) with
-      | StackPointerDomain.ConstSP bv ->
-        let addr = bv.ToUInt64()
-        let offset = LowUIRStackPointer.toFrameOffset addr
-        let c = state.GetAbsValueOfUse(pp, StackLocal offset)
-        match c with
-        | ConstantDomain.Const bv when bv.Length < rt ->
-          ConstantDomain.Const <| BitVector.ZExt(bv, rt)
-        | ConstantDomain.Const bv when bv.Length > rt ->
-          ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
-        | _ ->
-          c
-      | StackPointerDomain.NotConstSP ->
-        ConstantDomain.NotAConst
-      | StackPointerDomain.Undef ->
-        ConstantDomain.Undef
+      let addrValue = state.EvaluateAddressExpr(pp, addr)
+      match LowUIRAddress.tryGetMemoryVarKind addrValue, addrValue with
+      | Some vk, _ -> loadVar state pp rt vk
+      | None, AddressDomain.Undef -> ConstantDomain.Undef
+      | None, _ -> ConstantDomain.NotAConst
     | UnOp(Op = op; Operand = e) ->
       evaluateExpr state pp e
       |> ConstantDomain.evalUnOp op

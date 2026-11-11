@@ -42,14 +42,21 @@ module VarDefDomain =
     | None -> Set.empty
     | Some pps -> pps
 
+  /// Gets the kind of the variable that names the memory cell at the given
+  /// address, or all the memory if the address is not known.
+  let private memoryAt addr =
+    match addr with
+    | Some addr -> Global addr
+    | None -> Memory
+
   /// Returns the definitions that reach the memory cell at the given address.
-  let load addr rd = get (Memory addr) rd
+  let load addr rd = get (memoryAt addr) rd
 
   /// Adds the given definition to the memory cell at the given address.
   let store addr pp rd =
     let pps = load addr rd
     let pps = Set.add pp pps
-    Map.add (Memory addr) pps rd
+    Map.add (memoryAt addr) pps rd
 
   /// Joins the two maps by unioning the definitions of every variable kind.
   let join rd1 rd2 =

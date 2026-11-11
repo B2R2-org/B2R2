@@ -132,7 +132,8 @@ type Instruction
 
     member _.IsExit =
       match op with
-      | Opcode.HLT
+      (* BRK and UDF return, if at all, to the instruction itself. *)
+      | Opcode.HLT | Opcode.BRK | Opcode.UDF
       | Opcode.ERET | Opcode.ERETAA | Opcode.ERETAB -> true
       | _ -> false
 
@@ -161,11 +162,7 @@ type Instruction
       else
         false
 
-    member this.IndirectTrampolineAddr(_addr: byref<Addr>) =
-      if (this :> IInstruction).IsIndirectBranch then
-        Terminator.futureFeature ()
-      else
-        false
+    member _.IndirectTrampolineAddr(_: byref<Addr>) = false
 
     member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 

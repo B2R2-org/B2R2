@@ -33,7 +33,8 @@ open B2R2
 type TaskManager<'FnCtx, 'GlCtx>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
-         numThreads) =
+         numThreads,
+         identification: IIncrementalFunctionIdentifiable option) =
 
   let stream = TaskWorkerCommandStream<'FnCtx, 'GlCtx>()
 
@@ -41,7 +42,8 @@ type TaskManager<'FnCtx, 'GlCtx>
 
   let depMap = FunctionDependenceMap()
 
-  let scheduler = TaskScheduler<_, _>(builders, strategy, stream, depMap)
+  let scheduler =
+    TaskScheduler<_, _>(builders, strategy, stream, depMap, identification)
 
   let managerMsgbox = scheduler.Start(cts.Token)
 
@@ -99,6 +101,9 @@ type TaskManager<'FnCtx, 'GlCtx>
 #if CFGDEBUG
   do initLogger numThreads
 #endif
+
+  new(builders, strategy, numThreads) =
+    TaskManager(builders, strategy, numThreads, None)
 
   /// Functions whose recovery raised an unexpected exception.
   member _.Failures with get(): CFGRecoveryFailure[] = scheduler.Failures

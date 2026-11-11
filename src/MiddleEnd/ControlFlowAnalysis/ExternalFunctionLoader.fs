@@ -72,4 +72,48 @@ module internal ELF = begin
       match knownCondNoReturnFuncMap.TryGetValue name with
       | true, i -> ConditionalNoRet(cc.GetIntArgLocation i)
       | false, _ -> NotNoRet (* For common cases. *)
+
+  /// A mapping from known function names to the zero-based indices of the
+  /// arguments that pass the functions they call, as __libc_start_main calls
+  /// main and qsort calls its comparison.
+  let private knownCallbackFuncMap =
+    [ ("__libc_start_main", [ 0; 3; 4 ])
+      ("__cxa_atexit", [ 0 ])
+      ("__cxa_thread_atexit_impl", [ 0 ])
+      ("at_quick_exit", [ 0 ])
+      ("atexit", [ 0 ])
+      ("on_exit", [ 0 ])
+      ("bsearch", [ 4 ])
+      ("qsort", [ 3 ])
+      ("qsort_r", [ 3 ])
+      ("lfind", [ 4 ])
+      ("lsearch", [ 4 ])
+      ("tsearch", [ 2 ])
+      ("tfind", [ 2 ])
+      ("tdelete", [ 2 ])
+      ("twalk", [ 1 ])
+      ("twalk_r", [ 1 ])
+      ("tdestroy", [ 1 ])
+      ("scandir", [ 2; 3 ])
+      ("scandirat", [ 3; 4 ])
+      ("ftw", [ 1 ])
+      ("nftw", [ 1 ])
+      ("dl_iterate_phdr", [ 0 ])
+      ("pthread_create", [ 2 ])
+      ("pthread_once", [ 1 ])
+      ("pthread_atfork", [ 0; 1; 2 ])
+      ("pthread_key_create", [ 1 ])
+      ("signal", [ 1 ])
+      ("bsd_signal", [ 1 ])
+      ("sigset", [ 1 ])
+      ("_obstack_begin", [ 3; 4 ])
+      ("_obstack_begin_1", [ 3; 4 ]) ]
+    |> Map.ofList
+
+  /// Gets the zero-based indices of the arguments that pass the functions which
+  /// the known function of the given name calls.
+  let getCallbackArgsOfKnownFunc name =
+    match knownCallbackFuncMap.TryGetValue name with
+    | true, idxs -> idxs
+    | false, _ -> []
 end

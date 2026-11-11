@@ -107,6 +107,61 @@ type SSAExprEvaluatorTests() =
     Assert.AreEqual<bool option list>(expected, actual)
 
   [<TestMethod>]
+  member _.``SSAExprEvaluator compares temporaries as wide as defined``() =
+    (* cmp r2, #3 in ARM copies r2 into a temporary, subtracts 3 from it into
+       another, and compares the two, neither of which the IR data flow gives
+       a width. Their definitions do: bhi falls through for 0 to 3. *)
+    let edi = var 32<rt> Register.EDI 1
+    let copy = { Kind = TempVar(0<rt>, 1); Identifier = 2 }
+    let diff = { Kind = TempVar(0<rt>, 3); Identifier = 3 }
+    let cf, zf = var 1<rt> Register.CF 4, var 1<rt> Register.ZF 5
+    let defs =
+      [ Def(copy, Var edi)
+        Def(diff, binop BinOpType.SUB (Var copy) (num 3UL))
+        Def(cf, relop RelOpType.LE (Var diff) (Var copy))
+        Def(zf, relop RelOpType.EQ (Var diff) (num 0UL)) ]
+    let notZf = UnOp(UnOpType.NOT, 1<rt>, Var zf)
+    let cond = BinOp(BinOpType.AND, 1<rt>, Var cf, notZf)
+    let actual = evaluateAll defs edi cond [ 0L; 3L; 4L ]
+    let expected = [ Some false; Some false; Some true ]
+    Assert.AreEqual<bool option list>(expected, actual)
+
+  [<TestMethod>]
+  member _.``SSAExprEvaluator takes the width of a root from its load``() =
+    (* ldrb w0, [x0, #8]; sub w0, w0, #1; cmp w0, #11; b.hi of AArch64 falls
+       through for a byte of 1 to 12. LDRB loads the byte into a temporary,
+       which the IR data flow gives no width and only a cast reads, so the
+       load tells how wide a value of it is, as it does for a stack slot that
+       holds a copy of the temporary. *)
+    let mem = { Kind = MemVar; Identifier = 0 }
+    let edi = var 32<rt> Register.EDI 1
+    let byte = { Kind = TempVar(0<rt>, 1); Identifier = 2 }
+    let slot = { Kind = StackVar(0<rt>, 8); Identifier = 3 }
+    let defs = [ Def(byte, Load(mem, 8<rt>, Var edi)); Def(slot, Var byte) ]
+    let fallsThrough root =
+      let extended = Cast(CastKind.ZeroExt, 32<rt>, Var root)
+      let index = binop BinOpType.SUB extended (num 1UL)
+      evaluateAll defs root (relop RelOpType.LE index (num 11UL))
+    let values = [ 0L; 1L; 12L; 13L ]
+    let actual = fallsThrough byte values @ fallsThrough slot values
+    let expected = [ Some false; Some true; Some true; Some false ]
+    Assert.AreEqual<bool option list>(expected @ expected, actual)
+
+  [<TestMethod>]
+  member _.``SSAExprEvaluator follows copies however many there are``() =
+    (* ARM moves a register through a temporary, so a value that the code
+       moves around a few times reaches a comparison through more copies than
+       the depth that the evaluation goes to. *)
+    let edi = var 32<rt> Register.EDI 1
+    let temp n = { Kind = TempVar(0<rt>, n); Identifier = n }
+    let temps = [ 2 .. 13 ] |> List.map temp
+    let defs =
+      List.pairwise (edi :: temps) |> List.map (fun (src, t) -> Def(t, Var src))
+    let cond = relop RelOpType.LT (Var(List.last temps)) (num 4UL)
+    let actual = evaluateAll defs edi cond [ 3L; 4L ]
+    Assert.AreEqual<bool option list>([ Some true; Some false ], actual)
+
+  [<TestMethod>]
   member _.``SSAExprEvaluator knows no slot read at another width``() =
     (* mov [rsp+0x70], rax spills eight bytes, and cmp dword [rsp+0x70], 9
        reads back four of them, which four depending on the byte order. *)

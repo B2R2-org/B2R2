@@ -19,7 +19,7 @@ env:
   # One tag pins all three pieces -- the binaries, the ground truth and the
   # checksums -- so upgrading the dataset is a reviewable commit here instead
   # of a silent shift in what the check measures.
-  DATASET_TAG: v0.3
+  DATASET_TAG: v0.4
 
 jobs:
   score:
@@ -35,6 +35,10 @@ jobs:
         - x86-clang
         - x64-gcc
         - x64-clang
+        - armhf-gcc
+        - armhf-clang
+        - armel-gcc
+        - armel-clang
 
     steps:
     - uses: actions/checkout@v5

@@ -29,6 +29,7 @@ open System.Runtime.InteropServices
 open B2R2
 open B2R2.ABI
 open B2R2.BinIR
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ConcEval
@@ -82,11 +83,148 @@ module private CondAwareNoretAnalysisHelper =
       not pred.VData.Internals.IsAbstract
       && hasNonZero hdl [| pred; caller |] loc)
 
+  /// Represents what holds a value within the statements of a vertex: a
+  /// register, or a temporary of the instruction that they belong to.
+  [<RequireQualifiedAccess>]
+  type Holder =
+    | Reg of RegisterID
+    | Temp of int
+
+  let tryHolderOf e =
+    match e with
+    | LowUIR.Var(RegisterID = r) -> Some(Holder.Reg r)
+    | LowUIR.TempVar(Index = i) -> Some(Holder.Temp i)
+    | _ -> None
+
+  /// Follows the given holder of a value back from the i-th of the given
+  /// statements to what holds the value before the first one, through the
+  /// copies that pass it on, unless a statement computes the value.
+  let rec tryTraceCopy (stmts: LowUIR.Stmt[]) i holder =
+    if i < 0 then
+      Some holder
+    else
+      match stmts[i] with
+      | LowUIR.Put(Dst = dst; Src = src) when tryHolderOf dst = Some holder ->
+        tryHolderOf src |> Option.bind (tryTraceCopy stmts (i - 1))
+      | _ ->
+        tryTraceCopy stmts (i - 1) holder
+
+  /// Follows the given holder of a value at the end of the given vertex back
+  /// to what holds the value at its start, unless the vertex computes it.
+  let tryTraceBack (v: IVertex<LowUIRBasicBlock>) holder =
+    let stmts = v.VData.Internals.LiftedInstructions |> Array.collect _.Stmts
+    tryTraceCopy stmts (stmts.Length - 1) holder
+
+  /// Checks if the given holder holds a non-zero value at the end of the given
+  /// vertex, whatever the control brings into it.
+  let isNonZeroAtEnd hdl v holder =
+    let st = CFGEvaluator.evalBlockWith hdl [||] v
+    let value =
+      match holder with
+      | Holder.Reg r -> st.TryGetReg r
+      | Holder.Temp i -> st.TryGetTmp i
+    match value with
+    | Def bv -> not bv.IsZero
+    | _ -> false
+
+  /// Tells whether the given vertex starts past the first statement of an
+  /// instruction, where only the conditional jumps within the instruction
+  /// lead, so that no other code may come to enter it.
+  let isWithinInstruction (v: IVertex<LowUIRBasicBlock>) =
+    v.VData.Internals.PPoint.Position > 0
+
+  /// Returns which way a conditional jump goes as the control takes an edge of
+  /// the given kind, if the edge stands for one.
+  let tryGetOutcome kind =
+    match kind with
+    | IntraCJmpTrueEdge | InterCJmpTrueEdge -> Some true
+    | IntraCJmpFalseEdge | InterCJmpFalseEdge -> Some false
+    | _ -> None
+
+  /// Gets the condition of the conditional jump that ends the given vertex.
+  let tryGetJumpCondition (v: IVertex<LowUIRBasicBlock>) =
+    (Array.last v.VData.Internals.LiftedInstructions).Stmts
+    |> Array.rev
+    |> Array.tryPick (fun stmt ->
+      match stmt with
+      | LowUIR.CJmp(Cond = c) | LowUIR.InterCJmp(Cond = c) -> Some c
+      | _ -> None)
+
+  /// Checks if the conditional jump that ends the given vertex would not go the
+  /// given way, were the value that the given holder holds at the end of the
+  /// vertex zero: the value comes from a register that the vertex compares, as
+  /// when a conditional move turns any value up to one into one.
+  let isCutOnZero hdl u holder outcome =
+    match tryTraceBack u holder, tryGetJumpCondition u with
+    | Some(Holder.Reg r), Some cond ->
+      let zero = BitVector.Zero((hdl: BinHandle).RegisterFactory.GetRegType r)
+      let st = CFGEvaluator.evalBlockWith hdl [| r, zero |] u
+      match SafeEvaluator.evalExpr st cond with
+      | Ok(Def taken) -> taken.IsZero = outcome
+      | _ -> false
+    | _ ->
+      false
+
+  /// The most vertices that the paths to a call may cross back to find what
+  /// sets the argument that the call passes.
+  let [<Literal>] MaxPathLength = 16
+
+  /// Checks if the value that the given holder holds at the end of the given
+  /// vertex is non-zero on every path to it, crossing back at most the given
+  /// number of vertices. A path ends where a vertex computes the value or a
+  /// guard would turn a zero one away. Only the caller of the call that passes
+  /// the value and the parts of an instruction past its conditional jumps let
+  /// a path go further back, as no other code may come to enter the parts,
+  /// while the caller is judged again once it gains a predecessor.
+  let rec isNonZeroOnPaths hdl g caller fuel v holder =
+    match tryTraceBack v holder with
+    | None ->
+      isNonZeroAtEnd hdl v holder
+    | Some start when fuel > 0 && (v = caller || isWithinInstruction v) ->
+      let edges = (g: IDiGraph<LowUIRBasicBlock, _>).GetPredEdges v
+      not (Array.isEmpty edges)
+      && edges |> Array.forall (isNonZeroAcross hdl g caller (fuel - 1) start)
+    | Some _ ->
+      false
+
+  and isNonZeroAcross hdl g caller fuel holder (e: Edge<_, _>) =
+    let u = e.First
+    not u.VData.Internals.IsAbstract
+    && (tryGetOutcome e.Label |> Option.exists (isCutOnZero hdl u holder)
+        || isNonZeroOnPaths hdl g caller fuel u holder)
+
+  /// Checks if every path to the call ending the given caller sets the
+  /// argument at the given location to a non-zero one or passes a guard that a
+  /// zero one would not pass, such as the comparison that decides whether a
+  /// conditional move turns the argument into one.
+  let passesNonZeroOnGuards hdl g caller loc =
+    match loc with
+    | ArgLocation.Reg rid ->
+      isNonZeroOnPaths hdl g caller MaxPathLength caller (Holder.Reg rid)
+    | _ ->
+      false
+
   [<return: Struct>]
   let (|Zero|_|) e =
     match e with
     | LowUIR.Num(Value = n) when n.IsZero -> ValueSome()
     | _ -> ValueNone
+
+  /// Matches the difference that ARM computes to compare one operand with
+  /// another, adding the complement of the other and one to the first, and
+  /// gives the two operands.
+  [<return: Struct>]
+  let (|SubByComplement|_|) e =
+    match e with
+    | LowUIR.BinOp(Op = BinOpType.ADD
+                   Left = LowUIR.BinOp(Op = BinOpType.ADD
+                                       Left = e1
+                                       Right = LowUIR.UnOp(Op = UnOpType.NOT
+                                                           Operand = e2))
+                   Right = LowUIR.Num(Value = n)) when n.IsOne ->
+      ValueSome(e1, e2)
+    | _ ->
+      ValueNone
 
 /// Represents a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
@@ -154,8 +292,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     |> Array.tryPick (fun (stmt, pp) ->
       match stmt with
       | LowUIR.Put(Dst = dst) when isStackPointer hdl dst ->
-        match state.EvaluateStackPointerExpr(pp, dst) with
-        | StackPointerDomain.ConstSP sp -> Some sp
+        match state.EvaluateAddressExpr(pp, dst) with
+        | AddressDomain.StackAddr sp -> Some sp
         | _ -> None
       | _ ->
         None)
@@ -169,7 +307,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | ArgLocation.Stack layout ->
       tryGetCalleeEntrySP hdl state absV
       |> Option.map (fun sp ->
-        let offset = LowUIRStackPointer.toFrameOffset (sp.ToUInt64())
+        let offset = LowUIRAddress.toFrameOffset sp
         StackLocal(offset + layout.FirstOffset))
     | ArgLocation.RegPair _ ->
       None
@@ -316,15 +454,36 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | Some callerLoc -> ConditionalNoRet callerLoc
     | None -> judgeReturn exit
 
+  /// Finds the expressions that the given statement reads.
+  let exprsReadBy stmt =
+    match stmt with
+    | LowUIR.Put(Src = e) | LowUIR.InterJmp(Target = e) -> [| e |]
+    | LowUIR.Store(Addr = addr; Value = value) -> [| addr; value |]
+    | _ -> [||]
+
+  /// Checks if the return instruction that ends the given vertex reads the
+  /// register with the given ID.
+  let returnReads rid (v: IVertex<LowUIRBasicBlock>) =
+    let rset = RegisterSet()
+    (Array.last v.VData.Internals.LiftedInstructions).Stmts
+    |> Array.collect exprsReadBy
+    |> Array.iter (LowUIR.AST.updateRegsUses rset)
+    rset.Contains(int rid)
+
   /// Checks if the given exit vertex has a corrupted stack pointer value before
-  /// executing the return instruction. This means we cannot statically decide
-  /// whether the return instruction will jump to the caller or not.
+  /// executing the return instruction, which reads it when it pops the return
+  /// address. This means we cannot statically decide whether the return
+  /// instruction will jump to the caller or not. A return through a link
+  /// register, which reads no stack pointer, jumps to the caller whatever the
+  /// stack pointer holds.
   let hasUndecidableReturnTarget (ctx: CFGBuildingContext<_, _>) v =
     let hdl = ctx.BinHandle
     let st = CFGEvaluator.evalBlockFromScratch hdl v
     let rid = hdl.RegisterFactory.StackPointer.Value
     match st.TryGetReg(rid) with
     | Def(_) ->
+      false
+    | _ when not (returnReads rid v) ->
       false
     | _ ->
 #if CFGDEBUG
@@ -390,7 +549,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       status
 
   /// Gets the condition of the conditional jump that ends the given vertex,
-  /// along with the statements of the vertex, which tell what it reads.
+  /// whether it jumps out of its instruction or within it, along with the
+  /// statements of the vertex, which tell what it reads.
   let tryGetCondition (state: LowUIRSparseDataFlow.State<_>) v =
     if (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
       None
@@ -398,7 +558,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       let stmts = state.GetStmtInfos v
       match fst stmts[stmts.Length - 1] with
       | LowUIR.InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f)
-        when t <> f ->
+      | LowUIR.CJmp(Cond = c; TrueTarget = t; FalseTarget = f) when t <> f ->
         Some(stmts, c)
       | _ ->
         None
@@ -412,6 +572,19 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       match fst stmts[i - 1] with
       | LowUIR.Put(Dst = dst; Src = src) when dst = var -> Some(i - 1, src)
       | _ -> tryFindLocalDef stmts (i - 1) var
+
+  /// Checks if the given expression, which the i-th of the given statements
+  /// reads, is zero, following the definitions in the block.
+  let rec isLocallyZero stmts i e =
+    match e with
+    | Zero ->
+      true
+    | LowUIR.Var _ | LowUIR.TempVar _ ->
+      match tryFindLocalDef stmts i e with
+      | Some(j, src) -> isLocallyZero stmts j src
+      | None -> false
+    | _ ->
+      false
 
   /// Finds what the given expression, which the i-th of the given statements
   /// of a block reads, tests against zero: a register or memory read, along
@@ -438,10 +611,20 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | LowUIR.UnOp(Op = UnOpType.NOT; Operand = e)
       when LowUIR.Expr.typeOf e = 1<rt> ->
       find e |> negate
+    (* Thumb tells CBNZ from CBZ by xoring the test of the register with one
+       rather than zero. *)
+    | LowUIR.BinOp(Op = BinOpType.XOR; Left = LowUIR.Num(Value = n); Right = e)
+    | LowUIR.BinOp(Op = BinOpType.XOR; Left = e; Right = LowUIR.Num(Value = n))
+      when LowUIR.Expr.typeOf e = 1<rt> ->
+      if n.IsZero then find e else find e |> negate
     | LowUIR.BinOp(Op = (BinOpType.AND | BinOpType.OR); Left = e1; Right = e2)
       when e1 = e2 ->
       find e1
     | LowUIR.BinOp(Op = BinOpType.SUB; Left = e; Right = Zero) ->
+      find e
+    (* ARM subtracts zero to compare with it by adding its complement and one,
+       which leaves what it compares. *)
+    | SubByComplement(e, z) when isLocallyZero stmts i z ->
       find e
     (* The low part of a register holds an argument narrower than the
        register, such as an int in RDI, which is what a test of it tells. *)
@@ -460,14 +643,52 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | _ ->
       None
 
+  /// Finds the definition that alone reaches the given read of a variable at
+  /// the given program point from another block, as the statements of that
+  /// block, the index of the definition among them, and what it defines the
+  /// variable as. Where several definitions meet, a phi defines the variable
+  /// at the start of its block, where no statement defines anything.
+  let tryFindOuterDef (state: LowUIRSparseDataFlow.State<_>) pp read =
+    let vp = { ProgramPoint = pp; VarKind = VarKind.ofIRExpr read }
+    match state.UseDefMap.TryGetValue vp with
+    | true, defVp ->
+      match state.StmtOfBBLs.TryGetValue defVp.ProgramPoint with
+      | true, (LowUIR.Put(Src = src), v) ->
+        let stmts = state.GetStmtInfos v
+        let i = stmts |> Array.findIndex (fun (_, p) -> p = defVp.ProgramPoint)
+        Some(stmts, i, src)
+      | _ ->
+        None
+    | false, _ ->
+      None
+
+  /// Traces the given test of a read at a program point back to the argument
+  /// that the function gets untouched, through the definitions that reach the
+  /// read from other blocks, as when a conditional instruction of ARM parts a
+  /// comparison from the instruction that reads its flag. Gives the argument
+  /// along with whether the test holds exactly when the argument is zero.
+  let rec tryTraceZeroTest hdl state (read, pp, onZero) =
+    match tryGetUntouchedArgument hdl state pp read, read with
+    | Some loc, _ ->
+      Some(loc, onZero)
+    | None, (LowUIR.Var _ | LowUIR.TempVar _) ->
+      tryFindOuterDef state pp read
+      |> Option.bind (fun (stmts, i, src) -> tryFindZeroTest stmts i src)
+      |> Option.bind (fun (read, pp, onDefZero) ->
+        tryTraceZeroTest hdl state (read, pp, onZero <> onDefZero))
+    | None, _ ->
+      None
+
   /// Finds the argument that the given guard finds zero whenever it lets a
   /// path through. The data flow that tells whether the guard tests one is
   /// computed only once the guard tests something that may be one.
   let tryGetZeroOnGuard hdl (state: Lazy<_>) ((stmts, cond), outcome) =
     match tryFindZeroTest stmts (Array.length stmts - 1) cond with
-    | Some(read, pp, onZero) when onZero = outcome ->
-      tryGetUntouchedArgument hdl state.Value pp read
-    | _ ->
+    | Some test ->
+      match tryTraceZeroTest hdl state.Value test with
+      | Some(loc, onZero) when onZero = outcome -> Some loc
+      | _ -> None
+    | None ->
       None
 
   /// Finds the argument that a guard on every path to the given vertex finds
@@ -546,8 +767,10 @@ module CondAwareNoretAnalysis =
   /// Checks if the call ending the given caller in the given CFG passes a
   /// non-zero argument at the given location, however the control reaches it.
   /// A caller that sets no argument of its own leaves it to its predecessors,
-  /// as when a compiler merges the calls of several paths into one, so the
-  /// answer holds only while no other predecessor joins them.
+  /// as when a compiler merges the calls of several paths into one, or to a
+  /// guard that a zero argument would not pass, so the answer holds only while
+  /// no other predecessor joins them.
   let passesNonZero hdl g caller loc =
     CondAwareNoretAnalysisHelper.hasNonZero hdl [| caller |] loc
     || CondAwareNoretAnalysisHelper.hasNonZeroFromPreds hdl g caller loc
+    || CondAwareNoretAnalysisHelper.passesNonZeroOnGuards hdl g caller loc

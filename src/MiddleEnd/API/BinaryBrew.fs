@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd
 
 open System
+open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -58,9 +59,20 @@ type BinaryBrew<'FnCtx, 'GlCtx>
     |> Array.filter (fun builder -> builder.BuilderState = Finished)
     |> FunctionCollection
 
+  /// The identification as one that also finds functions in what the recovery
+  /// builds, if it is one.
+  let incrementalIdentification =
+    match funcID with
+    | :? IIncrementalFunctionIdentifiable as incremental -> Some incremental
+    | _ -> None
+
   let recoverFunctions () =
     let candidates = funcID.Identify()
-    let manager = TaskManager<'FnCtx, 'GlCtx>(builders, cfgBuilder, numThreads)
+    let manager =
+      TaskManager<'FnCtx, 'GlCtx>(builders,
+                                  cfgBuilder,
+                                  numThreads,
+                                  incrementalIdentification)
     manager.StartAndWait candidates
     buildersToFunctions builders, manager.Failures, manager.GlobalContext
 
@@ -105,7 +117,7 @@ type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
 
   new(hdl: BinHandle, exnInfo: ExceptionInfo, cfgBuilder) =
-    let funcId = FunctionIdentification(hdl, exnInfo)
+    let funcId = BinaryBrew.IdentificationOf(hdl, exnInfo)
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, funcId,
                                                      cfgBuilder) }
 
@@ -114,7 +126,7 @@ type BinaryBrew =
 
   new(hdl: BinHandle, options: CFGRecoveryOptions) =
     let exnInfo = ExceptionInfo hdl
-    let funcId = FunctionIdentification(hdl, exnInfo)
+    let funcId = BinaryBrew.IdentificationOf(hdl, exnInfo)
     let cfgBuilder =
       CFGRecovery(hdl.ISA, options)
       :> ICFGBuildingStrategy<_, _>
@@ -124,6 +136,14 @@ type BinaryBrew =
                                                      cfgBuilder) }
 
   new(hdl: BinHandle) = BinaryBrew(hdl, CFGRecoveryOptions.Default)
+
+  /// Returns the function identification that suits the ISA of the binary.
+  static member private IdentificationOf(hdl: BinHandle, exnInfo) =
+    match hdl.ISA with
+    | ARM32 ->
+      ARM32FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
+    | _ ->
+      FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
 /// Default BinaryBrew type that uses EVM-specific user context.
 type EVMBinaryBrew =

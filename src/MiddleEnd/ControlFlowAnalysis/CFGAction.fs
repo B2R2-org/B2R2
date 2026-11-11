@@ -54,6 +54,11 @@ type CFGAction =
   /// possible targets of the branch and connect them with the vertex that ends
   /// with it.
   | MakeIndEdges of ins: Addr
+  /// Creates edges for the indirect branch at the given address once more, if
+  /// the CFG has gained edges since its analysis failed with the given number
+  /// of them. The analysis reads the data flow of the CFG built so far, which
+  /// may lack the paths that give the branch its targets.
+  | RetryIndEdges of ins: Addr * numEdges: int
   /// Wait for the callee to be resolved.
   | WaitForCallee of calleeAddr: Addr
   /// Start recovering a jump table entry (only single entry at a time).

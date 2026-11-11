@@ -131,15 +131,14 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
 
   let resolveOverlap fnAddr (jmptbl: JmpTableInfo) oldNote =
     let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
-    let entrySize = uint64 jmptbl.EntrySize
-    let newEndPoint = newTblAddr - entrySize
+    let entrySize = uint64 oldNote.EntrySize
     let entryBeingAnalyzed = oldNote.ConfirmedEndPoint + entrySize
 #if CFGDEBUG
     let str = notes.GetNoteString oldNote.StartingPoint
     dbglog ManagerTid "JumpTable overlap"
     <| $"{jmptbl.InsAddr:x}:{newTblAddr:x} overlapped with ({str})"
 #endif
-    notes.SetPotentialEndPointByAddr(oldTblAddr, newEndPoint)
+    let newEndPoint = notes.EndBefore(oldTblAddr, newTblAddr)
     if entryBeingAnalyzed <= newEndPoint then
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" $"overlap resolved and continue"

@@ -227,6 +227,11 @@ type ELFTests() =
   /// carry the Thumb bit (LSB set) in their addresses.
   static let thumbFile = parseFile "elf_thumb"
 
+  /// A Thumb PIE whose qsort@plt starts with the Thumb stub that GNU ld puts in
+  /// front of an ARM PLT entry once Thumb code tail-calls it, while a call that
+  /// switches to ARM enters the entry past the stub.
+  static let thumbPltStubFile = parseFile "elf_thumb_pltstub"
+
   /// A C++ ARM binary using try/catch, so its unwinding lives in the
   /// ARM-specific .ARM.exidx/.ARM.extab tables rather than in .eh_frame.
   static let arm32ExidxFile = parseFile "elf_arm32_exidx"
@@ -2399,6 +2404,15 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] thumb relocation test``() =
     assertExistenceOfReloc thumbFile 0x12014UL "write"
+
+  [<TestMethod>]
+  member _.``[ELF] thumb PLT stub is the trampoline of its entry test``() =
+    (* sort_tail tail-calls qsort@plt at its stub, 0x488, and main calls it
+       at 0x48c with a blx that skips the stub. Both enter the one import. *)
+    let file = thumbPltStubFile
+    Assert.AreEqual<Addr option>(Some 0x488UL, file.TryFindTrampoline 0x488UL)
+    Assert.AreEqual<Addr option>(Some 0x488UL, file.TryFindTrampoline 0x48cUL)
+    Assert.AreEqual<Addr option>(None, file.TryFindTrampoline 0x4a4UL)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 ISA test``() =

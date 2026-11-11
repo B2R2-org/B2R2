@@ -2454,3 +2454,44 @@ loader. The other GNU notes are covered by fixtures that already exist:
 `elf_x64_exec` carries a `.note.gnu.property` with the x86 IBT and SHSTK bits,
 `elf_x64_nosec` carries a build ID reachable through its segment alone, and
 `elf_x64_obj` carries a property note in a section alone.
+
+## The Thumb PLT stub fixture
+
+GNU ld puts a 4-byte Thumb stub, `bx pc` and a branch back to it, in front of
+the ARM PLT entry of an import that Thumb code tail-calls, since a `b.w`
+cannot switch instruction sets the way a `blx` does. That entry then has two
+ways in: the stub, which starts the entry and is its trampoline, for the tail
+call, and the ARM part right after it, which an ordinary call reaches with a
+`blx` straight away.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_thumb_pltstub` | `qsort@plt` at 0x488 starts with a Thumb stub; `main` calls 0x48c past it, `sort_tail` tail-calls 0x488, and both pass the static `cmp` |
+
+Ubuntu's armhf compiler builds Thumb by default:
+
+```
+arm-linux-gnueabihf-gcc -O2 pltstub.c -o elf_thumb_pltstub
+```
+
+```c
+#include <stdlib.h>
+
+static int cmp(const void *a, const void *b)
+{
+  return *(const int *)a - *(const int *)b;
+}
+
+__attribute__((noinline)) void sort_tail(int *v, size_t n)
+{
+  qsort(v, n, sizeof *v, cmp);
+}
+
+int main(void)
+{
+  int v[3] = { 3, 1, 2 };
+  qsort(v, 3, sizeof *v, cmp);
+  sort_tail(v, 3);
+  return v[0];
+}
+```

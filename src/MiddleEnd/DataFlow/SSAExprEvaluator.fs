@@ -26,7 +26,9 @@
 /// Provides a way to evaluate an SSA expression while one variable, the root,
 /// holds a given value, following the definitions of the other variables it
 /// reads. A temporary or a stack slot of the IR data flow carries no width, so
-/// such a variable takes the width of the expression that reads it.
+/// such a variable takes the width of the expression that reads it, or, when a
+/// comparison reads two of them, that of their definitions, as the root does
+/// where a cast reads it.
 module B2R2.MiddleEnd.DataFlow.SSAExprEvaluator
 
 open B2R2
@@ -48,6 +50,41 @@ let private widthAt rt e =
   let w = widthOf e
   if w = 0<rt> then rt else w
 
+/// Finds the width of the given expression, or, for a variable that carries
+/// none, that of its definition, which is zero if that carries none either.
+let private widthByDef findDef e =
+  match e with
+  | Var v when widthOf e = 0<rt> ->
+    match findDef v with
+    | Some(Def(_, d)) -> widthOf d
+    | _ -> 0<rt>
+  | _ ->
+    widthOf e
+
+/// Finds the width of the given expression, or, for a variable that carries
+/// none, that of the definition it copies, following copies of variables that
+/// carry none either, as a stack slot holds what a temporary held.
+let rec private widthByCopies findDef e =
+  match e with
+  | Var v when widthOf e = 0<rt> ->
+    match findDef v with
+    | Some(Def(_, d)) -> widthByCopies findDef d
+    | _ -> 0<rt>
+  | _ ->
+    widthOf e
+
+/// Finds the width at which a comparison reads the given operands: the wider
+/// of theirs, or, if neither carries one, that of their definitions when the
+/// two agree.
+let private widthOfOperands findDef e1 e2 =
+  match max (widthOf e1) (widthOf e2) with
+  | w when w > 0<rt> ->
+    w
+  | _ ->
+    match widthByDef findDef e1, widthByDef findDef e2 with
+    | w1, w2 when w1 = w2 -> w1
+    | _ -> 0<rt>
+
 /// Keeps the given value if it is not a constant, or if its width satisfies the
 /// given condition. A variable that carries no width takes the width of its
 /// definition, which can differ from the width at which it is read, as when a
@@ -59,6 +96,14 @@ let private keepIf isFitting c =
   | _ ->
     c
 
+/// Finds the depth left after following the given definition. A copy of a
+/// variable takes none, since it computes nothing, and ARM moves a register
+/// through a temporary, which doubles the copies on the way to a value.
+let private depthAfter depth d =
+  match d with
+  | Var _ -> depth
+  | _ -> depth - 1
+
 /// Evaluates the given expression, whose width is rt unless rt is zero.
 let rec private evalAt findDef root (value: int64 option) depth rt e =
   let eval = evalAt findDef root value depth
@@ -66,14 +111,15 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
   | Num bv ->
     ConstantDomain.Const bv
   | Var v when v = root ->
-    match widthAt rt e, value with
-    | w, Some n when w > 0<rt> -> ConstantDomain.Const(BitVector(n, w))
+    let w = if rt = 0<rt> then widthByCopies findDef e else widthAt rt e
+    match value with
+    | Some n when w > 0<rt> -> ConstantDomain.Const(BitVector(n, w))
     | _ -> ConstantDomain.NotAConst
   | Var v when depth > 0 ->
     match findDef v with
     | Some(Def(_, d)) ->
       let w = widthAt rt e
-      evalAt findDef root value (depth - 1) (widthAt w d) d
+      evalAt findDef root value (depthAfter depth d) (widthAt w d) d
       |> keepIf (fun dw -> w = 0<rt> || dw = w)
     | _ ->
       ConstantDomain.NotAConst
@@ -82,7 +128,7 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
   | BinOp(op, t, e1, e2) ->
     ConstantDomain.evalBinOp op (eval t e1) (eval t e2)
   | RelOp(op, _, e1, e2) ->
-    match max (widthOf e1) (widthOf e2) with
+    match widthOfOperands findDef e1 e2 with
     | t when t > 0<rt> -> ConstantDomain.evalRelOp op (eval t e1) (eval t e2)
     | _ -> ConstantDomain.NotAConst
   | UnOp(op, t, e) ->
@@ -101,7 +147,8 @@ let rec private evalAt findDef root (value: int64 option) depth rt e =
 
 /// Evaluates the given expression with the root holding the given value, if
 /// any, following the definitions of the other variables it reads, as findDef
-/// gives them, up to the given depth. The result is not a constant if it
-/// depends on anything else, or on the root while the root holds no value.
+/// gives them, up to the given depth, which copies do not count toward. The
+/// result is not a constant if it depends on anything else, or on the root
+/// while the root holds no value.
 let evaluate findDef root value depth e =
   evalAt findDef root value depth (widthOf e) e

@@ -46,9 +46,13 @@ type Instruction
            isAdd,
            lifter: ILiftable) =
 
+  /// Tells whether this names where it branches to as a label, as B does, and
+  /// as CBZ and CBNZ do besides the register that they test.
   let hasConcJmpTarget () =
-    match opr with
-    | OneOperand(OprMemory(LiteralMode _)) -> true
+    match op, opr with
+    | _, OneOperand(OprMemory(LiteralMode _))
+    | Op.CBZ, TwoOperands(_, OprMemory(LiteralMode _))
+    | Op.CBNZ, TwoOperands(_, OprMemory(LiteralMode _)) -> true
     | _ -> false
 
   /// Tells whether this computes the PC as its destination, which ALUWritePC
@@ -65,6 +69,12 @@ type Instruction
       | _ -> false
     | _ ->
       false
+
+  /// Returns the address at the given offset from the PC aligned to a word,
+  /// which is where a load relative to the PC reads.
+  let fromAlignedPC (offset: int64) =
+    let pc = (int64 addr + (if isThumb then 4L else 8L)) / 4L * 4L
+    (pc + offset) &&& 0xFFFFFFFFL |> uint64
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -269,9 +279,11 @@ type Instruction
       match opr with
       | TwoOperands(_, OprMemory(LiteralMode target))
         when op <> Op.CBZ && op <> Op.CBNZ ->
-        let offset = if not isThumb then 8L else 4L
-        let pc = (int64 addr + offset) / 4L * 4L (* Align by 4 *)
-        addrs <- [| ((pc + target) &&& 0xFFFFFFFFL) |> uint64 |]
+        addrs <- [| fromAlignedPC target |]
+        true
+      | TwoOperands(_, OprMemory(OffsetMode(ImmOffset(R.PC, sign, imm)))) ->
+        let imm = Option.defaultValue 0L imm
+        addrs <- [| fromAlignedPC (if sign = Some Minus then -imm else imm) |]
         true
       | _ ->
         false
@@ -309,7 +321,7 @@ type Instruction
       elif ins.IsBranch then
         if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
         else this.AddBranchTargetIfExist [||]
-      elif this.Opcode = Opcode.HLT then
+      elif this.Opcode = Opcode.HLT || this.Opcode = Opcode.UDF then
         [||]
       else
         acc

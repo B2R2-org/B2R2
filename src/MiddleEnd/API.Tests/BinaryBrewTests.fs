@@ -466,6 +466,36 @@ type BinaryBrewTests() =
 
   [<TestMethod>]
   [<Timeout(10000)>]
+  member _.``BinaryBrew analyzes gaps once identification finds no more``() =
+    (* The second switch of gap lies in dead code, which only a gap analysis
+       recovers. A gap may hold a function that the identification is yet to
+       find in what has been built, so the analysis waits until it finds no
+       more, and then recovers the switch all the same. *)
+    let bytes = readZippedBinary "elf_x86_gapjmptbl"
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA "x64")
+    let found =
+      FunctionIdentification(hdl, ExceptionInfo hdl) :> IFunctionIdentifiable
+    let seen = ResizeArray()
+    let identification =
+      { new IIncrementalFunctionIdentifiable with
+          member _.Identify() = found.Identify()
+          member _.IdentifyMore fns =
+            fns
+            |> Array.filter (fun fn -> fn.EntryPoint = 0x401140UL)
+            |> Array.iter (fun fn -> seen.Add(jumpTablesOf fn))
+            [||] }
+    let strategy = CFGRecovery(hdl.ISA, CFGRecoveryOptions.Default)
+    let fn = BinaryBrew(hdl, identification, strategy).Functions[0x401140UL]
+    let live = [ 0x401150UL; 0x401156UL; 0x40115cUL; 0x401162UL ]
+    let dead = [ 0x40117cUL; 0x401182UL; 0x401186UL; 0x40118cUL ]
+    let beforeGaps = [ 0x40012cUL, 4, live ]
+    let expected = [ 0x40012cUL, 4, live; 0x400118UL, 4, dead ]
+    Assert.AreEqual<int>(1, seen.Count)
+    Assert.AreEqual<(Addr * int * Addr list) list>(beforeGaps, seen[0])
+    Assert.AreEqual<(Addr * int * Addr list) list>(expected, jumpTablesOf fn)
+
+  [<TestMethod>]
+  [<Timeout(10000)>]
   member _.``BinaryBrew drops an entry that jumps through its own table``() =
     (* Nothing bounds the index of pick, so its table is read past its twelve
        entries. The word after them points to the last byte of a jmp, where
@@ -691,6 +721,15 @@ type BinaryBrewTests() =
     let fn = (recoverFunctions "elf_x64_condtail")[0x20128eUL]
     let expected = [ InterJmpEdge ]
     Assert.AreEqual<CFGEdgeKind list>(expected, edgesFrom fn 0x201294UL)
+
+  [<TestMethod>]
+  member _.``BinaryBrew takes a call to the next pop as a read of the PC``() =
+    (* 32-bit x86 code reads the PC by calling the instruction right after the
+       call, which pops the address that the call pushes. No function starts
+       there, so the call only goes on within its function. *)
+    let code = [| 0xe8uy; 0uy; 0uy; 0uy; 0uy; 0x5buy; 0xc3uy |]
+    let fns = BinaryBrew(BinHandle.LoadRawImage(code, ISA "x86")).Functions
+    Assert.AreEqual<CFGEdgeKind list>([ InterJmpEdge ], edgesFrom fns[0UL] 0UL)
 
   [<TestMethod>]
   member _.``BinaryBrew passes the condition of error on to a wrapper``() =

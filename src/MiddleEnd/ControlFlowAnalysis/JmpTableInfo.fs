@@ -39,6 +39,13 @@ type JmpTableInfo =
     TableAddress: Addr
     /// The size of each entry in the jump table (in bytes).
     EntrySize: int
+    /// The number of bits by which the code shifts an entry to the left before
+    /// adding it to the base, e.g., two for GCC on ARM, whose entries count
+    /// instructions rather than bytes.
+    EntryShift: int
+    /// Indicates whether the load that reads an entry sign-extends it, rather
+    /// than zero-extends it.
+    IsSignedEntry: bool
     /// The number of entries in the jump table.
     mutable NumEntries: int
     /// Indirect branch instructions that share this table and should receive
@@ -53,6 +60,16 @@ type JmpTableInfo =
     /// the indirect branch admits, or None if no such check bounds the table
     /// from its first entry.
     OwnRangeEntries: int option
+    /// The number of entries, from the first, that a constant mask on the
+    /// index lets it select, or None if no mask bounds the table within its
+    /// section. Unlike a range check, a mask may let the index select more
+    /// entries than the table has.
+    MaskedEntries: int option
+    /// The number of entries, from the first, that fit before the next data
+    /// past the start of the table whose address the code computes on its own,
+    /// or None if the code computes no such address. A table runs into no
+    /// other data, though it may end well before.
+    EntriesBeforeData: int option
     /// Indicates whether the jump table is accessed via a function pointer
     /// table.
     mutable IsFunctionPointerTable: bool }
@@ -60,6 +77,22 @@ type JmpTableInfo =
 /// Provides functions to read the entries of a jump table.
 [<RequireQualifiedAccess>]
 module JmpTableInfo =
+  /// Tells whether the given index lies past the entries that the range check
+  /// of the given table admits, or that a mask on its index lets it select,
+  /// when the code shifts its entries. Whatever a shifted entry holds sends the
+  /// jump close by, so the bytes after such a table pass for more of its
+  /// entries, and only the check or the mask keeps them out.
+  let private isPastIndexBound jmptbl idx =
+    let isPast = Option.exists (fun n -> idx >= n)
+    jmptbl.EntryShift > 0
+    && (isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries)
+
+  /// Tells whether the slot of the given index runs into the data that comes
+  /// next past the start of the given table, which the code addresses on its
+  /// own.
+  let private runsIntoData jmptbl idx =
+    jmptbl.EntriesBeforeData |> Option.exists (fun n -> idx >= n)
+
   /// Tells whether the entries of the given table are addresses of their own,
   /// as wide as a pointer, in an ELF binary, where a relocation of a slot says
   /// what the loader writes into it.
@@ -73,9 +106,17 @@ module JmpTableInfo =
   let private isRebased (file: IBinFile) =
     file.IsBaseRelative && file.Kind <> BinFileKind.Object
 
-  let private tryReadInt (hdl: BinHandle) jmptbl (addr: Addr) =
-    match hdl.TryReadInt(addr, jmptbl.EntrySize) with
-    | Ok value -> Some(jmptbl.JumpBase + uint64 value)
+  /// Reads the target of the entry at the given address, which the entry
+  /// offsets from the base once extended and shifted as the code reading it
+  /// does.
+  let private tryReadEntry (hdl: BinHandle) jmptbl (addr: Addr) =
+    let value =
+      if jmptbl.IsSignedEntry then
+        hdl.TryReadInt(addr, jmptbl.EntrySize) |> Result.map uint64
+      else
+        hdl.TryReadUInt(addr, jmptbl.EntrySize)
+    match value with
+    | Ok value -> Some(jmptbl.JumpBase + (value <<< jmptbl.EntryShift))
     | Error _ -> None
 
   /// Reads the target of the entry at the given index of the given table, or
@@ -83,14 +124,17 @@ module JmpTableInfo =
   /// holds what the relocation of its slot writes, which the file may leave
   /// out, and in a binary that the loader rebases, a slot without one holds no
   /// address. A slot that lies past the bytes of the binary holds no entry
-  /// either.
+  /// either, nor does one of shifted entries past what the range check, or a
+  /// mask on the index, admits, nor one that runs into the data that follows.
   let tryReadTarget (hdl: BinHandle) jmptbl idx =
     let file = hdl.File
     let addr = jmptbl.TableAddress + uint64 (idx * jmptbl.EntrySize)
-    if isRelocatable file jmptbl then
+    if isPastIndexBound jmptbl idx || runsIntoData jmptbl idx then
+      None
+    elif isRelocatable file jmptbl then
       match BinFileOps.tryComputeRelocationValue file addr with
       | Ok target -> Some target
       | Error _ when isRebased file -> None
-      | Error _ -> tryReadInt hdl jmptbl addr
+      | Error _ -> tryReadEntry hdl jmptbl addr
     else
-      tryReadInt hdl jmptbl addr
+      tryReadEntry hdl jmptbl addr

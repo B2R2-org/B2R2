@@ -451,7 +451,7 @@ let condJumpAbsolute (binFile: PythonBinFile)
    POP_TOP shape via a single Ite-computed SP write before one real
    InterCJmp was tried and reverted -- it makes SP's value conditional on
    a runtime cond instead of a per-edge CONSTANT, which breaks
-   StackPointerPropagation's ConstSP tracking that the whole StackVar
+   StackPointerPropagation's StackAddr tracking that the whole StackVar
    mechanism depends on (confirmed via a cascading crash in
    processSSAStmt once several chained JUMP_IF_FALSE_OR_POPs' Ite
    expressions failed to fold to a constant offset). SP must change by a
@@ -1040,7 +1040,7 @@ let makeFunctionLegacy (ins: Instruction) bld =
    regression.py: a `functools.partial(callback, *args, **kwargs)` call
    whose two branches merge into a shared return, surfacing as an
    untranslatable raw `Load(MemVar, ...)` once SSAStackPointerPropagation
-   lost ConstSP tracking after the phantom extra pop). *)
+   lost StackAddr tracking after the phantom extra pop). *)
 let callFunctionEx minor (ins: Instruction) bld =
   lift bld ins {
     (* 3.14 dropped the oparg whose low bit used to say whether a keyword
@@ -1091,8 +1091,8 @@ let mapAdd (ins: Instruction) bld =
    everything else on the stack untouched, the original lifting peeked at
    that slot and stored the merged result back via a raw memory write at a
    computed offset. That store bypasses pushToStack/popFromStack, the only
-   stack effects SSAStackPointerPropagation's ConstSP tracking recognizes
-   (see its own `Load _ -> NotConstSP` catch-all) -- so any LATER access
+   stack effects SSAStackPointerPropagation's StackAddr tracking recognizes
+   (see its own `Load _ -> NotAConst` catch-all) -- so any LATER access
    built on an address derived from this slot no longer resolves to a
    clean StackVar reference, and surfaces instead as a raw, untranslatable
    `Load` (confirmed via real-world PyPI/CSN code using chained calls that
@@ -1306,7 +1306,7 @@ let unpackSequence (ins: Instruction) bld =
 (* Same fix as dictMerge above, and for the same reason: pop down to the
    list (saving any intervening values), extend it, then push the result
    back followed by the saved values, instead of peeking and writing the
-   new value back via a raw store SSAStackPointerPropagation's ConstSP
+   new value back via a raw store SSAStackPointerPropagation's StackAddr
    tracking cannot see through. *)
 let listExtend (ins: Instruction) bld =
   lift bld ins {

@@ -1,6 +1,6 @@
 (*
-  Scores B2R2's jump table recovery against the JumpTableBench ground truth.
-  x86 and x64 for now.
+  Scores B2R2's jump table recovery against the JumpTableBench ground truth:
+  x86, x64, and ARMv7, as armhf and armel.
 
     dotnet fsi .github/jumptable-test.fsx <binaryDir> <groundTruthDir>
     dotnet fsi .github/jumptable-test.fsx <binary> <groundTruth.json>
@@ -110,11 +110,13 @@ let private kindOf (jmptbl: ControlFlowAnalysis.JmpTableInfo) =
   else "switch"
 
 /// Maps a ground truth architecture name onto the ISA the binary has to
-/// report. Only the two Intel widths are scored so far.
+/// report. armhf and armel differ only in the floating point ABI, hard or
+/// soft, which is no part of the ISA.
 let private isaOf arch =
   match arch with
   | "x86" -> Some(Architecture.Intel, WordSize.Bit32)
   | "x64" -> Some(Architecture.Intel, WordSize.Bit64)
+  | "armhf" | "armel" -> Some(Architecture.ARMv7, WordSize.Bit32)
   | _ -> None
 
 /// Loads the binary a case names, unless the ground truth names an

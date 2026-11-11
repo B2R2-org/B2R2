@@ -115,6 +115,25 @@ type BBLFactory(hdl: BinHandle,
         ()
     parsed
 
+  /// Ends each of the given blocks right before the first instruction past its
+  /// leader where another of them starts, so that the scan lifts every
+  /// instruction once. Lifting one twice numbers its temporaries twice, and an
+  /// instruction that splits into blocks of its own, as a jump that may switch
+  /// instruction sets does, would end up with blocks of both liftings once
+  /// commit cuts the longer block, reading a temporary that none defines.
+  let endBeforeOtherLeaders (blocks: List<Addr * IInstruction list * int>) =
+    let leaders = HashSet(Seq.map (fun (leader, _, _) -> leader) blocks)
+    let isOtherLeader (ins: IInstruction) = leaders.Contains ins.Address
+    blocks
+    |> Seq.map (fun (leader, instrs, _) ->
+      match List.rev instrs with
+      | first :: rest ->
+        let kept = first :: List.takeWhile (not << isOtherLeader) rest
+        leader, List.rev kept, kept.Length
+      | [] ->
+        leader, instrs, 0)
+    |> Seq.toArray
+
 #if DEBUG
   let hasProperISMark (stmts: Stmt[]) =
     match stmts[0] with
@@ -375,7 +394,7 @@ type BBLFactory(hdl: BinHandle,
        writes interLeaders. So every block is collected before any is lifted. *)
     let blocks = List<Addr * IInstruction list * int>()
     let parsed = parseBlocks blocks addrs
-    let lifted = liftBlocks blocks
+    let lifted = liftBlocks (endBeforeOtherLeaders blocks)
     if parsed && lifted then commit () else Error ErrorCase.ParsingFailure
 
   /// Peeks at the BBL at the given address without caching it. This function is
@@ -395,6 +414,10 @@ type BBLFactory(hdl: BinHandle,
 #endif
         Error(List.rev acc)
     parse [] addr null
+
+  /// Peeks at the instruction at the given address without making a BBL of it,
+  /// parsing it if no one has yet.
+  member _.PeekInstruction(addr) = instrs.TryFind addr
 
   /// Checks if there is a BBL at the given program point.
   member _.Contains(ppoint: ProgramPoint) = bbls.ContainsKey ppoint

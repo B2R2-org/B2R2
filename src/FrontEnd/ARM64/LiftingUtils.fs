@@ -164,18 +164,6 @@ let transShiftAmount bld oprSize = function
   | Imm amt -> numI64 amt oprSize
   | Reg amt -> regVar bld amt
 
-/// Extends the low len bits of the given register to oprSize bits, as a cast
-/// rather than as Extend's test of the top bit, so that what reads the IR
-/// sees which extension it is.
-let private extendLowBits (reg: Expr) oprSize len isUnsigned =
-  if len >= RegType.toBitWidth oprSize then
-    AST.zext oprSize reg
-  else
-    let low =
-      if len >= RegType.toBitWidth (Expr.typeOf reg) then reg
-      else AST.xtlo (RegType.fromBitWidth len) reg
-    if isUnsigned then AST.zext oprSize low else AST.sext oprSize low
-
 /// aarch64/instrs/extendreg/ExtendReg
 /// ExtendReg()
 /// ===========
@@ -195,9 +183,19 @@ let extendReg bld reg typ shift oprSize =
     | UXTH -> true, 16
     | UXTW -> true, 32
     | UXTX -> true, 64
-  let len = min len ((RegType.toBitWidth oprSize) - shift)
-  let ext = extendLowBits (regVar bld reg) oprSize len isUnsigned
-  ext << numI32 shift oprSize
+  let reg = regVar bld reg
+  (* The manual extends the low bits with the zeros of the shift below them,
+     which is a cast of the low bits shifted after: the cast is what tells an
+     analysis, such as that of a jump table, how the index is extended. Once
+     the shift pushes out every bit the extension would set, which the manual
+     has as Min(len, N - shift), there is nothing to extend. *)
+  let extended =
+    if len + shift >= RegType.toBitWidth oprSize then
+      AST.zext oprSize reg
+    else
+      let low = AST.xtlo (RegType.fromBitWidth len) reg
+      if isUnsigned then AST.zext oprSize low else AST.sext oprSize low
+  if shift = 0 then extended else extended << numI32 shift oprSize
 
 let getElemDataSzAndElemsByVector = function
   (* Vector register names with element index *)

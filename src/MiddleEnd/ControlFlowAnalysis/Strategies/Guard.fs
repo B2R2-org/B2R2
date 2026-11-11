@@ -36,13 +36,33 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// source of an edge that a conditional jump takes.
 [<RequireQualifiedAccess>]
 module internal Guard =
-  /// Gets the guard on the edge from pred to v.
+  /// Gets the guard of the given vertex as one of the two ways that a
+  /// conditional jump within an instruction takes, if it is one.
+  let tryGetOfWay tryGetCondition (g: IDiGraph<_, _>) way =
+    match g.GetPreds way with
+    | [| src |] ->
+      match g.FindEdge(src, way).Label with
+      | IntraCJmpTrueEdge ->
+        tryGetCondition src |> Option.map (fun c -> c, true)
+      | IntraCJmpFalseEdge ->
+        tryGetCondition src |> Option.map (fun c -> c, false)
+      | _ ->
+        None
+    | _ ->
+      None
+
+  /// Gets the guard on the edge from pred to v. Either a conditional jump ends
+  /// pred, whether it jumps out of its instruction or within it, or pred is a
+  /// way that a conditional jump within an instruction takes, out of which the
+  /// instruction jumps to v, as ARM branches on a condition.
   let tryGet tryGetCondition (g: IDiGraph<_, _>) pred v =
     match g.FindEdge(pred, v).Label with
-    | InterCJmpTrueEdge ->
+    | InterCJmpTrueEdge | IntraCJmpTrueEdge ->
       tryGetCondition pred |> Option.map (fun c -> c, true)
-    | InterCJmpFalseEdge ->
+    | InterCJmpFalseEdge | IntraCJmpFalseEdge ->
       tryGetCondition pred |> Option.map (fun c -> c, false)
+    | InterJmpEdge ->
+      tryGetOfWay tryGetCondition g pred
     | _ ->
       None
 

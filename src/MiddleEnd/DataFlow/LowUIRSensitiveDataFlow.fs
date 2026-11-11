@@ -59,12 +59,12 @@ type State<'L, 'ExeCtx
   let perPointSSAStmtCache =
     Dictionary<SensitiveProgramPoint<'ExeCtx>, SSA.Stmt>()
 
-  /// Holds the initial stack pointer value in the stack pointer domain.
-  let spInitial = LowUIRStackPointer.initialValue hdl
+  /// Holds the initial stack pointer value in the address domain.
+  let spInitial = LowUIRAddress.initialValue hdl
 
   let perVertexStackPointerInfos =
     Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx,
-               StackPointerDomain.Lattice * StackPointerDomain.Lattice>()
+               AddressDomain.Lattice * AddressDomain.Lattice>()
 
   /// Caches the statements of every CFG vertex, along with their program
   /// points.
@@ -76,7 +76,7 @@ type State<'L, 'ExeCtx
   /// Maps a SensitiveVarPoint to its abstract value in the stack-pointer
   /// domain.
   let spAbsValues =
-    Dictionary<SensitiveVarPoint<'ExeCtx>, StackPointerDomain.Lattice>()
+    Dictionary<SensitiveVarPoint<'ExeCtx>, AddressDomain.Lattice>()
 
   let perVertexIncomingDefs =
     Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx,
@@ -105,13 +105,13 @@ type State<'L, 'ExeCtx
 
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with
-    | false, _ -> StackPointerDomain.Undef
+    | false, _ -> AddressDomain.Undef
     | true, c -> c
 
   let spGetInitialAbsValue varKind =
     match spInitial with
     | Some(stackVar, c) when varKind = stackVar -> c
-    | _ -> StackPointerDomain.Undef
+    | _ -> AddressDomain.Undef
 
   let spEvaluateVar varKind spp =
     let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
@@ -125,9 +125,9 @@ type State<'L, 'ExeCtx
           spGetInitialAbsValue varKind
         else
           let defAbsValue = spGetAbsValue defSvp
-          StackPointerDomain.join acc defAbsValue) StackPointerDomain.Undef
+          AddressDomain.join acc defAbsValue) AddressDomain.Undef
 
-  let spEvaluateExpr spp e = LowUIRStackPointer.evalExpr spEvaluateVar spp e
+  let spEvaluateExpr spp e = LowUIRAddress.evalExpr spEvaluateVar spp e
 
   let getStatements v = stmtCache.GetStmtInfos v
 
@@ -153,6 +153,9 @@ type State<'L, 'ExeCtx
       | StackLocal offset ->
         let rt = 0<rt>
         SSA.StackVar(rt, offset)
+      | Global addr ->
+        let rt = 0<rt>
+        SSA.GlobalVar(rt, addr)
       | Temporary n ->
         let rt = 0<rt>
         SSA.TempVar(rt, n)
@@ -239,13 +242,11 @@ type State<'L, 'ExeCtx
       SSA.Ite(sexpr1, rt, sexpr2, sexpr3)
     | Load(Type = rt; Addr = e) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      match spEvaluateExpr spp e with
-      | StackPointerDomain.ConstSP bv ->
-        let varKind =
-          bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset |> StackLocal
+      match spEvaluateExpr spp e |> LowUIRAddress.tryGetMemoryVarKind with
+      | Some varKind ->
         let useSvp = { SensitiveProgramPoint = spp; VarKind = varKind }
         convertUseToReachingDefSSAExpr useSvp exeCtx varKind
-      | _ ->
+      | None ->
         let e = computeSSAExpr pp exeCtx e
         let fakeMemoryVar = { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }
         SSA.Load(fakeMemoryVar, rt, e)
@@ -277,10 +278,9 @@ type State<'L, 'ExeCtx
       SSA.Def(var, expr)
     | Store(Addr = dstExpr; Value = srcExpr) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      match spEvaluateExpr spp dstExpr with
-      | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
-        let varKind = StackLocal offset
+      let addrValue = spEvaluateExpr spp dstExpr
+      match LowUIRAddress.tryGetMemoryVarKind addrValue with
+      | Some varKind ->
         let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         let var = getSSAVarFromDefSvp svp
         let srcExpr = computeSSAExpr pp exeCtx srcExpr
@@ -368,16 +368,16 @@ type State<'L, 'ExeCtx
     let defSiteQueue = UniqueQueue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
-    { new ISubState<StackPointerDomain.Lattice, 'ExeCtx> with
+    { new ISubState<AddressDomain.Lattice, 'ExeCtx> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.ExecutedFlows = executedFlows
         member _.ExecutedVertices = executedVertices
-        member _.Bottom = StackPointerDomain.Undef
+        member _.Bottom = AddressDomain.Undef
         member _.GetAbsValue vp = spGetAbsValue vp
         member _.SetAbsValue(vp, absVal) = spAbsValues[vp] <- absVal
-        member _.Join(a, b) = StackPointerDomain.join a b
-        member _.Subsume(a, b) = StackPointerDomain.subsume a b
+        member _.Join(a, b) = AddressDomain.join a b
+        member _.Subsume(a, b) = AddressDomain.subsume a b
         member _.EvalExpr(spp, expr) = spEvaluateExpr spp expr }
 
   let resetSubState (subState: ISubState<_, _>) =
@@ -452,7 +452,7 @@ type State<'L, 'ExeCtx
   /// statement and its corresponding vertex that contains the statement.
   member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
-  /// Returns the sub-state for the stack-pointer domain.
+  /// Returns the sub-state for the address domain.
   member internal _.StackPointerSubState with get() = spSubState
 
   /// Returns the sub-state for the user's domain.
@@ -634,10 +634,11 @@ module internal AnalysisCore = begin
       state.InvalidateVertex v
     state.ClearRemovalVertices()
 
-  let getStackValue state pp e =
-    match (state: ISubState<_, _>).EvalExpr(pp, e) with
-    | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
-    | _ -> Error ErrorCase.InvalidExprEvaluation
+  /// Gets the kind of the variable that names the memory at the address that
+  /// the given expression gives at the given point, if that is a known one.
+  let tryGetMemoryVarKind state pp e =
+    (state: ISubState<_, _>).EvalExpr(pp, e)
+    |> LowUIRAddress.tryGetMemoryVarKind
 
   /// Removes all the old chains of the given use.
   let removeOldChains (state: State<_, _>) useId =
@@ -684,11 +685,8 @@ module internal AnalysisCore = begin
 
   let updateWithExpr state defs (spp: SensitiveProgramPoint<_>) expr =
     let onVarRead vk = updateChains state vk defs spp
-    let tryStackOffset e =
-      match getStackValue state.StackPointerSubState spp e with
-      | Ok loc -> Some(LowUIRStackPointer.toFrameOffset loc)
-      | Error _ -> None
-    VarKind.iterUses onVarRead tryStackOffset expr
+    let tryGetVarKind = tryGetMemoryVarKind state.StackPointerSubState spp
+    VarKind.iterUses onVarRead tryGetVarKind expr
 
   let getIncomingDefs (state: State<_, _>) v exeCtx =
     let k = v, exeCtx
@@ -709,8 +707,8 @@ module internal AnalysisCore = begin
 
   let stackPointerToFrameOffset sp =
     match sp with
-    | StackPointerDomain.ConstSP bv ->
-      bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
+    | AddressDomain.StackAddr offset ->
+      LowUIRAddress.toFrameOffset offset
     | _ ->
       Terminator.impossible ()
 
@@ -773,16 +771,13 @@ module internal AnalysisCore = begin
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         updateWithExpr state outDefs spp addr
         updateWithExpr state outDefs spp value
-        match state.StackPointerSubState.EvalExpr(spp, addr) with
-        | StackPointerDomain.ConstSP bv ->
-          let loc = bv.ToUInt64()
-          let offset = LowUIRStackPointer.toFrameOffset loc
-          let varKind = StackLocal offset
+        match tryGetMemoryVarKind state.StackPointerSubState spp addr with
+        | Some varKind ->
           let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
           let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
           // updateStackPointer state spp varKind value
           outDefs <- strongUpdateReachingDef outDefs varKind svp
-        | _ ->
+        | None ->
           ()
       | InterJmp(Target = dstExpr) ->
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
@@ -841,8 +836,7 @@ module internal AnalysisCore = begin
       if isNull src then
         let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
         let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
-        BitVector(Constants.InitialStackPointer, spRegType)
-        |> StackPointerDomain.ConstSP
+        BitVector.Zero spRegType |> AddressDomain.StackAddr
       else
         snd state.PerVertexStackPointerInfos[src, srcExeCtx]
     let srcOutDefs, dstInDefs =
@@ -869,8 +863,7 @@ module internal AnalysisCore = begin
   let getInitialStackPointer (state: State<_, _>) =
     let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
     let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
-    BitVector(Constants.InitialStackPointer, spRegType)
-    |> StackPointerDomain.ConstSP
+    BitVector.Zero spRegType |> AddressDomain.StackAddr
 
   let getOutSP (state: State<_, _>) v exeCtx =
     if isNull v then getInitialStackPointer state
@@ -973,18 +966,15 @@ module internal AnalysisCore = begin
       updateAbsValue subState defUseMap svp prev curr
     | Store(Addr = addr; Value = value) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      match state.StackPointerSubState.EvalExpr(spp, addr) with
-      | StackPointerDomain.ConstSP bv ->
-        let loc = bv.ToUInt64()
-        let offset = LowUIRStackPointer.toFrameOffset loc
-        let varKind = StackLocal offset
+      match tryGetMemoryVarKind state.StackPointerSubState spp addr with
+      | Some varKind ->
         let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         let subState = state.DomainSubState
         let prev = subState.GetAbsValue svp
         let curr = state.EvalExpr(spp, value)
         let defUseMap = state.DefUseMap
         updateAbsValue subState defUseMap svp prev curr
-      | _ ->
+      | None ->
         ()
     | _ ->
       ()

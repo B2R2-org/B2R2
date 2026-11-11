@@ -588,7 +588,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.StackPointer = SP |> Register.toRegID |> Some
 
-    member _.FramePointer = None
+    member _.FramePointer = X29 |> Register.toRegID |> Some
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with
@@ -691,6 +691,70 @@ type RegisterFactory(isa: ISA) =
       | R.V29 -> v29
       | R.V30 -> v30
       | R.V31 -> v31
+      | R.V0A -> v0a
+      | R.V0B -> v0b
+      | R.V1A -> v1a
+      | R.V1B -> v1b
+      | R.V2A -> v2a
+      | R.V2B -> v2b
+      | R.V3A -> v3a
+      | R.V3B -> v3b
+      | R.V4A -> v4a
+      | R.V4B -> v4b
+      | R.V5A -> v5a
+      | R.V5B -> v5b
+      | R.V6A -> v6a
+      | R.V6B -> v6b
+      | R.V7A -> v7a
+      | R.V7B -> v7b
+      | R.V8A -> v8a
+      | R.V8B -> v8b
+      | R.V9A -> v9a
+      | R.V9B -> v9b
+      | R.V10A -> v10a
+      | R.V10B -> v10b
+      | R.V11A -> v11a
+      | R.V11B -> v11b
+      | R.V12A -> v12a
+      | R.V12B -> v12b
+      | R.V13A -> v13a
+      | R.V13B -> v13b
+      | R.V14A -> v14a
+      | R.V14B -> v14b
+      | R.V15A -> v15a
+      | R.V15B -> v15b
+      | R.V16A -> v16a
+      | R.V16B -> v16b
+      | R.V17A -> v17a
+      | R.V17B -> v17b
+      | R.V18A -> v18a
+      | R.V18B -> v18b
+      | R.V19A -> v19a
+      | R.V19B -> v19b
+      | R.V20A -> v20a
+      | R.V20B -> v20b
+      | R.V21A -> v21a
+      | R.V21B -> v21b
+      | R.V22A -> v22a
+      | R.V22B -> v22b
+      | R.V23A -> v23a
+      | R.V23B -> v23b
+      | R.V24A -> v24a
+      | R.V24B -> v24b
+      | R.V25A -> v25a
+      | R.V25B -> v25b
+      | R.V26A -> v26a
+      | R.V26B -> v26b
+      | R.V27A -> v27a
+      | R.V27B -> v27b
+      | R.V28A -> v28a
+      | R.V28B -> v28b
+      | R.V29A -> v29a
+      | R.V29B -> v29b
+      | R.V30A -> v30a
+      | R.V30B -> v30b
+      | R.V31A -> v31a
+      | R.V31B -> v31b
       | R.D0 -> d0
       | R.D1 -> d1
       | R.D2 -> d2
@@ -1747,4 +1811,6 @@ type RegisterFactory(isa: ISA) =
       let spid = SP |> Register.toRegID
       spid = regid
 
-    member _.IsFramePointer _ = false
+    member _.IsFramePointer regid =
+      let fpid = X29 |> Register.toRegID
+      fpid = regid

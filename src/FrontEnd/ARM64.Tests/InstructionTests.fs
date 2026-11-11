@@ -98,6 +98,19 @@ type InstructionTests() =
     let ins = parse "000040d4" (* hlt #0x0 *)
     CollectionAssert.AreEqual(Array.empty<Addr>, nexts ins)
 
+  (* BRK and UDF raise an exception that returns to the trapping instruction
+     itself, so control never reaches the next one, which compilers fill with
+     whatever follows, as they do after a UD2 of Intel. A block ends there. *)
+  [<TestMethod>]
+  member _.``[ARM64] a trap has no next address test``() =
+    let traps =
+      [ "007d20d4" (* brk #0x3e8 *)
+        "00000000" (* udf #0 *) ]
+    for hex in traps do
+      let ins = parse hex
+      Assert.AreEqual<bool>(true, ins.IsTerminator null, hex)
+      CollectionAssert.AreEqual(Array.empty<Addr>, nexts ins)
+
   [<TestMethod>]
   member _.``[ARM64] a supervisor call falls through test``() =
     let ins = parse "010000d4" (* svc #0x0 *)

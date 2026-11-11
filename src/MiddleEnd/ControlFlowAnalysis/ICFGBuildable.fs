@@ -148,6 +148,16 @@ and ICFGBuildingStrategy<'FnCtx, 'GlCtx> =
   /// recovery process is done.
   abstract FindCandidatesForPostProcessing: IFunctionBuilder[] -> Addr[]
 
+/// Represents a strategy that revises the functions it has built once every
+/// one of them is done, as what the recovery has found since may tell the CFG
+/// of one otherwise: a function may turn out to start in code that another
+/// took for its own. The recovery builds again those that it finds.
+and ICFGRevisingStrategy<'FnCtx, 'GlCtx> =
+  /// Finds the functions to build again among the given builders, once all of
+  /// them are done building. It returns their entry points, and an empty array
+  /// once none is left to revise.
+  abstract FindFunctionsToRebuild: IFunctionBuilder[] -> Addr[]
+
 /// Represents the recovery targets to build. This is used for filtering the
 /// candidates to build, and it is defined as part of the strategy because some
 /// strategies may want to build only a subset of the candidates.

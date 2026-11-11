@@ -39,6 +39,16 @@ type TaskManagerCommand<'FnCtx, 'GlCtx> =
   | AddDependency of caller: Addr
                    * callee: Addr
                    * AgentReplyChannel<CalleeStatus>
+  /// Take the code at the given address for a function on the guess that a
+  /// jump calls it as its tail, replying whether it may.
+  | GuessTailCallee of callee: Addr * AgentReplyChannel<bool>
+  /// Add a dependency between two functions, of which the caller calls the
+  /// callee as its tail.
+  | AddTailCallDependency of caller: Addr
+                           * callee: Addr
+                           * AgentReplyChannel<TailCalleeStatus>
+  /// Refute the guess that the code at the given address is a function.
+  | RefuteTailCallee of callee: Addr
   /// Report the result of a task.
   | ReportCFGResult of Addr * CFGResult
   /// Report an unexpected exception raised while building a CFG.

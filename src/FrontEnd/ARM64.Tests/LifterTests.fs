@@ -504,10 +504,11 @@ type LifterTests() =
              .+ num 0x0u) |]
     |> test
 
+  (* UXTX of a whole register extends nothing, and shifts it by nothing. *)
   [<TestMethod>]
   member _.``[AArch64] ADD (extended register, UXTX) lift test``() =
     "8b336280"
-    ++ [| !.X0 := !.X20 .+ (!.X19 << num64 0x0UL) .+ num64 0x0UL |]
+    ++ [| !.X0 := !.X20 .+ !.X19 .+ num64 0x0UL |]
     |> test
 
   /// An extended register is the extension of its low bits, then the shift:
@@ -520,6 +521,30 @@ type LifterTests() =
                   .+ (AST.sext 64<rt> (AST.xtlo 16<rt> !.X0) << num64 0x2UL)
                   .+ num64 0x0UL |]
     |> test
+
+  (* ExtendReg() extends the low bits of a register with the zeros of the
+     shift below them, so they keep their sign past the shift, and a shift
+     that pushes out every bit an extension sets leaves nothing to extend.
+     The values follow the pseudocode of the manual. *)
+  [<TestMethod>]
+  member _.``[AArch64] an extended register shifts its extended bits``() =
+    let addOf x1 x2 sum hex =
+      let sums = List.replicate A64Machine.sets [ X(0, sum) ]
+      check hex [ X(1, x1); X(2, x2) ] sums
+    addOf 0x1000UL 0x12348001UL 0xfffffffffffe1004UL "8b22a820" (* sxth #2 *)
+    addOf 0x1000UL 0xffffffff80000001UL 0x100001002UL "8b224420" (* uxtw #1 *)
+    addOf 0x10UL 0x12f0UL 0xffffff10UL "0b229020" (* w, sxtb #4 *)
+    addOf 0x10UL 0xabcd8001UL 0x80020UL "0b223020" (* w, uxth #4 *)
+    addOf 0x1000UL 0xf000000000000001UL 0x1010UL "8b22f020" (* sxtx #4 *)
+
+  (* LDR X0, [X1, W2, SXTW #3] reads the doubleword below X1 for a W2 of -4.
+     The value follows the pseudocode of the manual. *)
+  [<TestMethod>]
+  member _.``[AArch64] a register offset of SXTW goes below its base``() =
+    let below = A64Machine.window + 0x20UL
+    let word = 0x1122334455667788UL
+    let inputs = [ X(1, below); X(2, 0xfffffffcUL); M(0, word) ]
+    check "f862d820" inputs (List.replicate A64Machine.sets [ X(0, word) ])
 
   /// DC ZVA clears the block DCZID_EL0 names, so the register has to be one
   /// this front end models, with a value from reset on.

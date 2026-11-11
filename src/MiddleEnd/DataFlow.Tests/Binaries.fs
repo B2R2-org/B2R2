@@ -36,6 +36,11 @@ let loadOne (Binary(code, arch, wordSize)) =
   let hdl = BinHandle.LoadRawImage(code, isa)
   BinaryBrew hdl
 
+let loadAt baseAddr (Binary(code, arch, wordSize)) =
+  let isa = ISA(arch, wordSize)
+  let hdl = BinHandle.LoadRawImage(code, isa, baseAddr, OS.BareMetal)
+  BinaryBrew hdl
+
 (*
   Example 1: Fibonacci function
 
@@ -687,3 +692,123 @@ let private code10 =
      0xE1uy |]
 
 let sample10 = Binary(code10, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 11: A function that loads ECX from the word at 0x16 in its own code
+  before a loop and again inside it, as ARM code loads the address of a table
+  from its literal pool.
+
+  00000000: 8B 0D 16 00 00 00  mov         ecx,dword ptr ds:[00000016h]
+  00000006: 85 C0              test        eax,eax
+  00000008: 74 09              je          00000013
+  0000000A: 8B 0D 16 00 00 00  mov         ecx,dword ptr ds:[00000016h]
+  00000010: 48                 dec         eax
+  00000011: EB F3              jmp         00000006
+  00000013: 89 C8              mov         eax,ecx
+  00000015: C3                 ret
+  00000016: 78 56 34 12        dd          12345678h
+*)
+let private code11 =
+  [| 0x8Buy
+     0x0Duy
+     0x16uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x85uy
+     0xC0uy
+     0x74uy
+     0x09uy
+     0x8Buy
+     0x0Duy
+     0x16uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x48uy
+     0xEBuy
+     0xF3uy
+     0x89uy
+     0xC8uy
+     0xC3uy
+     0x78uy
+     0x56uy
+     0x34uy
+     0x12uy |]
+
+let sample11 = Binary(code11, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 12: A function that returns its argument at ESP + 8, in an image that
+  runs from 0x80000000, where the data flow puts the stack pointer on entry, so
+  that it names the slot of the argument by 0x80000008, where the image holds
+  a word.
+
+  80000000: 8B 44 24 08        mov         eax,dword ptr [esp+8]
+  80000004: C3                 ret
+  80000005: 90                 nop
+  80000006: 90                 nop
+  80000007: 90                 nop
+  80000008: 78 56 34 12        dd          12345678h
+*)
+let private code12 =
+  [| 0x8Buy
+     0x44uy
+     0x24uy
+     0x08uy
+     0xC3uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x78uy
+     0x56uy
+     0x34uy
+     0x12uy |]
+
+let sample12 = Binary(code12, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 13: A function that stores 1 to its slot at ESP - 8 and then loads
+  the word at 0x7ffffff8, in an image that runs from 0x7fffffe0. Taking the
+  stack pointer to be 0x80000000 on entry, as InitialStackPointer does, puts
+  the slot at the word's address, yet the store writes the stack rather than
+  the image.
+
+  7FFFFFE0: C7 44 24 F8 01 00  mov         dword ptr [esp-8],1
+            00 00
+  7FFFFFE8: A1 F8 FF FF 7F     mov         eax,dword ptr ds:[7FFFFFF8h]
+  7FFFFFED: C3                 ret
+  7FFFFFEE: 90 (x 10)          nop
+  7FFFFFF8: 78 56 34 12        dd          12345678h
+*)
+let private code13 =
+  [| 0xC7uy
+     0x44uy
+     0x24uy
+     0xF8uy
+     0x01uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xA1uy
+     0xF8uy
+     0xFFuy
+     0xFFuy
+     0x7Fuy
+     0xC3uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x90uy
+     0x78uy
+     0x56uy
+     0x34uy
+     0x12uy |]
+
+let sample13 = Binary(code13, Architecture.Intel, WordSize.Bit32)

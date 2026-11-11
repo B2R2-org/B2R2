@@ -24,9 +24,12 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -43,6 +46,8 @@ type private IndexOrigin =
     ZeroAddr: int64
     /// The index itself, whose value is the number of the entry it selects.
     Index: Expr
+    /// The largest value that the root can hold, if a constant mask bounds it.
+    MaxRoot: uint64 option
     /// Tells whether the range check of the branch lets the index select the
     /// entry at the given address.
     Admits: int64 -> bool
@@ -54,11 +59,13 @@ type private IndexOrigin =
 type JmpTableAnalysis<'FnCtx, 'GlCtx>
   public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
-  /// Gets the condition of the conditional jump that ends the given vertex, as
-  /// stmExtractor gives it in an SSA form.
+  /// Gets the condition of the conditional jump that ends the given vertex,
+  /// whether it jumps out of its instruction or within it, as stmExtractor
+  /// gives it in an SSA form.
   let tryGetCondition stmExtractor v =
     match stmExtractor v with
     | Some(Jmp(InterCJmp(cond, t, f))) when t <> f -> Some cond
+    | Some(Jmp(IntraCJmp(cond, t, f))) when t <> f -> Some cond
     | _ -> None
 
   /// Collects the guards on the edges into the given vertex, one per edge, or
@@ -78,14 +85,30 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     let dom = Dominance.LengauerTarjanDominance.create g df
     Guard.collectDominating (tryGetCondition stmExtractor) g dom v
 
+  /// Finds the vertex where the instruction that ends the given vertex starts,
+  /// following the edges within the instruction back from the vertex, as far
+  /// as they are the only ones in. An ARM jump that may switch instruction
+  /// sets ends in a way of its own for each of them.
+  let rec findInstructionStart (g: IDiGraph<_, _>) v =
+    match g.GetPreds v with
+    | [| pred |] ->
+      match g.FindEdge(pred, v).Label with
+      | IntraJmpEdge | IntraCJmpTrueEdge | IntraCJmpFalseEdge ->
+        findInstructionStart g pred
+      | _ ->
+        v
+    | _ ->
+      v
+
   let rec findJumpExpr stmExtractor tryGetPhiOperand (g: IDiGraph<_, _>) vFst =
     function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
       | Some(Jmp(InterJmp jmpExpr)) ->
-        (* The guards on the edges into v are where the branch checks its
-           range. *)
-        let guards = collectGuards stmExtractor tryGetPhiOperand g v
+        (* The guards on the edges into the instruction are where the branch
+           checks its range. *)
+        let start = findInstructionStart g v
+        let guards = collectGuards stmExtractor tryGetPhiOperand g start
         Ok(jmpExpr, guards, lazy collectDominatingGuards stmExtractor g v)
       | _ ->
         let vs =
@@ -111,14 +134,22 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Some v -> Ok v.VData.Internals.PPoint
     | None -> Error ErrorCase.ItemNotFound
 
+  /// Gets the terminator of the given vertex of an IR CFG in an SSA form, as
+  /// the data flow of the given state translates it, unless the vertex is
+  /// abstract.
+  let extractTerminatorFromIRCFG state (v: IVertex<LowUIRBasicBlock>) =
+    if v.VData.Internals.IsAbstract then None
+    else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
+
+  /// Finds the expression that the indirect branch at pp jumps to, along with
+  /// the vertex that the branch ends.
   let findIndBranchExprFromIRCFG (g: LowUIRCFG) state pp =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = g.FindVertexBy(fun v -> v.VData.Internals.PPoint = pp)
-    let stmExtractor (v: IVertex<LowUIRBasicBlock>) =
-      if v.VData.Internals.IsAbstract then None
-      else Some((state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA v)
+    let stmExtractor = extractTerminatorFromIRCFG state
     let tryGetPhiOperand var pred v = state.TryGetSSAPhiOperand(var, pred, v)
     findJumpExpr stmExtractor tryGetPhiOperand g v [ v ]
+    |> Result.map (fun found -> v, found)
 
   /// Tries to get the operand that the phi of v defining the given variable
   /// takes from pred, which is the operand at the index of pred among the
@@ -180,6 +211,16 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       RelOp(op, rt, simplify e1, simplify e2)
     | Ite(c, rt, e1, e2) ->
       Ite(simplify c, rt, simplify e1, simplify e2)
+    (* AArch64 zero-extends what it writes to a W register into X, so a byte
+       that LDRB loads is extended twice. An extension by the sign of what the
+       inner one zero-extended finds the sign bit clear. *)
+    | Cast(CastKind.ZeroExt, rt, Cast(CastKind.ZeroExt, _, e)) ->
+      Cast(CastKind.ZeroExt, rt, simplify e)
+    | Cast(CastKind.SignExt, rt, Cast(CastKind.ZeroExt, mid, e))
+      when Expr.typeOf e < mid ->
+      Cast(CastKind.ZeroExt, rt, simplify e)
+    | Cast(CastKind.SignExt, rt, Cast(CastKind.SignExt, _, e)) ->
+      Cast(CastKind.SignExt, rt, simplify e)
     | Cast(k, rt, e) ->
       Cast(k, rt, simplify e)
     | RoundCtrl(mode, rt, body) ->
@@ -392,9 +433,26 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let toSigned (n: BitVector) =
     BitVector.SExt(n, max n.Length 64<rt>).ToInt64()
 
+  /// Checks if the given expression is a variable that carries no width and
+  /// that no definition computes, as a stack slot that only a callee writes,
+  /// or a copy of one, as a temporary that a load of AArch64 copies the slot
+  /// into. The evaluator cannot give such a variable a value where a cast
+  /// reads it, since nothing tells how wide the value is.
+  let rec isWidthlessLeaf findDef e =
+    match e with
+    | Var v when Expr.typeOf e = 0<rt> ->
+      match findDef v with
+      | Some(Def(_, (Var _ as copied))) -> isWidthlessLeaf findDef copied
+      | Some(Def _) -> false
+      | _ -> true
+    | _ ->
+      false
+
   /// Decomposes an index into the variable it derives from and the constant
   /// added to that variable, looking through copies, extensions, and constant
-  /// additions.
+  /// additions, but not through an extension of a variable that carries no
+  /// width and that no definition computes, so that the variable holding the
+  /// extension becomes the root instead.
   let rec decomposeIndex findDef e =
     match e with
     | Var v ->
@@ -412,8 +470,25 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       |> Option.map (fun (v, offset) -> v, offset - toSigned n)
     | Cast(CastKind.ZeroExt, _, e)
     | Cast(CastKind.SignExt, _, e)
-    | Extract(e, _, 0) ->
+    | Extract(e, _, 0) when not (isWidthlessLeaf findDef e) ->
       decomposeIndex findDef e
+    | _ ->
+      None
+
+  /// Finds the constant mask that the value of the given expression lies
+  /// under, looking through copies and zero extensions, as UBFX takes the bits
+  /// of a value under one.
+  let rec tryFindMask findDef e =
+    match e with
+    | Var v ->
+      match findDef v with
+      | Some(Def(_, def)) -> tryFindMask findDef def
+      | _ -> None
+    | Cast(CastKind.ZeroExt, _, e) ->
+      tryFindMask findDef e
+    | BinOp(BinOpType.AND, _, _, Num m)
+    | BinOp(BinOpType.AND, _, Num m, _) ->
+      Some(m.ToUInt64())
     | _ ->
       None
 
@@ -428,6 +503,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         { Root = root
           ZeroAddr = int64 jmptbl.TableAddress + offset * size
           Index = idx
+          MaxRoot = tryFindMask findDef (Var root)
           Admits = fun _ -> false
           StartsAt = fun _ -> false })
     | None ->
@@ -443,16 +519,121 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           JumpBase = baseAddr
           TableAddress = tblAddr
           EntrySize = RegType.toByteWidth rt
+          EntryShift = 0
+          IsSignedEntry = true
           NumEntries = 0
           WaitingInstructions = []
           IsSingleEntry = singleEntry
           OwnRangeEntries = None
+          MaskedEntries = None
+          EntriesBeforeData = None
           IsFunctionPointerTable = false }
       Ok(jmptbl, findIndexOrigin findDef jmptbl tblExpr)
     | _ ->
       Error ErrorCase.ItemNotFound
 
-  let detect expandPhi findConst findDef iAddr = function
+  /// Reads the given factor as the shift to the left that multiplying by it
+  /// amounts to, if it is a power of two.
+  let tryGetShiftOfFactor (n: BitVector) =
+    let v = n.ToUInt64()
+    if v <> 0UL && v &&& (v - 1UL) = 0UL then
+      Some(System.Numerics.BitOperations.Log2 v)
+    else
+      None
+
+  /// Matches an entry that the code extends and then shifts to the left before
+  /// adding it to the base, as GCC for ARM adds an entry to the PC, giving
+  /// whether the extension is signed, the shift, and the load of the entry.
+  /// TBB and TBH of Thumb double the entry by a multiplication instead.
+  let (|ShiftedEntry|_|) = function
+    | BinOp(BinOpType.SHL, _, Cast(kind, _, Load(_, t, memExpr)), Num n)
+      when kind = CastKind.SignExt || kind = CastKind.ZeroExt ->
+      let signed = kind = CastKind.SignExt
+      Some(signed, n.ToInt32(), t, memExpr)
+    | BinOp(BinOpType.MUL, _, Num n, Cast(kind, _, Load(_, t, memExpr)))
+    | BinOp(BinOpType.MUL, _, Cast(kind, _, Load(_, t, memExpr)), Num n)
+      when kind = CastKind.SignExt || kind = CastKind.ZeroExt ->
+      let signed = kind = CastKind.SignExt
+      tryGetShiftOfFactor n
+      |> Option.map (fun shift -> signed, shift, t, memExpr)
+    | _ ->
+      None
+
+  /// Matches the target of a jump that clears its lowest bit, as every branch
+  /// of Thumb does, where the bit is clear anyway: an entry shifted to the left
+  /// and added to an even base, as TBB and TBH jump. Gives the target without
+  /// the mask.
+  let (|EvenTarget|_|) = function
+    | BinOp(BinOpType.AND, _, e, Num mask)
+      when BitVector.Not mask = BitVector.One mask.Length ->
+      match e with
+      | BinOp(BinOpType.ADD, _, Num b, ShiftedEntry(_, shift, _, _))
+      | BinOp(BinOpType.ADD, _, ShiftedEntry(_, shift, _, _), Num b)
+        when shift > 0 && b.ToUInt64() % 2UL = 0UL ->
+        Some e
+      | _ ->
+        None
+    | _ ->
+      None
+
+  /// Finds the expression that computes the given one, following the copies
+  /// through which ARM moves a value, which go via a temporary.
+  let rec findComputation findDef e =
+    match e with
+    | Var v ->
+      match findDef v with
+      | Some(Def(_, d)) ->
+        match simplify d with
+        | Var _ as copied -> findComputation findDef copied
+        | computed -> computed
+      | _ ->
+        e
+    | _ ->
+      e
+
+  /// Rewrites the address of a byte or halfword entry, whose index ARM cannot
+  /// scale within the load, so that the index is scaled as isJmpTable expects.
+  /// For a byte, tbl + i becomes tbl + (i << 0), the table being the side that
+  /// folds to a constant and the index the side that does not. For a halfword,
+  /// whose index the code adds twice, tbl + (i + i) and (tbl + i) + i become
+  /// tbl + (i << 1).
+  let scaleNarrowIndex findConst findDef t memExpr =
+    let isConst e =
+      match constantFold findConst findDef e with
+      | Num _ -> true
+      | _ -> false
+    (* The address has the width of the index, which a temporary or a stack
+       slot of the data flow does not tell. *)
+    let shl rt idx (n: uint64) =
+      BinOp(BinOpType.SHL, rt, idx, Num(BitVector(n, rt)))
+    let tryScaleHalf rt tbl idx =
+      match findComputation findDef idx, findComputation findDef tbl with
+      | BinOp(BinOpType.ADD, _, i1, i2), _ when i1 = i2 ->
+        Some(tbl, shl rt i1 1UL)
+      | _, BinOp(BinOpType.ADD, _, inner, i) when i = idx ->
+        Some(inner, shl rt idx 1UL)
+      | _, BinOp(BinOpType.ADD, _, i, inner) when i = idx ->
+        Some(inner, shl rt idx 1UL)
+      | _ ->
+        None
+    let tryScale rt tbl idx =
+      if t = 8<rt> && isConst tbl && not (isConst idx) then
+        Some(tbl, shl rt idx 0UL)
+      elif t = 16<rt> then
+        tryScaleHalf rt tbl idx
+      else
+        None
+    match memExpr with
+    | BinOp(BinOpType.ADD, rt, e1, e2) ->
+      match tryScale rt e1 e2 |> Option.orElse (tryScale rt e2 e1) with
+      | Some(tbl, idx) -> BinOp(BinOpType.ADD, rt, tbl, idx)
+      | None -> memExpr
+    | _ ->
+      memExpr
+
+  let rec detect expandPhi findConst findDef iAddr = function
+    | EvenTarget e ->
+      detect expandPhi findConst findDef iAddr e
     | BinOp(BinOpType.ADD, _, Num b, Load(_, t, memExpr))
     | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
     | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
@@ -461,6 +642,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         extractTblInfo findConst findDef iAddr (Num b) memExpr t false
       elif isSingleEntryJmpTable memExpr then
         extractTblInfo findConst findDef iAddr (Num b) memExpr t true
+      else
+        Error ErrorCase.ItemNotFound
+    | BinOp(BinOpType.ADD, _, Num b, ShiftedEntry(signed, shift, t, memExpr))
+    | BinOp(BinOpType.ADD, _, ShiftedEntry(signed, shift, t, memExpr), Num b) ->
+      let memExpr = scaleNarrowIndex findConst findDef t memExpr
+      if isJmpTable expandPhi findConst findDef t memExpr then
+        extractTblInfo findConst findDef iAddr (Num b) memExpr t false
+        |> Result.map (fun (jmptbl, origin) ->
+          { jmptbl with EntryShift = shift; IsSignedEntry = signed }, origin)
       else
         Error ErrorCase.ItemNotFound
     | BinOp(BinOpType.ADD, _, (Load(_, _, e1) as m1), (Load(_, t, e2) as m2)) ->
@@ -523,8 +713,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let findDefFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.TryGetSSADef v
 
-  let expandPhiFromIRCFG findConst v _ e =
-    match findConst v with
+  /// Expands the phi that defines the given variable into the constant that
+  /// the data flow gives it, which holds wherever the phi goes. The phi stays
+  /// otherwise, even where it folds along the branch toward the jump, so that
+  /// an index that it defines stays one for the range check to bound.
+  let expandPhiFromIRCFG fromCP _ v _ e =
+    match fromCP v with
     | ConstantDomain.Const bv -> Num bv
     | _ -> e
 
@@ -606,17 +800,249 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           StartsAt = startsAt findDef domGuards jmptbl o }
     jmptbl, Option.map guard origin
 
+  /// Finds the constant that the given variable holds, as the given function
+  /// finds it, or else as the binary holds it, if the variable is memory that
+  /// only the loader writes. The data flow leaves unknown what a global
+  /// variable holds before the function writes it.
+  let findConstOrLoaded hdl findConst (v: Variable) =
+    match findConst v, v.Kind with
+    | ConstantDomain.Const _ as c, _ ->
+      c
+    | c, GlobalVar(_, addr) when v.Identifier = 0 ->
+      let rt = WordSize.toRegType (hdl: BinHandle).File.ISA.WordSize
+      LoaderOnlyMemory.tryRead hdl addr rt
+      |> Option.map ConstantDomain.Const
+      |> Option.defaultValue c
+    | c, _ ->
+      c
+
+  /// Finds the vertex that starts with the phi defining the given variable,
+  /// if a phi defines it.
+  let tryFindPhiVertex (state: LowUIRSparseDataFlow.State<_>) var =
+    match state.SSAVarToVp.TryGetValue var with
+    | true, vp ->
+      match state.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+      | true, (_, v) when v.VData.Internals.PPoint = vp.ProgramPoint -> Some v
+      | _ -> None
+    | false, _ ->
+      None
+
+  /// This is a practical limit for the number of vertices to walk from a phi
+  /// to the branch that tells where its operands go.
+  let [<Literal>] MaxWalk = 16
+
+  /// Gets the vertices that the conditional jump ending v goes to when its
+  /// condition holds and when it does not.
+  let tryGetWays (g: IDiGraph<_, _>) v =
+    let tryFindWay holds =
+      g.GetSuccEdges v
+      |> Array.tryPick (fun e ->
+        match e.Label with
+        | InterCJmpTrueEdge | IntraCJmpTrueEdge when holds ->
+          Some e.Second
+        | InterCJmpFalseEdge | IntraCJmpFalseEdge when not holds ->
+          Some e.Second
+        | _ ->
+          None)
+    match tryFindWay true, tryFindWay false with
+    | Some t, Some f -> Some(t, f)
+    | _ -> None
+
+  /// Checks if the given way of a conditional jump only runs some code before
+  /// it rejoins the other way, as an ARM instruction runs what it does on its
+  /// condition.
+  let rejoins (g: IDiGraph<_, _>) (way: IVertex<LowUIRBasicBlock>) other =
+    match g.GetPreds way, g.GetSuccs way with
+    | [| _ |], [| next |] -> not way.VData.Internals.IsAbstract && next = other
+    | _ -> false
+
+  /// Checks if the given kind of edge leads on to the code that runs next,
+  /// rather than to a callee or through a table.
+  let isFlowOn = function
+    | FallThroughEdge | IntraJmpEdge | InterJmpEdge -> true
+    | _ -> false
+
+  /// Walks from v down the code that every path from v runs, up to the first
+  /// conditional jump whose ways do not just rejoin after some code, as those
+  /// of an ARM instruction do, and gets its condition and its ways. Adds every
+  /// vertex it walks to the given set.
+  let rec tryWalkToBranch condOf (g: IDiGraph<_, _>) (walked: HashSet<_>) v =
+    let isAbstract = (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
+    if isAbstract || walked.Count >= MaxWalk || not (walked.Add v) then
+      None
+    else
+      match condOf v, tryGetWays g v with
+      | Some _, Some(t, f) when rejoins g t f ->
+        walked.Add t |> ignore
+        tryWalkToBranch condOf g walked f
+      | Some cond, Some(t, f) ->
+        Some(cond, t, f)
+      | Some _, None ->
+        None
+      | None, _ ->
+        match g.GetSuccEdges v with
+        | [| e |] when isFlowOn e.Label ->
+          tryWalkToBranch condOf g walked e.Second
+        | _ ->
+          None
+
+  /// Checks if the given kind of edge is one that a conditional jump takes.
+  let isCondJmpEdge = function
+    | InterCJmpTrueEdge | InterCJmpFalseEdge
+    | IntraCJmpTrueEdge | IntraCJmpFalseEdge -> true
+    | _ -> false
+
+  /// Collects the variables that the given expression reads.
+  let rec collectVars acc = function
+    | Var v ->
+      v :: acc
+    | Load(_, _, e) | UnOp(_, _, e) | Cast(_, _, e) | Extract(e, _, _) ->
+      collectVars acc e
+    | BinOp(_, _, e1, e2) | RelOp(_, _, e1, e2) | RoundCtrl(e1, _, e2) ->
+      collectVars (collectVars acc e1) e2
+    | Ite(e1, _, e2, e3) ->
+      collectVars (collectVars (collectVars acc e1) e2) e3
+    | _ ->
+      acc
+
+  /// Checks if none of the given vertices defines a variable that the given
+  /// expression reads.
+  let definesNone (state: LowUIRSparseDataFlow.State<_>) (vs: HashSet<_>) e =
+    collectVars [] e
+    |> List.forall (fun var ->
+      match state.SSAVarToVp.TryGetValue var with
+      | true, vp ->
+        match state.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+        | true, (_, v) -> not (vs.Contains v)
+        | false, _ -> false
+      | false, _ ->
+        true)
+
+  /// Checks if the branch on the given condition, which every path from p
+  /// reaches through the walked vertices, sends the code on as the guards on
+  /// the edges into p tell: the indirect jump ending jmpV comes after it, and
+  /// no vertex from the conditional jumps of the guards to the branch defines
+  /// what the condition reads, which would change it on the way. Those are
+  /// the walked ones and the ways into p that do not end in such a jump.
+  let branchDecides state (g: IDiGraph<_, _>) walked jmpV p cond =
+    let between = HashSet(walked: HashSet<_>)
+    g.GetPredEdges p
+    |> Array.filter (fun e -> not (isCondJmpEdge e.Label))
+    |> Array.iter (fun e -> between.Add e.First |> ignore)
+    not (walked.Contains jmpV) && definesNone state between cond
+
+  /// Collects the vertices from which the code can reach the given target
+  /// without passing through the given vertex to avoid.
+  let collectReaching (g: IDiGraph<_, _>) target avoid =
+    let reached = HashSet<IVertex<LowUIRBasicBlock>>([ target ])
+    let queue = Queue<IVertex<LowUIRBasicBlock>>([ target ])
+    while queue.Count > 0 do
+      for pred in g.GetPreds(queue.Dequeue()) do
+        if pred <> avoid && reached.Add pred then queue.Enqueue pred else ()
+    reached
+
+  /// Tells which way of a branch on the given condition the given guard leads
+  /// to, true for the one that the branch takes when its condition holds, if
+  /// the guard decides it: its condition is that of the branch or the
+  /// negation of it.
+  let tryOrient cond (guardCond, holds) =
+    match guardCond, cond with
+    | _ when guardCond = cond -> Some holds
+    | UnOp(UnOpType.NOT, _, c), _ when c = cond -> Some(not holds)
+    | _, UnOp(UnOpType.NOT, _, c) when c = guardCond -> Some(not holds)
+    | _ -> None
+
+  /// Gets the guard on the edge from pred to v as Guard.tryGet does, or else,
+  /// where pred falls through to v, the guard on the way into pred, as what an
+  /// ARM instruction runs on its condition falls through to its end.
+  let tryGetGuardInto condOf (g: IDiGraph<_, _>) pred v =
+    match g.FindEdge(pred, v).Label with
+    | FallThroughEdge -> Guard.tryGetOfWay condOf g pred
+    | _ -> Guard.tryGet condOf g pred v
+
+  /// Collects the vertices whose edges into p the code may take on its way to
+  /// the indirect jump ending jmpV, without passing through p again, as the
+  /// branch that every path from p reaches first tells: an edge whose guard
+  /// leads to the way of the branch from which no path reaches the jump is
+  /// not one. Returns None if the branch cannot tell.
+  let tryCollectPredsToward state (g: IDiGraph<_, _>) jmpV p =
+    let condOf = tryGetCondition (extractTerminatorFromIRCFG state)
+    let walked = HashSet()
+    match tryWalkToBranch condOf g walked p with
+    | Some(cond, t, f) when branchDecides state g walked jmpV p cond ->
+      let reaching = collectReaching g jmpV p
+      let leadsToJump guard =
+        match tryOrient cond guard with
+        | Some holds -> reaching.Contains(if holds then t else f)
+        | None -> true
+      g.GetPreds p
+      |> Array.filter (fun pred ->
+        tryGetGuardInto condOf g pred p |> Option.forall leadsToJump)
+      |> Some
+    | _ ->
+      None
+
+  /// Folds what a phi takes along the edges from the given vertices, which
+  /// operandOf gives for each, into the one constant that all of them hold.
+  let tryFoldOperands findConst findDef operandOf preds =
+    let fold o = constantFold findConst findDef (Var o)
+    let folded = preds |> Array.map (operandOf >> Option.map fold)
+    match Array.distinct folded with
+    | [| Some(Num bv) |] -> Some bv
+    | _ -> None
+
+  /// Folds the phi that defines the given variable, if one does, into the one
+  /// constant that its operands hold along the edges that the code may take
+  /// on its way to the indirect jump ending jmpV.
+  let tryFoldPhiAlongBranch g state jmpV findConst findDef var =
+    match tryFindPhiVertex state var with
+    | Some p ->
+      let operandOf pred = state.TryGetSSAPhiOperand(var, pred, p)
+      tryCollectPredsToward state g jmpV p
+      |> Option.bind (tryFoldOperands findConst findDef operandOf)
+    | None ->
+      None
+
+  /// Finds the constant that the given variable holds where the indirect jump
+  /// ending jmpV reads it, as findConst finds it, or else as the phi defining
+  /// it folds along the branch toward the jump, which it does once per phi.
+  /// The data flow merges all that reaches a phi, while a branch on the
+  /// condition on which an ARM instruction defines the variable sends some of
+  /// that away from the jump, as GCC loads the address of a table there.
+  let findConstAlongBranch g state jmpV findDef findConst =
+    let folded = Dictionary<Variable, BitVector option>()
+    let tryFold var =
+      match folded.TryGetValue var with
+      | true, bv ->
+        bv
+      | false, _ ->
+        let bv = tryFoldPhiAlongBranch g state jmpV findConst findDef var
+        folded[var] <- bv
+        bv
+    fun var ->
+      match findConst var with
+      | ConstantDomain.Const _ as c ->
+        c
+      | c ->
+        match tryFold var with
+        | Some bv -> ConstantDomain.Const bv
+        | None -> c
+
   let analyzeSymbolicallyWithIRCFG ctx state insAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
     let found =
       findIndBranchPPoint ctx insAddr
       |> Result.bind (findIndBranchExprFromIRCFG cfg state)
     match found with
-    | Ok(exp, guards, domGuards) ->
-      let findConst = findConstFromIRCFG state
+    | Ok(v, (exp, guards, domGuards)) ->
+      let fromCP = findConstFromIRCFG state
       let findDef = findDefFromIRCFG state
+      let expandPhi = expandPhiFromIRCFG fromCP
+      let findConst =
+        findConstOrLoaded ctx.BinHandle fromCP
+        |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
-      findSymbPattern expandPhiFromIRCFG findConst findDef fnAddr insAddr 0 exp
+      findSymbPattern expandPhi findConst findDef fnAddr insAddr 0 exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e
@@ -733,14 +1159,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// Counts the entries of the given table, from the first, that the range
   /// check of its indirect branch lets the index select. Returns None if the
   /// check keeps the index from the first entry, since then the table may not
-  /// start there, or lets it select the last entry that fits in the section,
-  /// since then the check bounds nothing.
+  /// start there, or lets it select an entry that does not fit in the section,
+  /// since then the check bounds nothing. A table may come last in its
+  /// section, so the check may end it right where the section ends.
   let countAdmittedEntries file (jmptbl: JmpTableInfo) origin =
     let size = uint64 jmptbl.EntrySize
     let admitsEntry n = origin.Admits(int64 (jmptbl.TableAddress + n * size))
     let rec count n = if admitsEntry n then count (n + 1UL) else n
     match countFittingEntries file jmptbl with
-    | fits when fits > 0UL && not (admitsEntry (fits - 1UL)) ->
+    | fits when fits > 0UL && not (admitsEntry fits) ->
       match count 0UL with
       | 0UL -> None
       | n -> Some(int n)
@@ -758,14 +1185,71 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | Some o -> countAdmittedEntries file jmptbl o
       | None -> None
 
+  /// Counts the entries of the given table, from the first, that a constant
+  /// mask on the root of its index lets the index select. Returns None, as for
+  /// a range check, if the mask keeps the index from the first entry, or lets
+  /// it select an entry that does not fit in the section.
+  let countMaskedEntries file (jmptbl: JmpTableInfo) origin =
+    let tblAddr = int64 jmptbl.TableAddress
+    match origin with
+    | Some { ZeroAddr = zeroAddr; MaxRoot = Some m } when zeroAddr <= tblAddr ->
+      let before = uint64 ((tblAddr - zeroAddr) / int64 jmptbl.EntrySize)
+      if m >= before && m - before < countFittingEntries file jmptbl then
+        Some(int (m - before + 1UL))
+      else
+        None
+    | _ ->
+      None
+
+  /// The addresses of data that the code of each binary computes on its own,
+  /// collected once per binary, when the first table of the binary needs them.
+  let dataReferences = ConditionalWeakTable<BinHandle, Lazy<Addr[]>>()
+
+  /// Collects the addresses of data that the code of the given binary computes
+  /// on its own, for an ISA whose code tells them.
+  let collectDataReferences (hdl: BinHandle) =
+    match hdl.ISA with
+    | AArch64 -> ARM64Code.collectDataReferences hdl
+    | _ -> [||]
+
+  /// Returns the addresses of data that the code of the given binary computes
+  /// on its own, collecting them the first time.
+  let getDataReferences hdl =
+    let refs =
+      dataReferences.GetValue(hdl, fun hdl -> lazy (collectDataReferences hdl))
+    refs.Value
+
+  /// Finds the first address past the start of the given table that the code
+  /// computes on its own as the address of data.
+  let tryFindNextData hdl (jmptbl: JmpTableInfo) =
+    let refs = getDataReferences hdl
+    let i = System.Array.BinarySearch(refs, jmptbl.TableAddress + 1UL)
+    let i = if i >= 0 then i else ~~~i
+    if i < refs.Length then Some refs[i] else None
+
+  /// Counts the entries of the given table, from the first, that fit before the
+  /// next data past its start whose address the code computes on its own. The
+  /// code computes the address of a table where its index selects the first
+  /// entry or before, so the next data past the start lies past the table.
+  let countEntriesBeforeData hdl (jmptbl: JmpTableInfo) =
+    tryFindNextData hdl jmptbl
+    |> Option.bind (fun dataAddr ->
+      match (dataAddr - jmptbl.TableAddress) / uint64 jmptbl.EntrySize with
+      | n when n > 0UL && n <= uint64 System.Int32.MaxValue -> Some(int n)
+      | _ -> None)
+
   /// Identifies the jump table of the indirect branch at insAddr, using the
   /// given analysis of indirect branches for its enclosing branch as well.
   let identify ctx analyze insAddr =
     analyze insAddr
     |> Result.map (fun (jmptbl, origin) ->
       let jmptbl = rebase ctx analyze (jmptbl, origin)
-      let file = (ctx: CFGBuildingContext<_, _>).BinHandle.File
-      { jmptbl with OwnRangeEntries = countOwnRange file jmptbl origin })
+      let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
+      let file = hdl.File
+      { jmptbl with
+          OwnRangeEntries = countOwnRange file jmptbl origin
+          MaskedEntries = countMaskedEntries file jmptbl origin
+          EntriesBeforeData = countEntriesBeforeData hdl jmptbl })
 
   /// Checks if the address is in a section that may host a jump table,
   /// according to the file format's heuristic.

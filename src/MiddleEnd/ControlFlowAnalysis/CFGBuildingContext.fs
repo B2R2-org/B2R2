@@ -54,6 +54,14 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let gapBlacklist = HashSet<Addr>()
 
+  let callsBeforeLiterals = HashSet<Addr>()
+
+  let guessedTailCallees = HashSet<Addr>()
+
+  let blocksPastBoundary = List<AddrRange>()
+
+  let mutable isGuessedEntry = false
+
   let jumpTables = Dictionary<Addr, JmpTableInfo>()
 
   let intraCallTable = IntraCallTable()
@@ -80,6 +88,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable entryMode = ARM32Mode.ARM
 
+  let scanningUnit = lazy (hdl: BinHandle).NewLiftingUnit()
+
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
 
@@ -93,6 +103,12 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   /// Function name.
   member _.FunctionName with get(): string = name
+
+  /// The lifting unit with which the function reads code on its own, apart
+  /// from the instructions that all functions share. A read there may start
+  /// anywhere, so it must leave no state, such as that of an IT block, that a
+  /// shared read would pick up.
+  member internal _.ScanningUnit with get() = scanningUnit.Value
 
   /// The binary handle.
   member _.BinHandle with get() = hdl
@@ -139,6 +155,27 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// addresses to this blacklist, we prevent performing gap analysis on
   /// these addresses again.
   member internal _.GapBlacklist with get() = gapBlacklist
+
+  /// Addresses of the indirect calls right before a literal that the function
+  /// loads, which never return. Finding one rebuilds the function, which
+  /// keeps them, as the load that tells may again come after the call.
+  member internal _.CallsBeforeLiterals with get() = callsBeforeLiterals
+
+  /// Addresses of the functions that this function calls as its tail, which
+  /// are functions only on the guess that the jumps there call them. Once
+  /// built, this function refutes a guess if it reaches the code there
+  /// otherwise.
+  member internal _.GuessedTailCallees with get() = guessedTailCallees
+
+  /// Ranges of the blocks that the function reaches but leaves out, as they
+  /// run past where the next function starts.
+  member internal _.BlocksPastBoundary with get() = blocksPastBoundary
+
+  /// Whether the function starts only on the guess that a jump calls it as
+  /// its tail, which its own code may refute once built.
+  member internal _.IsGuessedEntry
+    with get() = isGuessedEntry
+     and set v = isGuessedEntry <- v
 
   /// Jump tables associated with this function, keyed by table address.
   /// Recovery records a table once per entry it expands, so keying on the
@@ -235,6 +272,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
     this.ActionQueue.Clear()
     this.PendingCallActions.Clear()
     this.CallerVertices.Clear()
+    this.GuessedTailCallees.Clear()
+    this.BlocksPastBoundary.Clear()
     this.UnwindingBytes <- 0
 
   /// Scans basic blocks starting from the given entry points. By discovering
@@ -411,6 +450,27 @@ and IManagerAccessible<'FnCtx, 'GlCtx> =
      * callee: Addr
     -> CalleeStatus
 
+  /// Takes the code at the given address for a function on the guess that a
+  /// jump calls it as its tail, telling whether it may: once a guess there has
+  /// been refuted, a jump there stays within its function.
+  abstract GuessTailCallee:
+       callee: Addr
+    -> bool
+
+  /// Updates the dependency between two functions, of which the caller calls
+  /// the callee as its tail, and returns the current status of the callee,
+  /// telling whether the callee is a function only on a guess.
+  abstract AddTailCallDependency:
+       caller: Addr
+     * callee: Addr
+    -> TailCalleeStatus
+
+  /// Refutes the guess that the code at the given address is a function, as a
+  /// function that calls it as its tail reaches it otherwise.
+  abstract RefuteTailCallee:
+       callee: Addr
+    -> unit
+
   /// Gets the status of the function located at `addr`, which tells whether it
   /// has been built, and if so, what its callers need to know about it.
   abstract GetCalleeStatus:
@@ -443,3 +503,14 @@ and CalleeStatus =
   | Building
   /// The function failed to be built, or it is not a function at all.
   | Failed
+
+/// Represents what the manager knows about a function that another function
+/// calls as its tail, which may be a function only on the guess that a jump
+/// there calls one.
+and TailCalleeStatus =
+  /// The callee is a function, which more than a guess shows.
+  | KnownTailCallee of CalleeStatus
+  /// The callee is a function only on the guess that the jumps there call it
+  /// as their tail, which the building of a function that jumps there may
+  /// refute.
+  | GuessedTailCallee of CalleeStatus
