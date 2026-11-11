@@ -78,10 +78,12 @@ module internal AddrRangeUnion =
     | i -> Some union.Ranges[i]
 
 /// Represents the code that the recovery has built for a function of 32-bit
-/// ARM: the address ranges of its blocks, their instructions, and where the
-/// literals that the instructions load lie.
+/// ARM: what its blocks cover, their instructions, and where the literals that
+/// the instructions load lie.
 type internal ARM32BuiltCode =
-  { /// The address ranges of the blocks.
+  { /// What the blocks cover, as the ranges that remain once those that
+    /// overlap or touch merge, which a union of the code of many functions
+    /// sorts far sooner than the ranges of all their blocks.
     Ranges: AddrRange[]
     /// The instructions of the blocks.
     Instructions: IInstruction[]
@@ -104,7 +106,9 @@ type internal ARM32CodeMemo(hdl: BinHandle) =
       |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
       |> Array.map (fun v -> v.VData.Internals)
     let instructions = blocks |> Array.collect (fun blk -> blk.Instructions)
-    { Ranges = blocks |> Array.map (fun blk -> blk.Range)
+    let union =
+      blocks |> Array.map (fun blk -> blk.Range) |> AddrRangeUnion.ofArray
+    { Ranges = union.Ranges
       Instructions = instructions
       Literals = instructions |> Array.choose ARM32Code.tryLiteralRangeOf }
 

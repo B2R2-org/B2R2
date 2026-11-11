@@ -633,8 +633,10 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       | _ ->
         None)
 
-  /// Collects the ranges of the blocks that the given function reaches from
-  /// its roots without leaving it through the given vertices.
+  /// Collects what the blocks that the given function reaches from its roots
+  /// without leaving it through the given vertices cover, as the ranges that
+  /// remain once those that overlap or touch merge, which a union of what many
+  /// functions cover sorts far sooner than the ranges of all their blocks.
   let collectHomeRanges (fn: Function) (exits: HashSet<_>) =
     let cfg = fn.CFG
     let visited = HashSet<IVertex<LowUIRBasicBlock>>()
@@ -649,7 +651,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         else for succ in cfg.GetSuccs v do work.Enqueue succ
       else
         ()
-    ranges.ToArray()
+    (AddrRangeUnion.ofArray (ranges.ToArray())).Ranges
 
   /// The jumps that leave each recovered function and the code that it covers
   /// but for what it reaches only through them, by its CFG, with the count of
