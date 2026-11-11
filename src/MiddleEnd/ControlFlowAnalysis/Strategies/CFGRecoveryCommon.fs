@@ -1278,10 +1278,16 @@ module internal CFGRecoveryCommon =
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge
       |> toCFGResult
 
-  let sendJmpTblRecoverySuccess ctx queue jmptbl idx =
+  /// Reads the target of the entry at the given index of the given table,
+  /// unless the rules of the architecture end the table before it.
+  let tryReadTableTarget ctx (rules: ICFGRecoveryRules<_, _>) jmptbl idx =
+    if rules.EndsJumpTableBefore(ctx, jmptbl, idx) then None
+    else JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx
+
+  let sendJmpTblRecoverySuccess ctx rules queue jmptbl idx =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let tblAddr = jmptbl.TableAddress
-    let nextTarget = JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl (idx + 1)
+    let nextTarget = tryReadTableTarget ctx rules jmptbl (idx + 1)
     let isFnPointerTbl = jmptbl.IsFunctionPointerTable
     let ch = ctx.JumpTableChannel
     let isExpanding =

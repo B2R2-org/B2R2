@@ -194,6 +194,13 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * target: Addr
     -> bool
 
+  /// Checks if the given jump table ends before its entry at the given index.
+  abstract EndsJumpTableBefore:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * JmpTableInfo
+    * idx: int
+    -> bool
+
   /// Checks if the function that the given context has built needs building
   /// again.
   abstract RequiresRebuild: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
@@ -233,6 +240,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// to the recovery itself.
   default _.IsJumpTableHole(_, _) = false
 
+  /// Ends no table, leaving its end to its entries and to the data past them,
+  /// as a range check may admit fewer entries than a compiler emits.
+  default _.EndsJumpTableBefore(_, _, _) = false
+
   /// Finds nothing in a built function that calls for building it again.
   default _.RequiresRebuild _ = false
 
@@ -261,6 +272,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
     member this.IsJumpTableHole(ctx, target) =
       this.IsJumpTableHole(ctx, target)
+
+    member this.EndsJumpTableBefore(ctx, jmptbl, idx) =
+      this.EndsJumpTableBefore(ctx, jmptbl, idx)
 
     member this.RequiresRebuild ctx = this.RequiresRebuild ctx
 

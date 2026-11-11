@@ -68,6 +68,7 @@
     <Compile Include="Strategies\CFGRecoveryRules.fs" />
     <Compile Include="Strategies\IntelCFGRecoveryRules.fs" />
     <Compile Include="Strategies\ARM32CFGRecoveryRules.fs" />
+    <Compile Include="Strategies\MIPSCFGRecoveryRules.fs" />
     <Compile Include="Strategies\CFGRecoveryOptions.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <Compile Include="Strategies\EVMCFGHelper.fs" />

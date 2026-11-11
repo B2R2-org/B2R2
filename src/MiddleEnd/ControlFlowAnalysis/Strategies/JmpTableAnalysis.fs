@@ -448,11 +448,17 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       false
 
+  /// Checks if the given mask keeps the low word of a 64-bit value, which
+  /// takes the value as a 32-bit index, as DEXT of MIPS64 does, rather than
+  /// bounds the index, as a narrower mask does.
+  let isLowWordMask (m: BitVector) =
+    m.Length = 64<rt> && m.ToUInt64() = 0xffffffffUL
+
   /// Decomposes an index into the variable it derives from and the constant
-  /// added to that variable, looking through copies, extensions, and constant
-  /// additions, but not through an extension of a variable that carries no
-  /// width and that no definition computes, so that the variable holding the
-  /// extension becomes the root instead.
+  /// added to that variable, looking through copies, extensions, masks that
+  /// keep the low word, and constant additions, but not through an extension
+  /// of a variable that carries no width and that no definition computes, so
+  /// that the variable holding the extension becomes the root instead.
   let rec decomposeIndex findDef e =
     match e with
     | Var v ->
@@ -471,6 +477,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Cast(CastKind.ZeroExt, _, e)
     | Cast(CastKind.SignExt, _, e)
     | Extract(e, _, 0) when not (isWidthlessLeaf findDef e) ->
+      decomposeIndex findDef e
+    | BinOp(BinOpType.AND, _, e, Num m)
+    | BinOp(BinOpType.AND, _, Num m, e) when isLowWordMask m ->
       decomposeIndex findDef e
     | _ ->
       None
@@ -816,6 +825,19 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | c, _ ->
       c
 
+  /// Finds the definition of the given variable as the given function finds
+  /// it, or else, for a register that the function reads as it holds on
+  /// entry, the value it holds then, if the data flow knows it, as the zero
+  /// register of MIPS holds zero, which a range check compares with.
+  let findDefOrEntryValue findDef fromCP (v: Variable) =
+    match findDef v with
+    | None when v.Identifier = 0 ->
+      match fromCP v with
+      | ConstantDomain.Const bv -> Some(Def(v, Num bv))
+      | _ -> None
+    | def ->
+      def
+
   /// Finds the vertex that starts with the phi defining the given variable,
   /// if a phi defines it.
   let tryFindPhiVertex (state: LowUIRSparseDataFlow.State<_>) var =
@@ -1036,7 +1058,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match found with
     | Ok(v, (exp, guards, domGuards)) ->
       let fromCP = findConstFromIRCFG state
-      let findDef = findDefFromIRCFG state
+      let findDef = findDefOrEntryValue (findDefFromIRCFG state) fromCP
       let expandPhi = expandPhiFromIRCFG fromCP
       let findConst =
         findConstOrLoaded ctx.BinHandle fromCP
