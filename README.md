@@ -96,7 +96,7 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
@@ -105,7 +105,7 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
@@ -388,14 +388,14 @@ Citation
 --------
 
 If you use B2R2 in your research, please consider citing our
-[paper](https://softsec.kaist.ac.kr/~sangkilc/papers/jung-bar19.pdf):
+[paper](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-apsec26.pdf):
 
 ```bibtex
-@INPROCEEDINGS{jung:bar:2019,
-  author = {Minkyu Jung and Soomin Kim and HyungSeok Han and Jaeseung Choi and Sang Kil Cha},
-  title = {{B2R2}: Building an Efficient Front-End for Binary Analysis},
-  booktitle = {Proceedings of the NDSS Workshop on Binary Analysis Research},
-  year = 2019
+@INPROCEEDINGS{kim:apsec:2026,
+  author = {Sehoon Kim, Jung Hyun Kim, Seung Il Jung, Jun Tae Kim, HyungJoon Yoon and Sang Kil Cha},
+  title = {{B2R2} in Action: From Vulnerability Analysis to Binary Repair},
+  booktitle = {Proceedings of the Asia-Pacific Software Engineering Conference},
+  year = 2026
 }
 ```
 
@@ -409,9 +409,10 @@ https://b2r2.org/tutorial-icst2026/.
 Publications
 ------------
 
-Below are papers that use or build on B2R2. If your work should be included,
-please open a pull request.
+Below are papers that introduce, use, or build on B2R2. If your work should be
+included, please open a pull request.
 
+- B2R2 in Action: From Vulnerability Analysis to Binary Repair, APSEC 2026 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-apsec26.pdf)
 - BinForge: Facilitating Generation of Diversified Binary Datasets, APSEC 2026
   [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/yoon-apsec26.pdf)
 - EVMpress: Precise Type Inference for Next-Generation EVM Decompilation, CBT 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-cbt25.pdf)
@@ -421,3 +422,4 @@ please open a pull request.
 - How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, DSN 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
 - Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, ASE 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
 - NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, Oakland 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)
+- B2R2: Building an Efficient Front-End for Binary Analysis, BAR 2019 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/jung-bar19.pdf)
