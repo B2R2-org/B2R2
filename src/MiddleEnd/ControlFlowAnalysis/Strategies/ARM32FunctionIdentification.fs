@@ -447,6 +447,10 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       | idxs -> calledArgs[fn.EntryPoint] <- idxs
     calledArgs
 
+  /// What the evidence of each round reads of the code that stays the same from
+  /// round to round.
+  let memo = ARM32CodeMemo hdl
+
   /// Returns the jumps with which the function calls an argument as it received
   /// it, as its tail.
   let argJumpsOf (fn: Function) = (findCallsOnce fn).ArgJumps
@@ -742,7 +746,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     member _.IdentifyMore recovered =
       let calledArgs = findCalledArgs recovered
       let evidence =
-        ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf)
+        ARM32EntryEvidence(memo, recovered, toCalleeAddr, argJumpsOf)
       let pointers = Array.append dataPointers (pointersStoredBy recovered)
       recovered
       |> Seq.filter (fun fn -> not fn.IsExternal)

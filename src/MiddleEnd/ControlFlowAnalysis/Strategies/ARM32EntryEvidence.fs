@@ -77,6 +77,52 @@ module internal AddrRangeUnion =
     | -1 -> None
     | i -> Some union.Ranges[i]
 
+/// Represents the code that the recovery has built for a function of 32-bit
+/// ARM: the address ranges of its blocks, their instructions, and where the
+/// literals that the instructions load lie.
+type internal ARM32BuiltCode =
+  { /// The address ranges of the blocks.
+    Ranges: AddrRange[]
+    /// The instructions of the blocks.
+    Instructions: IInstruction[]
+    /// Where the literals that the instructions load lie.
+    Literals: AddrRange[] }
+
+/// Represents what identification reads of the code of 32-bit ARM that stays
+/// the same from round to round, which it keeps so that a round reads only
+/// what is new: the code that the recovery has built for each function, by
+/// its CFG, along with the count of its edges then, as the code stays the same
+/// until the function is built again, while reading it takes walking the
+/// whole CFG.
+type internal ARM32CodeMemo(hdl: BinHandle) =
+  let builtCodeByCFG =
+    System.Runtime.CompilerServices.ConditionalWeakTable<LowUIRCFG, _>()
+
+  let readBuiltCode (fn: Function) =
+    let blocks =
+      fn.CFG.Vertices
+      |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+      |> Array.map (fun v -> v.VData.Internals)
+    let instructions = blocks |> Array.collect (fun blk -> blk.Instructions)
+    { Ranges = blocks |> Array.map (fun blk -> blk.Range)
+      Instructions = instructions
+      Literals = instructions |> Array.choose ARM32Code.tryLiteralRangeOf }
+
+  /// The binary that the code belongs to.
+  member _.BinHandle with get(): BinHandle = hdl
+
+  /// Returns the code that the recovery has built for the function, reading
+  /// it anew only once the function has been built again.
+  member _.GetBuiltCode(fn: Function) =
+    let cfg = fn.CFG
+    match builtCodeByCFG.TryGetValue cfg with
+    | true, (edgeCount, code) when edgeCount = cfg.EdgeCount ->
+      code
+    | _ ->
+      let code = readBuiltCode fn
+      builtCodeByCFG.AddOrUpdate(cfg, (cfg.EdgeCount, code))
+      code
+
 /// Represents what the code right above an address says about whether a
 /// function starts there.
 type private Hint =
@@ -131,30 +177,28 @@ type private Lead =
 /// start at a veneer, which only branches on, nor in a literal that the code
 /// loads. The code past a recovered function and the literals that it loads
 /// also tells whether the next function starts there.
-type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
-  let cc = (hdl: BinHandle).Conventions.Calling
+type internal ARM32EntryEvidence(memo, recovered, toCalleeAddr, argJumpsOf) =
+  let hdl = (memo: ARM32CodeMemo).BinHandle
+
+  let cc = hdl.Conventions.Calling
 
   let lu = hdl.NewLiftingUnit()
 
-  let blocksOf (fn: Function) =
-    fn.CFG.Vertices
-    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
-    |> Array.map (fun v -> v.VData.Internals)
-
-  let blocks =
+  let builtCode =
     (recovered: Function[])
     |> Array.filter (fun fn -> not fn.IsExternal)
-    |> Array.collect blocksOf
+    |> Array.map memo.GetBuiltCode
 
   let covered =
-    blocks |> Array.map (fun blk -> blk.Range) |> AddrRangeUnion.ofArray
+    builtCode
+    |> Array.collect (fun code -> code.Ranges)
+    |> AddrRangeUnion.ofArray
 
   let isDecodable addr = lu.TryParseInstruction(addr: Addr) |> Result.isOk
 
-  let instructions = blocks |> Array.collect (fun blk -> blk.Instructions)
+  let instructions = builtCode |> Array.collect (fun code -> code.Instructions)
 
-  let literalRanges =
-    instructions |> Array.choose ARM32Code.tryLiteralRangeOf |> Array.distinct
+  let literalRanges = builtCode |> Array.collect (fun code -> code.Literals)
 
   let literalEnds =
     literalRanges |> Array.map (fun range -> range.Max + 1UL) |> HashSet
@@ -282,6 +326,11 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
         ins.IsBranch && not ins.IsCall && fst (ins.DirectBranchTarget())
       | Error _ ->
         false
+
+  let blocksOf (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.map (fun v -> v.VData.Internals)
 
   /// Adds to the given literals those that the code from the address up to the
   /// end loads, decoding one instruction after another, which reaches loads
