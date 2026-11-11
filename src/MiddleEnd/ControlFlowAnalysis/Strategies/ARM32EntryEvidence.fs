@@ -26,31 +26,56 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
 open B2R2
-open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Provides what address ranges cover together as an interval set, merging
-/// the ranges that overlap or touch. Telling whether an address lies in any of
-/// them needs no more, and far fewer ranges build an interval set far sooner,
-/// which matters as identification builds one for all the recovered code
-/// every round.
+/// Represents what address ranges cover together: the ranges that remain once
+/// those that overlap or touch merge, in the order of their addresses, along
+/// with where each starts. Telling whether an address lies in any of them
+/// takes a binary search, and building one takes a sort, which matters as
+/// identification builds one for all the recovered code every round.
+type internal AddrRangeUnion =
+  { /// Where each of the merged ranges starts.
+    Starts: Addr[]
+    /// The merged ranges.
+    Ranges: AddrRange[] }
+
+/// Provides functions for AddrRangeUnion.
 [<RequireQualifiedAccess>]
 module internal AddrRangeUnion =
-  /// Returns an interval set of what the given ranges cover together.
+  /// Returns what the given ranges cover together.
   let ofArray (ranges: AddrRange[]) =
-    ranges
-    |> Array.sortBy (fun range -> range.Min)
-    |> Array.fold (fun (merged: AddrRange list) range ->
-      match merged with
-      | last :: rest when range.Min <= last.Max + 1UL ->
-        AddrRange.create last.Min (max last.Max range.Max) :: rest
-      | _ ->
-        range :: merged) []
-    |> IntervalSet.ofSeq
+    let merged =
+      ranges
+      |> Array.sortBy (fun range -> range.Min)
+      |> Array.fold (fun (merged: AddrRange list) range ->
+        match merged with
+        | last :: rest when range.Min <= last.Max + 1UL ->
+          AddrRange.create last.Min (max last.Max range.Max) :: rest
+        | _ ->
+          range :: merged) []
+      |> List.rev
+      |> List.toArray
+    { Starts = merged |> Array.map (fun range -> range.Min); Ranges = merged }
+
+  /// Returns the index of the merged range that covers the address, or -1.
+  let private indexOf (addr: Addr) union =
+    match System.Array.BinarySearch(union.Starts, addr) with
+    | i when i >= 0 -> i
+    | i when ~~~i > 0 && union.Ranges[~~~i - 1].Max >= addr -> ~~~i - 1
+    | _ -> -1
+
+  /// Tells whether the address lies in what the union covers.
+  let containsAddr addr union = indexOf addr union >= 0
+
+  /// Finds the merged range that covers the address, if any.
+  let tryFindByAddr addr union =
+    match indexOf addr union with
+    | -1 -> None
+    | i -> Some union.Ranges[i]
 
 /// Represents what the code right above an address says about whether a
 /// function starts there.
@@ -293,7 +318,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   /// on: the given literals, none of which overlap, padding and nops. This
   /// returns where code resumes, telling whether it skipped a literal.
   let rec skipGap literals (addr: Addr) hasSkippedLiteral =
-    match IntervalSet.tryFindOverlappingOneByAddr addr literals with
+    match AddrRangeUnion.tryFindByAddr addr literals with
     | Some(range: AddrRange) ->
       skipGap literals (range.Max + 1UL) true
     | None ->
@@ -341,7 +366,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   let rec leadFrom span (addr: Addr) idx isAfterCondition =
     if idx = MaxLeadLength || addr >= snd span then
       Unclear
-    elif IntervalSet.containsAddr addr literals then
+    elif AddrRangeUnion.containsAddr addr literals then
       Unclear
     else
       match lu.TryParseInstruction addr with
@@ -466,7 +491,7 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   /// in the instruction set that its lowest bit names, which no function that
   /// the recovery has built covers, and which shows a function starting.
   member this.IsLikelyEntry(pointer: Addr) =
-    not (IntervalSet.containsAddr (pointer &&& ~~~1UL) covered)
+    not (AddrRangeUnion.containsAddr (pointer &&& ~~~1UL) covered)
     && this.ShowsEntry pointer
 
   /// Tells whether the code where the pointer leads, in the instruction set
@@ -480,10 +505,10 @@ type internal ARM32EntryEvidence(hdl, recovered, toCalleeAddr, argJumpsOf) =
   /// Tells whether the address lies in a literal that recovered code loads,
   /// which is data, whatever it decodes as.
   member _.IsInLoadedLiteral(addr: Addr) =
-    IntervalSet.containsAddr addr literals
+    AddrRangeUnion.containsAddr addr literals
 
   /// Tells whether code that the recovery has built covers the address.
-  member _.Covers(addr: Addr) = IntervalSet.containsAddr addr covered
+  member _.Covers(addr: Addr) = AddrRangeUnion.containsAddr addr covered
 
   /// Finds where code resumes past the given function, which takes reading
   /// the function anew. Code of 32-bit ARM keeps each function in one piece,

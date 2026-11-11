@@ -29,7 +29,6 @@ open B2R2
 open B2R2.ABI
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -695,7 +694,7 @@ type ARM32FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Array.map (fun (_, _, pointer) -> pointer)
     |> Array.distinct
     |> Array.filter (fun pointer ->
-      not (IntervalSet.containsAddr (pointer &&& ~~~1UL) home)
+      not (AddrRangeUnion.containsAddr (pointer &&& ~~~1UL) home)
       && evidence.ShowsEntry pointer
       && not (evidence.OnlyBranchesOn pointer))
 
