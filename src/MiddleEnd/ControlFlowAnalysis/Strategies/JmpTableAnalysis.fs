@@ -1210,6 +1210,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let collectDataReferences (hdl: BinHandle) =
     match hdl.ISA with
     | AArch64 -> ARM64Code.collectDataReferences hdl
+    | MIPS -> MIPSCode.collectDataReferences hdl
     | _ -> [||]
 
   /// Returns the addresses of data that the code of the given binary computes

@@ -422,6 +422,22 @@ type DataFlowTests() =
     let gpValue = mkConst 0x410000u 32<rt>
     Assert.AreEqual<ConstantDomain.Lattice>(gpValue, state.GetAbsValue vp)
 
+  /// A load through a register that holds no stack address, as MIPS code
+  /// loads through gp, reads what the binary holds where only the loader
+  /// writes, once the register holds a constant.
+  [<TestMethod>]
+  member _.``Constant Propagation loads through a constant register``() =
+    (* lui gp, 0x40 ; lw v0, 0x10(gp) ; jr ra ; nop ; .word 0x12345678 *)
+    let hex = "3c1c00408f82001003e000080000000012345678"
+    let brew = Binaries.loadMIPSAt 0x400000UL hex
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = v0 }
+    let word = mkConst 0x12345678u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(word, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2

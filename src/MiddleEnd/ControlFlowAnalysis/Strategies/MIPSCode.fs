@@ -1,0 +1,411 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
+
+open System.Collections.Generic
+open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.MIPS
+
+/// Provides where MIPS code addresses data on its own. The code builds an
+/// address in two halves: LUI sets a register to the high half, or in PIC code
+/// a load from the local GOT through gp sets it to the page, and an ADDIU of
+/// the low half to the register, or a load or a store at that offset from it,
+/// completes the address.
+module internal MIPSCode =
+  /// Represents what a register holds as far as the scan knows.
+  type private Holding =
+    /// The global pointer, which the code of a binary with one GOT always sets
+    /// to the same value.
+    | GP
+    /// The global pointer on its way from t9, which holds the address of the
+    /// function on entry: the code adds t9 to a displacement, in either order
+    /// with its low half, and the sum is the global pointer once complete.
+    | FromEntry
+    /// A displacement of the global pointer from t9, which LUI and ADDIU build
+    /// in position-independent code, where they build no address.
+    | Displacement
+    /// A high half, as LUI sets it, or a page, as a local GOT entry holds it,
+    /// which an ADDIU of the low half, or a load or a store at that offset,
+    /// completes into an address.
+    | High of value: Addr * setAt: Addr
+    /// A whole address. One that the code has not used yet is pending, as it
+    /// may be the displacement of the global pointer, which the code adds to
+    /// t9 and never uses as an address.
+    | Whole of value: Addr * pending: bool
+    /// A high half or a page plus an index that the scan does not know, as the
+    /// code reaches into a table. An access at the low half from it completes
+    /// the address where the index selects the first entry.
+    | Indexed of value: Addr * setAt: Addr
+
+  /// Represents the state of the scan.
+  type private Scan =
+    { /// What each general-purpose register holds.
+      Regs: Holding option[]
+      /// The addresses of data found so far.
+      Refs: HashSet<Addr>
+      /// The value of the global pointer.
+      GP: Addr
+      /// The bits of an address of the binary.
+      Mask: Addr
+      /// Whether the code builds addresses from the high halves that LUI sets,
+      /// as code that is not position-independent does.
+      FromHalves: bool
+      /// Reads the local GOT entry at the given address, if it is one.
+      ReadGOT: Addr -> Addr option
+      /// The address of the instruction the scan is at.
+      mutable At: Addr }
+
+  let [<Literal>] private T9 = 25
+
+  /// The most bytes past where a high half or a page is set at which an
+  /// instruction may complete an address from it, as a compiler keeps the two
+  /// close. Past that, the register may well hold something else by another
+  /// path that a scan in a straight line does not see.
+  let [<Literal>] private Reach = 64UL
+
+  let [<Literal>] private GPNumber = 28
+
+  /// Returns the number of the given register, if it is a general-purpose one.
+  let private tryGetNumber (r: Register) =
+    let n = int r
+    if n >= 0 && n < 32 then Some n else None
+
+  /// Records the whole address that the given register holds, if it is
+  /// pending, as the code uses it now.
+  let private commit scan n =
+    match scan.Regs[n] with
+    | Some(Whole(v, true)) ->
+      scan.Refs.Add(v &&& scan.Mask) |> ignore
+      scan.Regs[n] <- Some(Whole(v, false))
+    | _ ->
+      ()
+
+  /// Sets what the given register holds. The global pointer never holds
+  /// anything else when the code uses it, so whatever writes it leaves it
+  /// holding the global pointer, unless the write builds it.
+  let private set scan n holding =
+    match holding with
+    | None when n = GPNumber -> scan.Regs[n] <- Some GP
+    | _ when n = 0 -> ()
+    | _ -> scan.Regs[n] <- holding
+
+  /// Returns what the given register holds, as far as the scan still trusts
+  /// it: a high half or a page set too far back is no longer known.
+  let private holdingOf scan n =
+    match scan.Regs[n] with
+    | Some(High(_, at)) | Some(Indexed(_, at)) when scan.At - at > Reach -> None
+    | holding -> holding
+
+  /// Returns the address that the given register holds, if the scan knows it.
+  let private tryGetValue scan n =
+    match holdingOf scan n with
+    | Some GP | Some FromEntry -> Some scan.GP
+    | Some(High(v, _)) | Some(Whole(v, _)) | Some(Indexed(v, _)) -> Some v
+    | Some Displacement | None -> None
+
+  /// Returns the number of each register that the given operands name.
+  let private registersOf (operands: Operand list) =
+    operands
+    |> List.choose (fun opr ->
+      match opr with
+      | OpReg r -> tryGetNumber r
+      | OpMem(b, _, _) -> tryGetNumber b
+      | _ -> None)
+
+  /// Returns the operands of the given instruction in order.
+  let private operandsOf (ins: Instruction) =
+    match ins.Operands with
+    | NoOperand -> []
+    | OneOperand o1 -> [ o1 ]
+    | TwoOperands(o1, o2) -> [ o1; o2 ]
+    | ThreeOperands(o1, o2, o3) -> [ o1; o2; o3 ]
+    | FourOperands(o1, o2, o3, o4) -> [ o1; o2; o3; o4 ]
+
+  /// Checks if the given opcode stores the register that its first operand
+  /// names, rather than writes it.
+  let private isStore = function
+    | Opcode.SB | Opcode.SH | Opcode.SW | Opcode.SD | Opcode.SWL | Opcode.SWR
+    | Opcode.SDL | Opcode.SDR | Opcode.SWC1 | Opcode.SDC1 | Opcode.SWXC1
+    | Opcode.SDXC1 | Opcode.SUXC1 -> true
+    | _ -> false
+
+  /// Returns the register that the given instruction writes as it names it
+  /// first, if any, and the registers it reads.
+  let private accessesOf (ins: Instruction) =
+    match operandsOf ins with
+    | OpReg r :: rest
+      when not (isStore ins.Opcode) && not (ins :> IInstruction).IsBranch ->
+      tryGetNumber r, registersOf rest
+    | operands ->
+      None, registersOf operands
+
+  /// Updates the scan by an instruction that the scan does not follow: it
+  /// leaves what it writes unknown. What it reads it uses as a number, as a
+  /// comparison or a mask does, so no address that it reads is recorded.
+  let private stepOther scan ins =
+    accessesOf ins |> fst |> Option.iter (fun n -> set scan n None)
+
+  /// Sign-extends the given 16-bit immediate.
+  let private signExtend16 (imm: uint64) = uint64 (int64 (int16 (uint16 imm)))
+
+  /// Returns the high half that LUI sets from the given immediate.
+  let private highOf (imm: uint64) = uint64 (int64 (int32 (uint32 imm <<< 16)))
+
+  /// Updates the scan by an ADDIU or a DADDIU of the given immediate to the
+  /// given source register: it completes an address from a high half, a page,
+  /// or the global pointer, or goes on building the global pointer from t9.
+  /// The scan follows no offset from a whole address, which reaches a field
+  /// within whatever the address names.
+  let private stepLow scan d s imm =
+    commit scan s
+    match holdingOf scan s with
+    | Some FromEntry -> set scan d (Some FromEntry)
+    | Some Displacement -> set scan d (Some Displacement)
+    | Some GP -> set scan d (Some(Whole(scan.GP + imm, true)))
+    | Some(High(v, _)) -> set scan d (Some(Whole(v + imm, true)))
+    | _ -> set scan d None
+
+  /// Updates the scan by an ADDU or a DADDU of t9 to the given register, which
+  /// builds the global pointer from the displacement that the register holds.
+  /// The displacement is no address, so it is dropped rather than recorded.
+  let private stepFromEntry scan d other =
+    match scan.Regs[other] with
+    | Some(Whole(v, _)) ->
+      scan.Regs[other] <- Some(Whole(v, false))
+      set scan d (Some FromEntry)
+    | Some(High _) | Some Displacement ->
+      set scan d (Some FromEntry)
+    | _ ->
+      commit scan other
+      set scan d None
+
+  /// Updates the scan by an ADDU or a DADDU of the given registers: a high half
+  /// or a page plus a value the scan does not know is on its way to an entry
+  /// of a table. A whole address plus an index reaches an element at an
+  /// index that need not start from zero, and the scan follows it no further.
+  let private stepIndex scan d s t =
+    commit scan s
+    commit scan t
+    match holdingOf scan s, holdingOf scan t with
+    | Some(High(v, at)), None | None, Some(High(v, at)) ->
+      set scan d (Some(Indexed(v, at)))
+    | _ ->
+      set scan d None
+
+  /// Checks if an access at an offset from what the given register holds
+  /// completes an address: from a high half, a page, or the global pointer,
+  /// but not from a whole address, which the offset reaches a field of.
+  let private completes scan n =
+    match holdingOf scan n with
+    | Some(Whole _) | Some Displacement | None -> false
+    | Some GP | Some FromEntry | Some(High _) | Some(Indexed _) -> true
+
+  /// Updates the scan by a load or a store at the given offset from the given
+  /// base: a load of a local GOT entry gives its destination the page or the
+  /// address in it, and any other access may complete an address.
+  let private stepAccess scan (ins: Instruction) rt b (offset: int64) =
+    commit scan b
+    let isLoad = not (isStore ins.Opcode)
+    let addr = tryGetValue scan b |> Option.map (fun v -> v + uint64 offset)
+    match addr |> Option.bind scan.ReadGOT with
+    | Some entry when isLoad ->
+      set scan rt (Some(High(entry, scan.At)))
+    | Some _ ->
+      ()
+    | None ->
+      if completes scan b then
+        scan.Refs.Add(Option.get addr &&& scan.Mask) |> ignore
+      else
+        ()
+      if isLoad then set scan rt None else commit scan rt
+
+  /// Updates the scan by the given instruction, which is no branch.
+  let private step scan (ins: Instruction) =
+    match ins.Opcode, ins.Operands with
+    | Opcode.LUI, TwoOperands(OpReg d, OpImm imm) ->
+      let holding =
+        if scan.FromHalves then High(highOf imm, scan.At) else Displacement
+      tryGetNumber d |> Option.iter (fun d -> set scan d (Some holding))
+    | (Opcode.ADDIU | Opcode.DADDIU),
+      ThreeOperands(OpReg d, OpReg s, OpImm imm) ->
+      match tryGetNumber d, tryGetNumber s with
+      | Some d, Some s -> stepLow scan d s (signExtend16 imm)
+      | _ -> stepOther scan ins
+    | (Opcode.ADDU | Opcode.DADDU), ThreeOperands(OpReg d, OpReg s, OpReg t)
+      when int s = T9 || int t = T9 ->
+      let other = if int s = T9 then t else s
+      match tryGetNumber d, tryGetNumber other with
+      | Some d, Some other -> stepFromEntry scan d other
+      | _ -> stepOther scan ins
+    | (Opcode.ADDU | Opcode.DADDU), ThreeOperands(OpReg d, OpReg s, OpReg t) ->
+      match tryGetNumber d, tryGetNumber s, tryGetNumber t with
+      | Some d, Some s, Some t -> stepIndex scan d s t
+      | _ -> stepOther scan ins
+    | Opcode.OR, ThreeOperands(OpReg d, OpReg s, OpReg Register.R0) ->
+      match tryGetNumber d, tryGetNumber s with
+      | Some d, Some s -> set scan d scan.Regs[s]
+      | _ -> stepOther scan ins
+    | _, TwoOperands(OpReg rt, OpMem(b, Imm offset, _)) ->
+      match tryGetNumber rt, tryGetNumber b with
+      | Some rt, Some b -> stepAccess scan ins rt b offset
+      | _ -> stepOther scan ins
+    | _ ->
+      stepOther scan ins
+
+  /// Checks if the given instruction leaves the code that follows it to run
+  /// with values from elsewhere: a jump, a return, or one that stops.
+  let private leaves (ins: IInstruction) =
+    (ins.IsBranch && not ins.IsCondBranch && not ins.IsCall) || ins.IsExit
+
+  /// Checks if the given holding is the global pointer, which a binary with one
+  /// GOT holds wherever its code runs.
+  let private isGP = function
+    | Some GP | Some FromEntry -> true
+    | _ -> false
+
+  /// Forgets what every register holds but the global pointer. A register
+  /// that holds the global pointer goes on holding it, as the code of a
+  /// function keeps a copy of it in one.
+  let private forgetAll scan =
+    for n in 0 .. 31 do
+      if isGP scan.Regs[n] then () else set scan n None
+    done
+
+  /// Updates the scan by what the given instruction does to the code after
+  /// it, past its delay slot. A call uses the addresses in the argument
+  /// registers, a0 to a7, and leaves the registers that the callee may change
+  /// unknown; a jump through a register, as a return or a call in tail
+  /// position, uses those in the value registers and the argument registers,
+  /// and like any instruction that leaves, it forgets every register.
+  let private stepFlow scan (ins: Instruction) =
+    let i = ins :> IInstruction
+    if i.IsCall then
+      for n in 4 .. 11 do commit scan n done
+      for n in [ 1 .. 15 ] @ [ 24; 25; 31 ] do set scan n None done
+    elif leaves i then
+      if i.IsIndirectBranch then for n in 2 .. 11 do commit scan n done
+      else ()
+      forgetAll scan
+    else
+      ()
+
+  /// Updates the scan by the given branch: it reads its registers, then its
+  /// delay slot runs, and then the branch takes effect. A conditional branch
+  /// only compares what it reads, which is no use of an address: code
+  /// compares a register with a number it builds as it builds an address.
+  let private stepBranch scan (ins: Instruction) =
+    if (ins :> IInstruction).IsCondBranch then ()
+    else accessesOf ins |> snd |> List.iter (commit scan)
+    ins.DelaySlot
+    |> Option.iter (fun slot ->
+      scan.At <- slot.Address
+      step scan slot)
+    stepFlow scan ins
+
+  /// Collects into the scan the addresses of data that the code of the given
+  /// section computes, reading the section as one run of instructions. A word
+  /// that is no instruction is data amid the code, past which no register
+  /// holds anything known.
+  let private scanSection (lu: LiftingUnit) scan (sec: BinSection) =
+    let rec loop (addr: Addr) =
+      if addr + 4UL <= sec.Address + sec.Size then
+        match lu.TryParseInstruction addr with
+        | Ok ins ->
+          scan.At <- addr
+          let ins = ins :?> Instruction
+          if (ins :> IInstruction).IsBranch || ins.HasDelaySlot then
+            stepBranch scan ins
+            loop ins.FallThroughAddress
+          else
+            step scan ins
+            loop (addr + uint64 ins.Length)
+        | Error _ ->
+          forgetAll scan
+          loop (addr + 4UL)
+      else
+        ()
+    loop sec.Address
+
+  /// Returns the local GOT entry at the given address, if it is one: an entry
+  /// of the GOT that only the loader writes.
+  let private tryReadGOT (hdl: BinHandle) (elf: ELFBinFile) got addr =
+    let isInGOT (sec: BinSection) =
+      sec.Address <= addr && addr < sec.Address + sec.Size
+    if Option.exists isInGOT got && elf.IsReadOnlyAfterLoading addr then
+      let width = WordSize.toByteWidth hdl.File.ISA.WordSize
+      match hdl.TryReadUInt(addr, width) with
+      | Ok v when width = 4 -> Some(uint64 (int64 (int32 (uint32 v))))
+      | Ok v -> Some v
+      | Error _ -> None
+    else
+      None
+
+  /// Checks if the code of the given binary builds addresses from the high
+  /// halves that LUI sets: 32-bit code that is not position-independent does,
+  /// whereas position-independent code reads them from the GOT, as all 64-bit
+  /// code does, where LUI only builds numbers.
+  let private buildsFromHalves (hdl: BinHandle) =
+    hdl.File.ISA.WordSize = WordSize.Bit32 && not hdl.File.IsBaseRelative
+
+  /// Returns the mask of the bits of an address of the given width.
+  let private maskOf wordSize =
+    if wordSize = WordSize.Bit32 then 0xffffffffUL else System.UInt64.MaxValue
+
+  /// Collects, in ascending order, the addresses of data that the code of the
+  /// given binary computes on its own, each where a piece of data starts or a
+  /// place within one. A binary without a GOT has no global pointer to read
+  /// it through, and only its LUI pairs tell.
+  let collectDataReferences (hdl: BinHandle) =
+    let refs = HashSet<Addr>()
+    match hdl.File with
+    | :? ELFBinFile as elf ->
+      let got =
+        hdl.File.Structure
+        |> Option.bind (fun st ->
+          match st.TryFindSectionByName ".got" with
+          | Ok got -> Some got
+          | Error _ -> None)
+      let gp = got |> Option.map (fun got -> got.Address + 0x7ff0UL)
+      let scan =
+        { Regs = Array.create 32 None
+          Refs = refs
+          GP = Option.defaultValue 0UL gp
+          Mask = maskOf hdl.File.ISA.WordSize
+          FromHalves = buildsFromHalves hdl
+          ReadGOT = tryReadGOT hdl elf got
+          At = 0UL }
+      scan.Regs[GPNumber] <- Some GP
+      let lu = hdl.NewLiftingUnit()
+      BinFileOps.getSections hdl.File
+      |> Seq.filter (fun sec -> sec.Kind = CodeSection)
+      |> Seq.iter (scanSection lu scan)
+    | _ ->
+      ()
+    let addrs = Seq.toArray refs
+    Array.sortInPlace addrs
+    addrs

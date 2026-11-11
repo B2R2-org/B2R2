@@ -67,6 +67,18 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
     | c ->
       c
 
+  /// Loads a value of the given type from the given address, which the address
+  /// domain does not know, as a register that holds no stack address gives
+  /// it, e.g., gp in MIPS code: what the binary holds there if the address is
+  /// a constant where only the loader writes, which no store can change.
+  let loadThroughRegister rt = function
+    | ConstantDomain.Const addr ->
+      LoaderOnlyMemory.tryRead hdl (addr.ToUInt64()) rt
+      |> Option.map ConstantDomain.Const
+      |> Option.defaultValue ConstantDomain.NotAConst
+    | c ->
+      c
+
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | PCVar(Type = rt) ->
@@ -82,7 +94,7 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
       match LowUIRAddress.tryGetMemoryVarKind addrValue, addrValue with
       | Some vk, _ -> loadVar state pp rt vk
       | None, AddressDomain.Undef -> ConstantDomain.Undef
-      | None, _ -> ConstantDomain.NotAConst
+      | None, _ -> evaluateExpr state pp addr |> loadThroughRegister rt
     | UnOp(Op = op; Operand = e) ->
       evaluateExpr state pp e
       |> ConstantDomain.evalUnOp op
