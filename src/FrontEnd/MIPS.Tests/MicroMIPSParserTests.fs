@@ -1091,8 +1091,7 @@ type MicroMIPSParserTests() =
       let bld = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
       let p = Parser(isa, BinReader.Init isa.Endian)
       let p = p :> IInstructionParsable
-      (p.Parse(ByteArray.ofHexString jump, 0UL)).Translate bld |> ignore
-      (p.Parse(ByteArray.ofHexString slot, 4UL)).Translate bld
+      (p.Parse(ByteArray.ofHexString (jump + slot), 0UL)).Translate bld
       |> Array.pick (function
         | InterJmp(Kind = kind) -> Some kind
         | _ -> None)

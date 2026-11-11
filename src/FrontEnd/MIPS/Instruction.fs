@@ -40,12 +40,31 @@ type Instruction
            isaMode,
            lifter: ILiftable) =
 
+  let mutable delaySlot: Instruction option = None
+
   let hasConcJmpTarget () =
     match opr with
     | OneOperand(OpAddr _)
     | TwoOperands(_, OpAddr _)
     | ThreeOperands(_, _, OpAddr _)
     | OneOperand(OpImm _) -> true
+    | _ -> false
+
+  (* Every branch of the base architecture before Release 6 has one, and so
+     do the jumps through a register and the calls of the compressed
+     encodings; a MIPS16e branch, the compact branches of Release 6 and the
+     branches on coprocessors this processor lacks do not. *)
+  let hasDelaySlot () =
+    match op with
+    | Opcode.B -> isaMode <> MIPSISAMode.MIPS16
+    | Opcode.BAL | Opcode.NAL | Opcode.BEQ | Opcode.BNE | Opcode.BLEZ
+    | Opcode.BLTZ | Opcode.BGEZ | Opcode.BGTZ | Opcode.BLTZAL | Opcode.BGEZAL
+    | Opcode.BEQL | Opcode.BNEL | Opcode.BLEZL | Opcode.BLTZL | Opcode.BGEZL
+    | Opcode.BGTZL | Opcode.BLTZALL | Opcode.BGEZALL | Opcode.BC1F
+    | Opcode.BC1T | Opcode.BC1FL | Opcode.BC1TL | Opcode.BC1EQZ
+    | Opcode.BC1NEZ | Opcode.J | Opcode.JAL | Opcode.JALX | Opcode.JR
+    | Opcode.JRHB | Opcode.JALR | Opcode.JALRHB | Opcode.JALS | Opcode.JALRS
+    | Opcode.JALRSHB | Opcode.BLTZALS | Opcode.BGEZALS -> true
     | _ -> false
 
   /// Address of this instruction.
@@ -91,6 +110,25 @@ type Instruction
   /// the two a processor has, and no processor has both.
   /// </summary>
   member _.IsCompressed with get(): bool = isaMode <> MIPSISAMode.MIPS
+
+  /// Whether this is a branch that runs the instruction after it, in its
+  /// delay slot, before it transfers control.
+  member _.HasDelaySlot with get(): bool = hasDelaySlot ()
+
+  /// <summary>
+  /// The instruction in the delay slot of this branch, which the branch runs
+  /// after reading what decides the transfer and before making it, and so
+  /// lifts as part of itself. None where the branch has no delay slot, or
+  /// where the bytes after it were not given or hold no instruction. Only the
+  /// parser sets it, on the instruction it has just read.
+  /// </summary>
+  member _.DelaySlot
+    with get(): Instruction option = delaySlot
+     and internal set v = delaySlot <- v
+
+  /// Lifts this instruction into the statements the builder holds.
+  member internal this.LiftInto(builder: LowUIRBuilder) =
+    lifter.Lift(this, builder) |> ignore
 
   interface IInstruction with
 
@@ -160,9 +198,11 @@ type Instruction
 
     member _.IsInlinedAssembly = false
 
-    member _.IsTerminator prevIns =
-      if isNull prevIns then false (* considering delay slots *)
-      else prevIns.IsBranch || prevIns.IsInterrupt || prevIns.IsExit
+    (* A branch carries its delay slot, so it ends the block itself, and the
+       instruction after it ends nothing. *)
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      hasDelaySlot () || ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
     member this.DirectBranchTarget(addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then

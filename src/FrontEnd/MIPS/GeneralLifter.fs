@@ -248,10 +248,8 @@ let b (ins: Instruction) (bld: LowUIRBuilder) =
     }
   else
     liftTransfer bld ins {
-      let nPC = regVar bld R.NPC
       let offset = transOneOpr ins bld
-      bld.DelayedBranch <- InterJmpKind.Base
-      nPC := offset
+      jumpAfterSlot ins bld offset InterJmpKind.Base
     }
 
 /// <summary>
@@ -291,10 +289,8 @@ let private afterSlot (ins: Instruction) =
 let bal ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let offset = transOneOpr ins bld
-    let nPC = regVar bld R.NPC
-    bld.DelayedBranch <- InterJmpKind.IsCall
     regVar bld R.R31 := linkFrom ins bld (afterSlot ins)
-    nPC := offset
+    jumpAfterSlot ins bld offset InterJmpKind.IsCall
   }
 
 /// <summary>
@@ -304,16 +300,14 @@ let bal ins (bld: LowUIRBuilder) =
 /// A program uses it to find out where it is: the architecture gives it no
 /// other way to read the PC, and the return address a link leaves behind is
 /// the address after the delay slot. The slot still runs, and what follows it
-/// is what would have followed anyway -- so the only thing this writes is
-/// r31.
+/// is what would have followed anyway -- so this writes r31 and goes on past
+/// the slot.
 /// </summary>
 let nal ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let pc = regVar bld R.PC
-    let nPC = regVar bld R.NPC
-    bld.DelayedBranch <- InterJmpKind.Base
     regVar bld R.R31 := pc .+ numI32 8 bld.RegType
-    nPC := pc .+ numI32 8 bld.RegType
+    jumpAfterSlot ins bld (pastSlot ins bld) InterJmpKind.Base
   }
 
 /// A condition code, which FSR keeps where FCSR has it: FCC0 at 23 and
@@ -332,13 +326,13 @@ let bc1f (ins: Instruction) bld =
     | OneOperand off ->
       let offset = transOpr ins bld off
       let cond = AST.not (fpConditionCode 0 bld)
-      updatePCCond ins bld offset cond InterJmpKind.Base
+      branchIf ins bld cond offset
     | _ ->
       let cc, offset = getTwoOprs ins
       let offset = transOpr ins bld offset
       let cc = transOprToImmToInt cc
       let cond = AST.not (fpConditionCode cc bld)
-      updatePCCond ins bld offset cond InterJmpKind.Base
+      branchIf ins bld cond offset
   }
 
 let bc1t (ins: Instruction) bld =
@@ -347,30 +341,29 @@ let bc1t (ins: Instruction) bld =
     | OneOperand off ->
       let offset = transOpr ins bld off
       let cond = fpConditionCode 0 bld
-      updatePCCond ins bld offset cond InterJmpKind.Base
+      branchIf ins bld cond offset
     | _ ->
       let cc, offset = getTwoOprs ins
       let offset = transOpr ins bld offset
       let cc = transOprToImmToInt cc
       let cond = fpConditionCode cc bld
-      updatePCCond ins bld offset cond InterJmpKind.Base
+      branchIf ins bld cond offset
   }
 
 let beq ins bld =
   liftTransfer bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs == rt
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
-/// BEQL and BNEL. See updatePCCondLikely for why the delay slot is skipped
-/// rather than predicated: the slot is a separate instruction and the lifter
-/// cannot reach into it, so the not-taken path steps over it instead.
+/// BEQL and BNEL, which run the delay slot only when they are taken. See
+/// branchLikelyIf.
 let beql ins bld =
   liftTransfer bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs == rt
-    updatePCCondLikely bld offset cond InterJmpKind.Base
+    branchLikelyIf ins bld cond offset InterJmpKind.Base
   }
 
 /// BC1FL and BC1TL: the floating-point branches with the nullify bit set.
@@ -390,7 +383,7 @@ let bc1condl (ins: Instruction) bld tf =
         transOprToImmToInt cc, transOpr ins bld off
     let bit = fpConditionCode cc bld
     let cond = if tf then bit else AST.not bit
-    updatePCCondLikely bld offset cond InterJmpKind.Base
+    branchLikelyIf ins bld cond offset InterJmpKind.Base
   }
 
 /// The compare-with-zero branch-likelies. They nullify the delay slot on
@@ -400,7 +393,7 @@ let bcondzl ins bld cmp =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = cmp rs (AST.num0 bld.RegType)
-    updatePCCondLikely bld offset cond InterJmpKind.Base
+    branchLikelyIf ins bld cond offset InterJmpKind.Base
   }
 
 /// The and-link branch-likelies. The link is written unconditionally, as
@@ -410,69 +403,63 @@ let bcondzall ins bld cmp =
     let rs, offset = transTwoOprs ins bld
     let cond = cmp rs (AST.num0 bld.RegType)
     regVar bld R.R31 := regVar bld R.PC .+ numI32 8 bld.RegType
-    updatePCCondLikely bld offset cond InterJmpKind.IsCall
+    branchLikelyIf ins bld cond offset InterJmpKind.IsCall
   }
 
 let bnel ins bld =
   liftTransfer bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs != rt
-    updatePCCondLikely bld offset cond InterJmpKind.Base
+    branchLikelyIf ins bld cond offset InterJmpKind.Base
   }
 
 let blez ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.sle rs (AST.num0 bld.RegType)
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
 let bltz ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.slt rs (AST.num0 bld.RegType)
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
 let bltzal ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let nAddr = tmpVar bld bld.RegType
     let cond = AST.slt rs (AST.num0 bld.RegType)
-    nAddr := linkFrom ins bld (afterSlot ins)
-    regVar bld R.R31 := nAddr
-    updatePCCond ins bld offset cond InterJmpKind.IsCall
+    callIf ins bld cond offset (linkFrom ins bld (afterSlot ins))
   }
 
 let bgez ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.sge rs (AST.num0 bld.RegType)
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
 let bgezal ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let nAddr = tmpVar bld bld.RegType
     let cond = AST.sge rs (AST.num0 bld.RegType)
-    nAddr := linkFrom ins bld (afterSlot ins)
-    regVar bld R.R31 := nAddr
-    updatePCCond ins bld offset cond InterJmpKind.IsCall
+    callIf ins bld cond offset (linkFrom ins bld (afterSlot ins))
   }
 
 let bgtz ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.sgt rs (AST.num0 bld.RegType)
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
 let bne ins bld =
   liftTransfer bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs != rt
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
 /// Sets a condition code in FSR, where FCSR has it.
@@ -1415,10 +1402,8 @@ let getJALROprs (ins: Instruction) bld =
 
 let j ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
     let dest = getOneOpr ins |> transOpr ins bld
-    bld.DelayedBranch <- InterJmpKind.Base
-    nPC := dest
+    jumpAfterSlot ins bld dest InterJmpKind.Base
   }
 
 /// <summary>
@@ -1456,12 +1441,10 @@ let private afterShortSlot (ins: Instruction) =
 
 let jal (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
     let lr = regVar bld R.R31
     let dest = getOneOpr ins |> transOpr ins bld
-    bld.DelayedBranch <- InterJmpKind.IsCall
     lr := linkFrom ins bld (afterSlot ins)
-    nPC := dest
+    jumpAfterSlot ins bld dest InterJmpKind.IsCall
   }
 
 /// <summary>
@@ -1475,33 +1458,36 @@ let jal (ins: Instruction) (bld: LowUIRBuilder) =
 /// </summary>
 let jalx (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
     let dest = getOneOpr ins |> transOpr ins bld
     let toward =
       if ins.IsCompressed then InterJmpKind.SwitchToMIPS
       else compressedSwitch bld
-    bld.DelayedBranch <- InterJmpKind.IsCall ||| toward
     regVar bld R.R31 := linkFrom ins bld (afterSlot ins)
-    nPC := dest
+    jumpAfterSlot ins bld dest (InterJmpKind.IsCall ||| toward)
   }
+
+/// A jump through a register, made once the delay slot has run. The address
+/// was read into a temporary before the slot, which may write the register,
+/// and before the link, which may be the register itself.
+let private jumpThroughAfterSlot ins bld target kind =
+  runDelaySlot ins bld
+  if carriesMode bld then interJmpByMode bld target kind
+  else append bld { AST.interjmp target kind }
 
 let jalr (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
     let struct (lr, rs) = getJALROprs ins bld
-    bld.DelayedBranch <- InterJmpKind.IsCall
-    bld.BranchCarriesMode <- carriesMode bld
+    let target = tmpVar bld bld.RegType
+    target := rs
     lr := linkFrom ins bld (afterSlot ins)
-    nPC := rs
+    jumpThroughAfterSlot ins bld target InterJmpKind.IsCall
   }
 
 let jr ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
-    let rs = transOneOpr ins bld
-    bld.DelayedBranch <- InterJmpKind.Base
-    bld.BranchCarriesMode <- carriesMode bld
-    nPC := rs
+    let target = tmpVar bld bld.RegType
+    target := transOneOpr ins bld
+    jumpThroughAfterSlot ins bld target InterJmpKind.Base
   }
 
 /// <summary>
@@ -1526,11 +1512,9 @@ let jumpRegCompact ins (bld: LowUIRBuilder) =
 /// </summary>
 let jalShortSlot ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
     let dest = getOneOpr ins |> transOpr ins bld
-    bld.DelayedBranch <- InterJmpKind.IsCall
     regVar bld R.R31 := linkFrom ins bld (afterShortSlot ins)
-    nPC := dest
+    jumpAfterSlot ins bld dest InterJmpKind.IsCall
   }
 
 /// BLTZALS and BGEZALS, which are BLTZAL and BGEZAL with a delay slot of one
@@ -1538,11 +1522,8 @@ let jalShortSlot ins (bld: LowUIRBuilder) =
 let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let nAddr = tmpVar bld bld.RegType
     let cond = cmp rs (AST.num0 bld.RegType)
-    nAddr := linkFrom ins bld (afterShortSlot ins)
-    regVar bld R.R31 := nAddr
-    updatePCCond ins bld offset cond InterJmpKind.IsCall
+    callIf ins bld cond offset (linkFrom ins bld (afterShortSlot ins))
   }
 
 /// <summary>
@@ -1554,12 +1535,11 @@ let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
 /// </summary>
 let jalrShortSlot ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
     let struct (lr, rs) = getJALROprs ins bld
-    bld.DelayedBranch <- InterJmpKind.IsCall
-    bld.BranchCarriesMode <- carriesMode bld
+    let target = tmpVar bld bld.RegType
+    target := rs
     lr := linkFrom ins bld (afterShortSlot ins)
-    nPC := rs
+    jumpThroughAfterSlot ins bld target InterJmpKind.IsCall
   }
 
 /// <summary>
@@ -2429,7 +2409,7 @@ let bc1z ins bld nonZero =
     let ft, offset = transTwoOprs ins bld
     let bit = AST.xtlo 1<rt> ft
     let cond = if nonZero then bit else AST.not bit
-    updatePCCond ins bld offset cond InterJmpKind.Base
+    branchIf ins bld cond offset
   }
 
 /// microMIPS's BC1EQZC and BC1NEZC test the same bit and are the compact

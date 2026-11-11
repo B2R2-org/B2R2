@@ -1591,3 +1591,41 @@ type MIPS32ParserTests() =
     disasmMIPS16x64 "e9516500" "zew s1, s1"
     disasmMIPS16x64 "ea516500" "zew v0, v0"
     disasmMIPS16x64 "eb516500" "zew v1, v1"
+
+  /// <summary>
+  /// A branch reads the instruction after it as its delay slot, the one it
+  /// runs before it transfers. A compact branch of Release 6 has none, and
+  /// neither has a branch whose bytes end with it or an instruction that is
+  /// not a branch.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] a branch reads the word after it as its delay slot``() =
+    let parse (isa: ISA) hex =
+      let parser = Parser(isa, BinReader.Init isa.Endian)
+      let bytes = ByteArray.ofHexString hex
+      let ins = (parser :> IInstructionParsable).Parse(bytes, 0UL)
+      (ins :?> Instruction).DelaySlot
+      |> Option.map (fun slot -> slot.Opcode, slot.Address)
+    let r2 = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, int MIPSRelease.R6)
+    (* bnez v0, 0xc ; addiu v0, zero, 1 *)
+    Assert.AreEqual(Some(ADDIU, 4UL), parse r2 "1440000224020001")
+    Assert.AreEqual(None, parse r2 "14400002")
+    (* bc 0x404 ; addiu v0, zero, 1 *)
+    Assert.AreEqual(None, parse r6 "c800010024020001")
+    (* addiu v0, zero, 1 ; addiu v0, zero, 1 *)
+    Assert.AreEqual(None, parse r2 "2402000124020001")
+
+  /// A branch ends a block on its own, carrying its delay slot, and the
+  /// instruction in the slot ends nothing.
+  [<TestMethod>]
+  member _.``[MIPS32] a branch ends a block and its delay slot does not``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
+    (* bnez v0, 0xc ; addiu v0, zero, 1 *)
+    let bytes = ByteArray.ofHexString "1440000224020001"
+    let branch = parser.Parse(bytes, 0UL)
+    let slot = parser.Parse(System.ReadOnlySpan(bytes, 4, 4), 4UL)
+    Assert.AreEqual<bool>(true, branch.IsTerminator null)
+    Assert.AreEqual<bool>(false, slot.IsTerminator branch)

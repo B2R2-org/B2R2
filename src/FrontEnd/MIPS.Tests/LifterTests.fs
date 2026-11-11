@@ -75,18 +75,18 @@ type LifterTests() =
   /// FCSR.FS, flush subnormal results to zero.
   let fs = 0x01000000u
 
-  /// The kinds of the jumps a branch and its delay slot lift to, the parser
-  /// reading the encoding a mode names on the processor an ISA names.
+  /// The kinds of the jumps a branch leaves by, with the word after it in its
+  /// delay slot where it has one, the parser reading the encoding a mode names
+  /// on the processor an ISA names. A conditional jump leaves as a plain one.
   let jumpKinds (isa: ISA) mode branch slot =
     let builder = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
     let parser = Parser(isa, BinReader.Init isa.Endian)
     parser.ISAMode <- mode
     let p = parser :> IInstructionParsable
-    let ins = p.Parse(ByteArray.ofHexString branch, 0UL)
-    ins.Translate builder |> ignore
-    (p.Parse(ByteArray.ofHexString slot, uint64 ins.Length)).Translate builder
+    (p.Parse(ByteArray.ofHexString (branch + slot), 0UL)).Translate builder
     |> Array.choose (function
       | InterJmp(Kind = kind) -> Some kind
+      | InterCJmp _ -> Some InterJmpKind.Base
       | _ -> None)
 
   let test (isa: ISA) (bytes: byte[], givenStmts) =
@@ -97,21 +97,13 @@ type LifterTests() =
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
-  (* A branch emits no transfer of its own; the delay slot that follows it
-     consumes the armed branch and emits the transfer. A slot that closes
-     without consuming it leaks the transfer into the instruction after the
-     slot, which the branch was meant to skip. *)
+  (* A branch carries its delay slot: the slot runs after the branch has read
+     what decides the transfer and before control leaves, so it is lifted
+     between the two, with no marks of its own, and the branch ends with the
+     transfer. *)
   let testDelaySlot (isa: ISA) branch slot givenStmts =
-    let reader = BinReader.Init isa.Endian
-    let regFactory = RegisterFactory isa
-    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let parser = Parser(isa, reader) :> IInstructionParsable
-    let branch = parser.Parse(ByteArray.ofHexString branch, 0UL)
-    branch.Translate builder |> ignore
-    let ins = parser.Parse(ByteArray.ofHexString slot, 4UL)
-    let actual = ins.Translate builder
-    let actual = Array.sub actual 1 (actual.Length - 1)
-    CollectionAssert.AreEqual(givenStmts, actual)
+    let actual = lifted isa (branch + slot)
+    CollectionAssert.AreEqual(givenStmts, Array.tail actual)
 
   /// microMIPS64 at Release 6, read from big-endian bytes so that the hex is
   /// the word as the manuals draw it: the major halfword first.
@@ -158,11 +150,6 @@ type LifterTests() =
           AST.lmark lblEnd |]
     |> test isa
 
-  (* A likely branch runs its delay slot only when it is taken. The lifter
-     cannot suppress the next instruction, so the not-taken path has to leave
-     immediately for PC+8, stepping over the slot at PC+4. That interjmp on the
-     false arm is the whole of the difference from BEQ, which writes NPC on
-     both arms and lets the slot carry the transfer either way. *)
   (* The equal term of a comparison is a floating-point equality, not a
      comparison of magnitudes. Comparing the operands with their signs shifted
      away made every value equal to its own negation, and the signed-zero case
@@ -235,25 +222,30 @@ type LifterTests() =
           !.F1 := AST.xthi 32<rt> t |]
     |> test isa
 
+  (* A likely branch runs its delay slot only when it is taken, and
+     nullifies it otherwise: the taken path runs the slot and then goes to the
+     target, and the other goes past the slot without running it. That the
+     slot sits on one path only is the whole of the difference from BEQ,
+     which runs it before either. *)
   [<TestMethod>]
   member _.``[MIPS64] BEQL skips its delay slot when not taken``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
     let regFactory = RegisterFactory isa :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
     let stream = LowUIRStream()
-    let lblTrue = stream.NewLabel "TrueCase"
-    let lblFalse = stream.NewLabel "FalseCase"
-    let lblEnd = stream.NewLabel "End"
-    "50220002"
-    ++ [| AST.cjmp (!.R1 == !.R2) (AST.jmpDest lblTrue) (AST.jmpDest lblFalse)
-          AST.lmark lblTrue
-          !.NPC := numI64 12L 64<rt>
-          AST.jmp (AST.jmpDest lblEnd)
-          AST.lmark lblFalse
-          !.NPC := !.PC .+ numI32 8 64<rt>
-          AST.interjmp !.NPC InterJmpKind.Base
-          AST.lmark lblEnd |]
-    |> test isa
+    let lblTaken = stream.NewLabel "Taken"
+    let lblNotTaken = stream.NewLabel "NotTaken"
+    let taken, notTaken = AST.jmpDest lblTaken, AST.jmpDest lblNotTaken
+    let slot = lifted isa "24030002" |> unwrapStmts
+    (* beql at, v0, 0xc ; addiu v1, zero, 2 *)
+    testDelaySlot isa "50220002" "24030002"
+    <| Array.concat
+         [ [| AST.cjmp (!.R1 == !.R2) taken notTaken
+              AST.lmark lblTaken |]
+           slot
+           [| AST.interjmp (numI64 12L 64<rt>) InterJmpKind.Base
+              AST.lmark lblNotTaken
+              AST.interjmp (numI64 8L 64<rt>) InterJmpKind.Base |] ]
 
   [<TestMethod>]
   member _.``[MIPS64] CLZ scans only the low 32-bit word``() =
@@ -360,24 +352,83 @@ type LifterTests() =
     |> test isa
 
   [<TestMethod>]
-  member _.``[MIPS32] SYSCALL in a delay slot takes the armed branch``() =
+  member _.``[MIPS32] SYSCALL in a delay slot runs before the branch``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
     let regFactory = RegisterFactory isa :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let taken = AST.tmpvar 1<rt> 1
     (* beq $a0, $a1, 0xc ; syscall *)
     testDelaySlot isa "10850002" "0000000C"
-    <| [| AST.sideEffect SysCall
-          AST.interjmp !.NPC InterJmpKind.Base |]
+    <| [| taken := (!.R4 == !.R5)
+          AST.sideEffect SysCall
+          AST.intercjmp taken (numI32 0xc 32<rt>) (numI32 8 32<rt>) |]
 
   [<TestMethod>]
-  member _.``[MIPS32] BREAK in a delay slot takes the armed branch``() =
+  member _.``[MIPS32] BREAK in a delay slot runs before the branch``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
     let regFactory = RegisterFactory isa :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let taken = AST.tmpvar 1<rt> 1
     (* beq $a0, $a1, 0xc ; break *)
     testDelaySlot isa "10850002" "0000000D"
-    <| [| AST.sideEffect Breakpoint
-          AST.interjmp !.NPC InterJmpKind.Base |]
+    <| [| taken := (!.R4 == !.R5)
+          AST.sideEffect Breakpoint
+          AST.intercjmp taken (numI32 0xc 32<rt>) (numI32 8 32<rt>) |]
+
+  /// <summary>
+  /// A branch reads what decides it before its delay slot runs, so a slot
+  /// that writes the register the branch tests changes nothing about where
+  /// it goes: BNEZ v0 with ADDIU v0, zero, 1 in its slot is taken or not on
+  /// the v0 it was given, and v0 is 1 either way.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] a branch tests a register before its slot writes it``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let taken = AST.tmpvar 1<rt> 1
+    let slot = lifted isa "24020001" |> unwrapStmts
+    (* bnez v0, 0xc ; addiu v0, zero, 1 *)
+    testDelaySlot isa "14400002" "24020001"
+    <| Array.concat
+         [ [| taken := (!.R2 != !.R0) |]
+           slot
+           [| AST.intercjmp taken (numI32 0xc 32<rt>) (numI32 8 32<rt>) |] ]
+    let words = [ "14400002"; "24020001" ]
+    goes isa words [ G 2, 5UL ] 0x2010000cUL
+    goes isa words [] 0x20100008UL
+    [ G 2, 5UL ] |> run isa words |> is [ G 2, 1UL ]
+
+  /// An instruction lifts the same after a branch as anywhere else: the
+  /// branch carries its slot, and leaves nothing behind for the instruction
+  /// that sits there.
+  [<TestMethod>]
+  member _.``[MIPS32] a delay slot lifts alone as it does anywhere``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let builder = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
+    let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
+    (* bnez v0, 0xc ; addiu v0, zero, 1 *)
+    let bytes = ByteArray.ofHexString "1440000224020001"
+    parser.Parse(bytes, 0UL).Translate builder |> ignore
+    let slot = parser.Parse(System.ReadOnlySpan(bytes, 4, 4), 4UL)
+    CollectionAssert.AreEqual(lifted isa "24020001", slot.Translate builder)
+
+  /// <summary>
+  /// A branch in a delay slot is UNPREDICTABLE before Release 6 and a
+  /// Reserved Instruction from it on, and is lifted as the latter: the slot
+  /// raises it, and nothing of the branch in it is taken.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] a branch in a delay slot is a Reserved Instruction``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let taken = AST.tmpvar 1<rt> 1
+    (* beq $a0, $a1, 0xc ; b 0x404 *)
+    testDelaySlot isa "10850002" "10000100"
+    <| [| taken := (!.R4 == !.R5)
+          AST.sideEffect UndefinedInstruction
+          AST.intercjmp taken (numI32 0xc 32<rt>) (numI32 8 32<rt>) |]
 
   [<TestMethod>]
   member _.``[MIPS32] ADD lift test``() =
@@ -1069,7 +1120,7 @@ type LifterTests() =
   /// instruction itself, with no delay slot, and link "PC + 4" with the ISA
   /// mode in bit 0, which section 2.4 has every jump-and-link-register
   /// instruction save. Before Release 6 the same words are JALR and JALR.HB,
-  /// which leave the same jump armed for the slot after them.
+  /// which make the same jump after running the word in their delay slot.
   /// </summary>
   [<TestMethod>]
   member _.``[microMIPS64R6] JALRC and JALRC.HB have no slot (32r6 p.202)``() =
@@ -1092,8 +1143,8 @@ type LifterTests() =
           | InterJmp(Kind = kind) -> Some kind
           | _ -> None)
       CollectionAssert.AreEqual(jumps, own, hex)
-      let slot = jumpKinds microR6 micro hex "00000000"
-      CollectionAssert.AreEqual(Array.empty<InterJmpKind>, slot, hex)
+      isCompact microR6 hex true
+      isCompact pre hex false
       CollectionAssert.AreEqual(jumps, jumpKinds pre micro hex "00000000", hex)
       CollectionAssert.Contains(stmts, link, hex)
 
@@ -1629,28 +1680,28 @@ type LifterTests() =
   /// <summary>
   /// 10000100, b 0x20100404 (binutils: b 20100404). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20100404 (the target
-  /// binutils reads) when it always does.
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20100404 (the
+  /// target binutils reads) when it always does.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 B``() =
     let words = [ "10000100"; "00000000" ]
-    ownsJump r2 "10000100" false
+    isCompact r2 "10000100" false
     goes r2 words [] 0x20100404UL
 
   /// <summary>
   /// 04110100, bal 0x20100404 (binutils: bal 20100404). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when it always does; ra becomes
   /// 0x20100008 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BAL``() =
     let words = [ "04110100"; "00000000" ]
-    ownsJump r2 "04110100" false
+    isCompact r2 "04110100" false
     goes r2 words [] 0x20100404UL
     []
     |> run r2 words
@@ -1667,7 +1718,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BALC``() =
     let words = [ "e8000100" ]
-    ownsJump r6 "e8000100" true
+    isCompact r6 "e8000100" true
     goes r6 words [] 0x20100404UL
     []
     |> run r6 words
@@ -1683,36 +1734,36 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BC``() =
     let words = [ "c8000100" ]
-    ownsJump r6 "c8000100" true
+    isCompact r6 "c8000100" true
     goes r6 words [] 0x20100404UL
 
   /// <summary>
   /// 45200100, bc1eqz f0, 0x20100404 (binutils: bc1eqz $f0,20100404). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when it always does; to 0x20100008,
   /// past the slot, when F 0 is 0x1.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BC1EQZ``() =
     let words = [ "45200100"; "00000000" ]
-    ownsJump r6 "45200100" false
+    isCompact r6 "45200100" false
     goes r6 words [] 0x20100404UL
     goes r6 words [ F 0, 0x1UL ] 0x20100008UL
 
   /// <summary>
   /// 45000100, bc1f 0x20100404 (binutils: bc1f 20100404). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when it always does; to 0x20100008,
   /// past the slot, when Fcsr is 0x800000.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BC1F``() =
     let words = [ "45000100"; "00000000" ]
-    ownsJump r2 "45000100" false
+    isCompact r2 "45000100" false
     goes r2 words [] 0x20100404UL
     goes r2 words [ Fcsr, 0x800000UL ] 0x20100008UL
 
@@ -1733,29 +1784,29 @@ type LifterTests() =
   /// 45a00100, bc1nez f0, 0x20100404 (binutils: bc1nez $f0,20100404). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when F 0 is 0x1; to 0x20100008,
   /// past the slot, when nothing is given.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BC1NEZ``() =
     let words = [ "45a00100"; "00000000" ]
-    ownsJump r6 "45a00100" false
+    isCompact r6 "45a00100" false
     goes r6 words [ F 0, 0x1UL ] 0x20100404UL
     goes r6 words [] 0x20100008UL
 
   /// <summary>
   /// 45011801, bc1t 0x20106008 (binutils: bc1t 20106008). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20106008 (the target binutils reads) when Fcsr is 0x800000; to
   /// 0x20100008, past the slot, when nothing is given.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BC1T``() =
     let words = [ "45011801"; "00000000" ]
-    ownsJump r2 "45011801" false
+    isCompact r2 "45011801" false
     goes r2 words [ Fcsr, 0x800000UL ] 0x20106008UL
     goes r2 words [] 0x20100008UL
 
@@ -1854,14 +1905,14 @@ type LifterTests() =
   /// 10430101, beq v0, v1, 0x20100408 (binutils: beq $2,$3,20100408). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100408 (the target binutils reads) when G 2 is 0x5 and G 3 is 0x5; to
   /// 0x20100008, past the slot, when G 2 is 0x5 and G 3 is 0x6.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BEQ``() =
     let words = [ "10430101"; "00000000" ]
-    ownsJump r2 "10430101" false
+    isCompact r2 "10430101" false
     goes r2 words [ G 2, 0x5UL; G 3, 0x5UL ] 0x20100408UL
     goes r2 words [ G 2, 0x5UL; G 3, 0x6UL ] 0x20100008UL
 
@@ -1876,7 +1927,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BEQC``() =
     let words = [ "20430101" ]
-    ownsJump r6 "20430101" true
+    isCompact r6 "20430101" true
     goes r6 words [ G 2, 0x5UL; G 3, 0x5UL ] 0x20100408UL
     goes r6 words [ G 2, 0x5UL; G 3, 0x6UL ] 0x20100004UL
 
@@ -1905,7 +1956,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BEQZALC``() =
     let words = [ "20010100" ]
-    ownsJump r6 "20010100" true
+    isCompact r6 "20010100" true
     goes r6 words [] 0x20100404UL
     goes r6 words [ G 1, 0x5UL ] 0x20100004UL
     []
@@ -1923,7 +1974,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BEQZC``() =
     let words = [ "d8200100" ]
-    ownsJump r6 "d8200100" true
+    isCompact r6 "d8200100" true
     goes r6 words [] 0x20100404UL
     goes r6 words [ G 1, 0x5UL ] 0x20100004UL
 
@@ -1938,7 +1989,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGEC``() =
     let words = [ "58430101" ]
-    ownsJump r6 "58430101" true
+    isCompact r6 "58430101" true
     goes r6 words [ G 2, 0x5UL; G 3, 0x3UL ] 0x20100408UL
     goes r6 words [ G 2, 0x3UL; G 3, 0x5UL ] 0x20100004UL
 
@@ -1954,22 +2005,22 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGEUC``() =
     let words = [ "18430101" ]
-    ownsJump r6 "18430101" true
+    isCompact r6 "18430101" true
     goes r6 words [ G 2, 0xffffffffffffffffUL; G 3, 0x3UL ] 0x20100408UL
     goes r6 words [ G 2, 0x3UL; G 3, 0xffffffffffffffffUL ] 0x20100004UL
 
   /// <summary>
   /// 04411901, bgez v0, 0x20106408 (binutils: bgez $2,20106408). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20106408 (the target binutils reads) when G 2 is 0x5; to 0x20100008,
   /// past the slot, when G 2 is 0xfffffffffffffffb.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BGEZ``() =
     let words = [ "04411901"; "00000000" ]
-    ownsJump r2 "04411901" false
+    isCompact r2 "04411901" false
     goes r2 words [ G 2, 0x5UL ] 0x20106408UL
     goes r2 words [ G 2, 0xfffffffffffffffbUL ] 0x20100008UL
 
@@ -1977,7 +2028,7 @@ type LifterTests() =
   /// 04511901, bgezal v0, 0x20106408 (binutils: bgezal $2,20106408). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20106408 (the target binutils reads) when G 2 is 0x5; to 0x20100008,
   /// past the slot, when G 2 is 0xfffffffffffffffb; ra becomes 0x20100008 and
   /// nothing else changes.
@@ -1985,7 +2036,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGEZAL``() =
     let words = [ "04511901"; "00000000" ]
-    ownsJump r2 "04511901" false
+    isCompact r2 "04511901" false
     goes r2 words [ G 2, 0x5UL ] 0x20106408UL
     goes r2 words [ G 2, 0xfffffffffffffffbUL ] 0x20100008UL
     [ G 2, 0x5UL ]
@@ -2004,7 +2055,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGEZALC``() =
     let words = [ "18421901" ]
-    ownsJump r6 "18421901" true
+    isCompact r6 "18421901" true
     goes r6 words [ G 2, 0x5UL ] 0x20106408UL
     goes r6 words [ G 2, 0xfffffffffffffffbUL ] 0x20100004UL
     [ G 2, 0x5UL ]
@@ -2039,7 +2090,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGEZC``() =
     let words = [ "58421901" ]
-    ownsJump r6 "58421901" true
+    isCompact r6 "58421901" true
     goes r6 words [ G 2, 0x5UL ] 0x20106408UL
     goes r6 words [ G 2, 0xfffffffffffffffbUL ] 0x20100004UL
 
@@ -2059,15 +2110,15 @@ type LifterTests() =
   /// <summary>
   /// 1c200100, bgtz at, 0x20100404 (binutils: bgtz $1,20100404). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when G 1 is 0x5; to 0x20100008,
   /// past the slot, when nothing is given.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BGTZ``() =
     let words = [ "1c200100"; "00000000" ]
-    ownsJump r2 "1c200100" false
+    isCompact r2 "1c200100" false
     goes r2 words [ G 1, 0x5UL ] 0x20100404UL
     goes r2 words [] 0x20100008UL
 
@@ -2083,7 +2134,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGTZALC``() =
     let words = [ "1c010100" ]
-    ownsJump r6 "1c010100" true
+    isCompact r6 "1c010100" true
     goes r6 words [ G 1, 0x5UL ] 0x20100404UL
     goes r6 words [] 0x20100004UL
     [ G 1, 0x5UL ]
@@ -2101,7 +2152,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BGTZC``() =
     let words = [ "5c010100" ]
-    ownsJump r6 "5c010100" true
+    isCompact r6 "5c010100" true
     goes r6 words [ G 1, 0x5UL ] 0x20100404UL
     goes r6 words [] 0x20100004UL
 
@@ -2138,15 +2189,15 @@ type LifterTests() =
   /// <summary>
   /// 18200100, blez at, 0x20100404 (binutils: blez $1,20100404). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when G 1 is 0xfffffffffffffffb; to
   /// 0x20100008, past the slot, when G 1 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BLEZ``() =
     let words = [ "18200100"; "00000000" ]
-    ownsJump r2 "18200100" false
+    isCompact r2 "18200100" false
     goes r2 words [ G 1, 0xfffffffffffffffbUL ] 0x20100404UL
     goes r2 words [ G 1, 0x5UL ] 0x20100008UL
 
@@ -2162,7 +2213,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLEZALC``() =
     let words = [ "18010100" ]
-    ownsJump r6 "18010100" true
+    isCompact r6 "18010100" true
     goes r6 words [ G 1, 0xfffffffffffffffbUL ] 0x20100404UL
     goes r6 words [ G 1, 0x5UL ] 0x20100004UL
     [ G 1, 0xfffffffffffffffbUL ]
@@ -2180,7 +2231,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLEZC``() =
     let words = [ "58010100" ]
-    ownsJump r6 "58010100" true
+    isCompact r6 "58010100" true
     goes r6 words [ G 1, 0xfffffffffffffffbUL ] 0x20100404UL
     goes r6 words [ G 1, 0x5UL ] 0x20100004UL
 
@@ -2208,7 +2259,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLTC``() =
     let words = [ "5c430101" ]
-    ownsJump r6 "5c430101" true
+    isCompact r6 "5c430101" true
     goes r6 words [ G 2, 0x3UL; G 3, 0x5UL ] 0x20100408UL
     goes r6 words [ G 2, 0x5UL; G 3, 0x3UL ] 0x20100004UL
 
@@ -2224,22 +2275,22 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLTUC``() =
     let words = [ "1c430101" ]
-    ownsJump r6 "1c430101" true
+    isCompact r6 "1c430101" true
     goes r6 words [ G 2, 0x3UL; G 3, 0xffffffffffffffffUL ] 0x20100408UL
     goes r6 words [ G 2, 0xffffffffffffffffUL; G 3, 0x3UL ] 0x20100004UL
 
   /// <summary>
   /// 04200100, bltz at, 0x20100404 (binutils: bltz $1,20100404). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100404 (the target binutils reads) when G 1 is 0xfffffffffffffffb; to
   /// 0x20100008, past the slot, when G 1 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BLTZ``() =
     let words = [ "04200100"; "00000000" ]
-    ownsJump r2 "04200100" false
+    isCompact r2 "04200100" false
     goes r2 words [ G 1, 0xfffffffffffffffbUL ] 0x20100404UL
     goes r2 words [ G 1, 0x5UL ] 0x20100008UL
 
@@ -2247,7 +2298,7 @@ type LifterTests() =
   /// 04501901, bltzal v0, 0x20106408 (binutils: bltzal $2,20106408). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20106408 (the target binutils reads) when G 2 is 0xfffffffffffffffb; to
   /// 0x20100008, past the slot, when G 2 is 0x5; ra becomes 0x20100008 and
   /// nothing else changes.
@@ -2255,7 +2306,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLTZAL``() =
     let words = [ "04501901"; "00000000" ]
-    ownsJump r2 "04501901" false
+    isCompact r2 "04501901" false
     goes r2 words [ G 2, 0xfffffffffffffffbUL ] 0x20106408UL
     goes r2 words [ G 2, 0x5UL ] 0x20100008UL
     [ G 2, 0xfffffffffffffffbUL ]
@@ -2274,7 +2325,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLTZALC``() =
     let words = [ "1c421901" ]
-    ownsJump r6 "1c421901" true
+    isCompact r6 "1c421901" true
     goes r6 words [ G 2, 0xfffffffffffffffbUL ] 0x20106408UL
     goes r6 words [ G 2, 0x5UL ] 0x20100004UL
     [ G 2, 0xfffffffffffffffbUL ]
@@ -2309,7 +2360,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BLTZC``() =
     let words = [ "5c421901" ]
-    ownsJump r6 "5c421901" true
+    isCompact r6 "5c421901" true
     goes r6 words [ G 2, 0xfffffffffffffffbUL ] 0x20106408UL
     goes r6 words [ G 2, 0x5UL ] 0x20100004UL
 
@@ -2330,14 +2381,14 @@ type LifterTests() =
   /// 14430101, bne v0, v1, 0x20100408 (binutils: bne $2,$3,20100408). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100408 (the target binutils reads) when G 2 is 0x5 and G 3 is 0x6; to
   /// 0x20100008, past the slot, when G 2 is 0x5 and G 3 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 BNE``() =
     let words = [ "14430101"; "00000000" ]
-    ownsJump r2 "14430101" false
+    isCompact r2 "14430101" false
     goes r2 words [ G 2, 0x5UL; G 3, 0x6UL ] 0x20100408UL
     goes r2 words [ G 2, 0x5UL; G 3, 0x5UL ] 0x20100008UL
 
@@ -2352,7 +2403,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BNEC``() =
     let words = [ "60430101" ]
-    ownsJump r6 "60430101" true
+    isCompact r6 "60430101" true
     goes r6 words [ G 2, 0x5UL; G 3, 0x6UL ] 0x20100408UL
     goes r6 words [ G 2, 0x5UL; G 3, 0x5UL ] 0x20100004UL
 
@@ -2381,7 +2432,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BNEZALC``() =
     let words = [ "60010100" ]
-    ownsJump r6 "60010100" true
+    isCompact r6 "60010100" true
     goes r6 words [ G 1, 0x5UL ] 0x20100404UL
     goes r6 words [] 0x20100004UL
     [ G 1, 0x5UL ]
@@ -2399,7 +2450,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BNEZC``() =
     let words = [ "f8200100" ]
-    ownsJump r6 "f8200100" true
+    isCompact r6 "f8200100" true
     goes r6 words [ G 1, 0x5UL ] 0x20100404UL
     goes r6 words [] 0x20100004UL
 
@@ -2414,7 +2465,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BNVC``() =
     let words = [ "60621900" ]
-    ownsJump r6 "60621900" true
+    isCompact r6 "60621900" true
     goes r6 words [ G 3, 0x1UL; G 2, 0x1UL ] 0x20106404UL
     goes r6 words [ G 3, 0x7fffffffUL; G 2, 0x1UL ] 0x20100004UL
 
@@ -2429,7 +2480,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 BOVC``() =
     let words = [ "20621900" ]
-    ownsJump r6 "20621900" true
+    isCompact r6 "20621900" true
     goes r6 words [ G 3, 0x7fffffffUL; G 2, 0x1UL ] 0x20106404UL
     goes r6 words [ G 3, 0x1UL; G 2, 0x1UL ] 0x20100004UL
 
@@ -4138,28 +4189,28 @@ type LifterTests() =
   /// <summary>
   /// 08000000, j 0x20000000 (binutils: j 20000000). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20000000 (the target
-  /// binutils reads) when it always does.
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20000000 (the
+  /// target binutils reads) when it always does.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 J``() =
     let words = [ "08000000"; "00000000" ]
-    ownsJump r2 "08000000" false
+    isCompact r2 "08000000" false
     goes r2 words [] 0x20000000UL
 
   /// <summary>
   /// 0c000000, jal 0x20000000 (binutils: jal 20000000). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20000000 (the target binutils reads) when it always does; ra becomes
   /// 0x20100008 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 JAL``() =
     let words = [ "0c000000"; "00000000" ]
-    ownsJump r2 "0c000000" false
+    isCompact r2 "0c000000" false
     goes r2 words [] 0x20000000UL
     []
     |> run r2 words
@@ -4168,14 +4219,14 @@ type LifterTests() =
   /// <summary>
   /// 0040f809, jalr v0 (binutils: jalr $2). A branch is not run against QEMU:
   /// it moves the PC, and its delay slot makes one word meaningless to run
-  /// alone. Checked structurally from the manual: the transfer is left to the
-  /// delay slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// alone. Checked structurally from the manual: the delay slot, which holds a
+  /// NOP, runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100400; ra becomes 0x20100008 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 JALR``() =
     let words = [ "0040f809"; "00000000" ]
-    ownsJump r2 "0040f809" false
+    isCompact r2 "0040f809" false
     goes r2 words [ G 2, 0x20100400UL ] 0x20100400UL
     [ G 2, 0x20100400UL ]
     |> run r2 words
@@ -4184,15 +4235,15 @@ type LifterTests() =
   /// <summary>
   /// 00601409, jalr.hb v0, v1 (binutils: jalr.hb $2,$3). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100400 when G 3 is 0x20100400; the link register becomes 0x20100008
   /// and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 JALR.HB``() =
     let words = [ "00601409"; "00000000" ]
-    ownsJump r2 "00601409" false
+    isCompact r2 "00601409" false
     goes r2 words [ G 3, 0x20100400UL ] 0x20100400UL
     [ G 3, 0x20100400UL ]
     |> run r2 words
@@ -4201,15 +4252,15 @@ type LifterTests() =
   /// <summary>
   /// 74000000, jalx 0x20000000 (binutils: jalx 20000000). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20000000 (the target binutils reads) when it always does; ra becomes
   /// 0x20100008 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 JALX``() =
     let words = [ "74000000"; "00000000" ]
-    ownsJump r2 "74000000" false
+    isCompact r2 "74000000" false
     goes r2 words [] 0x20000000UL
     []
     |> run r2 words
@@ -4226,7 +4277,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 JIALC``() =
     let words = [ "f8020001" ]
-    ownsJump r6 "f8020001" true
+    isCompact r6 "f8020001" true
     goes r6 words [ G 2, 0x201003ffUL ] 0x20100400UL
     [ G 2, 0x201003ffUL ]
     |> run r6 words
@@ -4242,33 +4293,33 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00087 JIC``() =
     let words = [ "d8020001" ]
-    ownsJump r6 "d8020001" true
+    isCompact r6 "d8020001" true
     goes r6 words [ G 2, 0x201003ffUL ] 0x20100400UL
 
   /// <summary>
   /// 00400008, jr v0 (binutils: jr $2). A branch is not run against QEMU: it
   /// moves the PC, and its delay slot makes one word meaningless to run alone.
-  /// Checked structurally from the manual: the transfer is left to the delay
-  /// slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// Checked structurally from the manual: the delay slot, which holds a NOP,
+  /// runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100400.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 JR``() =
     let words = [ "00400008"; "00000000" ]
-    ownsJump r2 "00400008" false
+    isCompact r2 "00400008" false
     goes r2 words [ G 2, 0x20100400UL ] 0x20100400UL
 
   /// <summary>
   /// 00400408, jr.hb v0 (binutils: jr.hb $2). A branch is not run against QEMU:
   /// it moves the PC, and its delay slot makes one word meaningless to run
-  /// alone. Checked structurally from the manual: the transfer is left to the
-  /// delay slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// alone. Checked structurally from the manual: the delay slot, which holds a
+  /// NOP, runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100400.
   /// </summary>
   [<TestMethod>]
   member _.``MD00087 JR.HB``() =
     let words = [ "00400408"; "00000000" ]
-    ownsJump r2 "00400408" false
+    isCompact r2 "00400408" false
     goes r2 words [ G 2, 0x20100400UL ] 0x20100400UL
 
   /// <summary>
@@ -8794,7 +8845,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 B``() =
     let words = [ "1010" ]
-    ownsJump m16 "1010" true
+    isCompact m16 "1010" true
     goes m16 words [] 0x20100022UL
 
   /// <summary>
@@ -8808,7 +8859,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 BEQZ``() =
     let words = [ "2210" ]
-    ownsJump m16 "2210" true
+    isCompact m16 "2210" true
     goes m16 words [] 0x20100022UL
     goes m16 words [ G 2, 0x5UL ] 0x20100002UL
 
@@ -8823,7 +8874,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 BNEZ``() =
     let words = [ "2a10" ]
-    ownsJump m16 "2a10" true
+    isCompact m16 "2a10" true
     goes m16 words [ G 2, 0x5UL ] 0x20100022UL
     goes m16 words [] 0x20100002UL
 
@@ -8855,7 +8906,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 BTEQZ``() =
     let words = [ "6010" ]
-    ownsJump m16 "6010" true
+    isCompact m16 "6010" true
     goes m16 words [] 0x20100022UL
     goes m16 words [ G 24, 0x1UL ] 0x20100002UL
 
@@ -8870,7 +8921,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 BTNEZ``() =
     let words = [ "6110" ]
-    ownsJump m16 "6110" true
+    isCompact m16 "6110" true
     goes m16 words [ G 24, 0x1UL ] 0x20100022UL
     goes m16 words [] 0x20100002UL
 
@@ -8941,15 +8992,15 @@ type LifterTests() =
   /// <summary>
   /// 18000100, jal 0x20000400 (binutils: jal 20000400). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20000400 (the target binutils reads) when it always does; ra becomes
   /// 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00076 JAL``() =
     let words = [ "18000100"; "6500" ]
-    ownsJump m16 "18000100" false
+    isCompact m16 "18000100" false
     goes m16 words [] 0x20000400UL
     []
     |> run m16 words
@@ -8958,15 +9009,15 @@ type LifterTests() =
   /// <summary>
   /// ea40, jalr ra, v0 (binutils: jalr $2). A branch is not run against QEMU:
   /// it moves the PC, and its delay slot makes one word meaningless to run
-  /// alone. Checked structurally from the manual: the transfer is left to the
-  /// delay slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// alone. Checked structurally from the manual: the delay slot, which holds a
+  /// NOP, runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100401; the jump goes on in MIPS16; ra becomes 0x20100005 and nothing
   /// else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00076 JALR``() =
     let words = [ "ea40"; "6500" ]
-    ownsJump m16 "ea40" false
+    isCompact m16 "ea40" false
     goes m16 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
     [ G 2, 0x20100401UL ]
@@ -8984,7 +9035,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 JALRC``() =
     let words = [ "eac0" ]
-    ownsJump m16 "eac0" true
+    isCompact m16 "eac0" true
     goes m16 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
     [ G 2, 0x20100401UL ]
@@ -8994,15 +9045,15 @@ type LifterTests() =
   /// <summary>
   /// 1c000100, jalx 0x20000400 (binutils: jalx 20000400). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20000400 (the target binutils reads) when it always does; the jump goes
   /// on in MIPS; ra becomes 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00076 JALX``() =
     let words = [ "1c000100"; "6500" ]
-    ownsJump m16 "1c000100" false
+    isCompact m16 "1c000100" false
     goes m16 words [] 0x20000400UL
     switches m16 words [] InterJmpKind.SwitchToMIPS
     []
@@ -9012,14 +9063,14 @@ type LifterTests() =
   /// <summary>
   /// ea00, jr v0 (binutils: jr $2). A branch is not run against QEMU: it moves
   /// the PC, and its delay slot makes one word meaningless to run alone.
-  /// Checked structurally from the manual: the transfer is left to the delay
-  /// slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// Checked structurally from the manual: the delay slot, which holds a NOP,
+  /// runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100401; the jump goes on in MIPS16.
   /// </summary>
   [<TestMethod>]
   member _.``MD00076 JR``() =
     let words = [ "ea00"; "6500" ]
-    ownsJump m16 "ea00" false
+    isCompact m16 "ea00" false
     goes m16 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
 
@@ -9033,7 +9084,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00076 JRC``() =
     let words = [ "ea80" ]
-    ownsJump m16 "ea80" true
+    isCompact m16 "ea80" true
     goes m16 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
 
@@ -9949,7 +10000,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 B``() =
     let words = [ "1010" ]
-    ownsJump m16x64 "1010" true
+    isCompact m16x64 "1010" true
     goes m16x64 words [] 0x20100022UL
 
   /// <summary>
@@ -9963,7 +10014,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 BEQZ``() =
     let words = [ "2210" ]
-    ownsJump m16x64 "2210" true
+    isCompact m16x64 "2210" true
     goes m16x64 words [] 0x20100022UL
     goes m16x64 words [ G 2, 0x5UL ] 0x20100002UL
 
@@ -9978,7 +10029,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 BNEZ``() =
     let words = [ "2a10" ]
-    ownsJump m16x64 "2a10" true
+    isCompact m16x64 "2a10" true
     goes m16x64 words [ G 2, 0x5UL ] 0x20100022UL
     goes m16x64 words [] 0x20100002UL
 
@@ -10011,7 +10062,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 BTEQZ``() =
     let words = [ "6010" ]
-    ownsJump m16x64 "6010" true
+    isCompact m16x64 "6010" true
     goes m16x64 words [] 0x20100022UL
     goes m16x64 words [ G 24, 0x1UL ] 0x20100002UL
 
@@ -10026,7 +10077,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 BTNEZ``() =
     let words = [ "6110" ]
-    ownsJump m16x64 "6110" true
+    isCompact m16x64 "6110" true
     goes m16x64 words [ G 24, 0x1UL ] 0x20100022UL
     goes m16x64 words [] 0x20100002UL
 
@@ -10340,15 +10391,15 @@ type LifterTests() =
   /// <summary>
   /// 18000100, jal 0x20000400 (binutils: jal 20000400). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20000400 (the target binutils reads) when it always does; ra becomes
   /// 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00077 JAL``() =
     let words = [ "18000100"; "6500" ]
-    ownsJump m16x64 "18000100" false
+    isCompact m16x64 "18000100" false
     goes m16x64 words [] 0x20000400UL
     []
     |> run m16x64 words
@@ -10357,15 +10408,15 @@ type LifterTests() =
   /// <summary>
   /// ea40, jalr ra, v0 (binutils: jalr $2). A branch is not run against QEMU:
   /// it moves the PC, and its delay slot makes one word meaningless to run
-  /// alone. Checked structurally from the manual: the transfer is left to the
-  /// delay slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// alone. Checked structurally from the manual: the delay slot, which holds a
+  /// NOP, runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100401; the jump goes on in MIPS16; ra becomes 0x20100005 and nothing
   /// else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00077 JALR``() =
     let words = [ "ea40"; "6500" ]
-    ownsJump m16x64 "ea40" false
+    isCompact m16x64 "ea40" false
     goes m16x64 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16x64 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
     [ G 2, 0x20100401UL ]
@@ -10383,7 +10434,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 JALRC``() =
     let words = [ "eac0" ]
-    ownsJump m16x64 "eac0" true
+    isCompact m16x64 "eac0" true
     goes m16x64 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16x64 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
     [ G 2, 0x20100401UL ]
@@ -10393,15 +10444,15 @@ type LifterTests() =
   /// <summary>
   /// 1c000100, jalx 0x20000400 (binutils: jalx 20000400). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20000400 (the target binutils reads) when it always does; the jump goes
   /// on in MIPS; ra becomes 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``MD00077 JALX``() =
     let words = [ "1c000100"; "6500" ]
-    ownsJump m16x64 "1c000100" false
+    isCompact m16x64 "1c000100" false
     goes m16x64 words [] 0x20000400UL
     switches m16x64 words [] InterJmpKind.SwitchToMIPS
     []
@@ -10411,14 +10462,14 @@ type LifterTests() =
   /// <summary>
   /// ea00, jr v0 (binutils: jr $2). A branch is not run against QEMU: it moves
   /// the PC, and its delay slot makes one word meaningless to run alone.
-  /// Checked structurally from the manual: the transfer is left to the delay
-  /// slot, which holds a NOP; control goes to 0x20100400 when G 2 is
+  /// Checked structurally from the manual: the delay slot, which holds a NOP,
+  /// runs before the transfer; control goes to 0x20100400 when G 2 is
   /// 0x20100401; the jump goes on in MIPS16.
   /// </summary>
   [<TestMethod>]
   member _.``MD00077 JR``() =
     let words = [ "ea00"; "6500" ]
-    ownsJump m16x64 "ea00" false
+    isCompact m16x64 "ea00" false
     goes m16x64 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16x64 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
 
@@ -10432,7 +10483,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``MD00077 JRC``() =
     let words = [ "ea80" ]
-    ownsJump m16x64 "ea80" true
+    isCompact m16x64 "ea80" true
     goes m16x64 words [ G 2, 0x20100401UL ] 0x20100400UL
     switches m16x64 words [ G 2, 0x20100401UL ] InterJmpKind.SwitchToMIPS16
 
@@ -11814,41 +11865,41 @@ type LifterTests() =
   /// <summary>
   /// cc10, b 0x20100022 (binutils: b 20100022). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20100022 (the target
-  /// binutils reads) when it always does.
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20100022 (the
+  /// target binutils reads) when it always does.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 B``() =
     let words = [ "cc10"; "00000000" ]
-    ownsJump um "cc10" false
+    isCompact um "cc10" false
     goes um words [] 0x20100022UL
 
   /// <summary>
   /// cc10, b 0x20100022 (binutils: b 20100022). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20100022 (the target
-  /// binutils reads) when it always does.
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20100022 (the
+  /// target binutils reads) when it always does.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 B16``() =
     let words = [ "cc10"; "00000000" ]
-    ownsJump um "cc10" false
+    isCompact um "cc10" false
     goes um words [] 0x20100022UL
 
   /// <summary>
   /// 40600100, bgezal r0, 0x20100204 (binutils: bal 20100204). A branch is not
   /// run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when it always does; ra becomes
   /// 0x20100009 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BAL``() =
     let words = [ "40600100"; "00000000" ]
-    ownsJump um "40600100" false
+    isCompact um "40600100" false
     goes um words [] 0x20100204UL
     []
     |> run um words
@@ -11858,14 +11909,14 @@ type LifterTests() =
   /// 43830100, bc1f 0x0, 0x20100204 (binutils: bc1f $fcc0,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when it always does; to 0x20100008,
   /// past the slot, when Fcsr is 0x800000.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BC1F``() =
     let words = [ "43830100"; "00000000" ]
-    ownsJump um "43830100" false
+    isCompact um "43830100" false
     goes um words [] 0x20100204UL
     goes um words [ Fcsr, 0x800000UL ] 0x20100008UL
 
@@ -11873,14 +11924,14 @@ type LifterTests() =
   /// 43a30100, bc1t 0x0, 0x20100204 (binutils: bc1t $fcc0,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when Fcsr is 0x800000; to
   /// 0x20100008, past the slot, when nothing is given.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BC1T``() =
     let words = [ "43a30100"; "00000000" ]
-    ownsJump um "43a30100" false
+    isCompact um "43a30100" false
     goes um words [ Fcsr, 0x800000UL ] 0x20100204UL
     goes um words [] 0x20100008UL
 
@@ -11914,29 +11965,29 @@ type LifterTests() =
   /// 94230100, beq v1, at, 0x20100204 (binutils: beq $3,$1,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0x5 and G 1 is 0x5; to
   /// 0x20100008, past the slot, when G 3 is 0x5 and G 1 is 0x6.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BEQ``() =
     let words = [ "94230100"; "00000000" ]
-    ownsJump um "94230100" false
+    isCompact um "94230100" false
     goes um words [ G 3, 0x5UL; G 1, 0x5UL ] 0x20100204UL
     goes um words [ G 3, 0x5UL; G 1, 0x6UL ] 0x20100008UL
 
   /// <summary>
   /// 8d10, beq v0, r0, 0x20100022 (binutils: beqz $2,20100022). A branch is not
   /// run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100022 (the target binutils reads) when it always does; to 0x20100006,
   /// past the slot, when G 2 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BEQZ16``() =
     let words = [ "8d10"; "00000000" ]
-    ownsJump um "8d10" false
+    isCompact um "8d10" false
     goes um words [] 0x20100022UL
     goes um words [ G 2, 0x5UL ] 0x20100006UL
 
@@ -11951,22 +12002,22 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 BEQZC``() =
     let words = [ "40e30100" ]
-    ownsJump um "40e30100" true
+    isCompact um "40e30100" true
     goes um words [] 0x20100204UL
     goes um words [ G 3, 0x5UL ] 0x20100004UL
 
   /// <summary>
   /// 40430100, bgez v1, 0x20100204 (binutils: bgez $3,20100204). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0x5; to 0x20100008,
   /// past the slot, when G 3 is 0xfffffffffffffffb.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BGEZ``() =
     let words = [ "40430100"; "00000000" ]
-    ownsJump um "40430100" false
+    isCompact um "40430100" false
     goes um words [ G 3, 0x5UL ] 0x20100204UL
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100008UL
 
@@ -11974,7 +12025,7 @@ type LifterTests() =
   /// 40610100, bgezal at, 0x20100204 (binutils: bgezal $1,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 1 is 0x5; to 0x20100008,
   /// past the slot, when G 1 is 0xfffffffffffffffb; ra becomes 0x20100009 and
   /// nothing else changes.
@@ -11982,7 +12033,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 BGEZAL``() =
     let words = [ "40610100"; "00000000" ]
-    ownsJump um "40610100" false
+    isCompact um "40610100" false
     goes um words [ G 1, 0x5UL ] 0x20100204UL
     goes um words [ G 1, 0xfffffffffffffffbUL ] 0x20100008UL
     [ G 1, 0x5UL ]
@@ -11993,7 +12044,7 @@ type LifterTests() =
   /// 42630100, bgezals v1, 0x20100204 (binutils: bgezals $3,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0x5; to 0x20100006,
   /// past the slot, when G 3 is 0xfffffffffffffffb; ra becomes 0x20100007 and
   /// nothing else changes.
@@ -12001,7 +12052,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 BGEZALS``() =
     let words = [ "42630100"; "0c00" ]
-    ownsJump um "42630100" false
+    isCompact um "42630100" false
     goes um words [ G 3, 0x5UL ] 0x20100204UL
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100006UL
     [ G 3, 0x5UL ]
@@ -12011,45 +12062,45 @@ type LifterTests() =
   /// <summary>
   /// 40c30100, bgtz v1, 0x20100204 (binutils: bgtz $3,20100204). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0x5; to 0x20100008,
   /// past the slot, when nothing is given.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BGTZ``() =
     let words = [ "40c30100"; "00000000" ]
-    ownsJump um "40c30100" false
+    isCompact um "40c30100" false
     goes um words [ G 3, 0x5UL ] 0x20100204UL
     goes um words [] 0x20100008UL
 
   /// <summary>
   /// 40830100, blez v1, 0x20100204 (binutils: blez $3,20100204). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0xfffffffffffffffb; to
   /// 0x20100008, past the slot, when G 3 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BLEZ``() =
     let words = [ "40830100"; "00000000" ]
-    ownsJump um "40830100" false
+    isCompact um "40830100" false
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100204UL
     goes um words [ G 3, 0x5UL ] 0x20100008UL
 
   /// <summary>
   /// 40030100, bltz v1, 0x20100204 (binutils: bltz $3,20100204). A branch is
   /// not run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0xfffffffffffffffb; to
   /// 0x20100008, past the slot, when G 3 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BLTZ``() =
     let words = [ "40030100"; "00000000" ]
-    ownsJump um "40030100" false
+    isCompact um "40030100" false
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100204UL
     goes um words [ G 3, 0x5UL ] 0x20100008UL
 
@@ -12057,7 +12108,7 @@ type LifterTests() =
   /// 40220100, bltzal v0, 0x20100204 (binutils: bltzal $2,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 2 is 0xfffffffffffffffb; to
   /// 0x20100008, past the slot, when G 2 is 0x5; ra becomes 0x20100009 and
   /// nothing else changes.
@@ -12065,7 +12116,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 BLTZAL``() =
     let words = [ "40220100"; "00000000" ]
-    ownsJump um "40220100" false
+    isCompact um "40220100" false
     goes um words [ G 2, 0xfffffffffffffffbUL ] 0x20100204UL
     goes um words [ G 2, 0x5UL ] 0x20100008UL
     [ G 2, 0xfffffffffffffffbUL ]
@@ -12076,7 +12127,7 @@ type LifterTests() =
   /// 42230100, bltzals v1, 0x20100204 (binutils: bltzals $3,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0xfffffffffffffffb; to
   /// 0x20100006, past the slot, when G 3 is 0x5; ra becomes 0x20100007 and
   /// nothing else changes.
@@ -12084,7 +12135,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 BLTZALS``() =
     let words = [ "42230100"; "0c00" ]
-    ownsJump um "42230100" false
+    isCompact um "42230100" false
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100204UL
     goes um words [ G 3, 0x5UL ] 0x20100006UL
     [ G 3, 0xfffffffffffffffbUL ]
@@ -12095,29 +12146,29 @@ type LifterTests() =
   /// b4230100, bne v1, at, 0x20100204 (binutils: bne $3,$1,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// delay slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100204 (the target binutils reads) when G 3 is 0x5 and G 1 is 0x6; to
   /// 0x20100008, past the slot, when G 3 is 0x5 and G 1 is 0x5.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BNE``() =
     let words = [ "b4230100"; "00000000" ]
-    ownsJump um "b4230100" false
+    isCompact um "b4230100" false
     goes um words [ G 3, 0x5UL; G 1, 0x6UL ] 0x20100204UL
     goes um words [ G 3, 0x5UL; G 1, 0x5UL ] 0x20100008UL
 
   /// <summary>
   /// ad10, bne v0, r0, 0x20100022 (binutils: bnez $2,20100022). A branch is not
   /// run against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100022 (the target binutils reads) when G 2 is 0x5; to 0x20100006,
   /// past the slot, when nothing is given.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 BNEZ16``() =
     let words = [ "ad10"; "00000000" ]
-    ownsJump um "ad10" false
+    isCompact um "ad10" false
     goes um words [ G 2, 0x5UL ] 0x20100022UL
     goes um words [] 0x20100006UL
 
@@ -12132,7 +12183,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 BNEZC``() =
     let words = [ "40a30100" ]
-    ownsJump um "40a30100" true
+    isCompact um "40a30100" true
     goes um words [ G 3, 0x5UL ] 0x20100204UL
     goes um words [] 0x20100004UL
 
@@ -13547,28 +13598,28 @@ type LifterTests() =
   /// <summary>
   /// d4030000, j 0x20060000 (binutils: j 20060000). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20060000 (the target
-  /// binutils reads) when it always does.
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20060000 (the
+  /// target binutils reads) when it always does.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 J``() =
     let words = [ "d4030000"; "00000000" ]
-    ownsJump um "d4030000" false
+    isCompact um "d4030000" false
     goes um words [] 0x20060000UL
 
   /// <summary>
   /// f4030000, jal 0x20060000 (binutils: jal 20060000). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20060000 (the target binutils reads) when it always does; ra becomes
   /// 0x20100009 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JAL``() =
     let words = [ "f4030000"; "00000000" ]
-    ownsJump um "f4030000" false
+    isCompact um "f4030000" false
     goes um words [] 0x20060000UL
     []
     |> run um words
@@ -13577,15 +13628,15 @@ type LifterTests() =
   /// <summary>
   /// 01090f3c, jalr a4, a5 (binutils: jalr $8,$9). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20100400 when G 9 is
-  /// 0x20100401; the jump goes on in MicroMIPS; the link register becomes
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20100400 when G 9
+  /// is 0x20100401; the jump goes on in MicroMIPS; the link register becomes
   /// 0x20100009 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALR``() =
     let words = [ "01090f3c"; "00000000" ]
-    ownsJump um "01090f3c" false
+    isCompact um "01090f3c" false
     goes um words [ G 9, 0x20100401UL ] 0x20100400UL
     switches um words [ G 9, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 9, 0x20100401UL ]
@@ -13595,15 +13646,15 @@ type LifterTests() =
   /// <summary>
   /// 01091f3c, jalr.hb a4, a5 (binutils: jalr.hb $8,$9). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100400 when G 9 is 0x20100401; the jump goes on in MicroMIPS; the link
   /// register becomes 0x20100009 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALR.HB``() =
     let words = [ "01091f3c"; "00000000" ]
-    ownsJump um "01091f3c" false
+    isCompact um "01091f3c" false
     goes um words [ G 9, 0x20100401UL ] 0x20100400UL
     switches um words [ G 9, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 9, 0x20100401UL ]
@@ -13613,15 +13664,15 @@ type LifterTests() =
   /// <summary>
   /// 45c1, jalr at (binutils: jalr $1). A branch is not run against QEMU: it
   /// moves the PC, and its delay slot makes one word meaningless to run alone.
-  /// Checked structurally from the manual: the transfer is left to the delay
-  /// slot, which holds a NOP; control goes to 0x20100400 when G 1 is
+  /// Checked structurally from the manual: the delay slot, which holds a NOP,
+  /// runs before the transfer; control goes to 0x20100400 when G 1 is
   /// 0x20100401; the jump goes on in MicroMIPS; ra becomes 0x20100007 and
   /// nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALR16``() =
     let words = [ "45c1"; "00000000" ]
-    ownsJump um "45c1" false
+    isCompact um "45c1" false
     goes um words [ G 1, 0x20100401UL ] 0x20100400UL
     switches um words [ G 1, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 1, 0x20100401UL ]
@@ -13631,15 +13682,15 @@ type LifterTests() =
   /// <summary>
   /// 01094f3c, jalrs a4, a5 (binutils: jalrs $8,$9). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100400 when G 9 is 0x20100401; the jump goes on in MicroMIPS; the link
   /// register becomes 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALRS``() =
     let words = [ "01094f3c"; "0c00" ]
-    ownsJump um "01094f3c" false
+    isCompact um "01094f3c" false
     goes um words [ G 9, 0x20100401UL ] 0x20100400UL
     switches um words [ G 9, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 9, 0x20100401UL ]
@@ -13649,15 +13700,15 @@ type LifterTests() =
   /// <summary>
   /// 01095f3c, jalrs.hb a4, a5 (binutils: jalrs.hb $8,$9). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20100400 when G 9 is 0x20100401; the jump goes on in MicroMIPS; the link
   /// register becomes 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALRS.HB``() =
     let words = [ "01095f3c"; "0c00" ]
-    ownsJump um "01095f3c" false
+    isCompact um "01095f3c" false
     goes um words [ G 9, 0x20100401UL ] 0x20100400UL
     switches um words [ G 9, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 9, 0x20100401UL ]
@@ -13667,15 +13718,15 @@ type LifterTests() =
   /// <summary>
   /// 45e1, jalrs at (binutils: jalrs $1). A branch is not run against QEMU: it
   /// moves the PC, and its delay slot makes one word meaningless to run alone.
-  /// Checked structurally from the manual: the transfer is left to the delay
-  /// slot, which holds a NOP; control goes to 0x20100400 when G 1 is
+  /// Checked structurally from the manual: the delay slot, which holds a NOP,
+  /// runs before the transfer; control goes to 0x20100400 when G 1 is
   /// 0x20100401; the jump goes on in MicroMIPS; ra becomes 0x20100005 and
   /// nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALRS16``() =
     let words = [ "45e1"; "0c00" ]
-    ownsJump um "45e1" false
+    isCompact um "45e1" false
     goes um words [ G 1, 0x20100401UL ] 0x20100400UL
     switches um words [ G 1, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 1, 0x20100401UL ]
@@ -13685,15 +13736,15 @@ type LifterTests() =
   /// <summary>
   /// 74030000, jals 0x20060000 (binutils: jals 20060000). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x20060000 (the target binutils reads) when it always does; ra becomes
   /// 0x20100007 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALS``() =
     let words = [ "74030000"; "0c00" ]
-    ownsJump um "74030000" false
+    isCompact um "74030000" false
     goes um words [] 0x20060000UL
     []
     |> run um words
@@ -13702,15 +13753,15 @@ type LifterTests() =
   /// <summary>
   /// f0030000, jalx 0x200c0000 (binutils: jalx 200c0000). A branch is not run
   /// against QEMU: it moves the PC, and its delay slot makes one word
-  /// meaningless to run alone. Checked structurally from the manual: the
-  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// meaningless to run alone. Checked structurally from the manual: the delay
+  /// slot, which holds a NOP, runs before the transfer; control goes to
   /// 0x200c0000 (the target binutils reads) when it always does; the jump goes
   /// on in MIPS; ra becomes 0x20100009 and nothing else changes.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JALX``() =
     let words = [ "f0030000"; "00000000" ]
-    ownsJump um "f0030000" false
+    isCompact um "f0030000" false
     goes um words [] 0x200c0000UL
     switches um words [] InterJmpKind.SwitchToMIPS
     []
@@ -13720,42 +13771,42 @@ type LifterTests() =
   /// <summary>
   /// 00090f3c, jalr r0, a5 (binutils: jr $9). A branch is not run against QEMU:
   /// it moves the PC, and its delay slot makes one word meaningless to run
-  /// alone. Checked structurally from the manual: the transfer is left to the
-  /// delay slot, which holds a NOP; control goes to 0x20100400 when G 9 is
+  /// alone. Checked structurally from the manual: the delay slot, which holds a
+  /// NOP, runs before the transfer; control goes to 0x20100400 when G 9 is
   /// 0x20100401; the jump goes on in MicroMIPS.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JR``() =
     let words = [ "00090f3c"; "00000000" ]
-    ownsJump um "00090f3c" false
+    isCompact um "00090f3c" false
     goes um words [ G 9, 0x20100401UL ] 0x20100400UL
     switches um words [ G 9, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
 
   /// <summary>
   /// 00091f3c, jalr.hb r0, a5 (binutils: jr.hb $9). A branch is not run against
   /// QEMU: it moves the PC, and its delay slot makes one word meaningless to
-  /// run alone. Checked structurally from the manual: the transfer is left to
-  /// the delay slot, which holds a NOP; control goes to 0x20100400 when G 9 is
-  /// 0x20100401; the jump goes on in MicroMIPS.
+  /// run alone. Checked structurally from the manual: the delay slot, which
+  /// holds a NOP, runs before the transfer; control goes to 0x20100400 when G 9
+  /// is 0x20100401; the jump goes on in MicroMIPS.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JR.HB``() =
     let words = [ "00091f3c"; "00000000" ]
-    ownsJump um "00091f3c" false
+    isCompact um "00091f3c" false
     goes um words [ G 9, 0x20100401UL ] 0x20100400UL
     switches um words [ G 9, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
 
   /// <summary>
   /// 4581, jr at (binutils: jr $1). A branch is not run against QEMU: it moves
   /// the PC, and its delay slot makes one word meaningless to run alone.
-  /// Checked structurally from the manual: the transfer is left to the delay
-  /// slot, which holds a NOP; control goes to 0x20100400 when G 1 is
+  /// Checked structurally from the manual: the delay slot, which holds a NOP,
+  /// runs before the transfer; control goes to 0x20100400 when G 1 is
   /// 0x20100401; the jump goes on in MicroMIPS.
   /// </summary>
   [<TestMethod>]
   member _.``microMIPS64 5.04 JR16``() =
     let words = [ "4581"; "00000000" ]
-    ownsJump um "4581" false
+    isCompact um "4581" false
     goes um words [ G 1, 0x20100401UL ] 0x20100400UL
     switches um words [ G 1, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
 
@@ -13769,7 +13820,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 JRADDIUSP``() =
     let words = [ "4701" ]
-    ownsJump um "4701" true
+    isCompact um "4701" true
     goes um words [ G 31, 0x20100401UL ] 0x20100400UL
     switches um words [ G 31, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
     [ G 29, 0x20200000UL; G 31, 0x20100401UL ]
@@ -13786,7 +13837,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``microMIPS64 5.04 JRC``() =
     let words = [ "45a1" ]
-    ownsJump um "45a1" true
+    isCompact um "45a1" true
     goes um words [ G 1, 0x20100401UL ] 0x20100400UL
     switches um words [ G 1, 0x20100401UL ] InterJmpKind.SwitchToMicroMIPS
 

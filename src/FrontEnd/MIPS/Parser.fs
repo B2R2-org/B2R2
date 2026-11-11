@@ -40,6 +40,29 @@ type Parser(isa: ISA, reader) =
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
+  /// Reads one instruction in the encoding this parser is reading.
+  let parseOne (span: ByteSpan) addr =
+    match isaMode with
+    | MIPSISAMode.MicroMIPS ->
+      MicroMIPSParser.parse lifter span reader wordSize release addr
+    | MIPSISAMode.MIPS16 ->
+      MIPS16Parser.parse lifter span reader wordSize addr
+    | _ ->
+      ParsingMain.parse lifter span reader arch wordSize release addr
+
+  /// Gives a branch the instruction in its delay slot, read in the same
+  /// encoding from the bytes right after it. A branch whose bytes end with it,
+  /// or go on with bytes that hold no instruction, gets none.
+  let withDelaySlot (ins: Instruction) (span: ByteSpan) =
+    let rest = span.Slice(int ins.Length)
+    if ins.HasDelaySlot && not rest.IsEmpty then
+      let slotAddr = ins.Address + uint64 ins.Length
+      try ins.DelaySlot <- Some(parseOne rest slotAddr)
+      with e when not (Terminator.isCritical e) -> ()
+    else
+      ()
+    ins
+
   /// <summary>
   /// Which encoding this parser reads, which is what the ISA said until
   /// something moves it.
@@ -80,16 +103,7 @@ type Parser(isa: ISA, reader) =
 
     member _.Parse(span: ByteSpan, addr) =
       try
-        match isaMode with
-        | MIPSISAMode.MicroMIPS ->
-          MicroMIPSParser.parse lifter span reader wordSize release addr
-          :> IInstruction
-        | MIPSISAMode.MIPS16 ->
-          MIPS16Parser.parse lifter span reader wordSize addr
-          :> IInstruction
-        | _ ->
-          ParsingMain.parse lifter span reader arch wordSize release addr
-          :> IInstruction
+        withDelaySlot (parseOne span addr) span :> IInstruction
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException
 

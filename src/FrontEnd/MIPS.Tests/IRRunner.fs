@@ -489,16 +489,25 @@ module internal ManualLift =
     regs.GetRegVar rid
 
   /// The statements words lift to, one after another from `at`, each read
-  /// in the mode the ISA starts in.
+  /// in the mode the ISA starts in. A branch reads the word after it as its
+  /// delay slot and carries it, so that word is not lifted again.
   let lift (isa: ISA) (hexes: string list) =
     let builder = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
     let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
-    hexes
-    |> List.fold (fun (addr, acc) (hex: string) ->
-      let ins = parser.Parse(ByteArray.ofHexString hex, addr)
-      addr + uint64 ins.Length, Array.append acc (ins.Translate builder))
-      (at, [||])
-    |> snd
+    let bytes = hexes |> String.concat "" |> ByteArray.ofHexString
+    let rec liftFrom offset acc =
+      if offset >= bytes.Length then
+        acc
+      else
+        let span = ReadOnlySpan(bytes, offset, bytes.Length - offset)
+        let ins = parser.Parse(span, at + uint64 offset)
+        let slot =
+          (ins :?> Instruction).DelaySlot
+          |> Option.map (fun s -> int s.Length)
+          |> Option.defaultValue 0
+        let next = offset + int ins.Length + slot
+        liftFrom next (Array.append acc (ins.Translate builder))
+    liftFrom 0 [||]
 
   /// The bytes the places of memory among the given values hold.
   let private bytesOf given =
@@ -617,12 +626,11 @@ module internal ManualLift =
     let _, actual = exitOf isa hexes given
     Assert.AreEqual<InterJmpKind>(kind, actual &&& kind)
 
-  /// Asserts whether a branch carries its own transfer, as a compact one
-  /// does, rather than leaving it to the delay slot after it.
-  let ownsJump isa hex expected =
-    let owns =
-      lift isa [ hex ]
-      |> Array.exists (function
-        | InterJmp _ | InterCJmp _ -> true
-        | _ -> false)
-    Assert.AreEqual<bool>(expected, owns)
+  /// Asserts whether a branch is compact, leaving the word after it alone,
+  /// rather than one that runs that word in its delay slot before it
+  /// transfers.
+  let isCompact (isa: ISA) (hex: string) expected =
+    let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString (hex + "00000000")
+    let ins = parser.Parse(bytes, at) :?> Instruction
+    Assert.AreEqual<bool>(expected, ins.DelaySlot.IsNone)

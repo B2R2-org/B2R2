@@ -389,8 +389,7 @@ let compressedSwitch (bld: ILowUIRBuilder) =
   else InterJmpKind.SwitchToMicroMIPS
 
 /// <summary>
-/// The jump a delay slot ends with, where the address it jumps to says which
-/// encoding to read there.
+/// A jump through an address that says which encoding to read there.
 ///
 /// Two jumps with the same target and different kinds, chosen on the bit an
 /// instruction address cannot use. Nothing in the words at the target says
@@ -412,35 +411,11 @@ let interJmpByMode (bld: LowUIRBuilder) target kind =
     AST.interjmp addr (kind ||| InterJmpKind.SwitchToMIPS)
   }
 
-let advancePC (bld: LowUIRBuilder) insLen =
-  if bld.DelayedBranch = InterJmpKind.NotAJmp then
-    (* Do nothing, because IEMark will advance PC. *)
-    (bld :> ILowUIRBuilder).Stream.MarkEnd insLen
-  else
-    let nPC = regVar bld R.NPC
-    (* A conditional branch that was not taken left this slot's own address
-       behind, because where it continues is the end of the slot and the
-       branch could not see how wide that is. See BranchFallsPastSlot. *)
-    let target =
-      if bld.BranchFallsPastSlot then
-        let pc = regVar bld R.PC
-        AST.ite (nPC == pc) (pc .+ numI32 (int insLen) bld.RegType) nPC
-      else
-        nPC
-    if bld.BranchCarriesMode then
-      interJmpByMode bld target bld.DelayedBranch
-    else
-      append bld { AST.interjmp target bld.DelayedBranch }
-    bld.DelayedBranch <- InterJmpKind.NotAJmp
-    bld.BranchCarriesMode <- false
-    bld.BranchFallsPastSlot <- false
-
-/// The Release 6 compact branches. A compact branch has no delay slot:
-/// it takes effect at the branch itself, so the not-taken path is the
-/// very next instruction rather than the one after a slot, and there is
-/// nothing left armed for advancePC to consume. That is the whole of the
-/// difference from updatePCCond below, which is why the two share a
-/// shape and not a body.
+/// The Release 6 compact branches. A compact branch has no delay slot: it
+/// takes effect at the branch itself, so the not-taken path is the very next
+/// instruction rather than the one after a slot. That is the whole of the
+/// difference from branchIf below, which is why the two share a shape and
+/// not a body.
 let updatePCCondCompact (ins: Instruction) (bld: LowUIRBuilder) offset cond =
   let pc = regVar bld R.PC
   append bld {
@@ -448,69 +423,102 @@ let updatePCCondCompact (ins: Instruction) (bld: LowUIRBuilder) offset cond =
   }
 
 /// <summary>
-/// Where a conditional branch that was not taken continues.
-///
-/// In the 32-bit encoding that is a fixed PC+8, every instruction being a
-/// word. In a compressed one it is the end of the delay slot, whose width the
-/// branch cannot see -- so what goes here is the SLOT's own address, which
-/// the slot turns into the address past itself. See BranchFallsPastSlot.
+/// How long the delay slot of a branch is: as long as the instruction in it,
+/// or where none was read, as long as the encoding makes one -- a halfword in
+/// MIPS16e and after the microMIPS calls that name a short slot, and a word
+/// otherwise.
 /// </summary>
-let private notTaken (ins: Instruction) (bld: LowUIRBuilder) =
-  let pc = regVar bld R.PC
-  if ins.ISAMode = MIPSISAMode.MIPS then pc .+ numI32 8 bld.RegType
-  else pc .+ numI32 (int ins.Length) bld.RegType
+let private slotLength (ins: Instruction) =
+  match ins.DelaySlot with
+  | Some slot ->
+    slot.Length
+  | None ->
+    match ins.Opcode with
+    | Op.JALS | Op.JALRS | Op.JALRSHB | Op.BLTZALS | Op.BGEZALS -> 2u
+    | _ -> if ins.ISAMode = MIPSISAMode.MIPS16 then 2u else 4u
 
-let updatePCCond (ins: Instruction) (bld: LowUIRBuilder) offset cond kind =
+/// Where a branch goes on when it does not take its target: past its delay
+/// slot, which ran all the same.
+let pastSlot (ins: Instruction) (bld: ILowUIRBuilder) =
+  let next = ins.Address + uint64 ins.Length + uint64 (slotLength ins)
+  numU64 next bld.RegType
+
+let private isTransfer = function
+  | InterJmp _ | InterCJmp _ -> true
+  | _ -> false
+
+/// <summary>
+/// Lifts the instruction in the delay slot of a branch into the branch, which
+/// runs it after reading what decides the transfer and before making it. The
+/// slot writes no marks of its own, those of the branch spanning both. A
+/// transfer in a slot is UNPREDICTABLE before Release 6 and a Reserved
+/// Instruction from it on, and is lifted as the latter.
+/// </summary>
+let runDelaySlot (ins: Instruction) (bld: LowUIRBuilder) =
+  match ins.DelaySlot with
+  | Some slot ->
+    let stream = (bld :> ILowUIRBuilder).Stream
+    let start = stream.Count
+    bld.InDelaySlot <- true
+    try slot.LiftInto bld
+    finally bld.InDelaySlot <- false
+    if Seq.skip start stream |> Seq.exists isTransfer then
+      stream.RemoveRange(start, stream.Count - start)
+      stream.Append(AST.sideEffect UndefinedInstruction)
+    else
+      ()
+  | None ->
+    ()
+
+/// A branch that always goes to its target, once its delay slot has run.
+let jumpAfterSlot ins bld target kind =
+  runDelaySlot ins bld
+  append bld { AST.interjmp target kind }
+
+/// A branch on a condition, which it reads before its delay slot runs: the
+/// slot may write what the condition reads, and the branch goes where the
+/// value it read says.
+let branchIf ins (bld: LowUIRBuilder) cond target =
+  let taken = tmpVar bld 1<rt>
+  append bld { taken := cond }
+  runDelaySlot ins bld
+  append bld { AST.intercjmp taken target (pastSlot ins bld) }
+
+/// A call on a condition, which links whether it calls or not. The jump that
+/// calls is a call and the one past the slot is not, so the two are apart
+/// rather than one conditional jump.
+let callIf ins (bld: LowUIRBuilder) cond target link =
+  let taken = tmpVar bld 1<rt>
+  let lblCall = label bld "Call"
+  let lblSkip = label bld "Skip"
   append bld {
-    let lblTrueCase = label bld "TrueCase"
-    let lblFalseCase = label bld "FalseCase"
-    let lblEnd = label bld "End"
-    let nPC = regVar bld R.NPC
-    bld.DelayedBranch <- kind
-    bld.BranchFallsPastSlot <- ins.ISAMode <> MIPSISAMode.MIPS
-    AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase)
-    AST.lmark lblTrueCase
-    nPC := offset
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblFalseCase
-    nPC := notTaken ins bld
-    AST.lmark lblEnd
+    taken := cond
+    regVar bld R.R31 := link
+  }
+  runDelaySlot ins bld
+  append bld {
+    AST.cjmp taken (AST.jmpDest lblCall) (AST.jmpDest lblSkip)
+    AST.lmark lblCall
+    AST.interjmp target InterJmpKind.IsCall
+    AST.lmark lblSkip
+    AST.interjmp (pastSlot ins bld) InterJmpKind.Base
   }
 
-/// A likely branch executes its delay slot only when the branch is taken, and
-/// nullifies it otherwise. Nothing in the IR can reach forward and suppress the
-/// next instruction, so the not-taken path leaves for PC+8 immediately: the
-/// delay slot sits at PC+4 and is stepped over rather than executed, which is
-/// what nullification means. The taken path arms the delayed branch exactly as
-/// an ordinary branch does, so the slot runs and the transfer follows it.
-///
-/// This is why the two paths are not symmetric. `updatePCCond` can write NPC on
-/// both arms and let the delay slot carry the transfer, because there the slot
-/// runs either way; here it must not.
-///
-/// And it is why the marker `updatePCCond` uses cannot be used here. That one
-/// works by leaving the answer to the delay slot, which is the only place the
-/// slot's width is known; a nullified slot never runs, so there is nothing to
-/// leave it to and PC+8 is the best this can do. A microMIPS branch-likely
-/// whose slot is a halfword therefore resumes two bytes late. No compiler
-/// writes one -- the family is gone in Release 6 and gcc does not emit it for
-/// microMIPS -- so this is a known gap rather than a reachable defect.
-let updatePCCondLikely (bld: LowUIRBuilder) offset cond kind =
+/// A likely branch, which runs its delay slot only when it takes its target
+/// and nullifies it otherwise: the taken path runs the slot and goes to the
+/// target, and the other goes past the slot without running it.
+let branchLikelyIf ins (bld: LowUIRBuilder) cond target kind =
+  let lblTaken = label bld "Taken"
+  let lblNotTaken = label bld "NotTaken"
   append bld {
-    let lblTrueCase = label bld "TrueCase"
-    let lblFalseCase = label bld "FalseCase"
-    let lblEnd = label bld "End"
-    let pc = regVar bld R.PC
-    let nPC = regVar bld R.NPC
-    bld.DelayedBranch <- kind
-    AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase)
-    AST.lmark lblTrueCase
-    nPC := offset
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblFalseCase
-    nPC := pc .+ numI32 8 bld.RegType
-    AST.interjmp nPC kind
-    AST.lmark lblEnd
+    AST.cjmp cond (AST.jmpDest lblTaken) (AST.jmpDest lblNotTaken)
+    AST.lmark lblTaken
+  }
+  runDelaySlot ins bld
+  append bld {
+    AST.interjmp target kind
+    AST.lmark lblNotTaken
+    AST.interjmp (pastSlot ins bld) InterJmpKind.Base
   }
 
 let signExtLo64 expr = AST.xtlo 32<rt> expr |> AST.sext 64<rt>
@@ -578,12 +586,12 @@ let refuseOutsideKernel (bld: ILowUIRBuilder) =
   }
   lblEnd
 
-/// Provides the `lift` computation expression for MIPS, which closes an
-/// instruction by advancing the PC rather than with a plain IEMark: an
-/// ordinary instruction ends with an IEMark, and one sitting in the delay slot
-/// of an armed branch ends with the transfer that branch deferred. It shadows
-/// the one from LiftingUtils, so a lifter in this module gets the MIPS closing
-/// without asking for it.
+/// Provides the `lift` computation expression for MIPS, which differs from the
+/// one in LiftingUtils on delay slots: a branch with a delay slot closes with
+/// its own transfer rather than an IEMark, and the instruction in the slot,
+/// lifted into the branch, writes no marks, those of the branch spanning both.
+/// It shadows the one from LiftingUtils, so a lifter in this module gets the
+/// MIPS closing without asking for it.
 [<Struct>]
 type LiftBuilder =
   /// Builder that the statements are emitted into.
@@ -595,19 +603,20 @@ type LiftBuilder =
   /// Length of the instruction being lifted.
   val InsLen: uint32
 
-  /// Whether the instruction arms the delay slot that follows it.
-  val ArmsDelaySlot: bool
+  /// Whether the instruction closes with a transfer of its own, which no
+  /// IEMark follows.
+  val Transfers: bool
 
   /// Whether the instruction reaches the privileged state, and so is refused
   /// before it does anything where CP0 may not be used.
   val UsesCP0: bool
 
   /// Creates a lift builder for the instruction at the given address.
-  new(bld, addr, insLen, arms, cp0) =
+  new(bld, addr, insLen, transfers, cp0) =
     { Bld = bld
       Address = addr
       InsLen = insLen
-      ArmsDelaySlot = arms
+      Transfers = transfers
       UsesCP0 = cp0 }
 
   member inline _.Zero() = ()
@@ -625,7 +634,8 @@ type LiftBuilder =
     while cond () do body ()
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
-    this.Bld.Stream.MarkStart(this.Address, this.InsLen)
+    let inSlot = (this.Bld :?> LowUIRBuilder).InDelaySlot
+    if inSlot then () else this.Bld.Stream.MarkStart(this.Address, this.InsLen)
     let refused =
       if this.UsesCP0 then ValueSome(refuseOutsideKernel this.Bld)
       else ValueNone
@@ -633,16 +643,15 @@ type LiftBuilder =
     match refused with
     | ValueSome lblEnd -> this.Bld.Stream.Append(AST.lmark lblEnd)
     | ValueNone -> ()
-    if this.ArmsDelaySlot then this.Bld.Stream.MarkEnd this.InsLen
-    else advancePC (this.Bld :?> LowUIRBuilder) this.InsLen
+    if inSlot || this.Transfers then () else this.Bld.Stream.MarkEnd this.InsLen
     this.Bld
 
-/// Starts lifting an ordinary instruction, closing it by advancing the PC.
+/// Starts lifting an ordinary instruction, closing it with an IEMark.
 let inline lift bld (ins: Instruction) =
   LiftBuilder(bld, ins.Address, ins.Length, false, usesCP0 ins.Opcode)
 
-/// Starts lifting a branch, which arms the delay slot that follows it. The
-/// transfer belongs to that slot, so this one closes with a plain IEMark.
+/// Starts lifting a branch with a delay slot, which runs the slot and then
+/// closes with the transfer.
 let inline liftTransfer bld (ins: Instruction) =
   LiftBuilder(bld, ins.Address, ins.Length, true, false)
 
