@@ -128,9 +128,22 @@ type Instruction
     with get(): Instruction option = delaySlot
      and internal set v = delaySlot <- v
 
+  /// The address control goes on to unless this instruction sends it
+  /// elsewhere: right after it, or past its delay slot, which runs either
+  /// way, where it has one.
+  member _.FallThroughAddress with get(): Addr =
+    match delaySlot with
+    | Some slot -> addr + uint64 numBytes + uint64 slot.Length
+    | None -> addr + uint64 numBytes
+
   /// Lifts this instruction into the statements the builder holds.
   member internal this.LiftInto(builder: LowUIRBuilder) =
     lifter.Lift(this, builder) |> ignore
+
+  member private this.AddBranchTargetIfExist addrs =
+    match (this :> IInstruction).DirectBranchTarget() with
+    | false, _ -> addrs
+    | true, target -> Array.append addrs [| target |]
 
   interface IInstruction with
 
@@ -138,13 +151,12 @@ type Instruction
 
     member _.Length with get() = numBytes
 
+    (* NAL has a delay slot, but goes nowhere the next instruction does not. *)
     member _.IsBranch =
       match op with
-      | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BGEZ | Opcode.BGEZAL
-      | Opcode.BGTZ | Opcode.BLEZ | Opcode.BLTZ | Opcode.BNE
-      | Opcode.JALR | Opcode.JALRHB | Opcode.JR | Opcode.JRHB
-      | Opcode.J | Opcode.JAL | Opcode.BC1F | Opcode.BC1T -> true
-      | _ -> false
+      | Opcode.B -> true
+      | Opcode.NAL -> false
+      | _ -> hasDelaySlot ()
 
     member _.IsModeChanging = false
 
@@ -156,8 +168,12 @@ type Instruction
 
     member _.IsCondBranch =
       match op with
-      | Opcode.BEQ | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ | Opcode.BGEZ
-      | Opcode.BGEZAL | Opcode.BNE | Opcode.BC1F | Opcode.BC1T -> true
+      | Opcode.BEQ | Opcode.BNE | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ
+      | Opcode.BGEZ | Opcode.BLTZAL | Opcode.BGEZAL | Opcode.BEQL | Opcode.BNEL
+      | Opcode.BLTZL | Opcode.BLEZL | Opcode.BGTZL | Opcode.BGEZL
+      | Opcode.BLTZALL | Opcode.BGEZALL | Opcode.BLTZALS | Opcode.BGEZALS
+      | Opcode.BC1F | Opcode.BC1T | Opcode.BC1FL | Opcode.BC1TL
+      | Opcode.BC1EQZ | Opcode.BC1NEZ -> true
       | _ -> false
 
     member _.IsCJmpOnTrue =
@@ -168,10 +184,11 @@ type Instruction
 
     member _.IsCall =
       match op with
-      | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB | Opcode.JAL ->
-        true
-      | _ ->
-        false
+      | Opcode.BAL | Opcode.BLTZAL | Opcode.BGEZAL | Opcode.BLTZALL
+      | Opcode.BGEZALL | Opcode.BLTZALS | Opcode.BGEZALS | Opcode.JAL
+      | Opcode.JALX | Opcode.JALS | Opcode.JALR | Opcode.JALRHB | Opcode.JALRS
+      | Opcode.JALRSHB -> true
+      | _ -> false
 
     member _.IsRET =
       match op with
@@ -251,7 +268,15 @@ type Instruction
       | FourOperands(_, _, _, OpImm(c)) -> v <- int64 c; true
       | _ -> false
 
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
+    member this.GetNextInstrAddrs() =
+      let ins = this :> IInstruction
+      let fallThrough = [| this.FallThroughAddress |]
+      if ins.IsCall || ins.IsCondBranch then
+        this.AddBranchTargetIfExist fallThrough
+      elif ins.IsBranch || ins.IsExit then
+        this.AddBranchTargetIfExist [||]
+      else
+        fallThrough
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 

@@ -1629,3 +1629,47 @@ type MIPS32ParserTests() =
     let slot = parser.Parse(System.ReadOnlySpan(bytes, 4, 4), 4UL)
     Assert.AreEqual<bool>(true, branch.IsTerminator null)
     Assert.AreEqual<bool>(false, slot.IsTerminator branch)
+
+  /// <summary>
+  /// An instruction goes on to the one after it. A branch goes to its target,
+  /// and past its delay slot, which runs either way, where it may not take
+  /// it; a jump through a register goes nowhere its words say; NAL only goes
+  /// past its slot.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] a branch goes on past its delay slot``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
+    let next hex =
+      let ins = parser.Parse(ByteArray.ofHexString hex, 0x1000UL)
+      ins.GetNextInstrAddrs()
+    (* beq a0, a1, 0x100c ; nop *)
+    CollectionAssert.AreEqual([| 0x1008UL; 0x100cUL |], next "1085000200000000")
+    (* bltzal a0, 0x100c ; nop *)
+    CollectionAssert.AreEqual([| 0x1008UL; 0x100cUL |], next "0490000200000000")
+    (* b 0x1404 ; nop *)
+    CollectionAssert.AreEqual([| 0x1404UL |], next "1000010000000000")
+    (* jr ra ; nop *)
+    CollectionAssert.AreEqual(Array.empty<Addr>, next "03e0000800000000")
+    (* nal ; nop *)
+    CollectionAssert.AreEqual([| 0x1008UL |], next "0410000000000000")
+    (* addiu v0, zero, 1 *)
+    CollectionAssert.AreEqual([| 0x1004UL |], next "24020001")
+
+  /// Every instruction with a delay slot but NAL is a branch, and the ones
+  /// that link are calls, those on a condition conditional ones.
+  [<TestMethod>]
+  member _.``[MIPS32] a branch with a delay slot says what kind it is``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let parser = Parser(isa, BinReader.Init isa.Endian) :> IInstructionParsable
+    let kind hex =
+      let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+      ins.IsBranch, ins.IsCall, ins.IsCondBranch
+    (* bltzal a0, 0xc ; nop *)
+    Assert.AreEqual((true, true, true), kind "0490000200000000")
+    (* beql at, v0, 0xc ; nop *)
+    Assert.AreEqual((true, false, true), kind "5022000200000000")
+    (* jalx 0x40 ; nop *)
+    Assert.AreEqual((true, true, false), kind "7400001000000000")
+    (* nal ; nop *)
+    Assert.AreEqual((false, false, false), kind "0410000000000000")
