@@ -53,3 +53,8 @@ exception InvalidRegisterException
 /// Raised when parsing binary code failed. This exception indicates a
 /// non-recoverable parsing failure.
 exception ParsingFailureException
+
+/// Raised when a branch with a delay slot is lifted without the instruction in
+/// its slot, which the bytes it was parsed from did not hold. Lifted alone, the
+/// branch would transfer without running the instruction it must run first.
+exception MissingDelaySlotException

@@ -376,6 +376,20 @@ type LifterTests() =
           AST.intercjmp taken (numI32 0xc 32<rt>) (numI32 8 32<rt>) |]
 
   /// <summary>
+  /// A branch whose bytes end with it has no slot to run before it transfers.
+  /// It still parses, but lifting it alone would drop the slot, so it is
+  /// refused; the same branch with its slot lifts.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] a branch without its delay slot is not lifted``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    (* beq $a0, $a1, 0xc *)
+    Assert.ThrowsExactly<MissingDelaySlotException>(fun () ->
+      lifted isa "10850002" |> ignore) |> ignore
+    (* beq $a0, $a1, 0xc ; nop *)
+    Assert.AreEqual<bool>(false, Array.isEmpty (lifted isa "1085000200000000"))
+
+  /// <summary>
   /// A branch reads what decides it before its delay slot runs, so a slot
   /// that writes the register the branch tests changes nothing about where
   /// it goes: BNEZ v0 with ADDIU v0, zero, 1 in its slot is taken or not on
@@ -931,7 +945,7 @@ type LifterTests() =
         r2, "42000004"   (* TLBINVF *)
         r2, "46c41000"   (* ADD.PS *)
         r2, "46041000"   (* ADD.S *)
-        r2, "04100000"   (* NAL *)
+        r2, "0410000000000000" (* NAL, with a NOP in its delay slot *)
         r2, "4620100d"   (* TRUNC.W.D *)
         r6, "7ca4000f"   (* CRC32B *)
         r6, "46041018"   (* MADDF.S *)

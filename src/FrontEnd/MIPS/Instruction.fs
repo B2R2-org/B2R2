@@ -119,8 +119,10 @@ type Instruction
   /// The instruction in the delay slot of this branch, which the branch runs
   /// after reading what decides the transfer and before making it, and so
   /// lifts as part of itself. None where the branch has no delay slot, or
-  /// where the bytes after it were not given or hold no instruction. Only the
-  /// parser sets it, on the instruction it has just read.
+  /// where the bytes after it were not given or hold no instruction; a branch
+  /// left without its slot that way still disassembles, but is not lifted
+  /// (see MissingDelaySlotException). Only the parser sets it, on the
+  /// instruction it has just read.
   /// </summary>
   member _.DelaySlot
     with get(): Instruction option = delaySlot

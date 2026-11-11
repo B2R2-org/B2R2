@@ -34,6 +34,15 @@ open B2R2.FrontEnd.MIPS
 open B2R2.FrontEnd.MIPS.LiftingUtils
 open B2R2.FrontEnd.MIPS.GeneralLifter
 
+/// Refuses a branch whose delay slot was not read, before anything of it is
+/// emitted. A branch inside a slot has no slot of its own and is let through:
+/// the slot it sits in lifts it as a Reserved Instruction (see runDelaySlot).
+let private requireDelaySlot (ins: Instruction) (bld: LowUIRBuilder) =
+  if ins.HasDelaySlot && ins.DelaySlot.IsNone && not bld.InDelaySlot then
+    raise MissingDelaySlotException
+  else
+    ()
+
 let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
   match ins.Opcode with
   | Op.ABS ->
@@ -800,8 +809,13 @@ let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
 /// and are lifted over the pair all the same: only a program running with
 /// the 64-bit FPU (FR = 1) uses them, and the pair holds what it computes
 /// there for an even register.
+///
+/// A branch whose delay slot the parser could not read is not lifted at all
+/// (see MissingDelaySlotException): without the slot it would transfer
+/// without running the instruction it must run first.
 /// </summary>
 let translate (ins: Instruction) (bld: LowUIRBuilder) =
+  requireDelaySlot ins bld
   let stream = (bld :> ILowUIRBuilder).Stream
   let start = stream.Count
   try

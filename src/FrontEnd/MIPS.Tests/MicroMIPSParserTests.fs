@@ -1117,6 +1117,8 @@ type MicroMIPSParserTests() =
   /// off the end of a table, and a word it can read has to produce an
   /// instruction the rest of the front end will accept. The sweep starts
   /// from what the decoder decoded and so never sees the words it refused.
+  /// Each halfword is followed by a NOP16, which a 16-bit branch takes for the
+  /// delay slot it cannot be lifted without.
   /// </summary>
   [<TestMethod>]
   member _.``[microMIPS] The 16-bit space decodes or is refused``() =
@@ -1124,7 +1126,7 @@ type MicroMIPSParserTests() =
     let disasm = StringDisasmBuilder(false, null, WordSize.Bit64)
     let mutable decoded = 0
     for h in 0 .. 0xFFFF do
-      let bytes = [| byte h; byte (h >>> 8) |]
+      let bytes = [| byte h; byte (h >>> 8); 0x00uy; 0x0Cuy |]
       let ins =
         try Some(parser.Parse(System.ReadOnlySpan bytes, 0UL))
         with :? ParsingFailureException -> None

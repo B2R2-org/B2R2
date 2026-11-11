@@ -51,13 +51,17 @@ type LiftCache(hdl: BinHandle) =
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
     else Error ErrorCase.ParsingFailure
 
-  (* Parsing already accepted the bytes, so a lifter that cannot express this
-     instruction is the one expected failure; naming it keeps a defect in a
-     lifter from being reported as a property of the input, which catching
-     everything did, and under the wrong error case at that. *)
+  (* Parsing already accepted the bytes, so the expected failures are a lifter
+     that cannot express this instruction and a branch whose delay slot lies
+     past the bytes the file holds; naming them keeps a defect in a lifter
+     from being reported as a property of the input, which catching everything
+     did, and under the wrong error case at that. *)
   let lift (ins: IInstruction) =
-    try lifter.LiftInstruction ins |> Ok
-    with NotImplementedIRException _ -> Error ErrorCase.NotImplementedIR
+    try
+      lifter.LiftInstruction ins |> Ok
+    with
+    | NotImplementedIRException _ -> Error ErrorCase.NotImplementedIR
+    | MissingDelaySlotException -> Error ErrorCase.ParsingFailure
 
   (* A step of zero, or one that wraps past the end of the address space, would
      leave the walk on the same address forever; either one ends it instead. *)
