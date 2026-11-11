@@ -44,6 +44,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let cp = ConstantPropagation((hdl: BinHandle), cfg.Vertices)
 
+  let uva = UntouchedValueAnalysis(hdl, cfg.Vertices)
+
   let mutable noretStatus = UnknownNoRet
 
   let jmptblRecoveryStatus = Stack<Addr * int>()
@@ -125,6 +127,10 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// Constant propagation analyzer that is used to incrementally update
   /// the dataflow state of the CFG as we recover it.
   member _.CP with get() = cp
+
+  /// Untouched value analysis that the non-returning analysis uses to
+  /// incrementally update the dataflow state of the CFG as we recover it.
+  member internal _.UVA with get() = uva
 
   /// The basic block factory.
   member _.BBLFactory with get(): BBLFactory = bblFactory
@@ -257,6 +263,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
     this.Vertices.Clear()
     this.CFG <- LowUIRCFG.create this.CFG.ImplementationType
     this.CP.State.Reset()
+    this.UVA.State.Reset()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)

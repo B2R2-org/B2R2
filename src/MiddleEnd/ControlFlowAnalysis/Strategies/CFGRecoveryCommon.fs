@@ -39,10 +39,14 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 module internal CFGRecoveryCommon =
   let inline markVertexAsPendingForAnalysis (ctx: CFGBuildingContext<_, _>) v =
     ctx.CP.State.MarkVertexAsPending v
+    ctx.UVA.State.MarkVertexAsPending v
 
   let inline markVertexAsRemovalForAnalysis (ctx: CFGBuildingContext<_, _>) v =
     ctx.CP.State.MarkVertexAsRemoval v
-    ctx.CFG.GetSuccs v |> Seq.iter ctx.CP.State.MarkVertexAsPending
+    ctx.UVA.State.MarkVertexAsRemoval v
+    for succ in ctx.CFG.GetSuccs v do
+      ctx.CP.State.MarkVertexAsPending succ
+      ctx.UVA.State.MarkVertexAsPending succ
 
   let prioritizer =
     { new IPrioritizable with

@@ -731,7 +731,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->
-        let uva = UntouchedValueAnalysis(ctx.BinHandle, ctx.CFG.Vertices)
+        let uva = ctx.UVA
         let state = getLazyIRState ctx.CFG uva
         let tryGetCallerLoc = connectArgumentsInIRCFG ctx state
         match analyze ctx uva state tryGetCallerLoc with
