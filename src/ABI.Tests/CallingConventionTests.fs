@@ -280,3 +280,94 @@ type CallingConventionTests() =
     let a6 = M68K.Register.toRegID M68K.Register.A6
     Assert.AreEqual<bool>(true, cc.CalleeSavedRegisters.Contains a6)
     Assert.AreEqual<bool>(true, cc.CallerSavedRegisters.Contains d0)
+
+  (* o32 passes the first four words in a0 to a3 and the rest on the stack,
+     past the sixteen bytes the caller keeps there for the four. *)
+  [<TestMethod>]
+  member _.``o32 passes four words in registers and then past their home``() =
+    let cc = CallingConvention.create OS.Linux (ISA "mips32")
+    let a3 = MIPS.Register.toRegID MIPS.Register.R7
+    let slot = ArgLocation.Stack { FirstOffset = 16; SlotSize = 4 }
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg a3, cc.GetIntArgLocation 3)
+    Assert.AreEqual<ArgLocation>(slot, cc.GetIntArgLocation 4)
+
+  (* A callee may write every register but s0 to s8 and the stack pointer.
+     That includes gp, which a PIC callee sets up for itself and its caller
+     reloads after the call, and t9, through which the call was made. *)
+  [<TestMethod>]
+  member _.``o32 clobbers the temporaries, t9, ra and gp``() =
+    let cc = CallingConvention.create OS.Linux (ISA "mips32")
+    let mips r = MIPS.Register.toRegID r
+    let clobbered =
+      [ MIPS.Register.R1
+        MIPS.Register.R3
+        MIPS.Register.R4
+        MIPS.Register.R15
+        MIPS.Register.R24
+        MIPS.Register.R25
+        MIPS.Register.R28
+        MIPS.Register.R31
+        MIPS.Register.HI
+        MIPS.Register.LO
+        MIPS.Register.F0
+        MIPS.Register.F19 ]
+    let kept =
+      [ MIPS.Register.R16
+        MIPS.Register.R23
+        MIPS.Register.R29
+        MIPS.Register.R30
+        MIPS.Register.F20
+        MIPS.Register.F31 ]
+    for r in clobbered do
+      Assert.AreEqual<bool>(true, cc.IsCallerSaved(mips r), string r)
+    for r in kept do
+      Assert.AreEqual<bool>(true, cc.IsCalleeSaved(mips r), string r)
+
+  (* o32 passes the first two floats in f12 and f14, each a double's even
+     half, and returns one in f0. *)
+  [<TestMethod>]
+  member _.``o32 passes floats in f12 and f14``() =
+    let cc = CallingConvention.create OS.Linux (ISA "mips32")
+    let mips r = MIPS.Register.toRegID r
+    Assert.AreEqual<RegisterID>(mips MIPS.Register.F12, cc.FloatArgRegister 0)
+    Assert.AreEqual<RegisterID>(mips MIPS.Register.F14, cc.FloatArgRegister 1)
+    Assert.AreEqual<RegisterID>(mips MIPS.Register.F0, cc.FloatReturnRegister)
+    Assert.AreEqual<RegisterID>(mips MIPS.Register.R2, cc.IntReturnRegister)
+
+  (* n64 passes the first eight arguments in a0 to a7, or f12 to f19 for a
+     float, each by its position, and the rest on the stack, the first of them
+     right at the stack pointer. *)
+  [<TestMethod>]
+  member _.``n64 passes eight arguments in registers by position``() =
+    let cc = CallingConvention.create OS.Linux (ISA "mips64be")
+    let mips r = MIPS.Register.toRegID r
+    let a7 = ArgLocation.Reg(mips MIPS.Register.R11)
+    let slot = ArgLocation.Stack { FirstOffset = 0; SlotSize = 8 }
+    Assert.AreEqual<ArgLocation>(a7, cc.GetIntArgLocation 7)
+    Assert.AreEqual<ArgLocation>(slot, cc.GetIntArgLocation 8)
+    Assert.AreEqual<RegisterID>(mips MIPS.Register.F19, cc.FloatArgRegister 7)
+    Assert.AreEqual<ArgClassification>(Positional, cc.ArgClassification)
+
+  (* An n64 callee keeps gp, s0 to s8 and f24 to f31, and may write the
+     argument registers a4 to a7 as it may the temporaries. *)
+  [<TestMethod>]
+  member _.``n64 keeps gp across a call and clobbers a4 to a7``() =
+    let cc = CallingConvention.create OS.Linux (ISA "mips64be")
+    let mips r = MIPS.Register.toRegID r
+    let clobbered =
+      [ MIPS.Register.R8
+        MIPS.Register.R11
+        MIPS.Register.R25
+        MIPS.Register.R31
+        MIPS.Register.F23 ]
+    let kept =
+      [ MIPS.Register.R16
+        MIPS.Register.R28
+        MIPS.Register.R30
+        MIPS.Register.F24
+        MIPS.Register.F31 ]
+    for r in clobbered do
+      Assert.AreEqual<bool>(true, cc.IsCallerSaved(mips r), string r)
+    for r in kept do
+      Assert.AreEqual<bool>(true, cc.IsCalleeSaved(mips r), string r)
+    Assert.AreEqual<bool>(false, cc.IsCallerSaved(mips MIPS.Register.R28))
