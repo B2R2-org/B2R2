@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
@@ -525,6 +526,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
           IsSingleEntry = singleEntry
           OwnRangeEntries = None
           MaskedEntries = None
+          EntriesBeforeData = None
           IsFunctionPointerTable = false }
       Ok(jmptbl, findIndexOrigin findDef jmptbl tblExpr)
     | _ ->
@@ -1199,16 +1201,55 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       None
 
+  /// The addresses of data that the code of each binary computes on its own,
+  /// collected once per binary, when the first table of the binary needs them.
+  let dataReferences = ConditionalWeakTable<BinHandle, Lazy<Addr[]>>()
+
+  /// Collects the addresses of data that the code of the given binary computes
+  /// on its own, for an ISA whose code tells them.
+  let collectDataReferences (hdl: BinHandle) =
+    match hdl.ISA with
+    | AArch64 -> ARM64Code.collectDataReferences hdl
+    | _ -> [||]
+
+  /// Returns the addresses of data that the code of the given binary computes
+  /// on its own, collecting them the first time.
+  let getDataReferences hdl =
+    let refs =
+      dataReferences.GetValue(hdl, fun hdl -> lazy (collectDataReferences hdl))
+    refs.Value
+
+  /// Finds the first address past the start of the given table that the code
+  /// computes on its own as the address of data.
+  let tryFindNextData hdl (jmptbl: JmpTableInfo) =
+    let refs = getDataReferences hdl
+    let i = System.Array.BinarySearch(refs, jmptbl.TableAddress + 1UL)
+    let i = if i >= 0 then i else ~~~i
+    if i < refs.Length then Some refs[i] else None
+
+  /// Counts the entries of the given table, from the first, that fit before the
+  /// next data past its start whose address the code computes on its own. The
+  /// code computes the address of a table where its index selects the first
+  /// entry or before, so the next data past the start lies past the table.
+  let countEntriesBeforeData hdl (jmptbl: JmpTableInfo) =
+    tryFindNextData hdl jmptbl
+    |> Option.bind (fun dataAddr ->
+      match (dataAddr - jmptbl.TableAddress) / uint64 jmptbl.EntrySize with
+      | n when n > 0UL && n <= uint64 System.Int32.MaxValue -> Some(int n)
+      | _ -> None)
+
   /// Identifies the jump table of the indirect branch at insAddr, using the
   /// given analysis of indirect branches for its enclosing branch as well.
   let identify ctx analyze insAddr =
     analyze insAddr
     |> Result.map (fun (jmptbl, origin) ->
       let jmptbl = rebase ctx analyze (jmptbl, origin)
-      let file = (ctx: CFGBuildingContext<_, _>).BinHandle.File
+      let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
+      let file = hdl.File
       { jmptbl with
           OwnRangeEntries = countOwnRange file jmptbl origin
-          MaskedEntries = countMaskedEntries file jmptbl origin })
+          MaskedEntries = countMaskedEntries file jmptbl origin
+          EntriesBeforeData = countEntriesBeforeData hdl jmptbl })
 
   /// Checks if the address is in a section that may host a jump table,
   /// according to the file format's heuristic.

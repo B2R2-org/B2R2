@@ -267,3 +267,31 @@ type AArch64BinaryBrewTests() =
     let rodata = "000204060103" (* .byte 0, 2, 4, 6, then 1, 3 *)
     let actual = countEntriesInPatchedMain code rodata
     CollectionAssert.AreEqual([| 4 |], actual)
+
+  (* A table may run up to other data, such as a string, whose address the
+     code computes on its own: here the last case returns the address of the
+     bytes right past the table, which no table runs into. Clang checks no
+     range of an index whose every value has a case, as of an enum, so
+     nothing else ends the table, and the bytes, 1 and 3, would send the jump
+     to the RET of the first two cases. *)
+  [<TestMethod>]
+  member _.``A clang table ends at data that the code addresses``() =
+    let code =
+      [ "09000090" (* adrp x9, 0x400000 *)
+        "29411c91" (* add x9, x9, #0x710 *)
+        "8a000010" (* adr x10, 0x400598 *)
+        "2b496038" (* ldrb w11, [x9, w0, uxtw] *)
+        "4a090b8b" (* add x10, x10, x11, lsl #2 *)
+        "40011fd6" (* br x10 *)
+        "00008052" (* mov w0, #0 *)
+        "c0035fd6" (* ret *)
+        "20008052" (* mov w0, #1 *)
+        "c0035fd6" (* ret *)
+        "40008052" (* mov w0, #2 *)
+        "c0035fd6" (* ret *)
+        "00000090" (* adrp x0, 0x400000 *)
+        "00501c91" (* add x0, x0, #0x714 *)
+        "c0035fd6" (* ret *) ]
+    let rodata = "000204060103" (* .byte 0, 2, 4, 6, then 1, 3 *)
+    let actual = countEntriesInPatchedMain code rodata
+    CollectionAssert.AreEqual([| 4 |], actual)

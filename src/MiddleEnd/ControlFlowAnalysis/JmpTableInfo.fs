@@ -65,6 +65,11 @@ type JmpTableInfo =
     /// section. Unlike a range check, a mask may let the index select more
     /// entries than the table has.
     MaskedEntries: int option
+    /// The number of entries, from the first, that fit before the next data
+    /// past the start of the table whose address the code computes on its own,
+    /// or None if the code computes no such address. A table runs into no
+    /// other data, though it may end well before.
+    EntriesBeforeData: int option
     /// Indicates whether the jump table is accessed via a function pointer
     /// table.
     mutable IsFunctionPointerTable: bool }
@@ -81,6 +86,12 @@ module JmpTableInfo =
     let isPast = Option.exists (fun n -> idx >= n)
     jmptbl.EntryShift > 0
     && (isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries)
+
+  /// Tells whether the slot of the given index runs into the data that comes
+  /// next past the start of the given table, which the code addresses on its
+  /// own.
+  let private runsIntoData jmptbl idx =
+    jmptbl.EntriesBeforeData |> Option.exists (fun n -> idx >= n)
 
   /// Tells whether the entries of the given table are addresses of their own,
   /// as wide as a pointer, in an ELF binary, where a relocation of a slot says
@@ -114,11 +125,11 @@ module JmpTableInfo =
   /// out, and in a binary that the loader rebases, a slot without one holds no
   /// address. A slot that lies past the bytes of the binary holds no entry
   /// either, nor does one of shifted entries past what the range check, or a
-  /// mask on the index, admits.
+  /// mask on the index, admits, nor one that runs into the data that follows.
   let tryReadTarget (hdl: BinHandle) jmptbl idx =
     let file = hdl.File
     let addr = jmptbl.TableAddress + uint64 (idx * jmptbl.EntrySize)
-    if isPastIndexBound jmptbl idx then
+    if isPastIndexBound jmptbl idx || runsIntoData jmptbl idx then
       None
     elif isRelocatable file jmptbl then
       match BinFileOps.tryComputeRelocationValue file addr with
