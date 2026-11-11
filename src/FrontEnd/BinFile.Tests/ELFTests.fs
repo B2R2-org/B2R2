@@ -1266,6 +1266,18 @@ type ELFTests() =
     Assert.AreEqual<bool>(false, file.IsReadOnlyAfterLoading 0x4010UL)
 
   [<TestMethod>]
+  member _.``[ELF] MIPS local GOT read-only after loading test``() =
+    (* Only the loader writes the local entries of a MIPS GOT, the first
+       DT_MIPS_LOCAL_GOTNO words from DT_PLTGOT, although their segment stays
+       writable for the global entries after them, which lazy binding writes
+       as the program runs. *)
+    let isLoaderOnly (file: ELFBinFile) addr = file.IsReadOnlyAfterLoading addr
+    Assert.AreEqual<bool>(true, isLoaderOnly mips32File 0x420028UL)
+    Assert.AreEqual<bool>(false, isLoaderOnly mips32File 0x42002cUL)
+    Assert.AreEqual<bool>(true, isLoaderOnly mips64File 0x120020060UL)
+    Assert.AreEqual<bool>(false, isLoaderOnly mips64File 0x120020068UL)
+
+  [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =
     (* Both the site and the value it resolves to shift with the load base. *)
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
