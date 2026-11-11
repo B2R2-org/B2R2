@@ -366,7 +366,7 @@ Let's try using the B2R2 APIs.
 Build
 -----
 
-Building B2R2 is straightforward. Install the .NET 10 SDK or later, and you are
+Building B2R2 is straightforward. Install the .NET 11 SDK or later, and you are
 ready to build from the source root.
 
 - To build B2R2 in release mode, run `dotnet build -c Release`.
