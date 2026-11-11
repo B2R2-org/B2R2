@@ -18,7 +18,7 @@
    puts two copies of the same assembly on the probing path, and a script
    that loads half of each dies with a linkage error that reads like a
    source bug. *)
-#I "../src/MiddleEnd/API/bin/Release/net10.0"
+#I "../src/MiddleEnd/API/bin/Release/net11.0"
 #r "B2R2.Core.dll"
 #r "B2R2.FrontEnd.BinLifter.dll"
 #r "B2R2.FrontEnd.BinFile.dll"
