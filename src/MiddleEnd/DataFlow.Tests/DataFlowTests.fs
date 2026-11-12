@@ -422,21 +422,58 @@ type DataFlowTests() =
     let gpValue = mkConst 0x410000u 32<rt>
     Assert.AreEqual<ConstantDomain.Lattice>(gpValue, state.GetAbsValue vp)
 
-  /// A load through a register that holds no stack address, as MIPS code
-  /// loads through gp, reads what the binary holds where only the loader
-  /// writes, once the register holds a constant.
+  /// A register that holds an address outside the GOT may walk memory in a
+  /// loop, and a CFG that still lacks the way back shows only its first pass,
+  /// so a load through it reads nothing, though the register holds a
+  /// constant and only the loader writes where it points.
   [<TestMethod>]
-  member _.``Constant Propagation loads through a constant register``() =
-    (* lui gp, 0x40 ; lw v0, 0x10(gp) ; jr ra ; nop ; .word 0x12345678 *)
-    let hex = "3c1c00408f82001003e000080000000012345678"
+  member _.``Constant Propagation loads nothing outside the GOT``() =
+    (* lui v1, 0x40 ; lw v0, 0x10(v1) ; jr ra ; nop ; .word 0x12345678 *)
+    let hex = "3c0300408c62001003e000080000000012345678"
     let brew = Binaries.loadMIPSAt 0x400000UL hex
     let cfg = brew.Functions[0x400000UL].CFG
     let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
     let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
     let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
     let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = v0 }
-    let word = mkConst 0x12345678u 32<rt>
-    Assert.AreEqual<ConstantDomain.Lattice>(word, state.GetAbsValue vp)
+    let top = ConstantDomain.NotAConst
+    Assert.AreEqual<ConstantDomain.Lattice>(top, state.GetAbsValue vp)
+
+  /// A load through a byte that the code loads through an argument reads
+  /// what no one knows, rather than nothing yet, which a phi would drop for a
+  /// constant that another path brings.
+  [<TestMethod>]
+  member _.``Constant Propagation loads nothing through a loaded byte``() =
+    (* lbu v1, 0(a0) ; lw v0, 0(v1) ; jr ra ; nop *)
+    let hex = "908300008c62000003e0000800000000"
+    let brew = Binaries.loadMIPSAt 0x400000UL hex
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = v0 }
+    let top = ConstantDomain.NotAConst
+    Assert.AreEqual<ConstantDomain.Lattice>(top, state.GetAbsValue vp)
+
+  /// CFG recovery hands new blocks over in no particular order, so a load
+  /// through gp may come before the block that sets gp. It then reads nothing
+  /// yet, rather than what no one knows, and reads the GOT once gp is known.
+  [<TestMethod>]
+  member _.``Constant Propagation loads through gp that it learns late``() =
+    (* lui gp, 0x43 ; b 0x400530 ; addiu gp, gp, -0x7ff0 ; nop
+       lw v0, -0x7fe8(gp) ; jr ra ; nop *)
+    let hex = "3c1c004310000002279c8010000000008f82801803e0000800000000"
+    let hdl = Binaries.loadPatchedMIPS "elf_mips32" 0x520 hex
+    let cfg = MiddleEnd.BinaryBrew(hdl).Functions[0x400520UL].CFG
+    let lateFirst =
+      cfg.Vertices
+      |> Array.sortByDescending _.VData.Internals.BlockAddress
+    let cp = ConstantPropagation(hdl, lateFirst)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400530UL, 1); VarKind = v0 }
+    let gotEntry = mkConst 0x400520u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(gotEntry, state.GetAbsValue vp)
 
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =

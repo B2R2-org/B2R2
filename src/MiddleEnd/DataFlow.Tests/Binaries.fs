@@ -25,6 +25,9 @@
 [<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.DataFlow.Tests.Binaries
 
+open System
+open System.IO
+open System.IO.Compression
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
@@ -47,6 +50,22 @@ let loadMIPSAt baseAddr (hex: string) =
   let code = ByteArray.ofHexString hex
   let hdl = BinHandle.LoadRawImage(code, ISA "mips32", baseAddr, OS.Linux)
   BinaryBrew hdl
+
+/// The directory of the ELF fixtures, which live next to the BinFile tests.
+let private elfDir =
+  AppDomain.CurrentDomain.BaseDirectory
+  + "../../../../../FrontEnd/BinFile.Tests/ELF/"
+
+/// Loads the named big-endian MIPS32 fixture among the ELF fixtures, once the
+/// bytes at the given offset of the file become the given hex of words.
+let loadPatchedMIPS name (offset: int) (hex: string) =
+  use archive = ZipFile.OpenRead(elfDir + name + ".zip")
+  use stream = archive.GetEntry(name).Open()
+  use ms = new MemoryStream()
+  stream.CopyTo ms
+  let bytes = ms.ToArray()
+  (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+  BinHandle.LoadFileBytes(bytes, ISA "mips32")
 
 (*
   Example 1: Fibonacci function
