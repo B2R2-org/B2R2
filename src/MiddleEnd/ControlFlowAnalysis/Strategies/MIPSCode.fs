@@ -479,21 +479,32 @@ module internal MIPSCode =
       | _ ->
         false
 
-  /// Checks if the instruction at the given address leaves for good, as a
-  /// return does, with its delay slot right before next.
-  let private leavesBefore scan (addr: Addr) next =
-    match scan.LU.TryParseInstruction addr with
-    | Ok(:? Instruction as ins) -> leaves ins && ins.FallThroughAddress = next
-    | _ -> false
+  /// Checks if the given instruction leaves t9 to the code after it as no one
+  /// knows it: it leaves for good, as a return does, or it is a call, whose
+  /// callee may change t9.
+  let private leavesT9Unknown (ins: IInstruction) =
+    leaves ins || (ins.IsCall && not ins.IsCondBranch)
 
-  /// Checks if no code runs into the given address: it starts its section, or
-  /// the code before it, past the NOPs that may pad it, leaves for good. Data
-  /// before it runs into nothing either.
+  /// Checks if the instruction at the given address leaves t9 to the code
+  /// after it as no one knows it, with its delay slot right before next.
+  let private leavesT9UnknownBefore scan (addr: Addr) next =
+    match scan.LU.TryParseInstruction addr with
+    | Ok(:? Instruction as ins) ->
+      leavesT9Unknown ins && ins.FallThroughAddress = next
+    | _ ->
+      false
+
+  /// Checks if no code runs into the given address with t9 holding it: it
+  /// starts its section, or the code before it, past the NOPs that may pad it,
+  /// leaves for good or calls. The code that a call returns to never finds gp
+  /// from t9, which the callee may have changed, so the call never returns
+  /// there. Data before it runs into nothing either.
   let rec private startsCode scan (addr: Addr) padding =
     let sec = scan.Section
     if addr = sec.Address then
       true
-    elif addr >= sec.Address + 8UL && leavesBefore scan (addr - 8UL) addr then
+    elif addr >= sec.Address + 8UL
+         && leavesT9UnknownBefore scan (addr - 8UL) addr then
       true
     elif padding > 0 then
       match scan.LU.TryParseInstruction(addr - 4UL) with
@@ -522,23 +533,45 @@ module internal MIPSCode =
     then Some entry
     else None
 
+  /// Finds the entry that any of the given registers tells, for a prologue
+  /// whose LUI is at luiAddr.
+  let private tryEntryIn scan luiAddr (held: Map<int, Addr * bool>) =
+    held |> Map.values |> Seq.tryPick (tryEntryOf scan luiAddr)
+
+  /// Checks if the given branch runs its delay slot only when it is taken.
+  let private isLikely (ins: Instruction) =
+    match ins.Opcode with
+    | Opcode.BEQL | Opcode.BNEL | Opcode.BLEZL | Opcode.BLTZL | Opcode.BGEZL
+    | Opcode.BGTZL | Opcode.BLTZALL | Opcode.BGEZALL | Opcode.BC1FL
+    | Opcode.BC1TL -> true
+    | _ -> false
+
+  /// Returns the delay slot of the given branch if the slot runs whether or
+  /// not the branch is taken.
+  let private tryGetSlotRunAlways (ins: Instruction) =
+    if isLikely ins then None else ins.DelaySlot
+
   /// Finds the entry of the function whose prologue starts to find gp with the
-  /// given LUI, following the straight code past it.
+  /// given LUI, following the straight code past it up to the delay slot of
+  /// the branch that ends it, which runs either way unless the branch is a
+  /// likely one.
   let private tryFindPrologueEntry scan (lui: Instruction) =
     let rec loop held (addr: Addr) n =
-      let found =
-        held |> Map.values |> Seq.tryPick (tryEntryOf scan lui.Address)
-      match found with
-      | Some _ ->
+      match tryEntryIn scan lui.Address held with
+      | Some _ as found ->
         found
       | None when n = 0 || Map.isEmpty held ->
         None
       | None ->
         match scan.LU.TryParseInstruction addr with
-        | Ok ins when not (isBranch (ins :?> Instruction)) ->
-          match stepPrologue scan.Mask held (ins :?> Instruction) with
+        | Ok(:? Instruction as ins) when not (isBranch ins) ->
+          match stepPrologue scan.Mask held ins with
           | Some held -> loop held (addr + 4UL) (n - 1)
           | None -> None
+        | Ok(:? Instruction as ins) ->
+          tryGetSlotRunAlways ins
+          |> Option.bind (stepPrologue scan.Mask held)
+          |> Option.bind (tryEntryIn scan lui.Address)
         | _ ->
           None
     match lui.Operands with
@@ -563,7 +596,8 @@ module internal MIPSCode =
   /// Finds the entries of the functions of the given binary whose code finds
   /// gp from t9, which holds the address of a PIC function on entry: the
   /// constant that the code adds to t9 is gp less that address, so the address
-  /// is gp less the constant, where the code has to run straight to the add.
+  /// is gp less the constant, where the code has to run straight to the add,
+  /// which may sit in the delay slot of a branch that runs it either way.
   let findGPPrologueEntries (hdl: BinHandle) =
     match tryFindGOT hdl with
     | Some got ->

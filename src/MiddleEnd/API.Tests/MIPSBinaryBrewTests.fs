@@ -225,3 +225,45 @@ type MIPSBinaryBrewTests() =
       [| 0x400528UL; 0x40053cUL; 0x400540UL |]
       |> Array.filter (fun addr -> Set.contains addr addrs)
     CollectionAssert.AreEqual([| 0x400528UL |], found)
+
+  (* A callee may change t9, so the code that a call returns to never finds
+     gp from it: code that does right after a call starts a function, which
+     the call never returns to. *)
+  [<TestMethod>]
+  member _.``A function starts right after a call``() =
+    let code =
+      [ "0320f809" (* jalr t9 *)
+        "00002021" (* move a0, zero *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ae8" (* addiu v0, v0, 0x7ae8 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let addrs = (recoverPatched mips32 code "").Addresses |> Set.ofSeq
+    Assert.AreEqual<bool>(true, Set.contains 0x400528UL addrs)
+
+  (* A prologue may add t9 in the delay slot of a branch, which runs it
+     whether or not the branch is taken. A likely branch runs it only when
+     taken, so an add there tells nothing of where the function starts. *)
+  [<TestMethod>]
+  member _.``A function finds gp in the delay slot of a branch``() =
+    let code =
+      [ "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ae8" (* addiu v0, v0, 0x7ae8 *)
+        "10800001" (* beq a0, zero, 0x400538 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ad0" (* addiu v0, v0, 0x7ad0 *)
+        "50800001" (* beql a0, zero, 0x400550 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let addrs = (recoverPatched mips32 code "").Addresses |> Set.ofSeq
+    let found =
+      [| 0x400528UL; 0x400540UL |]
+      |> Array.filter (fun addr -> Set.contains addr addrs)
+    CollectionAssert.AreEqual([| 0x400528UL |], found)
