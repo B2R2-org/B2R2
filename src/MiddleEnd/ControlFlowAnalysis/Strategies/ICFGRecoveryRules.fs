@@ -97,6 +97,15 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * callee: Addr
     -> bool
 
+  /// Finds the callee of the indirect call that ends the given vertex from
+  /// what the code and the binary fix, such as a slot whose content the binary
+  /// gives and that the code reads the target from. Returns None when the
+  /// rules do not tell.
+  abstract TryResolveIndirectCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> Addr option
+
   /// Judges whether the indirect call that ends the given vertex returns, along
   /// with how many bytes its callee pops when it does. Returns None when the
   /// rules do not tell.

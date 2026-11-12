@@ -180,6 +180,12 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * callee: Addr
     -> bool
 
+  /// Finds the callee of the indirect call that ends the given vertex.
+  abstract TryResolveIndirectCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> Addr option
+
   /// Judges whether the indirect call that ends the given vertex returns, along
   /// with how many bytes its callee pops when it does.
   abstract TryJudgeIndirectReturn:
@@ -232,6 +238,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Takes every call for a call to a function.
   default _.IsGetPCThunk(_, _, _) = false
 
+  /// Leaves every indirect call to the data flow.
+  default _.TryResolveIndirectCallee(_, _) = None
+
   /// Judges by the call frame information.
   default _.TryJudgeIndirectReturn(ctx, caller) =
     tryJudgeReturnByCFA ctx caller.VData.Internals.LastInstruction
@@ -266,6 +275,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
     member this.IsGetPCThunk(ctx, bbl, callee) =
       this.IsGetPCThunk(ctx, bbl, callee)
+
+    member this.TryResolveIndirectCallee(ctx, caller) =
+      this.TryResolveIndirectCallee(ctx, caller)
 
     member this.TryJudgeIndirectReturn(ctx, caller) =
       this.TryJudgeIndirectReturn(ctx, caller)

@@ -287,3 +287,36 @@ type MIPSBinaryBrewTests() =
       [| 0x400528UL; 0x400540UL |]
       |> Array.filter (fun addr -> Set.contains addr addrs)
     CollectionAssert.AreEqual([| 0x400528UL |], found)
+
+  (* A call through t9 reaches what the GOT entry that the code loads into t9
+     holds: the stub of __libc_start_main here, which never returns, so main
+     ends with the call. gp points 0x7ff0 past the start of the GOT. *)
+  [<TestMethod>]
+  member _.``A call through the GOT reaches the import of its entry``() =
+    let code =
+      [ "3c1c0043" (* lui gp, 0x43 *)
+        "279c8010" (* addiu gp, gp, -0x7ff0 *)
+        "8f99802c" (* lw t9, -0x7fd4(gp) *)
+        "0320f809" (* jalr t9 *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let fns = recoverPatched mips32 code ""
+    CollectionAssert.AreEqual([| 0x400520UL |], blocksOf fns[0x400520UL])
+
+  (* A local GOT entry holds a page, to which the code adds the low half of
+     the address of the function that it calls through t9. *)
+  [<TestMethod>]
+  member _.``A call through a local GOT page reaches its function``() =
+    let code =
+      [ "3c1c0043" (* lui gp, 0x43 *)
+        "279c8010" (* addiu gp, gp, -0x7ff0 *)
+        "8f998018" (* lw t9, -0x7fe8(gp) *)
+        "27390170" (* addiu t9, t9, 0x170 *)
+        "0320f809" (* jalr t9 *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let fns = recoverPatched mips32 code ""
+    let callee = fns[0x400520UL].Callees[LeafCallSite 0x400530UL]
+    Assert.AreEqual<CalleeKind>(RegularCallee 0x400690UL, callee)

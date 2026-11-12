@@ -613,6 +613,15 @@ module internal CFGRecoveryCommon =
     | ARM32Mode.ARM when kind = InterJmpKind.SwitchToARM -> ValueSome()
     | _ -> ValueNone
 
+  /// Resolves the indirect call that ends the given vertex, which calls the
+  /// target that e computes: from the relocation slot that e loads, or from
+  /// what the rules of the architecture find. Returns None when neither tells.
+  let tryResolveIndirectCall ctx cfgRec rules srcVertex e =
+    tryHandleRelocationBackedCall ctx cfgRec rules srcVertex false e
+    |> Option.orElseWith (fun () ->
+      (rules: ICFGRecoveryRules<_, _>).TryResolveIndirectCallee(ctx, srcVertex)
+      |> Option.map (handleDirectCall ctx cfgRec rules srcVertex))
+
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
@@ -754,9 +763,7 @@ module internal CFGRecoveryCommon =
         | InterJmp(Target = e; Kind = ModeSwitchingCall _) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
-          let resolved =
-            tryHandleRelocationBackedCall ctx cfgRec rules srcVertex false e
-          match resolved with
+          match tryResolveIndirectCall ctx cfgRec rules srcVertex e with
           | Some r ->
             result <- r
           | None ->

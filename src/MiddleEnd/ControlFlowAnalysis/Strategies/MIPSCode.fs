@@ -31,13 +31,14 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.MIPS
 
-/// Provides what MIPS code tells on its own: where it addresses data, and
-/// where its functions start. The code builds an address in two halves: LUI
-/// sets a register to the high half, or in PIC code a load from the local GOT
-/// through gp sets it to the page, and an ADDIU of the low half to the
-/// register, or a load or a store at that offset from it, completes the
-/// address. A PIC function finds gp by adding to t9, which holds its own
-/// address on entry, the constant that takes that address to gp.
+/// Provides what MIPS code tells on its own: where it addresses data, where
+/// its functions start, and what its calls through the GOT reach. The code
+/// builds an address in two halves: LUI sets a register to the high half, or
+/// in PIC code a load from the local GOT through gp sets it to the page, and
+/// an ADDIU of the low half to the register, or a load or a store at that
+/// offset from it, completes the address. A PIC function finds gp by adding to
+/// t9, which holds its own address on entry, the constant that takes that
+/// address to gp.
 module internal MIPSCode =
   /// Represents what a register holds as far as the scan knows.
   type private Holding =
@@ -610,3 +611,66 @@ module internal MIPSCode =
       |> Seq.toArray
     | None ->
       [||]
+
+  /// Checks if the given instruction calls through t9.
+  let private callsThroughT9 (ins: Instruction) =
+    match ins.Opcode, ins.Operands with
+    | Opcode.JALR, OneOperand(OpReg r)
+    | Opcode.JALR, TwoOperands(_, OpReg r) -> int r = T9
+    | _ -> false
+
+  /// Checks if the given instruction writes t9.
+  let private writesT9 ins = fst (accessesOf ins) = Some T9
+
+  /// Finds the offset from gp of the GOT entry that the given instructions load
+  /// into t9 last, going back from the one at idx, along with what they add to
+  /// it after, as code reaching a function through a local page does.
+  let rec private tryFindT9Load (instrs: Instruction[]) idx (added: uint64) =
+    if idx < 0 then
+      None
+    else
+      let ins = instrs[idx]
+      match ins.Opcode, ins.Operands with
+      | (Opcode.LW | Opcode.LD), TwoOperands(OpReg d, OpMem(b, Imm offset, _))
+        when int d = T9 && int b = GPNumber ->
+        Some(uint64 offset, added)
+      | (Opcode.ADDIU | Opcode.DADDIU),
+        ThreeOperands(OpReg d, OpReg s, OpImm imm)
+        when int d = T9 && int s = T9 && added = 0UL ->
+        tryFindT9Load instrs (idx - 1) (signExtend16 imm)
+      | _ when writesT9 ins ->
+        None
+      | _ ->
+        tryFindT9Load instrs (idx - 1) added
+
+  /// Reads the GOT entry at the given address, of either kind: a global entry
+  /// holds the address of its function, or that of the stub through which the
+  /// loader binds an import, until the program runs.
+  let private tryReadGOTEntry (hdl: BinHandle) (got: BinSection) addr =
+    if got.Address <= addr && addr < got.Address + got.Size then
+      let width = WordSize.toByteWidth hdl.File.ISA.WordSize
+      match hdl.TryReadUInt(addr, width) with
+      | Ok v -> Some v
+      | Error _ -> None
+    else
+      None
+
+  /// Finds the function that the call ending the given instructions reaches,
+  /// if it calls through t9 what the code loads from the GOT: the address that
+  /// a global entry holds, or the page that a local entry holds plus what the
+  /// code adds to it. The code reads the GOT through gp, which a binary with
+  /// one GOT sets to the same value wherever its code runs.
+  let tryFindGOTCallee (hdl: BinHandle) (instrs: IInstruction[]) =
+    let instrs = instrs |> Array.map (fun ins -> ins :?> Instruction)
+    let last = instrs.Length - 1
+    match tryFindGOT hdl with
+    | Some got when last >= 0 && callsThroughT9 instrs[last] ->
+      let mask = maskOf hdl.File.ISA.WordSize
+      tryFindT9Load instrs (last - 1) 0UL
+      |> Option.bind (fun (offset, added) ->
+        tryReadGOTEntry hdl got ((gpOf got + offset) &&& mask)
+        |> Option.map (fun entry -> (entry + added) &&& mask))
+      |> Option.filter (fun target ->
+        target <> 0UL && hdl.File.IsExecutableAddr target)
+    | _ ->
+      None
