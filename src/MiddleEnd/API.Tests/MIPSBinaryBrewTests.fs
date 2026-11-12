@@ -26,9 +26,11 @@ namespace B2R2.MiddleEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Tests the recovery of MIPS binaries.
 [<TestClass>]
@@ -320,3 +322,54 @@ type MIPSBinaryBrewTests() =
     let fns = recoverPatched mips32 code ""
     let callee = fns[0x400520UL].Callees[LeafCallSite 0x400530UL]
     Assert.AreEqual<CalleeKind>(RegularCallee 0x400690UL, callee)
+
+  (* The error_tail of gnulib exits unless its status is zero. GCC keeps the
+     status in s0 across the calls before the test, copying it there by oring
+     it with the zero register, and branches to the return by comparing s0 with
+     the zero register. *)
+  [<TestMethod>]
+  member _.``A return that beqz branches to returns conditionally``() =
+    let fns =
+      recoverCode
+        [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+          "afbf001c" (* sw ra, 0x1c(sp) *)
+          "afb00018" (* sw s0, 0x18(sp) *)
+          "0411000a" (* bal 0x38 *)
+          "00808025" (* move s0, a0 *)
+          "12000004" (* beqz s0, 0x28 *)
+          "00000000" (* nop *)
+          "04110008" (* bal 0x40 *)
+          "02002025" (* move a0, s0 *)
+          "00000000" (* nop, which no path reaches *)
+          "8fbf001c" (* lw ra, 0x1c(sp) *)
+          "8fb00018" (* lw s0, 0x18(sp) *)
+          "03e00008" (* jr ra *)
+          "27bd0020" (* addiu sp, sp, 0x20 *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "1000ffff" (* b 0x40 *)
+          "00000000" (* nop *) ]
+    let a0 = MIPS.Register.toRegID MIPS.Register.R4
+    let expected = ConditionalNoRet(ArgLocation.Reg a0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
+  (* MIPS sets a register to a constant by adding it to the zero register, so
+     the call at 0x0 passes one to the function at 0x10, which never returns
+     then, nor does the caller. *)
+  [<TestMethod>]
+  member _.``A call passing one to a conditional exit never returns``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "24040001" (* addiu a0, zero, 1 *)
+          "03e00008" (* jr ra, which no path reaches *)
+          "00000000" (* nop *)
+          "10800003" (* beqz a0, 0x20 *)
+          "00000000" (* nop *)
+          "04110003" (* bal 0x28 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "1000ffff" (* b 0x28 *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])

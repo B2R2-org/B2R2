@@ -27,11 +27,13 @@ module B2R2.MiddleEnd.ControlFlowAnalysis.CFGEvaluator
 open System
 open B2R2
 open B2R2.BinIR.LowUIR
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ConcEval
+open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.Constants
 
 /// Checks if only the loader writes to the given address, so that the code
@@ -68,11 +70,38 @@ let private obtainFramePointerDef (hdl: BinHandle) =
   | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
   | None -> [||]
 
-let private initState hdl pc regs =
+/// Gets the expressions that the given statement reads.
+let private exprsReadBy stmt =
+  match stmt with
+  | Put(Src = e) | CJmp(Cond = e) | InterJmp(Target = e) -> [| e |]
+  | Store(Addr = addr; Value = value) -> [| addr; value |]
+  | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) -> [| c; t; f |]
+  | _ -> [||]
+
+/// Gives each register that the given blocks read the value that the binary
+/// fixes it to, if the data flow knows one, as the zero register of MIPS holds
+/// zero, which the lifter reads like any other register.
+let private obtainFixedDefs hdl (blks: IVertex<LowUIRBasicBlock>[]) =
+  let provider = RegisterInitialValueProvider.create hdl
+  let rset = RegisterSet()
+  for blk in blks do
+    for ins in blk.VData.Internals.LiftedInstructions do
+      for e in Array.collect exprsReadBy ins.Stmts do
+        AST.updateRegsUses rset e
+  let defs = ResizeArray<RegisterID * BitVector>()
+  rset.Iterate(fun idx ->
+    let rid = RegisterID.create idx
+    provider.TryGetInitialValue rid |> Option.iter (fun v -> defs.Add(rid, v)))
+  defs.ToArray()
+
+/// Creates the state to evaluate the given blocks from, in which the given
+/// registers and those that the binary fixes hold their values.
+let private initState hdl (blks: IVertex<LowUIRBasicBlock>[]) regs =
+  let pc = blks[0].VData.Internals.PPoint.Address
   let st = ConcState()
   st.IgnoreUndef <- true
   st.LoadFailureEventHandler <- memoryReader hdl
-  st.InitializeContext(pc, regs)
+  st.InitializeContext(pc, Array.append (obtainFixedDefs hdl blks) regs)
   st
 
 let rec private evalBlockLoop idx (blk: Stmt[][]) result =
@@ -110,16 +139,16 @@ let private evalBlocks (st: ConcState) (blks: IVertex<LowUIRBasicBlock>[]) =
 /// through them, from an arbitrarily generated state.
 let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
   let regs = Array.append (obtainStackDef hdl) (obtainFramePointerDef hdl)
-  let st = initState hdl blks[0].VData.Internals.PPoint.Address regs
+  let st = initState hdl blks regs
   evalBlocks st blks
 
 /// Concretely evaluates a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl blk = evalBlocksFromScratch hdl [| blk |]
 
 /// Concretely evaluates a basic block from a state that knows nothing but the
-/// stack pointer and the given registers, not even the frame pointer, which a
-/// state from scratch takes for zero.
+/// stack pointer, the given registers, and those that the binary fixes, not
+/// even the frame pointer, which a state from scratch takes for zero.
 let evalBlockWith hdl regs (blk: IVertex<LowUIRBasicBlock>) =
   let regs = Array.append (obtainStackDef hdl) regs
-  let st = initState hdl blk.VData.Internals.PPoint.Address regs
+  let st = initState hdl [| blk |] regs
   evalBlocks st [| blk |]
