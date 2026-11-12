@@ -564,6 +564,26 @@ type DataFlowTests() =
     let out = state.GetAbsValue(irReg 0x0UL 1 Register.EAX)
     Assert.AreEqual<UntouchedValueDomain.Lattice>(arg, out)
 
+  /// MIPS copies a register by oring it with the zero register, which leaves
+  /// the value untouched.
+  [<TestMethod>]
+  member _.``Untouched Value Analysis passes a value through the zero``() =
+    (* move s0, a0 ; jr ra ; nop *)
+    let brew = Binaries.loadMIPSAt 0x400000UL "0080802503e0000800000000"
+    let cfg = brew.Functions[0x400000UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    let regOf r = Regular(FrontEnd.MIPS.Register.toRegID r)
+    let s0 = regOf FrontEnd.MIPS.Register.R16
+    let vp = { ProgramPoint = ProgramPoint(0x400000UL, 1); VarKind = s0 }
+    let a0 =
+      regOf FrontEnd.MIPS.Register.R4
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(a0, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``Sensitive Constant Propagation EvalExpr 1``() =
     let brew = Binaries.loadOne Binaries.sample1
