@@ -109,3 +109,7 @@ type LowUIRBuilder(isa: ISA,
     member _.IsProgramCounter id = regFactory.IsProgramCounter id
     member _.IsStackPointer id = regFactory.IsStackPointer id
     member _.IsFramePointer id = regFactory.IsFramePointer id
+    member this.BeginRegion() =
+      stream.Clear()
+      this.ResetDelayState()
+      curAddr <- 0UL

@@ -43,6 +43,7 @@ module private LiftingDSLTestHelper =
         member _.RegType with get() = 64<rt>
         member _.Endianness with get() = Endian.Little
         member _.Stream with get() = stream
+        member _.BeginRegion() = stream.Clear()
         member _.ISA with get() = ISA Architecture.Intel
 #if EMULATION
         member _.ConditionCodeOp

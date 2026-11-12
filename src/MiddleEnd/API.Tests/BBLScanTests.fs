@@ -25,6 +25,7 @@ namespace B2R2.MiddleEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
@@ -72,3 +73,31 @@ type BBLScanTests() =
     match bblFactory.ScanBBLs [| outOfRange |] with
     | Ok _ -> Assert.Fail "Expected the scan to fail again"
     | Error e -> Assert.AreEqual<ErrorCase>(ErrorCase.ParsingFailure, e)
+
+  [<TestMethod>]
+  member _.``Separate Scans Keep Temporary Definitions Distinct``() =
+    (* Two independent blocks, each containing ADD EAX, EBX; RET. *)
+    let code = [| 0x01uy; 0xd8uy; 0xc3uy; 0x01uy; 0xd8uy; 0xc3uy |]
+    let hdl = BinHandle.LoadRawImage(code, isa)
+    let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
+    let factory = BBLFactory(hdl, instrs)
+    let scan addr =
+      match factory.ScanBBLs [| addr |] with
+      | Ok _ -> ()
+      | Error e -> Assert.Fail $"Unexpected failure: {e}"
+    let definitions addr =
+      let bbl = factory.Find(ProgramPoint(addr, 0))
+      bbl.Internals.LiftedInstructions
+      |> Array.collect (fun ins -> ins.Stmts)
+      |> Array.choose (function
+        | Put(Dst = TempVar(Index = id)) -> Some id
+        | _ -> None)
+      |> Set.ofArray
+    scan 0UL
+    let first = definitions 0UL
+    scan 3UL
+    let second = definitions 3UL
+    Assert.AreEqual<bool>(false, Set.isEmpty first)
+    Assert.AreEqual<bool>(false, Set.isEmpty second)
+    Assert.AreEqual<bool>(true, Set.isEmpty (Set.intersect first second))
+    Assert.AreEqual(first, definitions 0UL)
