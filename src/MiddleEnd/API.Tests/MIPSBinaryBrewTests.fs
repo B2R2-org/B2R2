@@ -39,34 +39,38 @@ type MIPSBinaryBrewTests() =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "mips32")).Functions
 
-  /// Returns how many entries each jump table of main has, once main becomes
-  /// the given code and .rodata starts with the given bytes, in the given
-  /// fixture: its name, its ISA, the offset of main in the file along with
-  /// its address, and the offset of .rodata in the file.
-  static let countEntriesIn fixture code rodata =
-    let name, (isa: string), (mainOffset, (main: Addr)), rodataOffset = fixture
+  /// Recovers the functions of the given fixture once main becomes the given
+  /// code and .rodata starts with the given bytes. The fixture gives its name,
+  /// its ISA, the offset of main in the file, and that of .rodata.
+  static let recoverPatched fixture code rodata =
+    let name, (isa: string), mainOffset, rodataOffset = fixture
     let bytes = readZippedBinary name
     let patch (offset: int) (hex: string) =
       (ByteArray.ofHexString hex).CopyTo(bytes, offset)
     patch mainOffset (String.concat "" code)
     patch rodataOffset rodata
-    let hdl = BinHandle.LoadFileBytes(bytes, ISA isa)
-    BinaryBrew(hdl).Functions[main].JumpTables
-    |> Array.map _.NumEntries
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA isa)).Functions
 
-  /// Counts the entries as countEntriesIn does in elf_mips32, whose main is at
-  /// 0x400520 with room for sixteen instructions, and whose .rodata is at
-  /// 0x4006f4 with room for eight bytes.
+  /// The fixture whose main is at 0x400520 with room for sixteen
+  /// instructions, and whose .rodata is at 0x4006f4 with room for eight bytes.
+  static let mips32 = "elf_mips32", "mips32", 0x520, 0x6f4
+
+  /// The fixture whose main is at 0x1200008b0 with room for twenty
+  /// instructions, and whose .rodata is at 0x120000ac8 with room for sixteen
+  /// bytes.
+  static let mips64 = "elf_mips64", "mips64", 0x8b0, 0xac8
+
+  /// Returns how many entries each jump table of main has, once main becomes
+  /// the given code and .rodata starts with the given bytes.
   static let countEntriesInPatchedMain code rodata =
-    let fixture = "elf_mips32", "mips32", (0x520, 0x400520UL), 0x6f4
-    countEntriesIn fixture code rodata
+    let fns = recoverPatched mips32 code rodata
+    fns[0x400520UL].JumpTables |> Array.map _.NumEntries
 
-  /// Counts the entries as countEntriesIn does in elf_mips64, whose main is at
-  /// 0x1200008b0 with room for twenty instructions, and whose .rodata is at
-  /// 0x120000ac8 with room for sixteen bytes.
+  /// Returns how many entries each jump table of main has in elf_mips64, once
+  /// main becomes the given code and .rodata starts with the given bytes.
   static let countEntriesInPatchedMain64 code rodata =
-    let fixture = "elf_mips64", "mips64", (0x8b0, 0x1200008b0UL), 0xac8
-    countEntriesIn fixture code rodata
+    let fns = recoverPatched mips64 code rodata
+    fns[0x1200008b0UL].JumpTables |> Array.map _.NumEntries
 
   /// Returns the addresses of the blocks of the function, in order.
   static let blocksOf (fn: Function) =
@@ -172,3 +176,52 @@ type MIPSBinaryBrewTests() =
         "24020001" (* addiu v0, zero, 1 *) ]
     let rodata = "0040053c00400544" (* .word 0x40053c, 0x400544 *)
     CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain code rodata)
+
+  (* PIC code reads the address of a table from the local GOT and adds each
+     entry to gp, which it reloads from the stack, as GCC builds a switch. *)
+  [<TestMethod>]
+  member _.``A table is read through the GOT``() =
+    let code =
+      [ "3c1c0043" (* lui gp, 0x43 *)
+        "279c8010" (* addiu gp, gp, -0x7ff0 *)
+        "27bdfff8" (* addiu sp, sp, -8 *)
+        "afbc0000" (* sw gp, 0(sp) *)
+        "8f828018" (* lw v0, -0x7fe8(gp) *)
+        "00042080" (* sll a0, a0, 2 *)
+        "00441021" (* addu v0, v0, a0 *)
+        "8c4201d4" (* lw v0, 0x1d4(v0) *)
+        "8fbc0000" (* lw gp, 0(sp) *)
+        "005c1021" (* addu v0, v0, gp *)
+        "00400008" (* jr v0 *)
+        "27bd0008" (* addiu sp, sp, 8 *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "24020001" (* addiu v0, zero, 1 *) ]
+    let rodata = "fffd8540fffd8548" (* .word 0x400550 - gp, 0x400558 - gp *)
+    CollectionAssert.AreEqual([| 2 |], countEntriesInPatchedMain code rodata)
+
+  (* PIC code finds gp from t9, which holds the address of its function on
+     entry, so the constant that it adds to t9 is _gp, 0x428010 here, less
+     that address. That tells where a function starts that nothing calls, but
+     not where the constant would have t9 point past the code that adds it. *)
+  [<TestMethod>]
+  member _.``A function starts where its code finds gp from t9``() =
+    let code =
+      [ "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ae8" (* addiu v0, v0, 0x7ae8 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ad0" (* addiu v0, v0, 0x7ad0 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let addrs = (recoverPatched mips32 code "").Addresses |> Set.ofSeq
+    let found =
+      [| 0x400528UL; 0x40053cUL; 0x400540UL |]
+      |> Array.filter (fun addr -> Set.contains addr addrs)
+    CollectionAssert.AreEqual([| 0x400528UL |], found)

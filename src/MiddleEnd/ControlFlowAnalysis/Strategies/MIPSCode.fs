@@ -31,11 +31,13 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.MIPS
 
-/// Provides where MIPS code addresses data on its own. The code builds an
-/// address in two halves: LUI sets a register to the high half, or in PIC code
-/// a load from the local GOT through gp sets it to the page, and an ADDIU of
-/// the low half to the register, or a load or a store at that offset from it,
-/// completes the address.
+/// Provides what MIPS code tells on its own: where it addresses data, and
+/// where its functions start. The code builds an address in two halves: LUI
+/// sets a register to the high half, or in PIC code a load from the local GOT
+/// through gp sets it to the page, and an ADDIU of the low half to the
+/// register, or a load or a store at that offset from it, completes the
+/// address. A PIC function finds gp by adding to t9, which holds its own
+/// address on entry, the constant that takes that address to gp.
 module internal MIPSCode =
   /// Represents what a register holds as far as the scan knows.
   type private Holding =
@@ -376,6 +378,18 @@ module internal MIPSCode =
   let private maskOf wordSize =
     if wordSize = WordSize.Bit32 then 0xffffffffUL else System.UInt64.MaxValue
 
+  /// Finds the GOT of the given binary, if it has one.
+  let private tryFindGOT (hdl: BinHandle) =
+    hdl.File.Structure
+    |> Option.bind (fun st ->
+      match st.TryFindSectionByName ".got" with
+      | Ok got -> Some got
+      | Error _ -> None)
+
+  /// Returns the value of gp in the code of a binary with the given GOT, which
+  /// points past its start so that an offset of 16 bits reaches all of it.
+  let private gpOf (got: BinSection) = got.Address + 0x7ff0UL
+
   /// Collects, in ascending order, the addresses of data that the code of the
   /// given binary computes on its own, each where a piece of data starts or a
   /// place within one. A binary without a GOT has no global pointer to read
@@ -384,17 +398,11 @@ module internal MIPSCode =
     let refs = HashSet<Addr>()
     match hdl.File with
     | :? ELFBinFile as elf ->
-      let got =
-        hdl.File.Structure
-        |> Option.bind (fun st ->
-          match st.TryFindSectionByName ".got" with
-          | Ok got -> Some got
-          | Error _ -> None)
-      let gp = got |> Option.map (fun got -> got.Address + 0x7ff0UL)
+      let got = tryFindGOT hdl
       let scan =
         { Regs = Array.create 32 None
           Refs = refs
-          GP = Option.defaultValue 0UL gp
+          GP = got |> Option.map gpOf |> Option.defaultValue 0UL
           Mask = maskOf hdl.File.ISA.WordSize
           FromHalves = buildsFromHalves hdl
           ReadGOT = tryReadGOT hdl elf got
@@ -409,3 +417,162 @@ module internal MIPSCode =
     let addrs = Seq.toArray refs
     Array.sortInPlace addrs
     addrs
+
+  /// Represents where a scan for prologues looks: the code of a section, in
+  /// which gp has the given value, in addresses of the bits of the mask.
+  type private PrologueScan =
+    { LU: LiftingUnit
+      Section: BinSection
+      GP: Addr
+      Mask: Addr }
+
+  /// The most bytes before the LUI that starts to find gp at which its function
+  /// may start, as a prologue may make the frame and save registers first.
+  let [<Literal>] private MaxPrologueLead = 64UL
+
+  /// The most instructions past the LUI within which a prologue adds t9.
+  let [<Literal>] private MaxPrologueSpan = 16
+
+  /// The most NOPs that may pad the code before the entry of a function.
+  let [<Literal>] private MaxPadding = 4
+
+  /// Checks if the given instruction ends a run of straight code.
+  let private isBranch (ins: Instruction) =
+    (ins :> IInstruction).IsBranch || ins.HasDelaySlot
+
+  /// Updates what the registers hold in a prologue by the given instruction,
+  /// each a constant that the code may have added t9 to: an ADDIU adds its
+  /// immediate, an ADDU of t9 adds t9, and any other write leaves the register
+  /// holding nothing known. Returns None once the code writes t9, which then
+  /// no longer holds the entry.
+  let private stepPrologue mask (held: Map<int, Addr * bool>) ins =
+    let carry d value =
+      match value with
+      | Some v -> Some(Map.add d v held)
+      | None -> Some(Map.remove d held)
+    match (ins: Instruction).Opcode, ins.Operands with
+    | (Opcode.ADDIU | Opcode.DADDIU),
+      ThreeOperands(OpReg d, OpReg s, OpImm imm) when int d <> T9 ->
+      held.TryFind(int s)
+      |> Option.map (fun (c, t9) -> (c + signExtend16 imm) &&& mask, t9)
+      |> carry (int d)
+    | (Opcode.ADDU | Opcode.DADDU), ThreeOperands(OpReg d, OpReg s, OpReg t)
+      when (int s = T9 || int t = T9) && int d <> T9 ->
+      held.TryFind(if int s = T9 then int t else int s)
+      |> Option.bind (fun (c, t9) -> if t9 then None else Some(c, true))
+      |> carry (int d)
+    | _ ->
+      match accessesOf ins |> fst with
+      | Some T9 -> None
+      | Some d -> Some(Map.remove d held)
+      | None -> Some held
+
+  /// Checks if the code runs straight from the given address to the given
+  /// one, so that a function entered at the former reaches the latter.
+  let rec private runsStraight scan (addr: Addr) target =
+    if addr >= target then
+      addr = target
+    else
+      match scan.LU.TryParseInstruction addr with
+      | Ok ins when not (isBranch (ins :?> Instruction)) ->
+        runsStraight scan (addr + 4UL) target
+      | _ ->
+        false
+
+  /// Checks if the instruction at the given address leaves for good, as a
+  /// return does, with its delay slot right before next.
+  let private leavesBefore scan (addr: Addr) next =
+    match scan.LU.TryParseInstruction addr with
+    | Ok(:? Instruction as ins) -> leaves ins && ins.FallThroughAddress = next
+    | _ -> false
+
+  /// Checks if no code runs into the given address: it starts its section, or
+  /// the code before it, past the NOPs that may pad it, leaves for good. Data
+  /// before it runs into nothing either.
+  let rec private startsCode scan (addr: Addr) padding =
+    let sec = scan.Section
+    if addr = sec.Address then
+      true
+    elif addr >= sec.Address + 8UL && leavesBefore scan (addr - 8UL) addr then
+      true
+    elif padding > 0 then
+      match scan.LU.TryParseInstruction(addr - 4UL) with
+      | Ok ins when ins.IsNop ->
+        startsCode scan (addr - 4UL) (padding - 1)
+      | Ok _ ->
+        false
+      | Error _ ->
+        true
+    else
+      false
+
+  /// Finds the entry that a register holding t9 plus the given constant tells,
+  /// for a prologue whose LUI is at luiAddr: the address that t9 has to hold
+  /// for the sum to be gp, if no code runs into it, and the code runs straight
+  /// from there to the LUI, not far before it.
+  let private tryEntryOf scan luiAddr (c: Addr, hasT9) =
+    let entry = (scan.GP - c) &&& scan.Mask
+    if hasT9
+       && entry <= luiAddr
+       && luiAddr - entry <= MaxPrologueLead
+       && entry >= scan.Section.Address
+       && entry % 4UL = 0UL
+       && runsStraight scan entry luiAddr
+       && startsCode scan entry MaxPadding
+    then Some entry
+    else None
+
+  /// Finds the entry of the function whose prologue starts to find gp with the
+  /// given LUI, following the straight code past it.
+  let private tryFindPrologueEntry scan (lui: Instruction) =
+    let rec loop held (addr: Addr) n =
+      let found =
+        held |> Map.values |> Seq.tryPick (tryEntryOf scan lui.Address)
+      match found with
+      | Some _ ->
+        found
+      | None when n = 0 || Map.isEmpty held ->
+        None
+      | None ->
+        match scan.LU.TryParseInstruction addr with
+        | Ok ins when not (isBranch (ins :?> Instruction)) ->
+          match stepPrologue scan.Mask held (ins :?> Instruction) with
+          | Some held -> loop held (addr + 4UL) (n - 1)
+          | None -> None
+        | _ ->
+          None
+    match lui.Operands with
+    | TwoOperands(OpReg d, OpImm imm) when int d > 0 && int d < 32 ->
+      let held = Map.ofList [ int d, (highOf imm &&& scan.Mask, false) ]
+      loop held (lui.Address + 4UL) MaxPrologueSpan
+    | _ ->
+      None
+
+  /// Finds the entries of the functions in the given section whose prologues
+  /// find gp from t9.
+  let private findPrologueEntriesIn lu gp mask (sec: BinSection) =
+    let scan = { LU = lu; Section = sec; GP = gp; Mask = mask }
+    [| sec.Address .. 4UL .. sec.Address + sec.Size - 4UL |]
+    |> Array.choose (fun addr ->
+      match scan.LU.TryParseInstruction addr with
+      | Ok(:? Instruction as ins) when ins.Opcode = Opcode.LUI ->
+        tryFindPrologueEntry scan ins
+      | _ ->
+        None)
+
+  /// Finds the entries of the functions of the given binary whose code finds
+  /// gp from t9, which holds the address of a PIC function on entry: the
+  /// constant that the code adds to t9 is gp less that address, so the address
+  /// is gp less the constant, where the code has to run straight to the add.
+  let findGPPrologueEntries (hdl: BinHandle) =
+    match tryFindGOT hdl with
+    | Some got ->
+      let lu = hdl.NewLiftingUnit()
+      let mask = maskOf hdl.File.ISA.WordSize
+      BinFileOps.getSections hdl.File
+      |> Seq.filter (fun sec -> sec.Kind = CodeSection && sec.Size >= 4UL)
+      |> Seq.collect (findPrologueEntriesIn lu (gpOf got) mask)
+      |> Seq.distinct
+      |> Seq.toArray
+    | None ->
+      [||]

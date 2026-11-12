@@ -229,6 +229,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       e
     | Extract(Cast(CastKind.SignExt, _, e), rt, 0) when Expr.typeOf e = rt ->
       e
+    (* A register that the code reloads from the stack reads back as all the
+       bits of what the code stored there. *)
+    | Extract(e, rt, 0) when Expr.typeOf e = rt ->
+      simplify e
     | Extract(e, rt, pos) ->
       Extract(simplify e, rt, pos)
     | expr ->
@@ -838,6 +842,29 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | def ->
       def
 
+  /// Checks if the given address folds to one in the GOT of the given binary.
+  let isInGOT (hdl: BinHandle) findConst findDef addr =
+    match constantFold findConst findDef addr |> simplify with
+    | Num a -> LoaderOnlyMemory.isInGOT hdl.File (a.ToUInt64())
+    | _ -> false
+
+  /// Finds the definition of the given variable as the given function finds
+  /// it, except that a load from the GOT defines it as the constant that the
+  /// data flow gives it, as MIPS code loads the page of a table from there,
+  /// which the load itself leaves unknown. No other load becomes a constant,
+  /// as the data flow of a CFG that still lacks paths may take an index for
+  /// one, and so the entry that the index selects.
+  let findDefOrGOTEntry hdl findConst findDef (v: Variable) =
+    match findDef v with
+    | Some(Def(_, Load(_, _, addr))) as def ->
+      match findConst v with
+      | ConstantDomain.Const bv when isInGOT hdl findConst findDef addr ->
+        Some(Def(v, Num bv))
+      | _ ->
+        def
+    | def ->
+      def
+
   /// Finds the vertex that starts with the phi defining the given variable,
   /// if a phi defines it.
   let tryFindPhiVertex (state: LowUIRSparseDataFlow.State<_>) var =
@@ -1058,7 +1085,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match found with
     | Ok(v, (exp, guards, domGuards)) ->
       let fromCP = findConstFromIRCFG state
-      let findDef = findDefOrEntryValue (findDefFromIRCFG state) fromCP
+      let findDef =
+        findDefOrEntryValue (findDefFromIRCFG state) fromCP
+        |> findDefOrGOTEntry ctx.BinHandle fromCP
       let expandPhi = expandPhiFromIRCFG fromCP
       let findConst =
         findConstOrLoaded ctx.BinHandle fromCP
