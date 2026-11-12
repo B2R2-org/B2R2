@@ -65,6 +65,10 @@ let [<Literal>] Init = ".init"
 /// contribute to the process termination code: ".fini".
 let [<Literal>] Fini = ".fini"
 
+/// Represents the name of the section that contains the MIPS procedure
+/// descriptor records, one for each function: ".pdr".
+let [<Literal>] PDR = ".pdr"
+
 /// Represents the name of the section that contains REL type relocation
 /// entries: ".rel.plt".
 let [<Literal>] RelPLT = ".rel.plt"
