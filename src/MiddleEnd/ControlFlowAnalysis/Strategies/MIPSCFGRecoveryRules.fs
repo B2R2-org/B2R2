@@ -24,15 +24,39 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
+
+[<AutoOpen>]
+module private MIPSCFGRecoveryRules =
+  /// Judges an indirect call that returns to the entry of another function
+  /// never to return, as no code runs into a function from the code before
+  /// it. Returns None when the call returns elsewhere.
+  let tryJudgeReturnByNextEntry (ctx: CFGBuildingContext<_, _>) caller =
+    let blk = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
+    let retAddr = ReturnAddress.ofCall blk.LastInstruction
+    if retAddr <> ctx.FunctionAddress && isFuncEntryPoint ctx retAddr then
+      Some(NoRet, 0)
+    else
+      None
+
 /// Represents the rules of the CFG recovery for MIPS: the rules of every
 /// architecture, except that a jump table ends where the range check right
 /// before its indirect branch says, or where a mask on its index does. PIC
 /// code builds the address of a table from a page that it loads from the GOT
 /// far from the table, often once for several tables of a function, so
 /// neither the entries nor the data the code addresses end a table before
-/// the next one, whose offsets from gp read as entries too.
+/// the next one, whose offsets from gp read as entries too. An indirect call
+/// right before another function never returns, as GOT calls, the indirect
+/// calls through t9, leave the callee unknown.
 type internal MIPSCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
+
+  override _.TryJudgeIndirectReturn(ctx, caller) =
+    base.TryJudgeIndirectReturn(ctx, caller)
+    |> Option.orElseWith (fun () -> tryJudgeReturnByNextEntry ctx caller)
 
   override _.EndsJumpTableBefore(_, jmptbl, idx) =
     let isPast = Option.exists (fun n -> idx >= n)

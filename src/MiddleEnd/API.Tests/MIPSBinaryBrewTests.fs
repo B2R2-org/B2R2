@@ -93,6 +93,26 @@ type MIPSBinaryBrewTests() =
           "00000000" (* nop *) ]
     CollectionAssert.AreEqual([| 0x0UL; 0x8UL |], blocksOf fns[0x0UL])
 
+  (* No code runs into a function from the code before it, so an indirect
+     call that returns to the entry of another function never returns: the
+     function at 0x18 ends with its call, right before the one at 0x20, and
+     the code after the call to it at 0x8 is out of reach. *)
+  [<TestMethod>]
+  member _.``An indirect call before a function never returns``() =
+    let fns =
+      recoverCode
+        [ "04110007" (* bal 0x20 *)
+          "00000000" (* nop *)
+          "04110003" (* bal 0x18 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "0320f809" (* jalr t9 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x8UL |], blocksOf fns[0x0UL])
+
   (* A table may run up to other data whose address the code computes on its
      own: here the code past the first case returns the address of the word
      right past the table, which holds an address in main. No range check
