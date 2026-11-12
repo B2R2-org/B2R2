@@ -71,7 +71,7 @@ by hand: to change the table, change `Intel.json` and regenerate.
 
 ```bash
 dotnet build scripts/IntelTableGen -c Release
-dotnet scripts/IntelTableGen/bin/Release/net10.0/IntelTableGen.dll \
+dotnet scripts/IntelTableGen/bin/Release/net11.0/IntelTableGen.dll \
   scripts/IntelTableGen/Intel.json src/FrontEnd/Intel
 ```
 
@@ -105,7 +105,7 @@ are checked in; rerun the generator whenever `InstructionArrays.fs`,
 ```bash
 dotnet build scripts/IntelParserGen -c Release \
   -p:NoOpcodeMaps=true -p:DefineConstants=NoOpcodeMaps
-dotnet scripts/IntelParserGen/bin/Release/net10.0/IntelParserGen.dll \
+dotnet scripts/IntelParserGen/bin/Release/net11.0/IntelParserGen.dll \
   src/FrontEnd/Intel
 ```
 

@@ -82,7 +82,7 @@ module Suggestions =
     TransformerReplParser.controlCandidates registry state input
     |> List.truncate commandPaletteMaxItems
 
-  let private matches prefix (candidate: string) =
+  let private matches (prefix: string) (candidate: string) =
     candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
 
   let private isActionReference (head: string) =

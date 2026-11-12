@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Product>B2R2</Product>
     <Authors>SoftSec Lab. @ KAIST</Authors>
     <Company>SoftSec Lab. @ KAIST</Company>
@@ -20,7 +20,7 @@
     <!-- Pin the implicit FSharp.Core reference instead of taking whatever the
          installed SDK happens to ship, so every environment resolves the same
          version. Must stay at or above what our own packages require. -->
-    <FSharpCoreImplicitPackageVersion>10.0.103</FSharpCoreImplicitPackageVersion>
+    <FSharpCoreImplicitPackageVersion>11.0.101</FSharpCoreImplicitPackageVersion>
 
     <WarnOn>$(WarnOn);3389</WarnOn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
