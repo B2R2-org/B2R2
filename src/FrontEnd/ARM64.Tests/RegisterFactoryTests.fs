@@ -41,6 +41,13 @@ type RegisterFactoryTests() =
 
   static let halves reg = AST.concat (half reg 2) (half reg 1)
 
+  [<TestMethod>]
+  member _.``[ARM64] TPIDR_EL0 has a 64-bit register type test``() =
+    let rid = Register.toRegID Register.TPIDREL0
+    Assert.AreEqual<RegType>(64<rt>, factory.GetRegType rid)
+    let varType = Expr.typeOf (regVar Register.TPIDREL0)
+    Assert.AreEqual<RegType>(varType, factory.GetRegType rid)
+
   (* AAPCS64 passes and returns floating-point values in V0 to V7, and a caller
      who reads one as a whole register sees all 128 bits, which the lifter
      keeps as two 64-bit halves. *)
