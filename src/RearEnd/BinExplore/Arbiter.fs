@@ -34,11 +34,17 @@ type private ArbiterCommand<'FnCtx, 'GlCtx> =
   | Command of Action * AsyncReplyChannel<ReplyMsg<'FnCtx, 'GlCtx>>
 
 and private Action =
-  /// Adds a binary instance to the session with the given file path.
-  | AddBinary of string
+  /// Opens a binary or selects the existing binary at the given path.
+  | OpenBinaryFile of string
   /// Gets a binary brew instance by the given file path. If the given path is
   /// None, it returns the current binary brew instance.
   | GetBinaryBrew of string option
+  /// Gets a binary by identity without changing the current selection.
+  | GetBinaryByID of BinaryID
+  /// Gets the opened binaries and current selection atomically.
+  | GetSessionSnapshot
+  /// Selects the binary used by current-binary commands.
+  | SelectBinary of BinaryID
   /// Logs a string message to the arbiter's logger.
   | LogString of string
   /// Closes the current session.
@@ -48,7 +54,9 @@ and private Action =
 
 and private ReplyMsg<'FnCtx, 'GlCtx> =
   | Ack of Result<unit, string>
+  | ReplyOpenedBinary of Result<BinaryInfo, string>
   | ReplyBinaryBrew of BinaryBrew<'FnCtx, 'GlCtx> option
+  | ReplySessionSnapshot of SessionSnapshot
 
 /// Represents an arbiter that manages AnalysisSession instances.
 type Arbiter<'FnCtx, 'GlCtx>
@@ -69,14 +77,20 @@ type Arbiter<'FnCtx, 'GlCtx>
         async {
           let! msg = inbox.Receive()
           match msg with
-          | Command(AddBinary(path), ch) ->
-            ch.Reply(Ack(session.AddBinary(path)))
+          | Command(OpenBinaryFile path, ch) ->
+            ch.Reply(ReplyOpenedBinary(session.OpenBinary(path)))
           | Command(GetBinaryBrew(None), ch) ->
             let brew = session.CurrentBinary
             ch.Reply(ReplyBinaryBrew brew)
           | Command(GetBinaryBrew(Some path), ch) ->
             let brew = session.TryFindBinary path
             ch.Reply(ReplyBinaryBrew brew)
+          | Command(GetBinaryByID id, ch) ->
+            ch.Reply(ReplyBinaryBrew(session.TryGetBinary(id)))
+          | Command(GetSessionSnapshot, ch) ->
+            ch.Reply(ReplySessionSnapshot session.Snapshot)
+          | Command(SelectBinary id, ch) ->
+            ch.Reply(Ack(session.SelectBinary(id)))
           | Command(LogString str, ch) ->
             logger.PrintLine str
             ch.Reply ok
@@ -92,22 +106,54 @@ type Arbiter<'FnCtx, 'GlCtx>
       loop ()
     )
 
-  member _.AddBinary(path) =
-    match mailbox.PostAndReply(fun ch -> Command(AddBinary(path), ch)) with
-    | Ack(Ok()) -> printsn $"[*] Successfully loaded {path}"; Ok()
-    | Ack(Error e) -> Error e
-    | _ -> Terminator.fatalExit "Failed to add binary."
+  /// Opens and selects a binary, reusing an existing load of the same path.
+  member _.OpenBinary(path) =
+    match mailbox.PostAndReply(fun ch -> Command(OpenBinaryFile path, ch)) with
+    | ReplyOpenedBinary(Ok info) ->
+      printsn $"[*] Successfully opened {info.Path}"
+      Ok info
+    | ReplyOpenedBinary(Error e) ->
+      Error e
+    | _ ->
+      Terminator.fatalExit "Failed to open binary."
+
+  member this.AddBinary(path) =
+    this.OpenBinary(path) |> Result.map ignore
+
+  /// Returns an immutable snapshot of the opened binaries and selection.
+  member _.GetSessionSnapshot() =
+    match mailbox.PostAndReply(fun ch -> Command(GetSessionSnapshot, ch)) with
+    | ReplySessionSnapshot snapshot -> snapshot
+    | _ -> Terminator.fatalExit "Failed to get session snapshot."
+
+  /// Explicitly selects the binary used by current-binary commands.
+  member _.SelectBinary(id) =
+    match mailbox.PostAndReply(fun ch -> Command(SelectBinary id, ch)) with
+    | Ack result -> result
+    | _ -> Terminator.fatalExit "Failed to select binary."
 
   member _.GetBinaryBrew() =
     match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew None, ch)) with
     | ReplyBinaryBrew(Some brew) -> Ok brew
     | _ -> Error "Failed to get current binary brew."
 
-  member _.GetBinaryBrew(path) =
+  /// Looks up a binary by path without changing the current selection.
+  member _.GetBinaryBrew(path: string) =
     let path = Some path
     match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew path, ch)) with
     | ReplyBinaryBrew(Some(brew)) -> Ok brew
     | _ -> Error $"Failed to get binary brew for ({path})"
+
+  /// Looks up a binary by identity without changing the current selection.
+  member _.GetBinaryBrew(id: BinaryID) =
+    match mailbox.PostAndReply(fun ch -> Command(GetBinaryByID id, ch)) with
+    | ReplyBinaryBrew(Some brew) -> Ok brew
+    | _ -> Error $"Failed to get binary brew for ({id})"
+
+  /// Binds analysis queries to one binary independently of later selections.
+  member this.ForBinary(id) =
+    { new IBinarySource<'FnCtx, 'GlCtx> with
+        member _.GetBinaryBrew() = this.GetBinaryBrew(id: BinaryID) }
 
   member _.LogString str =
     match mailbox.PostAndReply(fun ch -> Command(LogString str, ch)) with
@@ -123,3 +169,6 @@ type Arbiter<'FnCtx, 'GlCtx>
     match mailbox.PostAndReply(fun ch -> Command(Terminate, ch)) with
     | Ack(Ok()) -> ()
     | _ -> Terminator.fatalExit "Failed to terminate."
+
+  interface IBinarySource<'FnCtx, 'GlCtx> with
+    member this.GetBinaryBrew() = this.GetBinaryBrew()

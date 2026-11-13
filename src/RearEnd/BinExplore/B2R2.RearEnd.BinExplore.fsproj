@@ -6,6 +6,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />
+    <Compile Include="BinaryID.fs" />
+    <Compile Include="BinaryInfo.fs" />
+    <Compile Include="SessionSnapshot.fs" />
+    <Compile Include="IBinarySource.fs" />
     <Compile Include="AnalysisSession.fs" />
     <Compile Include="Arbiter.fs" />
     <Compile Include="API.fs" />

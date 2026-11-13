@@ -24,7 +24,9 @@
 
 namespace B2R2.RearEnd.BinExplore
 
+open System
 open System.Collections.Generic
+open System.IO
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
@@ -32,42 +34,82 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 type AnalysisSession<'FnCtx, 'GlCtx>
   public(brewLoader: IBrewLoadable<'FnCtx, 'GlCtx>) =
 
-  let binaries = Dictionary<string, BinaryBrew<'FnCtx, 'GlCtx>>()
+  let binaries = Dictionary<BinaryID, BinaryBrew<'FnCtx, 'GlCtx>>()
 
-  let mutable currentBinary: BinaryBrew<'FnCtx, 'GlCtx> | null = null
+  let paths =
+    let comparer =
+      if OperatingSystem.IsWindows() then StringComparer.OrdinalIgnoreCase
+      else StringComparer.Ordinal
+    Dictionary<string, BinaryInfo>(comparer)
 
-  /// Target binaries that are currently open in the session. The key is
-  /// the file path of the binary.
-  member _.Binaries with get() = binaries
+  let binaryOrder = ResizeArray<BinaryInfo>()
+
+  let mutable currentBinaryID = None
+
+  let tryFindInfo path =
+    try
+      match paths.TryGetValue(Path.GetFullPath path) with
+      | true, info -> Some info
+      | false, _ -> None
+    with :? ArgumentException ->
+      None
+
+  /// Returns the opened binaries in the order they were first loaded.
+  member _.Binaries with get() = List.ofSeq binaryOrder
+
+  /// Returns a snapshot without exposing mutable session collections.
+  member _.Snapshot with get() =
+    { Binaries = List.ofSeq binaryOrder
+      CurrentBinaryID = currentBinaryID }
 
   /// Returns the current binary instance.
   member _.CurrentBinary with get() =
-    if isNull currentBinary then None else Some currentBinary
+    currentBinaryID |> Option.map (fun id -> binaries[id])
 
-  /// Adds a binary instance to the session. If the file path of the binary is
-  /// already present in the session, it does nothing and returns an error.
-  member _.AddBinary(path) =
-    if binaries.ContainsKey path then
-      Error $"File ({path}) is already loaded."
-    else
-      try
+  /// Opens and selects a binary, reusing its identity if already loaded.
+  member _.OpenBinary(path) =
+    try
+      let path = Path.GetFullPath path
+      match paths.TryGetValue path with
+      | true, info ->
+        currentBinaryID <- Some info.BinaryID
+        Ok info
+      | false, _ ->
         let brew = brewLoader.LoadBrew path
-        binaries[path] <- brew
-        currentBinary <- brew
-        Ok()
-      with e ->
-        Error e.Message
+        let info = { BinaryID = BinaryID.Create(); Path = path }
+        binaries[info.BinaryID] <- brew
+        paths[path] <- info
+        binaryOrder.Add info
+        currentBinaryID <- Some info.BinaryID
+        Ok info
+    with e ->
+      Error e.Message
+
+  /// Opens and selects a binary for callers that do not need its identity.
+  member this.AddBinary(path) =
+    this.OpenBinary(path) |> Result.map ignore
 
   /// Checks if a binary instance with the given file path is present in the
   /// session.
-  member _.HasBinary path = binaries.ContainsKey path
+  member _.HasBinary path = tryFindInfo path |> Option.isSome
 
-  /// Finds a binary instance by the given file path. The file path must be
-  /// present in the session, otherwise it returns None.
+  /// Looks up a binary by path without changing the current selection.
   member _.TryFindBinary path =
-    match binaries.TryGetValue path with
-    | true, brew -> currentBinary <- brew; Some brew
+    tryFindInfo path |> Option.map (fun info -> binaries[info.BinaryID])
+
+  /// Looks up a binary by identity without changing the current selection.
+  member _.TryGetBinary(id) =
+    match binaries.TryGetValue id with
+    | true, brew -> Some brew
     | false, _ -> None
+
+  /// Explicitly selects the binary used by current-binary commands.
+  member _.SelectBinary(id) =
+    if binaries.ContainsKey id then
+      currentBinaryID <- Some id
+      Ok()
+    else
+      Error $"Binary ({id}) is not loaded."
 
 and IBrewLoadable<'FnCtx, 'GlCtx> =
   abstract LoadBrew: path: string -> BinaryBrew<'FnCtx, 'GlCtx>

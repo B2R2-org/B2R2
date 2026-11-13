@@ -51,9 +51,9 @@ module API =
     | Ok x -> f x
     | Error e -> Error e
 
-  /// Returns the current binary file path.
-  let getFilePath (arbiter: Arbiter<_, _>) =
-    arbiter.GetBinaryBrew()
+  /// Returns the file path of the target binary.
+  let getFilePath (source: IBinarySource<_, _>) =
+    source.GetBinaryBrew()
     >>= fun brew -> Ok brew.BinHandle.File.Path
 
   let private getDisasmBuilder (file: IBinFile) =
@@ -91,18 +91,18 @@ module API =
   #endif
 
   /// Returns the disassembly CFG of the given function address.
-  let getDisasmCFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
-    arbiter.GetBinaryBrew()
+  let getDisasmCFG (source: IBinarySource<_, _>) fnAddr cw ch =
+    source.GetBinaryBrew()
     >>= getCFG fnAddr cw ch CFGKind.Disasm
 
   /// Returns the LowUIR CFG of the given function address.
-  let getLowUIRCFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
-    arbiter.GetBinaryBrew()
+  let getLowUIRCFG (source: IBinarySource<_, _>) fnAddr cw ch =
+    source.GetBinaryBrew()
     >>= getCFG fnAddr cw ch CFGKind.LowUIR
 
   /// Returns the SSA CFG of the given function address.
-  let getSSACFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
-    arbiter.GetBinaryBrew()
+  let getSSACFG (source: IBinarySource<_, _>) fnAddr cw ch =
+    source.GetBinaryBrew()
     >>= getCFG fnAddr cw ch CFGKind.SSA
 
   let private getCallGraph (brew: BinaryBrew<_, _>) =
@@ -120,8 +120,8 @@ module API =
   #endif
 
   /// Returns the call graph of the binary.
-  let getCallCFG (arbiter: Arbiter<_, _>) =
-    arbiter.GetBinaryBrew()
+  let getCallCFG (source: IBinarySource<_, _>) =
+    source.GetBinaryBrew()
     >>= getCallGraph
 
   let private getInternalFunctions (brew: BinaryBrew<_, _>) =
@@ -141,23 +141,23 @@ module API =
   /// Returns the list of functions in the binary, sorted by their entry points.
   /// If `isInternal` is true, only internal functions are returned; otherwise,
   /// only external functions are returned.
-  let getFunctions (arbiter: Arbiter<_, _>) isInternal =
-    if isInternal then arbiter.GetBinaryBrew() >>= getInternalFunctions
-    else arbiter.GetBinaryBrew() >>= getExternalFunctions
+  let getFunctions (source: IBinarySource<_, _>) isInternal =
+    if isInternal then source.GetBinaryBrew() >>= getInternalFunctions
+    else source.GetBinaryBrew() >>= getExternalFunctions
 
   /// Returns the loaded binary (IBinFile instance).
-  let getFile (arbiter: Arbiter<_, _>) =
-    arbiter.GetBinaryBrew()
+  let getFile (source: IBinarySource<_, _>) =
+    source.GetBinaryBrew()
     >>= fun brew -> Ok brew.BinHandle.File
 
   /// Returns the file format of the loaded binary.
-  let getFileFormat (arbiter: Arbiter<_, _>) =
-    arbiter.GetBinaryBrew()
+  let getFileFormat (source: IBinarySource<_, _>) =
+    source.GetBinaryBrew()
     >>= fun brew -> Ok brew.BinHandle.File.Format
 
   /// Returns the raw bytes at the given address and the size.
-  let getBytes (arbiter: Arbiter<_, _>) addr size =
-    arbiter.GetBinaryBrew()
+  let getBytes (source: IBinarySource<_, _>) addr size =
+    source.GetBinaryBrew()
     >>= fun brew ->
       let ptr = brew.BinHandle.File.GetBoundedPointer(addr)
       brew.BinHandle.TryReadBytes(ptr, size)
@@ -195,12 +195,12 @@ module API =
 
   /// Returns the immediate dataflow chain of the given register at the given
   /// instruction address in the given function.
-  let getImmediateDataflowChain (arbiter: Arbiter<_, _>) fnAddr insAddr reg =
-    arbiter.GetBinaryBrew()
+  let getImmediateDataflowChain source fnAddr insAddr reg =
+    (source: IBinarySource<_, _>).GetBinaryBrew()
     >>= getEncodedDataflow fnAddr insAddr reg
 
   /// Returns an array of sections in the binary.
-  let getSections (arbiter: Arbiter<_, _>) =
-    arbiter.GetBinaryBrew()
+  let getSections (source: IBinarySource<_, _>) =
+    source.GetBinaryBrew()
     >>= fun brew ->
       BinFileOps.getSections brew.BinHandle.File |> Ok
