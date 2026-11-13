@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path=".github/JumpTableTest/JumpTableTest.fsproj" />
+  <Project Path="tests/JumpTableTest/JumpTableTest.fsproj" />
   <Project Path="src/ABI.Tests/B2R2.ABI.Tests.fsproj" />
   <Project Path="src/ABI/B2R2.ABI.fsproj" />
   <Project Path="src/Assembly.Tests/B2R2.Assembly.Tests.fsproj" />

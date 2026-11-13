@@ -59,12 +59,12 @@ jobs:
         path: ~/.nuget/packages
         restore-keys: nuget-
     - name: Restore dependencies
-      run: dotnet restore .github/JumpTableTest/JumpTableTest.fsproj
+      run: dotnet restore tests/JumpTableTest/JumpTableTest.fsproj
     # Scoring a few hundred binaries per configuration is CPU bound, so build
     # the executable and its project references in Release from this commit.
     - name: Build
       run: >
-        dotnet build .github/JumpTableTest/JumpTableTest.fsproj
+        dotnet build tests/JumpTableTest/JumpTableTest.fsproj
         -c Release --no-restore
     # The source archive of the tag carries the ground truth and SHA256SUMS;
     # git holds them, so they arrive with the commit rather than as a release
@@ -96,7 +96,7 @@ jobs:
       env:
         CONFIG: ${{ matrix.config }}
       run: >
-        dotnet .github/JumpTableTest/bin/Release/net11.0/JumpTableTest.dll
+        dotnet tests/JumpTableTest/bin/Release/net11.0/JumpTableTest.dll
         "dataset/binaries/$CONFIG" "dataset/ground-truth/$CONFIG"
 
   notify-failure:

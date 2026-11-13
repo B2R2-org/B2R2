@@ -2,7 +2,7 @@
   Scores B2R2's jump table recovery against the JumpTableBench ground truth:
   x86, x64, ARMv7, as armhf and armel, and AArch64.
 
-    dotnet run --project .github/JumpTableTest -c Release -- <bin> <truth>
+    dotnet run --project tests/JumpTableTest -c Release -- <bin> <truth>
 
   Build once, then pass --no-build to reuse the binary for subsequent runs.
 
