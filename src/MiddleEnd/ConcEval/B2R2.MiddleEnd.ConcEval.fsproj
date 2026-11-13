@@ -11,6 +11,7 @@
     <Compile Include="BinSectionMemory.fs" />
     <Compile Include="ConcState.fs" />
     <Compile Include="EvalUtils.fs" />
+    <Compile Include="FloatingPoint.fs" />
     <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />
     <Compile Include="ConcStateAccessor.fs" />

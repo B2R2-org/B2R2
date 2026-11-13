@@ -9,6 +9,7 @@
     <Compile Include="ConcStateTests.fs" />
     <Compile Include="ConcStateAccessorTests.fs" />
     <Compile Include="EvaluatorTests.fs" />
+    <Compile Include="FloatingPointTests.fs" />
     <Compile Include="ConcExecutorTests.fs" />
     <Compile Include="X87EnvironmentTests.fs" />
   </ItemGroup>

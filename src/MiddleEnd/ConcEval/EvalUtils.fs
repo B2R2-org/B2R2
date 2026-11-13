@@ -25,24 +25,10 @@
 module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
-open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// The one-bit true value that evaluated conditions are tested against.
 let tr = BitVector.One 1<rt>
-
-/// Rounds to an integral floating point value using the host's arithmetic.
-let roundToIntegral mode t v =
-  let bits = BitVector.FCast(v, 64<rt>).ToUInt64()
-  let value = System.BitConverter.UInt64BitsToDouble bits
-  let rounded =
-    match mode with
-    | RoundingMode.TowardPositive -> ceil value
-    | RoundingMode.TowardNegative -> floor value
-    | RoundingMode.TowardZero -> truncate value
-    | _ -> round value
-  let bits = System.BitConverter.DoubleToUInt64Bits rounded
-  BitVector.FCast(BitVector(bits, 64<rt>), t)
 
 /// Unsets the register or temporary that the given assignment target names, so
 /// that it reads back as undefined rather than keeping a stale value.
