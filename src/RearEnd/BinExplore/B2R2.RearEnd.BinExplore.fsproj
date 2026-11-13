@@ -82,11 +82,10 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
     <PackageReference Include="B2R2.FsReadLine" Version="0.3.0" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
-    <PackageReference Include="Avalonia.FuncUI" Version="1.5.2" />
-    <PackageReference Include="Avalonia.FuncUI.Elmish" Version="1.5.2" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
-    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.2" />
-    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.FuncUI" Version="2.0.0" />
+    <PackageReference Include="Avalonia.FuncUI.Elmish" Version="2.0.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
   </ItemGroup>
 </Project>

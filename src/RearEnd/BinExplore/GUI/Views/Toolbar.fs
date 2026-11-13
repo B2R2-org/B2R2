@@ -371,7 +371,7 @@ module internal SearchBox = begin
       TextBox.height ToolbarHeight
       TextBox.text localState.SearchText.Current
       TextBox.fontSize model.Theme.Font.Scale.Small
-      TextBox.watermark "Search..."
+      TextBox.placeHolderText "Search..."
       TextBox.verticalContentAlignment VerticalAlignment.Center
       TextBox.background model.Theme.Toolbar.ControlBackground
       TextBox.foreground model.Theme.Toolbar.ControlForeground
@@ -643,6 +643,11 @@ module private CFGKindSelect = begin
 
 end
 
+let private isChecked (e: Interactivity.RoutedEventArgs) =
+  match e.Source with
+  | :? ToggleButton as button -> button.IsChecked.GetValueOrDefault()
+  | _ -> false
+
 module private MinimapToggle = begin
 
   let getState model =
@@ -669,10 +674,8 @@ module private MinimapToggle = begin
         ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onChecked (fun _ ->
-          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, true))))
-        ToggleButton.onUnchecked (fun _ ->
-          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, false))))
+        ToggleButton.onIsCheckedChanged (fun e ->
+          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, isChecked e))))
         ToggleButton.content (mkIcon (IconAssets.mapIcon model) 20.0) ]
       |> View.withKey $"minimap-toggle-{tabKey}"
 
@@ -693,8 +696,8 @@ module private SyncToggle = begin
         ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onChecked (fun _ -> dispatch (SetSyncEnabled true))
-        ToggleButton.onUnchecked (fun _ -> dispatch (SetSyncEnabled false))
+        ToggleButton.onIsCheckedChanged (fun e ->
+          dispatch (SetSyncEnabled(isChecked e)))
         ToggleButton.content (mkIcon (IconAssets.syncIcon model) 20.0) ]
       |> View.withKey "sync-toggle"
 

@@ -43,7 +43,7 @@ let private userInputView model dispatch =
     Border.child (
         TextBox.create [
         TextBox.text model.FunctionFilter
-        TextBox.watermark "Filter functions..."
+        TextBox.placeHolderText "Filter functions..."
         TextBox.fontSize model.Theme.Font.Scale.Normal
         TextBox.foreground model.Theme.Text.Primary
         TextBox.onTextChanged (fun text -> dispatch (UpdateFunctionFilter text))

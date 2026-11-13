@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplore.GUI
 
 open Avalonia.Controls
 open Avalonia.Controls.Primitives
+open Avalonia.Input.Platform
 
 [<RequireQualifiedAccess>]
 module Clipboard =
