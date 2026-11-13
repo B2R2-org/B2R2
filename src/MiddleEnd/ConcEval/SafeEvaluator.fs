@@ -120,20 +120,22 @@ and private evalCast (st, mode) t e kind =
   | _ ->
     Error ErrorCase.InvalidExprEvaluation
 
-and private evalUnOp (st, mode) e = function
-  | UnOpType.NEG -> evalUnOpConc (st, mode) e BitVector.Neg
-  | UnOpType.NOT -> evalUnOpConc (st, mode) e BitVector.Not
-  | UnOpType.FSQRT -> evalUnOpConc (st, mode) e (FloatingPoint.sqrt mode)
-  | UnOpType.FCOS -> evalUnOpConc (st, mode) e BitVector.FCos
-  | UnOpType.FSIN -> evalUnOpConc (st, mode) e BitVector.FSin
-  | UnOpType.FTAN -> evalUnOpConc (st, mode) e BitVector.FTan
-  | UnOpType.FATAN -> evalUnOpConc (st, mode) e BitVector.FAtan
-  | UnOpType.FASIN -> evalUnOpConc (st, mode) e BitVector.FAsin
-  | UnOpType.FACOS -> evalUnOpConc (st, mode) e BitVector.FAcos
-  | UnOpType.FSINH -> evalUnOpConc (st, mode) e BitVector.FSinh
-  | UnOpType.FCOSH -> evalUnOpConc (st, mode) e BitVector.FCosh
-  | UnOpType.FTANH -> evalUnOpConc (st, mode) e BitVector.FTanh
-  | UnOpType.FATANH -> evalUnOpConc (st, mode) e BitVector.FAtanh
+and private evalUnOp (st, mode) e typ =
+  let eval = evalUnOpConc (st, mode) e
+  match typ with
+  | UnOpType.NEG -> eval BitVector.Neg
+  | UnOpType.NOT -> eval BitVector.Not
+  | UnOpType.FSQRT -> eval (FloatingPoint.sqrt mode)
+  | UnOpType.FCOS -> eval (FloatingPoint.unary typ)
+  | UnOpType.FSIN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FTAN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FATAN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FASIN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FACOS -> eval (FloatingPoint.unary typ)
+  | UnOpType.FSINH -> eval (FloatingPoint.unary typ)
+  | UnOpType.FCOSH -> eval (FloatingPoint.unary typ)
+  | UnOpType.FTANH -> eval (FloatingPoint.unary typ)
+  | UnOpType.FATANH -> eval (FloatingPoint.unary typ)
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalBinOp (st, mode) e1 e2 typ =
@@ -157,8 +159,8 @@ and private evalBinOp (st, mode) e1 e2 typ =
   | BinOpType.FSUB -> eval (FloatingPoint.binary mode BinOpType.FSUB)
   | BinOpType.FMUL -> eval (FloatingPoint.binary mode BinOpType.FMUL)
   | BinOpType.FDIV -> eval (FloatingPoint.binary mode BinOpType.FDIV)
-  | BinOpType.FPOW -> eval BitVector.FPow
-  | BinOpType.FLOG -> eval BitVector.FLog
+  | BinOpType.FPOW -> eval (FloatingPoint.binary mode BinOpType.FPOW)
+  | BinOpType.FLOG -> eval (FloatingPoint.binary mode BinOpType.FLOG)
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalRelOp (st, mode) e1 e2 typ =
@@ -174,12 +176,12 @@ and private evalRelOp (st, mode) e1 e2 typ =
   | RelOpType.LE -> eval BitVector.Le
   | RelOpType.SLT -> eval BitVector.SLt
   | RelOpType.SLE -> eval BitVector.SLe
-  | RelOpType.FNEQ -> eval FloatingPoint.notEqual
-  | RelOpType.FEQ -> eval BitVector.FEq
-  | RelOpType.FLT -> eval BitVector.FLt
-  | RelOpType.FLE -> eval BitVector.FLe
-  | RelOpType.FGT -> eval BitVector.FGt
-  | RelOpType.FGE -> eval BitVector.FGe
+  | RelOpType.FNEQ -> eval (FloatingPoint.relation typ)
+  | RelOpType.FEQ -> eval (FloatingPoint.relation typ)
+  | RelOpType.FLT -> eval (FloatingPoint.relation typ)
+  | RelOpType.FLE -> eval (FloatingPoint.relation typ)
+  | RelOpType.FGT -> eval (FloatingPoint.relation typ)
+  | RelOpType.FGE -> eval (FloatingPoint.relation typ)
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 /// Evaluates an expression, using round-to-nearest outside RoundCtrl.

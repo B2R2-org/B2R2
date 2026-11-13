@@ -45,6 +45,16 @@ type FloatingPointTests() =
 
   let inMode mode expr = AST.roundCtrl (AST.roundingMode mode) expr
 
+  (* The x87 extended encoding of a normal double, which it holds exactly. *)
+  let extended (value: float) =
+    let bits = System.BitConverter.DoubleToUInt64Bits value
+    let exponent = ((bits >>> 52) &&& 0x7ffUL) + 0x3c00UL
+    let signAndExponent = ((bits >>> 63) <<< 15) ||| exponent
+    let significand = ((bits &&& 0xfffffffffffffUL) ||| (1UL <<< 52)) <<< 11
+    BitVector((bigint signAndExponent <<< 64) + bigint significand, 80<rt>)
+
+  let truth b = if b then BitVector.One 1<rt> else BitVector.Zero 1<rt>
+
   [<TestMethod>]
   member _.``Floating inequality evaluates variables including NaNs``() =
     let st = ConcState()
@@ -170,6 +180,94 @@ type FloatingPointTests() =
       let value = BitVector(bits, 80<rt>)
       st.SetTmp(0, value)
       AST.roundToIntegral RoundingMode.TowardZero 80<rt> x |> check st value
+
+  [<TestMethod>]
+  member _.``A NaN operand comes through quieted, the first one first``() =
+    let st = ConcState()
+    let qnan = BitVector(0xfff8000000005678UL, 64<rt>)
+    let quieted = BitVector(0x7ff8000000001234UL, 64<rt>)
+    let a = operand st 0 (BitVector(0x7ff0000000001234UL, 64<rt>))
+    let b = operand st 1 qnan
+    let one = operand st 2 (fp 1.0)
+    AST.fadd a b |> check st quieted
+    AST.fsub b a |> check st qnan
+    AST.fsub one b |> check st qnan
+    AST.fmul one a |> check st quieted
+    AST.fdiv one a |> check st quieted
+    AST.unop UnOpType.FSQRT a |> check st quieted
+    AST.roundToIntegral RoundingMode.TowardZero 64<rt> a |> check st quieted
+
+  [<TestMethod>]
+  member _.``An invalid operation answers the default NaN``() =
+    let st = ConcState()
+    let inf = operand st 0 (fp infinity)
+    let negInf = operand st 1 (fp -infinity)
+    let zero = operand st 2 (fp 0.0)
+    let indefinite = BitVector(0xfff8000000000000UL, 64<rt>)
+    for expr in
+      [ AST.fadd inf negInf
+        AST.fsub inf inf
+        AST.fmul zero inf
+        AST.fdiv zero zero
+        AST.fdiv inf negInf
+        AST.unop UnOpType.FSQRT negInf ] do
+      check st indefinite expr
+    let x = operand st 3 (BitVector(0x7f800000UL, 32<rt>))
+    let y = operand st 4 (BitVector(0xff800000UL, 32<rt>))
+    AST.fadd x y |> check st (BitVector(0xffc00000UL, 32<rt>))
+    let inf = BitVector((bigint 0x7fff <<< 64) + (1I <<< 63), 80<rt>)
+    let x = operand st 5 inf
+    let indefinite = BitVector((bigint 0xffff <<< 64) + (3I <<< 62), 80<rt>)
+    AST.fsub x x |> check st indefinite
+
+  [<TestMethod>]
+  member _.``A conversion keeps a NaN's sign and payload``() =
+    let st = ConcState()
+    let single = BitVector(0xffc01234UL, 32<rt>)
+    let double = BitVector(0xfff8024680000000UL, 64<rt>)
+    AST.cast CastKind.FloatCast 64<rt> (operand st 0 single) |> check st double
+    AST.cast CastKind.FloatCast 32<rt> (operand st 1 double) |> check st single
+    let snan = operand st 2 (BitVector(0x7ff0000000001234UL, 64<rt>))
+    let payload = bigint 0x1234 <<< 11
+    let extended = (bigint 0x7fff <<< 64) + (3I <<< 62) + payload
+    AST.cast CastKind.FloatCast 80<rt> snan
+    |> check st (BitVector(extended, 80<rt>))
+
+  [<TestMethod>]
+  member _.``Extended comparisons are exact``() =
+    let st = ConcState()
+    let one = extended 1.0
+    let x = operand st 0 one
+    let y = operand st 1 (BitVector(one.ToBigInt() + 1I, 80<rt>))
+    AST.relop RelOpType.FEQ x y |> check st (truth false)
+    AST.relop RelOpType.FLT x y |> check st (truth true)
+    st.SetTmp(1, BitVector((bigint 0x7fff <<< 64) - 1I, 80<rt>))
+    AST.relop RelOpType.FLT x y |> check st (truth true)
+    st.SetTmp(0, BitVector.Zero 80<rt>)
+    st.SetTmp(1, BitVector(1I <<< 79, 80<rt>))
+    AST.relop RelOpType.FEQ x y |> check st (truth true)
+    st.SetTmp(1, BitVector.One 80<rt>)
+    AST.relop RelOpType.FGT y x |> check st (truth true)
+    let nan = BitVector((bigint 0x7fff <<< 64) + (3I <<< 62), 80<rt>)
+    st.SetTmp(0, nan)
+    st.SetTmp(1, nan)
+    AST.relop RelOpType.FEQ x y |> check st (truth false)
+    AST.relop RelOpType.FNEQ x y |> check st (truth true)
+    AST.relop RelOpType.FGE x y |> check st (truth false)
+
+  [<TestMethod>]
+  member _.``Extended transcendentals go through doubles``() =
+    let st = ConcState()
+    let x = operand st 0 (extended 1.0)
+    AST.unop UnOpType.FCOS x |> check st (extended (cos 1.0))
+    st.SetTmp(0, BitVector.Zero 80<rt>)
+    AST.unop UnOpType.FSIN x |> check st (BitVector.Zero 80<rt>)
+    let a = operand st 1 (extended 2.0)
+    let b = operand st 2 (extended 3.0)
+    AST.binop BinOpType.FPOW a b |> check st (extended 8.0)
+    st.SetTmp(2, extended 8.0)
+    AST.binop BinOpType.FLOG a b
+    |> check st (extended (System.Math.Log(8.0, 2.0)))
 
   [<TestMethod>]
   member _.``Exact cancellation follows the active zero sign rule``() =

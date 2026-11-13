@@ -34,10 +34,12 @@ type private Format =
     Bias: int
     MaxExponent: int }
 
+(* A NaN keeps its sign and payload, the fraction below any integer bit, as an
+   operation that propagates it has to hand them on. *)
 type private Value =
   | Finite of bool * bigint * int
   | Infinity of bool
-  | NaN
+  | NaN of bool * bigint
 
 let private format = function
   | 32<rt> ->
@@ -63,7 +65,7 @@ let private decode (v: BitVector) =
     if fraction = 0I || (v.Length = 80<rt> && fraction = hidden) then
       Infinity negative
     else
-      NaN
+      NaN(negative, fraction &&& (hidden - 1I))
   else
     Finite(negative, significand, max 1 exponent - f.Bias - f.Precision + 1)
 
@@ -79,12 +81,18 @@ let private infinity t negative =
   let significand = if t = 80<rt> then 1I <<< 63 else 0I
   pack t negative f.MaxExponent significand
 
-let private nan t =
+(* A quiet NaN has the top bit of its payload set, and in the extended format
+   the integer bit as well. *)
+let private quietNaN t negative payload =
   let f = format t
-  let significand =
-    if t = 80<rt> then (1I <<< 63) ||| (1I <<< 62)
-    else 1I <<< (f.Precision - 2)
-  pack t false f.MaxExponent significand
+  let hidden = 1I <<< (f.Precision - 1)
+  let integer = if t = 80<rt> then hidden else 0I
+  pack t negative f.MaxExponent (integer ||| (hidden >>> 1) ||| payload)
+
+(* An invalid operation answers x86's indefinite, the quiet NaN with the sign
+   set and no payload, as evaluating on an x86 host always has. A target that
+   answers another NaN has its lifter put the result right. *)
+let private nan t = quietNaN t true 0I
 
 (* The comparison is against the midpoint, before rounding. Keeping the
    remainder exact avoids double rounding and loss of extended precision. *)
@@ -144,12 +152,20 @@ let private encode mode t negative (n, d, power) =
     let a, b = scale n d (power - exponent + f.Precision - 1)
     finish mode t negative exponent (quotient mode negative a b)
 
+(* A NaN keeps its sign and the top of its payload across formats, as x86's
+   conversions do: widening shifts the payload up, narrowing drops its low
+   bits. *)
+let private convertNaN src t negative (payload: bigint) =
+  let shift = (format t).Precision - (format src).Precision
+  let payload = if shift >= 0 then payload <<< shift else payload >>> -shift
+  quietNaN t negative payload
+
 /// Converts formats without passing through the host's floating point format.
-let cast mode t v =
+let cast mode t (v: BitVector) =
   match decode v with
   | Finite(sign, n, e) -> encode mode t sign (n, 1I, e)
   | Infinity sign -> infinity t sign
-  | NaN -> if v.Length = t then v else nan t
+  | NaN(sign, payload) -> convertNaN v.Length t sign payload
 
 /// Converts the integer's full precision, rounding once in the result format.
 let ofInteger mode t signed (v: BitVector) =
@@ -207,10 +223,12 @@ let private addFinite mode t (sa, a, ea) (sb, b, eb) =
       n.Sign < 0
   encode mode t sign (BigInteger.Abs n, 1I, e)
 
+(* A NaN operand comes through quieted, the first one where both are NaNs,
+   which is x86's rule for its SSE operations. *)
 let private add mode t a b =
   match a, b with
-  | NaN, _ | _, NaN ->
-    nan t
+  | NaN(sign, payload), _ | _, NaN(sign, payload) ->
+    quietNaN t sign payload
   | Infinity sa, Infinity sb ->
     if sa = sb then infinity t sa else nan t
   | Infinity sign, _ | _, Infinity sign ->
@@ -218,15 +236,16 @@ let private add mode t a b =
   | Finite(sa, a, ea), Finite(sb, b, eb) ->
     addFinite mode t (sa, a, ea) (sb, b, eb)
 
+(* A subtraction hands on the NaN it is given as it is, sign and all. *)
 let private negate = function
   | Finite(s, n, e) -> Finite(not s, n, e)
   | Infinity s -> Infinity(not s)
-  | NaN -> NaN
+  | NaN(s, payload) -> NaN(s, payload)
 
 let private multiply mode t a b =
   match a, b with
-  | NaN, _ | _, NaN ->
-    nan t
+  | NaN(sign, payload), _ | _, NaN(sign, payload) ->
+    quietNaN t sign payload
   | Infinity _, Finite(_, n, _) | Finite(_, n, _), Infinity _ when n = 0I ->
     nan t
   | Infinity sa, Infinity sb
@@ -238,7 +257,9 @@ let private multiply mode t a b =
 
 let private divide mode t a b =
   match a, b with
-  | NaN, _ | _, NaN | Infinity _, Infinity _ ->
+  | NaN(sign, payload), _ | _, NaN(sign, payload) ->
+    quietNaN t sign payload
+  | Infinity _, Infinity _ ->
     nan t
   | Infinity sa, Finite(sb, _, _) ->
     infinity t (sa <> sb)
@@ -250,7 +271,17 @@ let private divide mode t a b =
     else
       encode mode t (sa <> sb) (a, b, ea - eb)
 
-/// Performs the basic arithmetic with an exact intermediate rational value.
+(* The host computes nothing wider than a double, so an extended operand of
+   what it computes goes through one, rounded to nearest, and the answer comes
+   back exactly. *)
+let private narrow (v: BitVector) =
+  if v.Length = 80<rt> then cast RoundingMode.ToNearestEven 64<rt> v else v
+
+let private widen t (v: BitVector) =
+  if t = 80<rt> then cast RoundingMode.ToNearestEven t v else v
+
+/// Performs the basic arithmetic with an exact intermediate rational value;
+/// the power and the logarithm are the host's.
 let binary mode op (a: BitVector, b: BitVector) =
   if a.Length <> b.Length then raise RegTypeMismatchException else ()
   let t = a.Length
@@ -263,6 +294,10 @@ let binary mode op (a: BitVector, b: BitVector) =
     multiply mode t (decode a) (decode b)
   | BinOpType.FDIV ->
     divide mode t (decode a) (decode b)
+  | BinOpType.FPOW ->
+    BitVector.FPow(narrow a, narrow b) |> widen t
+  | BinOpType.FLOG ->
+    BitVector.FLog(narrow a, narrow b) |> widen t
   | _ ->
     raise IllegalASTTypeException
 
@@ -290,10 +325,57 @@ let private sqrtFinite mode t n power =
 /// Computes a square root with an exact test against the rounding midpoint.
 let sqrt mode (v: BitVector) =
   match decode v with
+  | NaN(sign, payload) -> quietNaN v.Length sign payload
   | Finite(sign, n, _) when n = 0I -> pack v.Length sign 0 0I
   | Finite(false, n, e) -> sqrtFinite mode v.Length n e
   | Infinity false -> v
   | _ -> nan v.Length
 
-/// Floating inequality is the complement of floating equality, including NaNs.
-let notEqual (a, b) = BitVector.Not(BitVector.FEq(a, b))
+/// Evaluates a transcendental function, which the host computes.
+let unary op (v: BitVector) =
+  let fn =
+    match op with
+    | UnOpType.FCOS -> BitVector.FCos
+    | UnOpType.FSIN -> BitVector.FSin
+    | UnOpType.FTAN -> BitVector.FTan
+    | UnOpType.FATAN -> BitVector.FAtan
+    | UnOpType.FASIN -> BitVector.FAsin
+    | UnOpType.FACOS -> BitVector.FAcos
+    | UnOpType.FSINH -> BitVector.FSinh
+    | UnOpType.FCOSH -> BitVector.FCosh
+    | UnOpType.FTANH -> BitVector.FTanh
+    | UnOpType.FATANH -> BitVector.FAtanh
+    | _ -> raise IllegalASTTypeException
+  fn (narrow v) |> widen v.Length
+
+(* Orders two values exactly, both zeros being equal, or answers None where a
+   NaN leaves them unordered. *)
+let private order a b =
+  match a, b with
+  | NaN _, _ | _, NaN _ ->
+    None
+  | Infinity sa, Infinity sb ->
+    Some(compare sb sa)
+  | Infinity sa, Finite _ ->
+    Some(if sa then -1 else 1)
+  | Finite _, Infinity sb ->
+    Some(if sb then 1 else -1)
+  | Finite(sa, a, ea), Finite(sb, b, eb) ->
+    let e = min ea eb
+    Some(compare (signed sa a <<< (ea - e)) (signed sb b <<< (eb - e)))
+
+let private holds op ordering =
+  match op with
+  | RelOpType.FEQ -> Option.exists (fun c -> c = 0) ordering
+  | RelOpType.FNEQ -> not (Option.exists (fun c -> c = 0) ordering)
+  | RelOpType.FLT -> Option.exists (fun c -> c < 0) ordering
+  | RelOpType.FLE -> Option.exists (fun c -> c <= 0) ordering
+  | RelOpType.FGT -> Option.exists (fun c -> c > 0) ordering
+  | RelOpType.FGE -> Option.exists (fun c -> c >= 0) ordering
+  | _ -> raise IllegalASTTypeException
+
+/// Compares two floats exactly, in any format; a NaN is unordered, against
+/// which only FNEQ holds.
+let relation op (a: BitVector, b: BitVector) =
+  if a.Length <> b.Length then raise RegTypeMismatchException else ()
+  if holds op (order (decode a) (decode b)) then BitVector.T else BitVector.F

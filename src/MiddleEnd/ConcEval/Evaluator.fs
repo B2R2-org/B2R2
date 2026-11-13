@@ -93,16 +93,16 @@ and private evalUnOp (st, mode) e typ =
   | UnOpType.NEG -> BitVector.Neg v
   | UnOpType.NOT -> BitVector.Not v
   | UnOpType.FSQRT -> FloatingPoint.sqrt mode v
-  | UnOpType.FCOS -> BitVector.FCos v
-  | UnOpType.FSIN -> BitVector.FSin v
-  | UnOpType.FTAN -> BitVector.FTan v
-  | UnOpType.FATAN -> BitVector.FAtan v
-  | UnOpType.FASIN -> BitVector.FAsin v
-  | UnOpType.FACOS -> BitVector.FAcos v
-  | UnOpType.FSINH -> BitVector.FSinh v
-  | UnOpType.FCOSH -> BitVector.FCosh v
-  | UnOpType.FTANH -> BitVector.FTanh v
-  | UnOpType.FATANH -> BitVector.FAtanh v
+  | UnOpType.FCOS -> FloatingPoint.unary typ v
+  | UnOpType.FSIN -> FloatingPoint.unary typ v
+  | UnOpType.FTAN -> FloatingPoint.unary typ v
+  | UnOpType.FATAN -> FloatingPoint.unary typ v
+  | UnOpType.FASIN -> FloatingPoint.unary typ v
+  | UnOpType.FACOS -> FloatingPoint.unary typ v
+  | UnOpType.FSINH -> FloatingPoint.unary typ v
+  | UnOpType.FCOSH -> FloatingPoint.unary typ v
+  | UnOpType.FTANH -> FloatingPoint.unary typ v
+  | UnOpType.FATANH -> FloatingPoint.unary typ v
   | _ -> raise IllegalASTTypeException
 
 and private evalBinOp (st, mode) e1 e2 typ =
@@ -127,8 +127,8 @@ and private evalBinOp (st, mode) e1 e2 typ =
   | BinOpType.FSUB -> FloatingPoint.binary mode typ (e1, e2)
   | BinOpType.FMUL -> FloatingPoint.binary mode typ (e1, e2)
   | BinOpType.FDIV -> FloatingPoint.binary mode typ (e1, e2)
-  | BinOpType.FPOW -> BitVector.FPow(e1, e2)
-  | BinOpType.FLOG -> BitVector.FLog(e1, e2)
+  | BinOpType.FPOW -> FloatingPoint.binary mode typ (e1, e2)
+  | BinOpType.FLOG -> FloatingPoint.binary mode typ (e1, e2)
   | _ -> raise IllegalASTTypeException
 
 and private evalRelOp (st, mode) e1 e2 typ =
@@ -145,12 +145,12 @@ and private evalRelOp (st, mode) e1 e2 typ =
   | RelOpType.LE -> BitVector.Le(e1, e2)
   | RelOpType.SLT -> BitVector.SLt(e1, e2)
   | RelOpType.SLE -> BitVector.SLe(e1, e2)
-  | RelOpType.FNEQ -> BitVector.Not(BitVector.FEq(e1, e2))
-  | RelOpType.FEQ -> BitVector.FEq(e1, e2)
-  | RelOpType.FLT -> BitVector.FLt(e1, e2)
-  | RelOpType.FLE -> BitVector.FLe(e1, e2)
-  | RelOpType.FGT -> BitVector.FGt(e1, e2)
-  | RelOpType.FGE -> BitVector.FGe(e1, e2)
+  | RelOpType.FNEQ -> FloatingPoint.relation typ (e1, e2)
+  | RelOpType.FEQ -> FloatingPoint.relation typ (e1, e2)
+  | RelOpType.FLT -> FloatingPoint.relation typ (e1, e2)
+  | RelOpType.FLE -> FloatingPoint.relation typ (e1, e2)
+  | RelOpType.FGT -> FloatingPoint.relation typ (e1, e2)
+  | RelOpType.FGE -> FloatingPoint.relation typ (e1, e2)
   | _ -> raise IllegalASTTypeException
 
 /// Evaluates an expression, using round-to-nearest outside RoundCtrl.
