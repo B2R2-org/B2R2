@@ -64,8 +64,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
-    <PackageReference Include="MSTest" Version="4.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+    <PackageReference Include="MSTest" Version="4.5.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -75,8 +75,7 @@
     <ProjectReference Include="..\Assembly\ARM64\B2R2.Assembly.ARM64.fsproj" />
     <ProjectReference Include="..\Assembly\M68K\B2R2.Assembly.M68K.fsproj" />
     <ProjectReference Include="..\Assembly\MIPS\B2R2.Assembly.MIPS.fsproj" />
-    <ProjectReference
-      Include="..\Assembly\PARISC\B2R2.Assembly.PARISC.fsproj" />
+    <ProjectReference Include="..\Assembly\PARISC\B2R2.Assembly.PARISC.fsproj" />
     <ProjectReference Include="..\Assembly\PPC\B2R2.Assembly.PPC.fsproj" />
     <ProjectReference Include="..\Assembly\Python\B2R2.Assembly.Python.fsproj" />
     <ProjectReference Include="..\Assembly\RISCV\B2R2.Assembly.RISCV.fsproj" />
@@ -95,8 +94,7 @@
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
     <ProjectReference Include="..\FrontEnd\M68K\B2R2.FrontEnd.M68K.fsproj" />
     <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
-    <ProjectReference
-      Include="..\FrontEnd\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
+    <ProjectReference Include="..\FrontEnd\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
     <ProjectReference Include="..\FrontEnd\PPC\B2R2.FrontEnd.PPC.fsproj" />
     <ProjectReference Include="..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\FrontEnd\Python\B2R2.FrontEnd.Python.fsproj" />
@@ -109,8 +107,7 @@
     <ProjectReference Include="..\FrontEnd\EVM\B2R2.FrontEnd.EVM.fsproj" />
     <ProjectReference Include="..\FrontEnd\WASM\B2R2.FrontEnd.WASM.fsproj" />
     <ProjectReference Include="..\FrontEnd\CIL\B2R2.FrontEnd.CIL.fsproj" />
-    <ProjectReference
-      Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
+    <ProjectReference Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -78,22 +78,18 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
-    <ProjectReference
-      Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />
-    <ProjectReference
-      Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
-    <ProjectReference
-      Include="..\..\MiddleEnd\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
-    <ProjectReference
-      Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
     <ProjectReference Include="..\..\Assembly\API\B2R2.Assembly.API.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
+    <PackageReference Include="System.IO.Hashing" Version="11.0.0" />
   </ItemGroup>
 
 </Project>

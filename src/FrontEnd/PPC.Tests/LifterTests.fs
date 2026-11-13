@@ -4247,7 +4247,8 @@ type LifterTests() =
         false
     (* vaddfp v1, v2, v3 *)
     for isa in everyTarget do
-      Assert.IsTrue(liftedHas isa "1022180a" nearestSum, nameOf isa)
+      let rounded = liftedHas isa "1022180a" nearestSum
+      Assert.AreEqual<bool>(true, rounded, nameOf isa)
 
   /// <summary>
   /// vexptefp vD, vB is 2 raised to each single, the FPOW of 2.0 rounded to
@@ -4259,7 +4260,7 @@ type LifterTests() =
     (* vexptefp v1, v3 *)
     for isa in everyTarget do
       let pow = ofTwo BinIR.BinOpType.FPOW
-      Assert.IsTrue(liftedHas isa "1020198a" pow, nameOf isa)
+      Assert.AreEqual<bool>(true, liftedHas isa "1020198a" pow, nameOf isa)
 
   /// <summary>
   /// vlogefp vD, vB is the base-2 logarithm of each single, the FLOG of it to
@@ -4272,7 +4273,7 @@ type LifterTests() =
     (* vlogefp v1, v3 *)
     for isa in everyTarget do
       let log = ofTwo BinIR.BinOpType.FLOG
-      Assert.IsTrue(liftedHas isa "102019ca" log, nameOf isa)
+      Assert.AreEqual<bool>(true, liftedHas isa "102019ca" log, nameOf isa)
 
   /// <summary>
   /// With VSCR[NJ] clear, vaddfp adds denormal singles as IEEE 754 does; with
@@ -26518,13 +26519,16 @@ type LifterTests() =
       for word in words do
         let bad = $"{word ||| (9u <<< 11):x8}"
         let at = 0x20200088UL
-        Assert.IsTrue(raisesAt isa bad at "Exception(ProtectionFault)", bad)
+        let faulted = raisesAt isa bad at "Exception(ProtectionFault)"
+        Assert.AreEqual<bool>(true, faulted, bad)
         let hex = $"{word:x8}"
         let odd = 0x2020008aUL
-        Assert.IsTrue(raisesAt isa hex odd "Exception(MisalignedAccess)", hex)
+        let misaligned = raisesAt isa hex odd "Exception(MisalignedAccess)"
+        Assert.AreEqual<bool>(true, misaligned, hex)
       (* ldat r10, r6, 24 at 0x20200098; lwat r10, r6, 28 at 0x20200080 *)
       for hex, at in [ "7d46c4cc", 0x20200098UL; "7d46e48c", 0x20200080UL ] do
-        Assert.IsTrue(raisesAt isa hex at "Exception(MisalignedAccess)", hex)
+        let misaligned = raisesAt isa hex at "Exception(MisalignedAccess)"
+        Assert.AreEqual<bool>(true, misaligned, hex)
 
   /// <summary>
   /// copy loads a block into the copy buffer of the copy-paste facility,
@@ -27157,7 +27161,7 @@ type FloatLifterTests() =
         let inputs = inputsOf isa [ F2, one; F3, one; FPSCR, fr ||| rn ]
         let after = IRRunner.exec (lifted isa "fc22182a") inputs []
         let read reg = (after.Read(var isa reg)).ToUInt64()
-        Assert.IsTrue(List.isEmpty after.Roundings, nameOf isa)
+        Assert.AreEqual<bool>(true, List.isEmpty after.Roundings, nameOf isa)
         expect 0x4000000000000000UL (read F1) (nameOf isa)
         expect (0x4000UL ||| rn) (read FPSCR) (nameOf isa)
 
@@ -29336,7 +29340,8 @@ type EmbeddedLifterTests() =
   /// holding bytes it leaves all of them as they were.
   let checkNoTraceOn isas hex =
     for isa in isas do
-      Assert.IsTrue(Array.forall isMark (lifted isa hex), $"{hex} {isa}")
+      let onlyMarks = Array.forall isMark (lifted isa hex)
+      Assert.AreEqual<bool>(true, onlyMarks, $"{hex} {isa}")
       let given = [ R5, 5UL; R6, 0x20200078UL; R7, 8UL; XER, 0xe0000000UL ]
       let after, memory = exec isa hex given []
       for r, v in given do
@@ -34383,7 +34388,7 @@ type BackfillAliasLifterTests() =
         | _ -> None)
     let expected = [| Register.toRegID Register.R5, upper |]
     let matches = expected = calls
-    Assert.IsTrue matches
+    Assert.AreEqual<bool>(true, matches)
 
   [<TestMethod>]
   member _.``[PPC T] MFTBU alias values``() =

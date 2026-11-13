@@ -344,15 +344,15 @@ type ReplParserTests() =
       Suggestions.get registry.Value state entryInput entryInput.Length
       |> _.Items
       |> List.map _.Text
-    Assert.Contains("functionEntry", entryCandidates)
-    Assert.DoesNotContain("failureLimit", entryCandidates)
+    Assert.AreEqual<bool>(true, List.contains "functionEntry" entryCandidates)
+    Assert.AreEqual<bool>(false, List.contains "failureLimit" entryCandidates)
     let limitInput = "executor |> @run-concrete limit=f"
     let limitCandidates =
       Suggestions.get registry.Value state limitInput limitInput.Length
       |> _.Items
       |> List.map _.Text
-    Assert.Contains("failureLimit", limitCandidates)
-    Assert.DoesNotContain("functionEntry", limitCandidates)
+    Assert.AreEqual<bool>(true, List.contains "failureLimit" limitCandidates)
+    Assert.AreEqual<bool>(false, List.contains "functionEntry" limitCandidates)
 
   [<TestMethod>]
   member _.``Completion hint filters edit operation overloads``() =
