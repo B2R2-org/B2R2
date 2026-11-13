@@ -202,7 +202,8 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
                       calleeInfo.Unwinding,
                       this.Summarize(ctx, callee, calleeInfo, ins),
                       calleeInfo.IsExternal,
-                      calleeInfo.Status)
+                      calleeInfo.Status,
+                      calleeInfo.PointerWrites)
 
     member _.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes) =
       let returnAddress = ReturnAddress.ofCall callIns
@@ -214,6 +215,14 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
         stackPointerDef hdl unwindingBytes
         |> Array.map (fun (dst, src) -> AST.put dst src)
       let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
-      FunctionSummary(0UL, unwindingBytes, ssaRundown, false, NotNoRet)
+      (* Nothing tells which registers the callee takes, so it writes through
+         none, rather than through every one that happens to hold a pointer
+         as the call starts. *)
+      FunctionSummary(0UL,
+                      unwindingBytes,
+                      ssaRundown,
+                      false,
+                      NotNoRet,
+                      PointerWritesOf Map.empty)
 
     member this.ComputeUnwindingAmount ctx = this.ComputeUnwindingAmount ctx

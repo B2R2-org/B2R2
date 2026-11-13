@@ -397,3 +397,91 @@ type MIPSBinaryBrewTests() =
           "1000ffff" (* b 0x28 *)
           "00000000" (* nop *) ]
     CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])
+
+  (* A function writes through the pointer in a0 the byte that it stores at
+     0(a0), and the word that the function it hands a0 on to stores at 4(a0),
+     both in delay slots, which the summary of a call to it tells. *)
+  [<TestMethod>]
+  member _.``A call tells what its callee writes through a pointer``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "27bdfff8" (* addiu sp, sp, -8 *)
+          "afbf0004" (* sw ra, 4(sp) *)
+          "04110004" (* bal 0x2c *)
+          "a0800000" (* sb zero, 0(a0) *)
+          "8fbf0004" (* lw ra, 4(sp) *)
+          "03e00008" (* jr ra *)
+          "27bd0008" (* addiu sp, sp, 8 *)
+          "03e00008" (* jr ra *)
+          "ac800004" (* sw zero, 4(a0) *) ]
+    let call =
+      fns[0x0UL].CFG.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    let a0 = MIPS.Register.toRegID MIPS.Register.R4
+    let expected = PointerWritesOf(Map [ a0, WrittenBytes(0, 8) ])
+    let writes = call.VData.Internals.AbstractContent.PointerWrites
+    Assert.AreEqual<PointerWrites>(expected, writes)
+
+  (* Nothing tells which registers a call to an unknown target takes, so it
+     writes through none of them as far as summaries go. The callee at 0x10
+     keeps a2 across such a call, though a2 still holds the pointer it gets
+     there, and writes two bytes through it afterward. *)
+  [<TestMethod>]
+  member _.``An indirect call writes through no pointer``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "27bdffe0" (* addiu sp, sp, -0x20 *)
+          "afbf001c" (* sw ra, 0x1c(sp) *)
+          "afa60028" (* sw a2, 0x28(sp) *)
+          "8c990000" (* lw t9, 0(a0) *)
+          "0320f809" (* jalr t9 *)
+          "00a02021" (* move a0, a1 *)
+          "8fa30028" (* lw v1, 0x28(sp) *)
+          "a4620000" (* sh v0, 0(v1) *)
+          "8fbf001c" (* lw ra, 0x1c(sp) *)
+          "03e00008" (* jr ra *)
+          "27bd0020" (* addiu sp, sp, 0x20 *) ]
+    let call =
+      fns[0x0UL].CFG.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    let a2 = MIPS.Register.toRegID MIPS.Register.R6
+    let expected = PointerWritesOf(Map [ a2, WrittenBytes(0, 2) ])
+    let writes = call.VData.Internals.AbstractContent.PointerWrites
+    Assert.AreEqual<PointerWrites>(expected, writes)
+
+  (* A callee that indexes from a pointer to a slot may write any slot above
+     it, as far as the summary goes, which makes the table address that the
+     code spills there unknown once the call returns. The address that the
+     code spills before the call still serves for the table, whose entries
+     confirm it. *)
+  [<TestMethod>]
+  member _.``A table address spilled across a call stays``() =
+    let code =
+      [ "67bdffe0" (* daddiu sp, sp, -0x20 *)
+        "3c011200" (* lui at, 0x1200 *)
+        "00010938" (* dsll at, at, 4 *)
+        "64210ac8" (* daddiu at, at, 0xac8 *)
+        "ffa10010" (* sd at, 0x10(sp) *)
+        "0411000b" (* bal 0x1200008f4 *)
+        "67a40008" (* daddiu a0, sp, 8 *)
+        "2c410002" (* sltiu at, v0, 2 *)
+        "10200006" (* beqz at, 0x1200008ec *)
+        "000210f8" (* dsll v0, v0, 3 *)
+        "dfa10010" (* ld at, 0x10(sp) *)
+        "0022082d" (* daddu at, at, v0 *)
+        "dc210000" (* ld at, 0(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "67bd0020" (* daddiu sp, sp, 0x20 *)
+        "0085602d" (* daddu t0, a0, a1 *)
+        "03e00008" (* jr ra *)
+        "a1800000" (* sb zero, 0(t0) *) ]
+    let rodata = "00000001200008ec00000001200008ec"
+    CollectionAssert.AreEqual([| 2 |], countEntriesInPatchedMain64 code rodata)

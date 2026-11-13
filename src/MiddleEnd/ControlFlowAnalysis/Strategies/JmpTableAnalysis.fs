@@ -829,6 +829,28 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | c, _ ->
       c
 
+  /// Finds the constant that the given variable holds as the given function
+  /// finds it, or else, for a stack slot that a call may write, the one that
+  /// the slot holds if no call writes it. GCC spills the address of a table
+  /// right above an object whose address the code hands to a callee, which a
+  /// summary that tells no size lets write up to the saved registers. The
+  /// entries of the table confirm the address, while the index and its range
+  /// check never read a constant this way, so that a stale one never bounds a
+  /// table.
+  let findConstBeyondCalls (state: LowUIRSparseDataFlow.State<_>) findConst =
+    fun (v: Variable) ->
+      match findConst v, v.Kind with
+      | ConstantDomain.NotAConst, StackVar _ ->
+        match state.SSAVarToVp.TryGetValue v with
+        | true, vp ->
+          match state.TryGetAbsValueBeyondCalls vp with
+          | Some(ConstantDomain.Const _ as c) -> c
+          | _ -> ConstantDomain.NotAConst
+        | false, _ ->
+          ConstantDomain.NotAConst
+      | c, _ ->
+        c
+
   /// Finds the definition of the given variable as the given function finds
   /// it, or else, for a register that the function reads as it holds on
   /// entry, the value it holds then, if the data flow knows it, as the zero
@@ -1091,6 +1113,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       let expandPhi = expandPhiFromIRCFG fromCP
       let findConst =
         findConstOrLoaded ctx.BinHandle fromCP
+        |> findConstBeyondCalls state
         |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
       findSymbPattern expandPhi findConst findDef fnAddr insAddr 0 exp

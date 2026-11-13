@@ -924,7 +924,8 @@ module internal CFGRecoveryCommon =
         { Status = NotNoRet
           Unwinding = 0
           Clobbered = ClobberedRegisters.ofCallingConvention ctx.BinHandle
-          IsExternal = false }
+          IsExternal = false
+          PointerWrites = UnknownPointerWrites }
       cfgRec.Summarizer.Summarize(ctx, callee, selfInfo, lastIns)
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
@@ -1002,7 +1003,8 @@ module internal CFGRecoveryCommon =
                     abs.UnwindingBytes,
                     abs.Rundown,
                     abs.IsExternal,
-                    status)
+                    status,
+                    abs.PointerWrites)
 
   /// Computes the summary of the callee of the given indirect call, which the
   /// rules decide when they tell, and the sret analysis otherwise.

@@ -84,6 +84,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let clobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
 
+  let mutable pointerWrites = lazy UnknownPointerWrites
+
   let mutable managerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null = null
 
   let mutable jumpTableChannel: IJumpTableChannel | null = null
@@ -234,6 +236,11 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// recovery narrows it down.
   member _.ClobberedRegs with get() = clobberedRegs
 
+  /// What this function writes through the pointers it gets. It starts with
+  /// anything, which is the safe assumption, and the analysis at the end of
+  /// the recovery narrows it down.
+  member _.PointerWrites with get(): PointerWrites = pointerWrites.Value
+
   /// The user-defined per-function context.
   member _.UserContext with get(): 'FnCtx = userCtx
 
@@ -262,13 +269,19 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   member _.UpdateGlobalContext(updater: 'GlCtx -> 'GlCtx) =
     managerChannel.UpdateGlobalContext updater
 
+  /// Sets how to find what this function writes through the pointers it gets,
+  /// which runs only once its callers need to know, as a function often ends
+  /// many times before it is done.
+  member internal _.SetPointerWrites v = pointerWrites <- v
+
   /// Takes a snapshot of what the callers of this function need to know about
   /// it, which stays valid even after this context changes.
   member internal this.ToCalleeInfo() =
     { Status = this.NonReturningStatus
       Unwinding = this.UnwindingBytes
       Clobbered = Set.ofSeq this.ClobberedRegs
-      IsExternal = false }
+      IsExternal = false
+      PointerWrites = this.PointerWrites }
 
   /// Resets the context to its initial state.
   member internal this.Reset() =

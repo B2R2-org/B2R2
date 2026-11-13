@@ -48,6 +48,7 @@
     <Compile Include="Strategies\Guard.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
     <Compile Include="Strategies\CalleeClobberAnalysis.fs" />
+    <Compile Include="Strategies\PointerWriteAnalysis.fs" />
     <Compile Include="Strategies\ARM64Code.fs" />
     <Compile Include="Strategies\MIPSCode.fs" />
     <Compile Include="Strategies\JmpTableAnalysis.fs" />

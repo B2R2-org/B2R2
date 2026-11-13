@@ -276,6 +276,9 @@ type CFGRecovery<'FnCtx, 'GlCtx
   new(sretAnalysis, options: CFGRecoveryOptions) =
     let summarizer = FunctionSummarizer()
     let syscallAnalysis = SyscallAnalysis()
+    let calleeAnalyses =
+      (CalleeClobberAnalysis() :> ICFGAnalysis<unit -> unit>)
+      <+> PointerWriteAnalysis()
     let jmptblAnalysis, postAnalysis =
       if options.UseSSA then
         let ssaLifter = SSALifter() :> ICFGAnalysis<_>
@@ -284,12 +287,12 @@ type CFGRecovery<'FnCtx, 'GlCtx
         let jmpTableAnalysis =
           JmpTableAnalysis(Some ssaOnly) :> IJmpTableAnalyzable<_, _>
         let noret = ssaLifter <+> CondAwareNoretAnalysis()
-        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
+        jmpTableAnalysis, noret <+> calleeAnalyses
       else
         let jmpTableAnalysis =
           JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>
         let noret = CondAwareNoretAnalysis() :> ICFGAnalysis<unit -> unit>
-        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
+        jmpTableAnalysis, noret <+> calleeAnalyses
     CFGRecovery(summarizer,
                 jmptblAnalysis,
                 sretAnalysis,

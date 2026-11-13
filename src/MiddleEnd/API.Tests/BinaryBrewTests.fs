@@ -942,7 +942,8 @@ type BinaryBrewTests() =
         { Status = ctx.NonReturningStatus
           Unwinding = ctx.UnwindingBytes
           Clobbered = Set.ofSeq ctx.ClobberedRegs
-          IsExternal = false })
+          IsExternal = false
+          PointerWrites = ctx.PointerWrites })
       |> Array.toList
     let actual = builders |> Array.map (fun b -> b.CalleeInfo) |> Array.toList
     Assert.AreNotEqual<int>(0, builders.Length)
@@ -977,6 +978,7 @@ type BinaryBrewTests() =
         "IntraCallTable"
         "JumpTables"
         "NonReturningStatus"
+        "PointerWrites"
         "UnwindingBytes"
         "UserContext"
         "Vertices" ]
