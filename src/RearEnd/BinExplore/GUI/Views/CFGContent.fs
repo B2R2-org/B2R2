@@ -217,7 +217,7 @@ let private edgeHitAreaView dispatch (pts: Point[]) zoom panX panY p1 p2 eid =
     Control.onPointerEntered (onEdgeEntered dispatch eid, OnChangeOf eid)
     Control.onPointerExited (fun _ ->
       dispatch (CFGPaneMsg(SetHoveredEdge None)))
-    Control.onPointerPressed (
+    Tunnel.OnPointerPressed(
       onEdgePressed dispatch zoom panX panY p1 p2,
       OnChangeOf(zoom, panX, panY, p1, p2)
     )
@@ -962,7 +962,7 @@ let private nodeLayerView provider model vpSize dispatch loaded =
     CFGNodeLayer.Theme model.Theme
     CFGNodeLayer.Viewport(Size(width, height))
     Control.onTapped (onNodeTapped dispatch)
-    Control.onContextRequested (
+    Tunnel.OnContextRequested(
       onNodeContextRequested provider model dispatch loaded,
       SubPatchOptions.Always
     )
@@ -982,11 +982,11 @@ let private graphCanvasView provider model vpSize dispatch loaded =
   let pan = model.CFGPressedPointer, model.CFGIsPanning
   GraphCanvas.create [
     Canvas.background model.Theme.Graph.Background
-    Control.onPointerWheelChanged (onWheel dispatch)
-    Control.onPointerPressed (onPressed dispatch)
+    Tunnel.OnPointerWheelChanged(onWheel dispatch)
+    Tunnel.OnPointerPressed(onPressed dispatch)
     Control.onTapped (onTapped dispatch)
-    Control.onPointerMoved (onMoved pan dispatch, OnChangeOf pan)
-    Control.onPointerReleased (onReleased pan dispatch, OnChangeOf pan)
+    Tunnel.OnPointerMoved(onMoved pan dispatch, OnChangeOf pan)
+    Tunnel.OnPointerReleased(onReleased pan dispatch, OnChangeOf pan)
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
       nodeLayerView provider model vpSize dispatch loaded
@@ -1037,15 +1037,15 @@ let private minimapView model dispatch (minimap: MinimapStaticCache) viewState =
         Canvas.height minimap.Height
         Canvas.background model.Theme.Panel.AltBackground
         Canvas.opacity 0.9
-        Control.onPointerPressed (
+        Tunnel.OnPointerPressed(
           onMinimapClick dispatch minimap viewState,
           OnChangeOf clickScope
         )
-        Control.onPointerMoved (
+        Tunnel.OnPointerMoved(
           onRectMoved dispatch minimap.Scale,
           OnChangeOf minimap.Scale
         )
-        Control.onPointerReleased (onRectReleased dispatch)
+        Tunnel.OnPointerReleased(onRectReleased dispatch)
         Canvas.children [
           MinimapStaticLayer.create [
             Control.width minimap.Width
@@ -1102,12 +1102,12 @@ let private minimapViewport model vpSize dispatch minimap viewState =
             Border.borderBrush model.Theme.Graph.ViewportRect
             Border.borderThickness 3.0
             Border.cursor (new Cursor(StandardCursorType.SizeAll))
-            Control.onPointerPressed (onRectPressed dispatch)
-            Control.onPointerMoved (
+            Tunnel.OnPointerPressed(onRectPressed dispatch)
+            Tunnel.OnPointerMoved(
               onRectMoved dispatch scale,
               OnChangeOf scale
             )
-            Control.onPointerReleased (onRectReleased dispatch)
+            Tunnel.OnPointerReleased(onRectReleased dispatch)
           ]
         ]
       ]

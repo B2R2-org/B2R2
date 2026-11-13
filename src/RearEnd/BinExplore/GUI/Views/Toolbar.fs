@@ -383,7 +383,7 @@ module internal SearchBox = begin
         else Thickness(6.0, 0.0, 28.0, 0.0)
       )
       TextBox.onTextChanged (onSearchTextChanged localState)
-      TextBox.onKeyDown (
+      Tunnel.OnKeyDown(
         onSearchKeyDown model dispatch localState results, OnChangeOf results
       )
     ]
@@ -399,7 +399,7 @@ module internal SearchBox = begin
       Button.borderBrush model.Theme.Common.Transparent
       Button.borderThickness 0.0
       Button.padding 0.0
-      Control.onPointerPressed (fun args ->
+      Tunnel.OnPointerPressed(fun args ->
         clearSearch model dispatch localState
         args.Handled <- true)
       Button.content (

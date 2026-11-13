@@ -157,7 +157,7 @@ let rec private paneView tokenContextProvider pane model dispatch =
         if isFocusedPane model paneID then model.Theme.Panel.Border
         else model.Theme.Common.Transparent
       )
-      Control.onPointerPressed (onPanePressed paneID dispatch, patch)
+      Tunnel.OnPointerPressed(onPanePressed paneID dispatch, patch)
       Border.child (
         DockPanel.create [
           DockPanel.children [
@@ -256,7 +256,7 @@ let private onMainViewKeyDown (e: KeyEventArgs) =
 
 let view tokenContextProvider (model: Model) (dispatch: Message -> unit) =
   DockPanel.create [
-    Control.onKeyDown onMainViewKeyDown
+    Tunnel.OnKeyDown onMainViewKeyDown
     DockPanel.children [
       MenuBar.view model dispatch
       StatusBar.view model

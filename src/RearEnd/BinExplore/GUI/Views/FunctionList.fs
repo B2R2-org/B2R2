@@ -128,7 +128,7 @@ let private listItemTemplate model dispatch =
     Border.create [
       Border.background Brushes.Transparent
       Control.contextMenu (functionContextMenu model dispatch fn)
-      Control.onPointerPressed (onFunctionPressed dispatch fn)
+      Tunnel.OnPointerPressed(onFunctionPressed dispatch fn)
       Border.child (
         StackPanel.create [
           StackPanel.orientation Orientation.Horizontal

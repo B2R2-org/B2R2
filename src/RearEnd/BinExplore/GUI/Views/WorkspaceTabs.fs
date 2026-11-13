@@ -256,8 +256,8 @@ let private tabStripView paneID pane model dispatch =
           Border.padding (10.0, 5.0, 5.0, 5.0)
           Control.contextMenu (tabContextMenu paneID pane dispatch tab)
           Control.allowDrop true
-          Control.onPointerPressed (onTabClick paneID tab.ID dispatch, patch)
-          Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
+          Tunnel.OnPointerPressed(onTabClick paneID tab.ID dispatch, patch)
+          Tunnel.OnPointerReleased(fun _ -> dispatch EndTabDrag)
           Control.onDragOver (onTabDrag paneID tab.ID dispatch, patch)
           Control.onDrop (onTabDrop paneID dispatch, OnChangeOf paneID)
           Border.child (tabContentView paneID pane model dispatch tab)
@@ -280,7 +280,7 @@ let view paneID model dispatch =
           Control.onDrop (onPaneDrop paneID dispatch, OnChangeOf paneID)
           ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
           ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Disabled
-          ScrollViewer.onPointerReleased (fun _ -> dispatch EndTabDrag)
+          Tunnel.OnPointerReleased(fun _ -> dispatch EndTabDrag)
           ScrollViewer.content (tabStripView paneID pane model dispatch)
         ]
       )
