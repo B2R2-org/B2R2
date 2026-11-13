@@ -2,8 +2,9 @@
   Scores B2R2's jump table recovery against the JumpTableBench ground truth:
   x86, x64, ARMv7, as armhf and armel, and AArch64.
 
-    dotnet fsi .github/jumptable-test.fsx <binaryDir> <groundTruthDir>
-    dotnet fsi .github/jumptable-test.fsx <binary> <groundTruth.json>
+    dotnet run --project .github/JumpTableTest -c Release -- <bin> <truth>
+
+  Build once, then pass --no-build to reuse the binary for subsequent runs.
 
   Given two directories, every <groundTruthDir>/<case>.json is compared
   against <binaryDir>/<case>; given two files, the one binary is compared
@@ -13,20 +14,7 @@
   as are the targets of one that it lists.
 *)
 
-(* Release, because scoring a hundred binaries is CPU bound; run
-   `dotnet build -c Release` first. One build output only: listing several
-   puts two copies of the same assembly on the probing path, and a script
-   that loads half of each dies with a linkage error that reads like a
-   source bug. *)
-#I "../src/MiddleEnd/API/bin/Release/net11.0"
-#r "B2R2.Core.dll"
-#r "B2R2.FrontEnd.BinLifter.dll"
-#r "B2R2.FrontEnd.BinFile.dll"
-#r "B2R2.FrontEnd.API.dll"
-#r "B2R2.MiddleEnd.BinGraph.dll"
-#r "B2R2.MiddleEnd.ControlFlowGraph.dll"
-#r "B2R2.MiddleEnd.ControlFlowAnalysis.dll"
-#r "B2R2.MiddleEnd.API.dll"
+module Program
 
 open System
 open System.IO
@@ -121,7 +109,7 @@ let private isaOf arch =
   | _ -> None
 
 /// Loads the binary a case names, unless the ground truth names an
-/// architecture this script does not score, or one the binary disagrees with.
+/// architecture this program does not score, or one the binary disagrees with.
 let private load case binPath arch =
   match isaOf arch with
   | None ->
@@ -305,7 +293,8 @@ let private complain paths =
   | missing ->
     eprintfn "no such file or directory: %s" (String.concat ", " missing)
 
-let private main (argv: string[]) =
+[<EntryPoint>]
+let main (argv: string[]) =
   match argv with
   | [| bin; json |] when Directory.Exists bin && Directory.Exists json ->
     runDirs bin json
@@ -316,8 +305,6 @@ let private main (argv: string[]) =
     2
   | _ ->
     (* Straight to stderr: B2R2's eprintfn would label usage an error. *)
-    stderr.WriteLine("usage: jumptable-test.fsx <binaryDir> <groundTruthDir>")
-    stderr.WriteLine("       jumptable-test.fsx <binary> <groundTruth.json>")
+    stderr.WriteLine("usage: JumpTableTest <binaryDir> <groundTruthDir>")
+    stderr.WriteLine("       JumpTableTest <binary> <groundTruth.json>")
     2
-
-exit (main (Array.skip 1 fsi.CommandLineArgs))
