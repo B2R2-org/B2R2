@@ -622,10 +622,20 @@ module internal MIPSCode =
   /// Checks if the given instruction writes t9.
   let private writesT9 ins = fst (accessesOf ins) = Some T9
 
-  /// Finds the offset from gp of the GOT entry that the given instructions load
-  /// into t9 last, going back from the one at idx, along with what they add to
-  /// it after, as code reaching a function through a local page does.
-  let rec private tryFindT9Load (instrs: Instruction[]) idx (added: uint64) =
+  /// Represents where the code builds the target of a call through t9.
+  type private T9Source =
+    /// The GOT entry at the given offset from gp, plus what the code adds to
+    /// what the entry holds.
+    | GOTEntry of offset: uint64 * added: uint64
+    /// The address that LUI and ADDIU build from its two halves.
+    | Halves of Addr
+
+  /// Finds where the given instructions build the value of t9 last, going back
+  /// from the one at idx: the GOT entry that they load, along with what they
+  /// add to it after, as code reaching a function through a local page does,
+  /// or the two halves of an address, which a linker makes of the load of a
+  /// local entry in code that it fixes in place.
+  let rec private tryFindT9Source (instrs: Instruction[]) idx (added: uint64) =
     if idx < 0 then
       None
     else
@@ -633,15 +643,17 @@ module internal MIPSCode =
       match ins.Opcode, ins.Operands with
       | (Opcode.LW | Opcode.LD), TwoOperands(OpReg d, OpMem(b, Imm offset, _))
         when int d = T9 && int b = GPNumber ->
-        Some(uint64 offset, added)
+        Some(GOTEntry(uint64 offset, added))
+      | Opcode.LUI, TwoOperands(OpReg d, OpImm imm) when int d = T9 ->
+        Some(Halves(highOf imm + added))
       | (Opcode.ADDIU | Opcode.DADDIU),
         ThreeOperands(OpReg d, OpReg s, OpImm imm)
         when int d = T9 && int s = T9 && added = 0UL ->
-        tryFindT9Load instrs (idx - 1) (signExtend16 imm)
+        tryFindT9Source instrs (idx - 1) (signExtend16 imm)
       | _ when writesT9 ins ->
         None
       | _ ->
-        tryFindT9Load instrs (idx - 1) added
+        tryFindT9Source instrs (idx - 1) added
 
   /// Reads the GOT entry at the given address, of either kind: a global entry
   /// holds the address of its function, or that of the stub through which the
@@ -655,22 +667,34 @@ module internal MIPSCode =
     else
       None
 
+  /// Reads the target that the given source of t9 gives in the given binary.
+  /// The code reads the GOT through gp, which a binary with one GOT sets to
+  /// the same value wherever its code runs. Only code that is not
+  /// position-independent builds an address from two halves.
+  let private tryReadT9Source (hdl: BinHandle) source =
+    let mask = maskOf hdl.File.ISA.WordSize
+    match source with
+    | GOTEntry(offset, added) ->
+      tryFindGOT hdl
+      |> Option.bind (fun got ->
+        tryReadGOTEntry hdl got ((gpOf got + offset) &&& mask))
+      |> Option.map (fun entry -> (entry + added) &&& mask)
+    | Halves target when buildsFromHalves hdl ->
+      Some(target &&& mask)
+    | Halves _ ->
+      None
+
   /// Finds the function that the call ending the given instructions reaches,
-  /// if it calls through t9 what the code loads from the GOT: the address that
-  /// a global entry holds, or the page that a local entry holds plus what the
-  /// code adds to it. The code reads the GOT through gp, which a binary with
-  /// one GOT sets to the same value wherever its code runs.
-  let tryFindGOTCallee (hdl: BinHandle) (instrs: IInstruction[]) =
+  /// if it calls through t9 what the code loads from the GOT, the address that
+  /// a global entry holds or the page that a local entry holds plus what the
+  /// code adds to it, or what the code builds from two halves.
+  let tryFindT9Callee (hdl: BinHandle) (instrs: IInstruction[]) =
     let instrs = instrs |> Array.map (fun ins -> ins :?> Instruction)
     let last = instrs.Length - 1
-    match tryFindGOT hdl with
-    | Some got when last >= 0 && callsThroughT9 instrs[last] ->
-      let mask = maskOf hdl.File.ISA.WordSize
-      tryFindT9Load instrs (last - 1) 0UL
-      |> Option.bind (fun (offset, added) ->
-        tryReadGOTEntry hdl got ((gpOf got + offset) &&& mask)
-        |> Option.map (fun entry -> (entry + added) &&& mask))
+    if last >= 0 && callsThroughT9 instrs[last] then
+      tryFindT9Source instrs (last - 1) 0UL
+      |> Option.bind (tryReadT9Source hdl)
       |> Option.filter (fun target ->
         target <> 0UL && hdl.File.IsExecutableAddr target)
-    | _ ->
+    else
       None

@@ -49,13 +49,14 @@ module private MIPSCFGRecoveryRules =
 /// far from the table, often once for several tables of a function, so
 /// neither the entries nor the data the code addresses end a table before
 /// the next one, whose offsets from gp read as entries too. A call through t9
-/// reaches what the GOT entry that the code loads into t9 holds, and any
-/// other indirect call right before another function never returns.
+/// reaches what the GOT entry that the code loads into t9 holds, or the
+/// address that the code builds in t9 from two halves, and any other indirect
+/// call right before another function never returns.
 type internal MIPSCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.TryResolveIndirectCallee(ctx, caller) =
-    MIPSCode.tryFindGOTCallee ctx.BinHandle caller.VData.Internals.Instructions
+    MIPSCode.tryFindT9Callee ctx.BinHandle caller.VData.Internals.Instructions
 
   override _.TryJudgeIndirectReturn(ctx, caller) =
     base.TryJudgeIndirectReturn(ctx, caller)

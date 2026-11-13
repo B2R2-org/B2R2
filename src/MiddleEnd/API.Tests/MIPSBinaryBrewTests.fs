@@ -347,6 +347,24 @@ type MIPSBinaryBrewTests() =
     let callee = fns[0x400520UL].Callees[LeafCallSite 0x400530UL]
     Assert.AreEqual<CalleeKind>(RegularCallee 0x400690UL, callee)
 
+  (* A linker that fixes an executable in place turns the GOT load of a local
+     function into lui and addiu, so the code calls through t9 the address that
+     the two halves build. The function at 0x18 never returns, nor does the
+     call to it. *)
+  [<TestMethod>]
+  member _.``A call through t9 reaches what lui and addiu build``() =
+    let fns =
+      recoverCode
+        [ "3c190000" (* lui t9, 0x0 *)
+          "27390018" (* addiu t9, t9, 0x18 *)
+          "0320f809" (* jalr t9 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra, which no path reaches *)
+          "00000000" (* nop *)
+          "1000ffff" (* b 0x18 *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])
+
   (* GCC traps with teq zero, zero where it proves a path wrong, as after a
      store through a null pointer, and nothing runs after the trap. *)
   [<TestMethod>]
