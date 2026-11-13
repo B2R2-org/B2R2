@@ -576,22 +576,11 @@ let branchWritePC addr jmpInfo =
   let addr = zMaskAnd addr 32<rt> 1
   AST.interjmp addr jmpInfo
 
-let disableITStateForCondBranches bld isUnconditional =
-  append bld {
-    if isUnconditional then
-      ()
-    else
-      let cpsr = regVar bld R.CPSR
-      cpsr := disablePSRBits bld R.CPSR PSR.IT10
-      cpsr := disablePSRBits bld R.CPSR PSR.IT72
-  }
-
-let private interworkTo kind bld isUnconditional addr =
+let private interworkTo kind bld addr =
   append bld {
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let cond1 = AST.xtlo 1<rt> addr == AST.b1
-    disableITStateForCondBranches bld isUnconditional
     AST.cjmp cond1 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
     selectThumbInstrSet bld
@@ -603,29 +592,29 @@ let private interworkTo kind bld isUnconditional addr =
 
 /// Write value to R.PC, with interworking, on page A2-47.
 /// function : BXWritePC()
-let bxWritePC bld isUnconditional addr =
-  interworkTo InterJmpKind.Base bld isUnconditional addr
+let bxWritePC bld addr =
+  interworkTo InterJmpKind.Base bld addr
 
 /// BXWritePC() for BLX (register), whose jump is a call (A8.8.26).
-let blxWritePC bld isUnconditional addr =
-  interworkTo InterJmpKind.IsCall bld isUnconditional addr
+let blxWritePC bld addr =
+  interworkTo InterJmpKind.IsCall bld addr
 
 /// Write value to R.PC, with interworking for ARM only from ARMv7 on page
 /// A2-47. function : ALUWritePC()
-let aluWritePC bld (ins: Instruction) isUnconditional addr =
+let aluWritePC bld (ins: Instruction) addr =
   if ins.IsThumb then append bld { branchWritePC addr InterJmpKind.Base }
-  else bxWritePC bld isUnconditional addr
+  else bxWritePC bld addr
 
 /// ALUWritePC() as the last write of an instruction, which its jump ends,
 /// unless a condition that fails goes on past the instruction.
 let endWithALUWritePC bld ins isUnconditional addr =
-  aluWritePC bld ins isUnconditional addr
+  aluWritePC bld ins addr
   if isUnconditional then NoEndMark else EndMark
 
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
-let loadWritePC bld isUnconditional result =
-  bxWritePC bld isUnconditional result
+let loadWritePC bld result =
+  bxWritePC bld result
 
 /// Position of rightmost 1 in a bitstring, on page AppxP-2653.
 /// function : LowestSetBit()

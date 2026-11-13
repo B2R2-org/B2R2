@@ -110,15 +110,29 @@ type LifterTests() =
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
-  /// The statements one T32 encoding lifts to as the one instruction of an
-  /// IT EQ block, parsed where the IT instruction leaves ITSTATE at 0x08.
-  let liftedInITBlock (hex: string) =
+  /// The statements one T32 encoding lifts to inside an IT block, parsed
+  /// where the IT instruction leaves ITSTATE at the given value.
+  let liftedUnderIT (itstate: byte) (hex: string) =
     let parser = Parser(isa, true, reader)
-    (parser :> IModeSwitchable).ITState <- 0x08uy
+    (parser :> IModeSwitchable).ITState <- itstate
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let bytes = ByteArray.ofHexString hex
     let ins = (parser :> IInstructionParsable).Parse(bytes, 0UL)
     ins.Translate builder
+
+  /// The statements one T32 encoding lifts to as the one instruction of an
+  /// IT EQ block, parsed where the IT instruction leaves ITSTATE at 0x08.
+  let liftedInITBlock (hex: string) = liftedUnderIT 0x08uy hex
+
+  /// The IT field CPSR is left with, the exception taken, if one was, and
+  /// where the statements jumped out to, if they did, run with CPSR and Z
+  /// given.
+  let runWithZ stmts (cpsr: uint32) (z: uint64) =
+    let inputs = [ !.CPSR, BitVector(cpsr, 32<rt>); !.ZF, BitVector(z, 1<rt>) ]
+    let struct (read, jump, effect) =
+      IRRunner.runToEnd stmts inputs (Dictionary())
+    let it = uint32 ((read !.CPSR).ToUInt64()) &&& 0x0600fc00u
+    struct (it, effect, jump)
 
   (* Dn is the half n % 2 of Q(n / 2), and S(2n) and S(2n + 1) are the low
      and the high word of Dn *)
@@ -1447,6 +1461,62 @@ type LifterTests() =
       uint32 ((read !.CPSR).ToUInt64()) &&& 0x0600fc00u
     Assert.AreEqual<uint32>(0u, itAfter 0x40000800u)
     Assert.AreEqual<uint32>(0u, itAfter 0x00000800u)
+
+  /// The instruction of an IT AL block is in the block for all that its
+  /// condition always holds, and advances ITSTATE as any other does.
+  [<TestMethod>]
+  member _.``[Thumb] An IT AL block's instruction ends the block``() =
+    let struct (it, _, _) = runWithZ (liftedUnderIT 0xe8uy "4608") 0xe800u 0UL
+    Assert.AreEqual<uint32>(0u, it)
+
+  /// A hint, a barrier and a preload advance ITSTATE in an IT block, for all
+  /// that they do nothing else here.
+  [<TestMethod>]
+  member _.``[Thumb] A NOP-like instruction advances ITSTATE``() =
+    for hex in [ "bf00"; "bf10"; "f3af8000"; "f3bf8f5f"; "f891f000" ] do
+      let struct (it, _, _) = runWithZ (liftedInITBlock hex) 0x800u 1UL
+      Assert.AreEqual<uint32>(0u, it, hex)
+
+  /// A VFP instruction advances ITSTATE in an IT block, for all that it can
+  /// fault on short vectors: only a path it does not take here reaches that.
+  [<TestMethod>]
+  member _.``[Thumb] A VFP instruction advances ITSTATE``() =
+    (* vmov.f64 d0, d1 and vadd.f32 s0, s0, s0 *)
+    for hex in [ "eeb00b41"; "ee300a00" ] do
+      for z in [ 0UL; 1UL ] do
+        let struct (it, _, _) = runWithZ (liftedInITBlock hex) 0x800u z
+        Assert.AreEqual<uint32>(0u, it, $"{hex} with Z {z}")
+
+  /// A branch in an IT block, which can only be its last instruction, ends
+  /// the block on the path it takes as on the one it does not.
+  [<TestMethod>]
+  member _.``[Thumb] A branch ends its IT block whether taken or not``() =
+    (* b.w and bl, to the next halfword but one *)
+    for hex in [ "f000b800"; "f000f800" ] do
+      for z in [ 0UL; 1UL ] do
+        let struct (it, _, _) = runWithZ (liftedInITBlock hex) 0x800u z
+        Assert.AreEqual<uint32>(0u, it, $"{hex} with Z {z}")
+
+  /// SVC calls only where its condition holds (DDI0406C A8.8.228).
+  [<TestMethod>]
+  member _.``SVC calls only where its condition holds``() =
+    (* svcne #0 *)
+    let svc = liftedBy false "1f000000"
+    for z, expected in [ 1UL, None; 0UL, Some(SideEffect.Interrupt 0) ] do
+      let struct (_, effect, _) = runWithZ svc 0u z
+      Assert.AreEqual<SideEffect option>(expected, effect)
+
+  /// An IT block's SVC advances ITSTATE before it calls, the call returning
+  /// to the next instruction, which ITSTATE has to be read for. A BKPT faults
+  /// before it completes and leaves ITSTATE for the return to itself.
+  [<TestMethod>]
+  member _.``[Thumb] SVC advances ITSTATE before it calls, BKPT does not``() =
+    let struct (it, effect, _) = runWithZ (liftedInITBlock "df00") 0x800u 1UL
+    Assert.AreEqual<SideEffect option>(Some(SideEffect.Interrupt 0), effect)
+    Assert.AreEqual<uint32>(0u, it)
+    let struct (it, effect, _) = runWithZ (liftedInITBlock "be00") 0x800u 1UL
+    Assert.AreEqual<SideEffect option>(Some SideEffect.Breakpoint, effect)
+    Assert.AreEqual<uint32>(0x800u, it)
 
   /// A narrow shift by register is the wide one in sixteen bits, C included
   /// (DDI0487F.c F5.1.113).

@@ -98,10 +98,8 @@ let parseOprOfADC (ins: Instruction) bld =
   | _ -> raise InvalidOperandException
 
 /// Skips a conditional instruction whose condition fails, handing back the
-/// label it skips to and whether the instruction advances ITSTATE on its way
-/// out (see putEndLabel): only one that sits in an IT block does. Any other
-/// runs with ITSTATE zero, which advancing would only clear again -- an A32
-/// instruction, or a T32 conditional branch, whose condition is its own.
+/// label it skips to (see putEndLabel). An instruction in an IT block has
+/// ITSTATE advanced by Lifter.translate, on every way out of it, and not here.
 let checkCondition (ins: Instruction) bld isUnconditional =
   if isUnconditional then
     None
@@ -113,17 +111,16 @@ let checkCondition (ins: Instruction) bld isUnconditional =
       AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblIgnore)
       AST.lmark lblPass
     }
-    Some(lblIgnore, ins.IsInITBlock)
+    Some lblIgnore
 
-/// Update ITState after normal execution of an IT-block instruction. See A2-52
-/// function: ITAdvance().
+/// Update ITState after execution of an IT-block instruction, whether its
+/// condition held or not: the block ends after its last instruction, where
+/// ITSTATE[2:0] is zero, and ITSTATE[4:0] shifts left otherwise. It is a
+/// single write with no jump, so that it splits no block of the instruction
+/// it is put in. See A2-52 function: ITAdvance().
 let itAdvance bld =
   append bld {
-    let cond = tmpVar bld 1<rt>
     let struct (itstate, nextstate) = tmpVars2 bld 32<rt>
-    let lblThen = label bld "LThen"
-    let lblElse = label bld "LElse"
-    let lblEnd = label bld "LEnd"
     let cpsr = regVar bld R.CPSR
     let cpsrIT10 = getPSR bld R.CPSR PSR.IT10 >> (numI32 25 32<rt>)
     let cpsrIT72 = getPSR bld R.CPSR PSR.IT72 >> (numI32 8 32<rt>)
@@ -131,31 +128,24 @@ let itAdvance bld =
     let mask20 = numI32 0x7 32<rt> (* For ITSTATE[2:0] *)
     let mask40 = numI32 0x1f 32<rt> (* For ITSTATE[4:0] *)
     let mask42 = numI32 0x1c 32<rt> (* For ITSTATE[4:2] *)
-    let cpsrIT42 = cpsr .& (numI32 0xffffe3ff 32<rt>)
-    let num8 = numI32 8 32<rt>
+    let isLast = (itstate .& mask20) == AST.num0 32<rt>
+    let ended = cpsr .& AST.not (maskPSRForIT10bits .| maskPSRForIT72bits)
+    let advanced =
+      (cpsr .& AST.not maskPSRForIT10bits .& numI32 0xffffe3ff 32<rt>)
+      .| ((nextstate .& mask10) << numI32 25 32<rt>)
+      .| ((nextstate .& mask42) << numI32 8 32<rt>)
     itstate := cpsrIT72 .| cpsrIT10
-    cond := ((itstate .& mask20) == AST.num0 32<rt>)
-    AST.cjmp cond (AST.jmpDest lblThen) (AST.jmpDest lblElse)
-    AST.lmark lblThen
-    cpsr := disablePSRBits bld R.CPSR PSR.IT10
-    cpsr := disablePSRBits bld R.CPSR PSR.IT72
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblElse
-    nextstate := (itstate .& mask40 << AST.num1 32<rt>)
-    cpsr := nextstate .& mask10 |> setPSR bld R.CPSR PSR.IT10
-    cpsr := cpsrIT42 .| ((nextstate .& mask42) << num8)
-    AST.lmark lblEnd
+    nextstate := (itstate .& mask40) << AST.num1 32<rt>
+    cpsr := AST.ite isLast ended advanced
   }
 
-/// Ends a conditional instruction where checkCondition skips to, advancing
-/// ITSTATE there where the instruction may sit in an IT block.
+/// Ends a conditional instruction where checkCondition skips to.
 let putEndLabel bld lblIgnore =
   match lblIgnore with
-  | Some(lblIgnore, advancesIT) ->
+  | Some lblIgnore ->
     append bld {
       AST.lmark lblIgnore
     }
-    if advancesIT then itAdvance bld else ()
   | None ->
     ()
 
@@ -163,11 +153,10 @@ let putEndLabel bld lblIgnore =
 /// where its condition fails.
 let putEndLabelForBranch bld lblIgnore (brIns: Instruction) =
   match lblIgnore with
-  | Some(lblIgnore, advancesIT) ->
+  | Some lblIgnore ->
     append bld {
       AST.lmark lblIgnore
     }
-    if advancesIT then itAdvance bld else ()
     let target = numU64 (brIns.Address + uint64 brIns.Length) 32<rt>
     append bld {
       AST.interjmp target InterJmpKind.Base
@@ -352,7 +341,7 @@ let blxWithReg (ins: Instruction) reg bld =
     else
       let addr = addr .+ (numI32 2 32<rt>)
       lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1
-    blxWritePC bld isUnconditional (regVar bld reg)
+    blxWritePC bld (regVar bld reg)
     putEndLabelForBranch bld lblIgnore ins
     return NoEndMark
   }
@@ -1110,10 +1099,18 @@ let mvn isSetFlags ins bld =
     putEndLabel bld lblIgnore
   }
 
+/// SVC, which calls only where its condition holds (A8.8.228).
 let svc (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand(OprImm n) -> sideEffects ins bld (Interrupt(int n))
-  | _ -> raise InvalidOperandException
+  | OneOperand(OprImm n) ->
+    lift bld ins {
+      let isUnconditional = ParseUtils.isUnconditional ins.Condition
+      let lblIgnore = checkCondition ins bld isUnconditional
+      AST.sideEffect (Interrupt(int n))
+      putEndLabel bld lblIgnore
+    }
+  | _ ->
+    raise InvalidOperandException
 
 let getImmShiftFromShiftType imm = function
   | ShiftOp.LSL | ShiftOp.ROR -> imm
@@ -1868,7 +1865,7 @@ let bx ins bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rm = convertPCOpr ins bld rm
-    bxWritePC bld isUnconditional rm
+    bxWritePC bld rm
     putEndLabelForBranch bld lblIgnore ins
     return NoEndMark
   }
@@ -1941,7 +1938,7 @@ let pop ins bld =
     else
       sp := (AST.undef 32<rt> "UNKNOWN")
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      loadNative bld 32<rt> addr |> loadWritePC bld isUnconditional
+      loadNative bld 32<rt> addr |> loadWritePC bld
       putEndLabelForBranch bld lblIgnore ins
       return NoEndMark
     else
@@ -1986,10 +1983,10 @@ let private loadRegisters bld (ins: Instruction) numOfReg addr =
 
 /// The PC an LDM loads. With ^ it returns from an exception (DDI0406C
 /// B9.3.5); without it, it branches as LoadWritePC does.
-let private loadPC bld (ins: Instruction) isUnconditional addr =
+let private loadPC bld (ins: Instruction) addr =
   let value = loadNative bld 32<rt> addr
   if ins.Caret then returnWithSPSR bld value
-  else loadWritePC bld isUnconditional value
+  else loadWritePC bld value
 
 let ldm opcode (ins: Instruction) bld wbackop =
   lift bld ins {
@@ -2013,7 +2010,7 @@ let ldm opcode (ins: Instruction) bld wbackop =
     else
       ()
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      loadPC bld ins isUnconditional addr
+      loadPC bld ins addr
       putEndLabelForBranch bld lblIgnore ins
       return NoEndMark
     else
@@ -2103,7 +2100,7 @@ let ldr ins bld size ext =
     | None ->
       data := loadNative bld size addr |> ext 32<rt>
     if rt = getPC bld then
-      loadWritePC bld isUnconditional data
+      loadWritePC bld data
       putEndLabelForBranch bld lblIgnore ins
       return NoEndMark
     else
