@@ -151,6 +151,17 @@ type LowUIRBuilder(isa: ISA,
     member _.IsProgramCounter id = regFactory.IsProgramCounter id
     member _.IsStackPointer id = regFactory.IsStackPointer id
     member _.IsFramePointer id = regFactory.IsFramePointer id
+    member _.BeginRegion() =
+      stream.Clear()
+      pendingKind <- InterJmpKind.NotAJmp
+      pendingGateway <- NotGateway
+      armedKind <- InterJmpKind.NotAJmp
+      armedGateway <- NotGateway
+      curAddr <- 0UL
+      delaySlotAddr <- ValueNone
+      nullifySkip <- ValueNone
+      prevEnd <- ValueNone
+      prevMayNullify <- true
 
 /// Which of the services the Linux/PA-RISC gateway page offers a transfer of
 /// control entered, if any. PA-RISC has no instruction for a system call, nor

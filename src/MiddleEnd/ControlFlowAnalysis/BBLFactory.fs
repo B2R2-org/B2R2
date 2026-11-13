@@ -44,6 +44,8 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type BBLFactory(hdl: BinHandle,
                 instrs,
                 blkOptimizer: IIRBlockOptimizable | null) =
+  let irBuilder = ArchSupport.createBuilder hdl.ISA hdl.RegisterFactory
+
   /// Inter-instruction (i.e., disassembly level) leaders.
   let interLeaders = SortedSet<Addr>()
 
@@ -157,11 +159,11 @@ type BBLFactory(hdl: BinHandle,
 
   /// Lifts the given instructions and fills the array in reverse order, as the
   /// given list is reversed.
-  let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs ndx =
+  let rec liftAndFill bblAddr (arr: LiftedInstruction[]) instrs ndx =
     match instrs with
     | ins :: tl ->
       let stmts =
-        (lunit: LiftingUnit).LiftInstruction(ins = ins)
+        (ins: IInstruction).Translate irBuilder
         |> blkOptimizer.Optimize
 #if DEBUG
       assert (hasProperISMark stmts)
@@ -169,7 +171,7 @@ type BBLFactory(hdl: BinHandle,
 #endif
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
       arr[ndx] <- liftedIns
-      liftAndFill lunit bblAddr arr tl (ndx - 1)
+      liftAndFill bblAddr arr tl (ndx - 1)
     | [] ->
       arr
 
@@ -276,11 +278,11 @@ type BBLFactory(hdl: BinHandle,
     | [] ->
       addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx None
 
-  let liftBlock liftingUnit leaderAddr instrs insCount =
+  let liftBlock leaderAddr instrs insCount =
     assert (insCount <> 0)
     addInterInstructionLeader leaderAddr
     let arr = Array.zeroCreate insCount
-    let arr = liftAndFill liftingUnit leaderAddr arr instrs (insCount - 1)
+    let arr = liftAndFill leaderAddr arr instrs (insCount - 1)
     let struct (lblMap, intraLeaders) = scanIntraLeaders arr
     if intraLeaders.Count = 0 then
       let ppoint = ProgramPoint(leaderAddr, 0)
@@ -289,9 +291,9 @@ type BBLFactory(hdl: BinHandle,
     else
       gatherIntraBBLs arr lblMap 0 0 (Seq.toList intraLeaders)
 
-  let tryLiftBlock lunit (leaderAddr, instrs, insCount) =
+  let tryLiftBlock (leaderAddr, instrs, insCount) =
     try
-      liftBlock lunit leaderAddr instrs insCount
+      liftBlock leaderAddr instrs insCount
       true
     with e ->
 #if CFGDEBUG
@@ -303,8 +305,8 @@ type BBLFactory(hdl: BinHandle,
   /// Lifts the collected blocks in order, stopping at the first one the lifter
   /// cannot take, and answers whether all of them were lifted.
   let liftBlocks blocks =
-    let liftingUnit = hdl.NewLiftingUnit()
-    Seq.forall (tryLiftBlock liftingUnit) blocks
+    irBuilder.BeginRegion()
+    Seq.forall tryLiftBlock blocks
 
   /// Collects the leaders whose BBLs may have to be cut: the new leaders and
   /// every leader close enough before one of them for its BBL to cover it. The

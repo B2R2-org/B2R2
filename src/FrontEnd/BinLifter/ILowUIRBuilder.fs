@@ -46,6 +46,11 @@ type ILowUIRBuilder =
   /// LowUIR stream to which lifted instructions are stored and returned.
   abstract Stream: LowUIRStream
 
+  /// Starts an independent lifting region, discarding buffered statements and
+  /// architecture-specific translation state. Buffer capacity and temporary
+  /// variable and label counters are retained to keep existing IR distinct.
+  abstract BeginRegion: unit -> unit
+
 #if EMULATION
   /// Remember the lastly used opcode. This is used to update flags registers,
   /// such as x86 EFLAGS, in emulation.
@@ -65,6 +70,7 @@ type ILowUIRBuilder =
         member _.RegType with get() = regType
         member _.Endianness with get() = endian
         member _.Stream with get() = stream
+        member _.BeginRegion() = stream.Clear()
         member _.ISA with get() = isa
 #if EMULATION
         member _.ConditionCodeOp

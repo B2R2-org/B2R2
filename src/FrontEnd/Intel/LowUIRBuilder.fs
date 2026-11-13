@@ -64,3 +64,8 @@ type LowUIRBuilder(isa: ISA,
     member _.IsProgramCounter id = regFactory.IsProgramCounter id
     member _.IsStackPointer id = regFactory.IsStackPointer id
     member _.IsFramePointer id = regFactory.IsFramePointer id
+    member _.BeginRegion() =
+      stream.Clear()
+#if EMULATION
+      ccop <- ConditionCodeOp.TraceStart
+#endif
