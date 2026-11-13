@@ -69,6 +69,13 @@ type ConcExecutorTests() =
     st.TryGetReg sf
 #endif
 
+  let loadThumb hex =
+    let isa = ISA(Endian.Little, false, ARM32Mode.Thumb)
+    BinHandle.LoadRawImage(ByteArray.ofHexString hex, isa, OS.Linux)
+
+  (* ite ne; movne r1, #1; moveq r1, #2; movs r3, #5; nop *)
+  let itBlock = "14bf01210221052300bf"
+
   let runOneInstruction (hdl: BinHandle) =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
@@ -89,6 +96,95 @@ type ConcExecutorTests() =
     Assert.AreEqual<bool>(true, res.IsStoppedAfterAddress 0x3UL)
     Assert.AreEqual<Addr>(0x4UL, res.FinalAddress)
     Assert.AreEqual<int>(3, res.InstructionCount)
+
+  [<TestMethod>]
+  member _.``ARM interworking switches the instruction set both ways``() =
+    (* blx 0x8; mov r1, #7 in ARM, and at 0x8 movs r0, #42; bx lr in Thumb *)
+    let bytes = ByteArray.ofHexString "000000fa0710a0e32a207047"
+    let hdl = loadRawImage bytes Architecture.ARMv7 WordSize.Bit32
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default().WithMaxInstructions 4)
+    let reg (name: string) = st.GetReg(hdl.RegisterFactory.GetRegisterID name)
+    Assert.AreEqual<BitVector>(BitVector(42UL, 32<rt>), reg "R0")
+    Assert.AreEqual<BitVector>(BitVector(7UL, 32<rt>), reg "R1")
+    Assert.AreEqual<Addr>(0x8UL, res.FinalAddress)
+
+  [<TestMethod>]
+  member _.``An IT block decodes under the IT state CPSR holds``() =
+    let hdl = loadThumb itBlock
+    let rf = hdl.RegisterFactory
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    (* Thumb, with Z clear: NE holds and EQ does not *)
+    st.SetReg(rf.GetRegisterID "CPSR", BitVector(0x20UL, 32<rt>))
+    exec.Run(0UL, st, ConcRunOptions.Default().WithMaxInstructions 4)
+    |> ignore
+    let reg (name: string) = st.GetReg(rf.GetRegisterID name)
+    Assert.AreEqual<BitVector>(BitVector(1UL, 32<rt>), reg "R1")
+    Assert.AreEqual<BitVector>(BitVector(5UL, 32<rt>), reg "R3")
+
+  [<TestMethod>]
+  member _.``A run decodes as its own state says, not as the last run left``() =
+    let hdl = loadThumb itBlock
+    let exec = ConcExecutor hdl
+    let opts = ConcRunOptions.Default()
+    (* Stops inside the block, where the parser has an EQ still to come *)
+    exec.Run(0UL, exec.CreateState(), opts.StopAtAddress 0x2UL) |> ignore
+    let st = exec.CreateState()
+    exec.Run(0x6UL, st, opts.WithMaxInstructions 1) |> ignore
+    let r3 = st.GetReg(hdl.RegisterFactory.GetRegisterID "R3")
+    Assert.AreEqual<BitVector>(BitVector(5UL, 32<rt>), r3)
+
+  [<TestMethod>]
+  member _.``A MIPS jump switches the encoding both ways``() =
+    (* MIPS16e: jalx 0x10, with a nop in its slot; li v1, 7 *)
+    let mips16 = "1c00000465006b07" + "0000000000000000"
+    (* MIPS32 at 0x10: addiu v0, zero, 42; jr ra, with a nop in its slot *)
+    let mips32 = "2402002a03e0000800000000"
+    let bytes = ByteArray.ofHexString (mips16 + mips32)
+    let flags = int MIPSISAMode.MIPS16
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, flags)
+    let hdl = BinHandle.LoadRawImage(bytes, isa, OS.Linux)
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default().WithMaxInstructions 4)
+    let reg (name: string) = st.GetReg(hdl.RegisterFactory.GetRegisterID name)
+    Assert.AreEqual<BitVector>(BitVector(42UL, 32<rt>), reg "V0")
+    Assert.AreEqual<BitVector>(BitVector(7UL, 32<rt>), reg "V1")
+    Assert.AreEqual<Addr>(0x8UL, res.FinalAddress)
+
+  [<TestMethod>]
+  member _.``A decode mode nothing settles stops the run``() =
+    (* mov r0, r0, under a CPSR that nothing has set *)
+    let bytes = [| 0x00uy; 0x00uy; 0xa0uy; 0xe1uy |]
+    let hdl = loadRawImage bytes Architecture.ARMv7 WordSize.Bit32
+    let exec = ConcExecutor hdl
+    let resolver = ConcDecodeModeResolver(fun _ _ -> ValueNone)
+    let opts = ConcRunOptions.Default().ResolveDecodeModeWith resolver
+    let res = exec.Run(0UL, exec.CreateState(), opts)
+    match res.StopReasons with
+    | [ ConcStopReason.UndeterminedDecodeMode addr ] ->
+      Assert.AreEqual<Addr>(0UL, addr)
+    | reasons ->
+      Assert.Fail $"Unexpected stop reasons: {reasons}"
+
+  [<TestMethod>]
+  member _.``A resolver settles the decode mode the state leaves open``() =
+    (* movw r0, #42 in Thumb, under a CPSR that nothing has set *)
+    let bytes = [| 0x40uy; 0xf2uy; 0x2auy; 0x00uy |]
+    let hdl = loadRawImage bytes Architecture.ARMv7 WordSize.Bit32
+    let exec = ConcExecutor hdl
+    let thumb =
+      { IsThumb = true; ITState = 0uy; ISAMode = MIPSISAMode.MIPS }
+    let resolver = ConcDecodeModeResolver(fun _ _ -> ValueSome thumb)
+    let opts =
+      ConcRunOptions.Default().ResolveDecodeModeWith(resolver)
+        .WithMaxInstructions 1
+    let st = exec.CreateState()
+    exec.Run(0UL, st, opts) |> ignore
+    let r0 = st.GetReg(hdl.RegisterFactory.GetRegisterID "R0")
+    Assert.AreEqual<BitVector>(BitVector(42UL, 32<rt>), r0)
 
   [<TestMethod>]
   member _.``Return address register is not zeroed as caller context``() =

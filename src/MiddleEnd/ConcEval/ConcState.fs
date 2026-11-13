@@ -38,6 +38,7 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable stmtIdx = 0
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
+  let mutable modeSwitch = InterJmpKind.Base
   let mutable loadFailureHdl = LoadFailureEventHandler(fun _ _ _ e -> Error e)
   let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler(fun _ _ -> ())
@@ -79,10 +80,17 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   member _.Labels with get() = lbls
 
   /// Indicate whether to terminate the current instruction or not. This flag is
-  /// set to true when we encounter an inter-jump statement or SideEffect, so
-  /// that we can ignore the rest of the statements.
+  /// set to true when we encounter an inter-jump statement or a SideEffect that
+  /// ends the instruction, so that we can ignore the rest of the statements.
   member _.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
+
+  /// The mode switch of the last inter-instruction jump that made one, as the
+  /// switch flags of its kind, or Base where none has. An instruction set
+  /// whose mode no register holds -- MIPS reads its encoding from a bit of its
+  /// own -- is left with this alone to say which mode the program is in.
+  member _.ModeSwitch
+    with get(): InterJmpKind = modeSwitch and set(k) = modeSwitch <- k
 
   /// Whether an instruction-level evaluation skips a statement it cannot
   /// evaluate and carries on, which is what lets a static analysis get through
@@ -99,10 +107,12 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   member _.ExternalCallEventHandler
     with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
 
-  /// Side-effect event handler. A handler that does not terminate the current
-  /// instruction on its own leaves the evaluator to terminate it and advance
-  /// the PC past the instruction; a handler that sets the PC itself must call
-  /// `AbortInstr()` to keep it.
+  /// Side-effect event handler. After it returns, an effect that ends the
+  /// instruction (see `SideEffect.endsInstruction`) has the evaluator terminate
+  /// the instruction and advance the PC past it, unless the handler terminated
+  /// it on its own, and any other effect has evaluation go on to the next
+  /// statement. A handler that sets the PC itself must call `AbortInstr()` to
+  /// keep it.
   member _.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 
@@ -189,6 +199,7 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
               StmtIdx = stmtIdx,
               CurrentInsLen = currentInsLen,
               IsInstrTerminated = isInstrTerminated,
+              ModeSwitch = modeSwitch,
               LoadFailureEventHandler = loadFailureHdl,
               ExternalCallEventHandler = externalCallEventHdl,
               SideEffectEventHandler = sideEffectHdl)

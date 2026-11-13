@@ -38,8 +38,7 @@ open B2R2.FrontEnd.ARM32.GeneralLifter
 open B2R2.FrontEnd.ARM32.NEONLifter
 open B2R2.FrontEnd.ARM32.SystemLifter
 
-/// Translate IR.
-let translate (ins: Instruction) bld =
+let private liftBody (ins: Instruction) bld =
   match ins.Opcode with
   | _ when FP16Lifter.handles ins ->
     FP16Lifter.translate ins bld
@@ -1008,3 +1007,43 @@ let translate (ins: Instruction) bld =
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException(Disasm.opCodeToString o)
+
+let private isFault = function
+  | SideEffect(Effect = Breakpoint)
+  | SideEffect(Effect = UndefinedInstruction)
+  | SideEffect(Effect = UnsupportedInstruction) -> true
+  | _ -> false
+
+(* An instruction that is nothing but a fault -- BKPT, UDF, an UNDEFINED or an
+   unsupported encoding -- takes its exception before it completes, which
+   returns to the instruction itself, to be read again under the same
+   ITSTATE. A fault only some path reaches, as every VFP instruction's on
+   short vectors, does not make it one. *)
+let private isOnlyFault (stream: LowUIRStream) start =
+  start + 1 < stream.Count && isFault stream[start + 1]
+
+let private advancesIT (ins: Instruction) stream start =
+  ins.IsInITBlock && not (isOnlyFault stream start)
+
+(* Moves the statements ITAdvance appends to the front of the instruction,
+   just past its ISMark. *)
+let private advanceITFirst (bld: ILowUIRBuilder) start =
+  let stream = bld.Stream
+  let bodyEnd = stream.Count
+  itAdvance bld
+  let advance = stream.GetRange(bodyEnd, stream.Count - bodyEnd)
+  stream.RemoveRange(bodyEnd, advance.Count)
+  stream.InsertRange(start + 1, advance)
+
+/// <summary>
+/// Translates an instruction to IR. One in an IT block advances ITSTATE first
+/// (ITAdvance, A2.5.2), as it does whether its condition holds or not and
+/// however it leaves, falling through or by a branch, which can only be the
+/// last of the block; nothing else in it reads ITSTATE. One that faults before
+/// it completes leaves ITSTATE as it is.
+/// </summary>
+let translate (ins: Instruction) (bld: ILowUIRBuilder) =
+  let start = bld.Stream.Count
+  let bld = liftBody ins bld
+  if advancesIT ins bld.Stream start then advanceITFirst bld start else ()
+  bld

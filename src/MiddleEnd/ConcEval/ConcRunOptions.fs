@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
+open B2R2
 open B2R2.MiddleEnd.Executor
 
 /// Represents concrete execution configuration.
@@ -37,14 +38,18 @@ type ConcRunOptions =
     /// Maximum machine instructions to execute. Zero means unlimited.
     MaxInstructions: int
     /// Stop conditions used by Run.
-    StopConditions: ConcStopCondition list }
+    StopConditions: ConcStopCondition list
+    /// What settles the decode mode where the state does not, such as an ARM
+    /// CPSR that nothing has set. None takes the mode the binary starts in.
+    DecodeModeResolver: ConcDecodeModeResolver option }
 with
   static member Default(stopConditions: ConcStopCondition list) =
     { Calls = CallPolicy.FollowDirectInternalCalls
       UndefinedValues = ConcUndefinedValuePolicy.IgnoreUndefinedWrites
       UninitializedRegisters = ConcUninitializedRegisterPolicy.ZeroCallerContext
       MaxInstructions = 50000
-      StopConditions = stopConditions }
+      StopConditions = stopConditions
+      DecodeModeResolver = None }
 
   static member Default(stopCondition: ConcStopCondition) =
     ConcRunOptions.Default [ stopCondition ]
@@ -151,6 +156,11 @@ with
   member opts.StopWhen predicate =
     opts.AddStopCondition(ConcStopCondition.StopWhen predicate)
 
+  /// Settles the decode mode with the given resolver where the state does
+  /// not.
+  member opts.ResolveDecodeModeWith resolver =
+    { opts with DecodeModeResolver = Some resolver }
+
 /// Represents how concrete execution should handle undefined values.
 and [<RequireQualifiedAccess>] ConcUndefinedValuePolicy =
   /// Treat undefined values as evaluation failures.
@@ -175,3 +185,12 @@ and [<RequireQualifiedAccess>] ConcUninitializedRegisterPolicy =
   | ZeroCallerContext
   /// Materialize any uninitialized register as zero on first read.
   | ZeroAnyRegister
+
+/// <summary>
+/// Represents a callback that settles the decode mode at an address whose
+/// state does not, such as an ARM CPSR that nothing has set. It is asked
+/// before the instruction there is parsed, and answering ValueNone stops the
+/// run with <c>UndeterminedDecodeMode</c> rather than have it guess.
+/// </summary>
+and ConcDecodeModeResolver =
+  delegate of Addr * ConcState -> DecodeMode voption

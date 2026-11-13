@@ -52,6 +52,9 @@ type ConcStopReason =
   | UserStopConditionMet of addr: Addr
   /// No instruction could be fetched or lifted at the given address.
   | InvalidInstructionAddress of addr: Addr
+  /// Neither the state nor the configured resolver settled the mode the
+  /// instruction at the given address is decoded in.
+  | UndeterminedDecodeMode of addr: Addr
   /// A call could not be handled under the configured call policy. The target
   /// is absent when the call is indirect.
   | CallHandlingFailure of callSite: Addr * target: Addr option * reason: string
@@ -63,5 +66,6 @@ with
     | ConcStopReason.UndefinedValue _
     | ConcStopReason.EvaluationError _
     | ConcStopReason.InvalidInstructionAddress _
+    | ConcStopReason.UndeterminedDecodeMode _
     | ConcStopReason.CallHandlingFailure _ -> true
     | _ -> false

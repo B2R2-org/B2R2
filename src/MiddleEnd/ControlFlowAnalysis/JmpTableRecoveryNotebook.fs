@@ -118,6 +118,7 @@ type JmpTableRecoveryNotebook() =
         EntrySize = jmptbl.EntrySize
         StartingPoint = tblAddr
         ConfirmedEndPoint = tblAddr
+        ReachedEndPoint = tblAddr
         PotentialEndPoint = potentialEndPoint
         OwnRangeEntries = jmptbl.OwnRangeEntries
         WaitingFunctions = HashSet() }
@@ -200,6 +201,7 @@ type JmpTableRecoveryNotebook() =
     let note = notes[tblAddr]
     let newEndPoint = note.StartingPoint + uint64 (idx * note.EntrySize)
     note.ConfirmedEndPoint <- newEndPoint
+    note.ReachedEndPoint <- max note.ReachedEndPoint newEndPoint
 
   /// Gets the index of the last entry that the potential end point of the jump
   /// table holds, capped at the largest int for a table bounded by nothing, or
@@ -227,13 +229,15 @@ type JmpTableRecoveryNotebook() =
     syncConfirmedEndPoint notes[tblAddr] confirmedAddr
 
   /// Ends the jump table at its last entry before the given address, where
-  /// another table starts, and returns where that entry lies.
+  /// another table starts, and tells whether a walk of the table has reached
+  /// past that entry, or is on its way there: the functions recovering the
+  /// table then hold entries that it no longer has.
   member _.EndBefore(tblAddr, addr) =
     let note = notes[tblAddr]
     let lastEntry = lastEntryBefore note addr
     updatePotentialEndPoint note lastEntry
     syncConfirmedEndPoint note lastEntry
-    lastEntry
+    note.ReachedEndPoint + uint64 note.EntrySize > lastEntry
 
   /// Gets the indirect branch address that is associated with the given jump
   /// table address.
@@ -281,6 +285,12 @@ and JmpTableRecoveryNote =
     StartingPoint: Addr
     /// Confirmed end point of the jump table. We use inclusive range.
     mutable ConfirmedEndPoint: Addr
+    /// The furthest end point that a walk of the jump table has confirmed. A
+    /// function walks a table from its first entry again as it builds on, and
+    /// the entries that an earlier walk reached stay in its CFG until it starts
+    /// over, so this does not move back with the confirmed end point. We use
+    /// inclusive range.
+    mutable ReachedEndPoint: Addr
     /// Potential end point (the upperbound) of the jump table. We use inclusive
     /// range.
     mutable PotentialEndPoint: Addr

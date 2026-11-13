@@ -44,6 +44,7 @@ type private InstructionEvalResult =
 /// Represents a concrete executor over ConcEval's evaluation state.
 type ConcExecutor(hdl: BinHandle) =
   let liftCache = LiftCache hdl
+  let initialMode = liftCache.InitialMode
   let regFactory = hdl.RegisterFactory
   let defaultStateCreationOptions =
     { Memory = BinSectionBackedMemory
@@ -72,18 +73,31 @@ type ConcExecutor(hdl: BinHandle) =
     && not (regFactory.IsStackPointer rid)
     && not (isReturnAddressRegister rid)
 
-  let zeroRegister rid =
-    regFactory.GetRegType rid
-    |> BitVector.Zero
+  (* The register an architecture keeps its decode mode in, which ARM does in
+     CPSR; MIPS keeps it in no register a program can name. *)
+  let modeRegister =
+    match hdl.ISA with
+    | ARM32 -> Some(ARM32.Register.toRegID ARM32.Register.CPSR)
+    | _ -> None
+
+  (* A register is made up as zero, except that the mode register names the
+     mode the binary starts in, so that the first instruction to touch the
+     flags does not switch the decoding to ARM along with them. *)
+  let initialValue rid =
+    let t = regFactory.GetRegType rid
+    if modeRegister = Some rid then
+      BitVector(DecodeMode.toCPSR initialMode, t)
+    else
+      BitVector.Zero t
 
   let tryGetDefaultRegisterValue opts rid =
     match opts.UninitializedRegisters with
     | ConcUninitializedRegisterPolicy.StopOnUninitializedRegister ->
       None
     | ConcUninitializedRegisterPolicy.ZeroCallerContext ->
-      if isCallerContextRegister rid then Some(zeroRegister rid) else None
+      if isCallerContextRegister rid then Some(initialValue rid) else None
     | ConcUninitializedRegisterPolicy.ZeroAnyRegister ->
-      Some(zeroRegister rid)
+      Some(initialValue rid)
 
   let mkResult reasons addr n st =
     { StopReasons = reasons
@@ -338,7 +352,7 @@ type ConcExecutor(hdl: BinHandle) =
     |> Result.Error
     |> Some
 
-  let tryHandleCall (opts: ConcRunOptions) st addr ins =
+  let tryHandleCall (opts: ConcRunOptions) st addr mode ins =
     if not (ins: IInstruction).IsCall then
       None
     else
@@ -351,7 +365,7 @@ type ConcExecutor(hdl: BinHandle) =
       | CallPolicy.UseCallHooks hooks, Some t ->
         match hooks.TryFind t with
         | Some hook ->
-          let returnAddress = liftCache.FallThroughAddr(addr, ins.Length)
+          let returnAddress = liftCache.FallThroughAddr(addr, ins.Length, mode)
           let ctx = CallContext.Create(hdl, addr, t, returnAddress)
           Some(dispatchCallHook ctx hook st)
         | None when isInternalTarget t ->
@@ -365,8 +379,8 @@ type ConcExecutor(hdl: BinHandle) =
       | _ ->
         None
 
-  let evalCallOrInstr opts st addr ins stmts =
-    match tryHandleCall opts st addr ins with
+  let evalCallOrInstr opts st addr mode ins stmts =
+    match tryHandleCall opts st addr mode ins with
     | Some(Ok()) -> EvalOk
     | Some(Result.Error reason) -> EvalStopped reason
     | None -> evalInstr opts st stmts
@@ -382,14 +396,48 @@ type ConcExecutor(hdl: BinHandle) =
       Statements = stmts
       State = st }
 
+  (* The mode the state names at its PC, where it names one: ARM keeps it in
+     CPSR, which an undefined CPSR leaves unsaid, and where no register holds
+     it, the switches the jumps made say it. *)
+  let stateMode (st: ConcState) =
+    match modeRegister with
+    | Some rid ->
+      match st.TryGetReg rid with
+      | Def v -> ValueSome(DecodeMode.ofCPSR (v.ToUInt64()) initialMode)
+      | Undef -> ValueNone
+    | None ->
+      ValueSome(DecodeMode.switchTo st.ModeSwitch initialMode)
+
+  let decodeMode (opts: ConcRunOptions) st =
+    match stateMode st with
+    | ValueSome mode ->
+      ValueSome mode
+    | ValueNone ->
+      match opts.DecodeModeResolver with
+      | Some resolver -> resolver.Invoke(st.PC, st)
+      | None -> ValueSome initialMode
+
+  let undeterminedMode (st: ConcState) opts n =
+    let addr = st.PC
+    let point = mkStopPoint st addr n None [||]
+    let reasons = collectPreInstrStopReasons point opts
+    let reasons = reasons @ collectUserStopReasons point opts
+    let reason = ConcStopReason.UndeterminedDecodeMode addr
+    mkResult (reasons @ [ reason ]) addr n st
+
   let rec runLoop
     (ct: CancellationToken)
     (st: ConcState)
     (opts: ConcRunOptions)
     n =
     ct.ThrowIfCancellationRequested()
+    match decodeMode opts st with
+    | ValueSome mode -> runIn ct st opts n mode
+    | ValueNone -> undeterminedMode st opts n
+
+  and runIn ct st opts n mode =
     let addr = st.PC
-    let parsed = liftCache.TryParse addr
+    let parsed = liftCache.TryParse(addr, mode)
     let point = mkStopPoint st addr n (Result.toOption parsed) [||]
     let reasons = collectPreInstrStopReasons point opts
     match parsed with
@@ -397,7 +445,7 @@ type ConcExecutor(hdl: BinHandle) =
       let reasons = reasons @ collectUserStopReasons point opts
       invalidInstr st reasons addr n
     | Ok ins ->
-      match liftCache.TryLift addr with
+      match liftCache.TryLift(addr, mode) with
       | Result.Error _ ->
         let point = mkStopPoint st addr n (Some ins) [||]
         let reasons = reasons @ collectUserStopReasons point opts
@@ -409,7 +457,7 @@ type ConcExecutor(hdl: BinHandle) =
         let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
         let postReasons = collectPostInstrStopReasons opts st addr ins stmts
         if List.isEmpty reasons then
-          match evalCallOrInstr opts st addr ins stmts with
+          match evalCallOrInstr opts st addr mode ins stmts with
           | EvalOk ->
             if List.isEmpty postReasons then runLoop ct st opts (n + 1)
             else mkResult postReasons st.PC (n + 1) st

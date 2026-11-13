@@ -31,19 +31,6 @@ open B2R2.BinIR.LowUIR
 /// The one-bit true value that evaluated conditions are tested against.
 let tr = BitVector.One 1<rt>
 
-/// Rounds to an integral floating point value using the host's arithmetic.
-let roundToIntegral mode t v =
-  let bits = BitVector.FCast(v, 64<rt>).ToUInt64()
-  let value = System.BitConverter.UInt64BitsToDouble bits
-  let rounded =
-    match mode with
-    | RoundingMode.TowardPositive -> ceil value
-    | RoundingMode.TowardNegative -> floor value
-    | RoundingMode.TowardZero -> truncate value
-    | _ -> round value
-  let bits = System.BitConverter.DoubleToUInt64Bits rounded
-  BitVector.FCast(BitVector(bits, 64<rt>), t)
-
 /// Unsets the register or temporary that the given assignment target names, so
 /// that it reads back as undefined rather than keeping a stale value.
 let markUndefAfterFailure (st: ConcState) lhs =
@@ -51,3 +38,26 @@ let markUndefAfterFailure (st: ConcState) lhs =
   | Var(RegisterID = n) -> st.UnsetReg n
   | TempVar(Index = n) -> st.UnsetTmp n
   | _ -> ()
+
+let private modeSwitches =
+  InterJmpKind.SwitchToARM ||| InterJmpKind.SwitchToThumb
+  ||| InterJmpKind.SwitchToMIPS ||| InterJmpKind.SwitchToMicroMIPS
+  ||| InterJmpKind.SwitchToMIPS16
+
+/// Ends the instruction at the inter-instruction jump it took, noting the mode
+/// switch the jump's kind names, if any, for the instruction it lands on.
+let endWithInterJmp (st: ConcState) kind =
+  let switch = kind &&& modeSwitches
+  if switch <> InterJmpKind.Base then st.ModeSwitch <- switch else ()
+  st.AbortInstr()
+
+/// Hands a side effect to the state's handler, which is what carries it out.
+/// Whether the statements after it run is the IR's to say rather than the
+/// handler's: an effect that takes control away from the instruction ends it
+/// and advances the PC past it, unless the handler has ended it already, and
+/// any other effect lets evaluation go on to the next statement.
+let evalSideEffect (st: ConcState) eff =
+  st.OnSideEffect(eff, st)
+  if st.IsInstrTerminated then ()
+  elif SideEffect.endsInstruction eff then st.AbortInstr true
+  else st.NextStmt()

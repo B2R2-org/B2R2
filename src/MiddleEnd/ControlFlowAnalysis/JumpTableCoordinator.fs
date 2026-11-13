@@ -41,21 +41,29 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
   /// Functions that have recovered a jump table at least once.
   let hostFunctions = HashSet<Addr>()
 
-  /// Restarts the functions that recover the given phantom tables, which start
-  /// within the entries of the table that the given function has registered.
-  /// The given function reloads instead if it is one of them.
-  let restartPhantomHosts fnAddr phantoms =
+  /// Restarts the functions that recover the tables of the given notes, the
+  /// one that registered each and those waiting on it, but the given function,
+  /// and tells whether the given function is one of them.
+  let restartRecoverers fnAddr (recovered: JmpTableRecoveryNote list) =
     let hosts = HashSet<Addr>()
-    for note in phantoms do
-#if CFGDEBUG
-      dbglog ManagerTid "JumpTable phantom"
-      <| notes.GetNoteString note.StartingPoint
-#endif
+    for note in recovered do
       hosts.Add note.HostFunctionAddr |> ignore
       hosts.UnionWith note.WaitingFunctions
     for host in hosts do
       if host <> fnAddr then restartIfNotInProgress builders[host] else ()
-    if hosts.Contains fnAddr then StopRecoveryButReload else GoRecovery
+    hosts.Contains fnAddr
+
+  /// Restarts the functions that recover the given phantom tables, which start
+  /// within the entries of the table that the given function has registered.
+  /// The given function reloads instead if it is one of them.
+  let restartPhantomHosts fnAddr phantoms =
+#if CFGDEBUG
+    for note in phantoms do
+      dbglog ManagerTid "JumpTable phantom"
+      <| notes.GetNoteString note.StartingPoint
+#endif
+    if restartRecoverers fnAddr phantoms then StopRecoveryButReload
+    else GoRecovery
 
   /// Decides what the given function does after registering its table.
   let proceedAfterRegistration fnAddr (jmptbl: JmpTableInfo) result =
@@ -129,17 +137,18 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
       ()
     StopRecoveryAndContinue
 
+  /// Ends the table of the given note before the given table, which starts
+  /// within it. The functions recovering the old table start over if a walk of
+  /// it has reached past its new end, as they hold entries it no longer has,
+  /// however far their current walk has come.
   let resolveOverlap fnAddr (jmptbl: JmpTableInfo) oldNote =
     let oldTblAddr, newTblAddr = oldNote.StartingPoint, jmptbl.TableAddress
-    let entrySize = uint64 oldNote.EntrySize
-    let entryBeingAnalyzed = oldNote.ConfirmedEndPoint + entrySize
 #if CFGDEBUG
     let str = notes.GetNoteString oldNote.StartingPoint
     dbglog ManagerTid "JumpTable overlap"
     <| $"{jmptbl.InsAddr:x}:{newTblAddr:x} overlapped with ({str})"
 #endif
-    let newEndPoint = notes.EndBefore(oldTblAddr, newTblAddr)
-    if entryBeingAnalyzed <= newEndPoint then
+    if not (notes.EndBefore(oldTblAddr, newTblAddr)) then
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" $"overlap resolved and continue"
 #endif
@@ -149,10 +158,7 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
       dbglog ManagerTid "JumpTable rollback"
       <| $"changed potential endpoint to {oldNote.PotentialEndPoint:x}"
 #endif
-      if oldNote.HostFunctionAddr <> fnAddr then
-        restartIfNotInProgress builders[oldNote.HostFunctionAddr]
-      else
-        ()
+      restartRecoverers fnAddr [ oldNote ] |> ignore
       StopRecoveryButReload
 
   let registerNote fnAddr jmptbl =

@@ -70,6 +70,21 @@ type LiftCacheTests() =
       Assert.Fail "Lifting the instruction failed."
 
   [<TestMethod>]
+  member _.``Each decode mode reads an address on its own``() =
+    (* blx 0x8 in ARM, whose first halfword is movs r0, r0 in Thumb *)
+    let bytes = [| 0x00uy; 0x00uy; 0x00uy; 0xfauy |]
+    let isa = ISA(Architecture.ARMv7, Endian.Little, WordSize.Bit32)
+    let cache = BinHandle.LoadRawImage(bytes, isa, OS.Linux) |> LiftCache
+    let arm = cache.InitialMode
+    let thumb = { arm with IsThumb = true }
+    match cache.TryParse(0x0UL, thumb), cache.TryParse(0x0UL, arm) with
+    | Ok inThumb, Ok inARM ->
+      Assert.AreEqual<uint32>(2u, inThumb.Length)
+      Assert.AreEqual<uint32>(4u, inARM.Length)
+    | _ ->
+      Assert.Fail "Parsing the instruction failed."
+
+  [<TestMethod>]
   member _.``A failure to parse is remembered as well``() =
     let cache = newCache nops
     let first = cache.TryParse 0x1000UL

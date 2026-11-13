@@ -30,26 +30,46 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
+/// <summary>
 /// Parses and lifts the instruction at an address, remembering every outcome,
 /// so that code an execution revisits -- a loop body, or a callee reached a
 /// second time -- is parsed and lifted only once.
+/// </summary>
+/// <remarks>
+/// An address can be asked for in a <see
+/// cref='T:B2R2.MiddleEnd.Executor.DecodeMode'/>, the one the program is in
+/// there, which the parser is put in before it reads; an execution that
+/// follows the mode as the program moves it asks this way. Asked without one,
+/// the parser reads in whatever mode it has carried itself into, as it parsed
+/// one instruction after another. The two ways never share an outcome.
+/// </remarks>
 type LiftCache(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
-  let parseResults = Dictionary<Addr, Result<IInstruction, ErrorCase>>()
-  let liftResults = Dictionary<Addr, Result<Stmt[], ErrorCase>>()
+  let initialMode = DecodeMode.ofLiftingUnit lifter
+  let parseResults =
+    Dictionary<struct (Addr * DecodeMode voption),
+               Result<IInstruction, ErrorCase>>()
+  let liftResults =
+    Dictionary<struct (Addr * DecodeMode voption), Result<Stmt[], ErrorCase>>()
 
-  let memoize (results: Dictionary<Addr, Result<_, ErrorCase>>) addr compute =
-    match results.TryGetValue addr with
+  let memoize (results: Dictionary<_, Result<_, ErrorCase>>) key compute =
+    match results.TryGetValue key with
     | true, result ->
       result
     | false, _ ->
       let result = compute ()
-      results[addr] <- result
+      results[key] <- result
       result
 
-  let parse addr =
+  let parse addr mode =
+    match mode with
+    | ValueSome mode -> DecodeMode.apply lifter mode
+    | ValueNone -> ()
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
     else Error ErrorCase.ParsingFailure
+
+  let tryParse addr mode =
+    memoize parseResults struct (addr, mode) (fun () -> parse addr mode)
 
   (* Parsing already accepted the bytes, so the expected failures are a lifter
      that cannot express this instruction and a branch whose delay slot lies
@@ -63,35 +83,61 @@ type LiftCache(hdl: BinHandle) =
     | NotImplementedIRException _ -> Error ErrorCase.NotImplementedIR
     | MissingDelaySlotException -> Error ErrorCase.ParsingFailure
 
+  let tryLift addr mode =
+    tryParse addr mode
+    |> Result.bind (fun ins ->
+      memoize liftResults struct (addr, mode) (fun () -> lift ins)
+      |> Result.map (fun stmts -> { Instruction = ins; Stmts = stmts }))
+
+  (* A MIPS call transfers control only after its delay slot has run, so the
+     callee returns past that slot rather than to the next address. The slot
+     is read in the mode of the call. *)
+  let fallThrough addr (length: uint32) mode =
+    match hdl.ISA with
+    | MIPS ->
+      let delaySlotAddr = addr + uint64 length
+      match tryParse delaySlotAddr mode with
+      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
+      | Error _ -> delaySlotAddr + uint64 length
+    | _ ->
+      addr + uint64 length
+
   (* A step of zero, or one that wraps past the end of the address space, would
      leave the walk on the same address forever; either one ends it instead. *)
   let advance addr amount finishAddr =
     let nextAddr = addr + amount
     if nextAddr <= addr then finishAddr else nextAddr
 
-  /// Parses the instruction at the given address.
-  member _.TryParse addr = memoize parseResults addr (fun () -> parse addr)
+  /// The mode the binary starts in, which is the one a fresh lifting unit
+  /// decodes in.
+  member _.InitialMode with get(): DecodeMode = initialMode
 
-  /// Parses and lifts the instruction at the given address.
-  member this.TryLift addr =
-    this.TryParse addr
-    |> Result.bind (fun ins ->
-      memoize liftResults addr (fun () -> lift ins)
-      |> Result.map (fun stmts -> { Instruction = ins; Stmts = stmts }))
+  /// Parses the instruction at the given address, in the mode the parser has
+  /// carried itself into.
+  member _.TryParse(addr: Addr) = tryParse addr ValueNone
 
-  (* A MIPS call transfers control only after its delay slot has run, so the
-     callee returns past that slot rather than to the next address. *)
+  /// Parses the instruction at the given address in the given mode.
+  member _.TryParse(addr: Addr, mode: DecodeMode) =
+    tryParse addr (ValueSome mode)
+
+  /// Parses and lifts the instruction at the given address, in the mode the
+  /// parser has carried itself into.
+  member _.TryLift(addr: Addr) = tryLift addr ValueNone
+
+  /// Parses and lifts the instruction at the given address in the given mode.
+  member _.TryLift(addr: Addr, mode: DecodeMode) =
+    tryLift addr (ValueSome mode)
+
   /// Returns the address that a callee returns to, given the address and the
   /// length of the call instruction it was called from.
-  member this.FallThroughAddr(addr, length: uint32) =
-    match hdl.ISA with
-    | MIPS ->
-      let delaySlotAddr = addr + uint64 length
-      match this.TryParse delaySlotAddr with
-      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
-      | Error _ -> delaySlotAddr + uint64 length
-    | _ ->
-      addr + uint64 length
+  member _.FallThroughAddr(addr, length: uint32) =
+    fallThrough addr length ValueNone
+
+  /// Returns the address that a callee returns to, given the address and the
+  /// length of the call instruction it was called from, and the mode it was
+  /// read in.
+  member _.FallThroughAddr(addr, length: uint32, mode: DecodeMode) =
+    fallThrough addr length (ValueSome mode)
 
   /// Parses and lifts every instruction in the given half-open address ranges,
   /// so that a run over them finds each instruction already lifted.

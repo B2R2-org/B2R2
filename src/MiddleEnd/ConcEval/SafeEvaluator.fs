@@ -37,10 +37,6 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ConcEval.EvalUtils
 open B2R2.MiddleEnd.Executor
 
-let private map1 fn p1 = function
-  | Ok(Def bv) -> Def(fn (bv, p1)) |> Ok
-  | _ -> Error ErrorCase.InvalidExprEvaluation
-
 let private map2 fn p1 p2 = function
   | Ok(Def bv) -> Def(fn (bv, p1, p2)) |> Ok
   | _ -> Error ErrorCase.InvalidExprEvaluation
@@ -51,7 +47,7 @@ let private unwrap = function
 
 /// Evaluates a given expression in the context of the provided evaluation
 /// state.
-let rec evalExpr (st: ConcState) e =
+let rec private evalExprIn ((st: ConcState), mode) e =
   match e with
   | Num(Value = n) ->
     Def n |> Ok
@@ -62,28 +58,31 @@ let rec evalExpr (st: ConcState) e =
   | TempVar(Index = n) ->
     st.TryGetTmp n |> Ok
   | UnOp(Op = t; Operand = e) ->
-    evalUnOp st e t
+    evalUnOp (st, mode) e t
   | BinOp(Op = t; Left = e1; Right = e2) ->
-    evalBinOp st e1 e2 t
+    evalBinOp (st, mode) e1 e2 t
   | RelOp(Op = t; Left = e1; Right = e2) ->
-    evalRelOp st e1 e2 t
+    evalRelOp (st, mode) e1 e2 t
   | Load(Endian = endian; Type = t; Addr = addr) ->
-    evalLoad st endian t addr
+    evalLoad (st, mode) endian t addr
   | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
-    evalIte st cond e1 e2
+    evalIte (st, mode) cond e1 e2
   | Cast(Kind = kind; Type = t; Operand = e) ->
-    evalCast st t e kind
-  | RoundCtrl(Mode = mode; Body = body) ->
-    evalRoundCtrl st mode body
+    evalCast (st, mode) t e kind
+  | RoundCtrl(Mode = direction; Body = body) ->
+    match evalExprIn (st, mode) direction |> unwrap with
+    | Ok m -> evalExprIn (st, enum<RoundingMode> (int (m.ToUInt64()))) body
+    | Error e -> Error e
   | Extract(Operand = e; Type = t; StartPos = p) ->
-    evalExpr st e |> map2 BitVector.Extract t p
+    evalExprIn (st, mode) e |> map2 BitVector.Extract t p
   | Undefined _ ->
     Ok Undef
   | _ ->
     Error ErrorCase.InvalidExprEvaluation
 
-and private evalLoad st endian t addr =
-  match evalExpr st addr |> unwrap |> Result.map (fun bv -> bv.ToUInt64()) with
+and private evalLoad ((st: ConcState), mode) endian t addr =
+  let addr = evalExprIn (st, mode) addr |> unwrap
+  match addr |> Result.map (fun bv -> bv.ToUInt64()) with
   | Ok addr ->
     match Memory.read addr endian t st.Memory with
     | Ok v ->
@@ -94,121 +93,99 @@ and private evalLoad st endian t addr =
   | Error e ->
     Error e
 
-and private evalIte st cond e1 e2 =
-  match evalExpr st cond |> unwrap with
-  | Ok cond -> if cond = tr then evalExpr st e1 else evalExpr st e2
-  | Error e -> Error e
+and private evalIte (st, mode) cond e1 e2 =
+  match evalExprIn (st, mode) cond |> unwrap with
+  | Ok cond ->
+    if cond = tr then evalExprIn (st, mode) e1
+    else evalExprIn (st, mode) e2
+  | Error e ->
+    Error e
 
-and private evalBinOpConc st e1 e2 fn =
-  let e1 = evalExpr st e1 |> unwrap
-  let e2 = evalExpr st e2 |> unwrap
+and private evalBinOpConc (st, mode) e1 e2 fn =
+  let e1 = evalExprIn (st, mode) e1 |> unwrap
+  let e2 = evalExprIn (st, mode) e2 |> unwrap
   match e1, e2 with
   | Ok e1, Ok e2 -> fn (e1, e2) |> Def |> Ok
   | Error e, _ | _, Error e -> Error e
 
-and private evalUnOpConc st e fn =
-  evalExpr st e |> unwrap |> Result.map (fn >> Def)
+and private evalUnOpConc (st, mode) e fn =
+  evalExprIn (st, mode) e |> unwrap |> Result.map (fn >> Def)
 
-and private evalCast st t e = function
-  | CastKind.SignExt ->
-    evalExpr st e |> map1 BitVector.SExt t
-  | CastKind.ZeroExt ->
-    evalExpr st e |> map1 BitVector.ZExt t
-  | CastKind.FloatCast ->
-    evalExpr st e |> map1 BitVector.FCast t
-  | CastKind.SIntToFloat ->
-    evalExpr st e |> map2 BitVector.Itof t true
-  | CastKind.UIntToFloat ->
-    evalExpr st e |> map2 BitVector.Itof t false
-  (* No direction is in force here, this evaluator having no notion of one, so
-     the conversion rounds to nearest as everything else does. A direction the
-     expression names outright is honoured by evalFtoI instead. *)
-  | CastKind.FloatToSInt ->
-    evalExpr st e |> map1 BitVector.FtoiRound t
+and private evalCast (st, mode) t e kind =
+  match kind with
+  | CastKind.SignExt | CastKind.ZeroExt | CastKind.FloatCast
+  | CastKind.SIntToFloat | CastKind.UIntToFloat | CastKind.FloatToSInt
   | CastKind.RoundToIntegral ->
-    evalUnOpConc st e (roundToIntegral RoundingMode.ToNearestEven t)
+    evalUnOpConc (st, mode) e (FloatingPoint.convert mode kind t)
   | _ ->
     Error ErrorCase.InvalidExprEvaluation
 
-/// <summary>
-/// Evaluates float-to-integer conversions and integral rounding in a named
-/// direction. Other bodies use the host's round-to-nearest arithmetic.
-/// </summary>
-and private evalRoundCtrl st mode body =
-  match mode, body with
-  | Num(Value = m), Cast(Kind = CastKind.FloatToSInt; Type = t; Operand = e) ->
-    evalFtoI st (enum<RoundingMode> (int (m.ToUInt64()))) t e
-  | Num(Value = m), Cast(Kind = CastKind.RoundToIntegral; Type = t;
-                       Operand = e) ->
-    let mode = enum<RoundingMode> (int (m.ToUInt64()))
-    evalUnOpConc st e (roundToIntegral mode t)
-  | _ ->
-    evalExpr st body
-
-/// Converts a float to an integer in a direction the expression named.
-and private evalFtoI st mode t e =
-  match mode with
-  | RoundingMode.TowardPositive -> evalExpr st e |> map1 BitVector.FtoiCeil t
-  | RoundingMode.TowardNegative -> evalExpr st e |> map1 BitVector.FtoiFloor t
-  | RoundingMode.TowardZero -> evalExpr st e |> map1 BitVector.FtoiTrunc t
-  | _ -> evalExpr st e |> map1 BitVector.FtoiRound t
-
-and private evalUnOp st e = function
-  | UnOpType.NEG -> evalUnOpConc st e BitVector.Neg
-  | UnOpType.NOT -> evalUnOpConc st e BitVector.Not
-  | UnOpType.FSQRT -> evalUnOpConc st e BitVector.FSqrt
-  | UnOpType.FCOS -> evalUnOpConc st e BitVector.FCos
-  | UnOpType.FSIN -> evalUnOpConc st e BitVector.FSin
-  | UnOpType.FTAN -> evalUnOpConc st e BitVector.FTan
-  | UnOpType.FATAN -> evalUnOpConc st e BitVector.FAtan
-  | UnOpType.FASIN -> evalUnOpConc st e BitVector.FAsin
-  | UnOpType.FACOS -> evalUnOpConc st e BitVector.FAcos
-  | UnOpType.FSINH -> evalUnOpConc st e BitVector.FSinh
-  | UnOpType.FCOSH -> evalUnOpConc st e BitVector.FCosh
-  | UnOpType.FTANH -> evalUnOpConc st e BitVector.FTanh
-  | UnOpType.FATANH -> evalUnOpConc st e BitVector.FAtanh
+and private evalUnOp (st, mode) e typ =
+  let eval = evalUnOpConc (st, mode) e
+  match typ with
+  | UnOpType.NEG -> eval BitVector.Neg
+  | UnOpType.NOT -> eval BitVector.Not
+  | UnOpType.FSQRT -> eval (FloatingPoint.sqrt mode)
+  | UnOpType.FCOS -> eval (FloatingPoint.unary typ)
+  | UnOpType.FSIN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FTAN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FATAN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FASIN -> eval (FloatingPoint.unary typ)
+  | UnOpType.FACOS -> eval (FloatingPoint.unary typ)
+  | UnOpType.FSINH -> eval (FloatingPoint.unary typ)
+  | UnOpType.FCOSH -> eval (FloatingPoint.unary typ)
+  | UnOpType.FTANH -> eval (FloatingPoint.unary typ)
+  | UnOpType.FATANH -> eval (FloatingPoint.unary typ)
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
-and private evalBinOp st e1 e2 = function
-  | BinOpType.ADD -> evalBinOpConc st e1 e2 BitVector.Add
-  | BinOpType.SUB -> evalBinOpConc st e1 e2 BitVector.Sub
-  | BinOpType.MUL -> evalBinOpConc st e1 e2 BitVector.Mul
-  | BinOpType.DIV -> evalBinOpConc st e1 e2 BitVector.Div
-  | BinOpType.SDIV -> evalBinOpConc st e1 e2 BitVector.SDiv
-  | BinOpType.MOD -> evalBinOpConc st e1 e2 BitVector.Modulo
-  | BinOpType.SMOD -> evalBinOpConc st e1 e2 BitVector.SModulo
-  | BinOpType.SHL -> evalBinOpConc st e1 e2 BitVector.Shl
-  | BinOpType.SAR -> evalBinOpConc st e1 e2 BitVector.Sar
-  | BinOpType.SHR -> evalBinOpConc st e1 e2 BitVector.Shr
-  | BinOpType.AND -> evalBinOpConc st e1 e2 BitVector.And
-  | BinOpType.OR -> evalBinOpConc st e1 e2 BitVector.Or
-  | BinOpType.XOR -> evalBinOpConc st e1 e2 BitVector.Xor
-  | BinOpType.CONCAT -> evalBinOpConc st e1 e2 BitVector.Concat
-  | BinOpType.FADD -> evalBinOpConc st e1 e2 BitVector.FAdd
-  | BinOpType.FSUB -> evalBinOpConc st e1 e2 BitVector.FSub
-  | BinOpType.FMUL -> evalBinOpConc st e1 e2 BitVector.FMul
-  | BinOpType.FDIV -> evalBinOpConc st e1 e2 BitVector.FDiv
-  | BinOpType.FPOW -> evalBinOpConc st e1 e2 BitVector.FPow
-  | BinOpType.FLOG -> evalBinOpConc st e1 e2 BitVector.FLog
+and private evalBinOp (st, mode) e1 e2 typ =
+  let eval = evalBinOpConc (st, mode) e1 e2
+  match typ with
+  | BinOpType.ADD -> eval BitVector.Add
+  | BinOpType.SUB -> eval BitVector.Sub
+  | BinOpType.MUL -> eval BitVector.Mul
+  | BinOpType.DIV -> eval BitVector.Div
+  | BinOpType.SDIV -> eval BitVector.SDiv
+  | BinOpType.MOD -> eval BitVector.Modulo
+  | BinOpType.SMOD -> eval BitVector.SModulo
+  | BinOpType.SHL -> eval BitVector.Shl
+  | BinOpType.SAR -> eval BitVector.Sar
+  | BinOpType.SHR -> eval BitVector.Shr
+  | BinOpType.AND -> eval BitVector.And
+  | BinOpType.OR -> eval BitVector.Or
+  | BinOpType.XOR -> eval BitVector.Xor
+  | BinOpType.CONCAT -> eval BitVector.Concat
+  | BinOpType.FADD -> eval (FloatingPoint.binary mode BinOpType.FADD)
+  | BinOpType.FSUB -> eval (FloatingPoint.binary mode BinOpType.FSUB)
+  | BinOpType.FMUL -> eval (FloatingPoint.binary mode BinOpType.FMUL)
+  | BinOpType.FDIV -> eval (FloatingPoint.binary mode BinOpType.FDIV)
+  | BinOpType.FPOW -> eval (FloatingPoint.binary mode BinOpType.FPOW)
+  | BinOpType.FLOG -> eval (FloatingPoint.binary mode BinOpType.FLOG)
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
-and private evalRelOp st e1 e2 = function
-  | RelOpType.EQ -> evalBinOpConc st e1 e2 BitVector.Eq
-  | RelOpType.NEQ -> evalBinOpConc st e1 e2 BitVector.Neq
-  | RelOpType.GT -> evalBinOpConc st e1 e2 BitVector.Gt
-  | RelOpType.GE -> evalBinOpConc st e1 e2 BitVector.Ge
-  | RelOpType.SGT -> evalBinOpConc st e1 e2 BitVector.SGt
-  | RelOpType.SGE -> evalBinOpConc st e1 e2 BitVector.SGe
-  | RelOpType.LT -> evalBinOpConc st e1 e2 BitVector.Lt
-  | RelOpType.LE -> evalBinOpConc st e1 e2 BitVector.Le
-  | RelOpType.SLT -> evalBinOpConc st e1 e2 BitVector.SLt
-  | RelOpType.SLE -> evalBinOpConc st e1 e2 BitVector.SLe
-  | RelOpType.FEQ -> evalBinOpConc st e1 e2 BitVector.FEq
-  | RelOpType.FLT -> evalBinOpConc st e1 e2 BitVector.FLt
-  | RelOpType.FLE -> evalBinOpConc st e1 e2 BitVector.FLe
-  | RelOpType.FGT -> evalBinOpConc st e1 e2 BitVector.FGt
-  | RelOpType.FGE -> evalBinOpConc st e1 e2 BitVector.FGe
+and private evalRelOp (st, mode) e1 e2 typ =
+  let eval = evalBinOpConc (st, mode) e1 e2
+  match typ with
+  | RelOpType.EQ -> eval BitVector.Eq
+  | RelOpType.NEQ -> eval BitVector.Neq
+  | RelOpType.GT -> eval BitVector.Gt
+  | RelOpType.GE -> eval BitVector.Ge
+  | RelOpType.SGT -> eval BitVector.SGt
+  | RelOpType.SGE -> eval BitVector.SGe
+  | RelOpType.LT -> eval BitVector.Lt
+  | RelOpType.LE -> eval BitVector.Le
+  | RelOpType.SLT -> eval BitVector.SLt
+  | RelOpType.SLE -> eval BitVector.SLe
+  | RelOpType.FNEQ -> eval (FloatingPoint.relation typ)
+  | RelOpType.FEQ -> eval (FloatingPoint.relation typ)
+  | RelOpType.FLT -> eval (FloatingPoint.relation typ)
+  | RelOpType.FLE -> eval (FloatingPoint.relation typ)
+  | RelOpType.FGT -> eval (FloatingPoint.relation typ)
+  | RelOpType.FGE -> eval (FloatingPoint.relation typ)
   | _ -> Error ErrorCase.InvalidExprEvaluation
+
+/// Evaluates an expression, using round-to-nearest outside RoundCtrl.
+let evalExpr st e = evalExprIn (st, RoundingMode.ToNearestEven) e
 
 let private evalPCUpdate st rhs =
   match evalExpr st rhs with
@@ -292,8 +269,8 @@ let evalStmt (st: ConcState) stmt =
     evalJmp st target
   | CJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
     evalCJmp st cond t f
-  | InterJmp(Target = target) ->
-    evalPCUpdate st target |> Result.map st.AbortInstr
+  | InterJmp(Target = target; Kind = kind) ->
+    evalPCUpdate st target |> Result.map (fun () -> endWithInterJmp st kind)
   | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
     evalIntCJmp st c t f |> Result.map st.AbortInstr
   | ExternalCall(Call = call) ->
@@ -301,9 +278,7 @@ let evalStmt (st: ConcState) stmt =
     |> Result.map (fun struct (name, args) ->
       st.OnExternalCall(name, args, st) |> st.NextStmt)
   | SideEffect(Effect = eff) ->
-    st.OnSideEffect(eff, st)
-    if st.IsInstrTerminated then () else st.AbortInstr true
-    Ok()
+    evalSideEffect st eff |> Ok
 
 let private evalStmtOrSkip (st: ConcState) stmt =
   match evalStmt st stmt with
