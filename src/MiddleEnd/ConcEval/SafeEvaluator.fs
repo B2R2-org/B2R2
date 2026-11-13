@@ -110,29 +110,38 @@ and private evalUnOpConc st e fn =
   evalExpr st e |> unwrap |> Result.map (fn >> Def)
 
 and private evalCast st t e = function
-  | CastKind.SignExt -> evalExpr st e |> map1 BitVector.SExt t
-  | CastKind.ZeroExt -> evalExpr st e |> map1 BitVector.ZExt t
-  | CastKind.FloatCast -> evalExpr st e |> map1 BitVector.FCast t
-  | CastKind.SIntToFloat -> evalExpr st e |> map2 BitVector.Itof t true
-  | CastKind.UIntToFloat -> evalExpr st e |> map2 BitVector.Itof t false
+  | CastKind.SignExt ->
+    evalExpr st e |> map1 BitVector.SExt t
+  | CastKind.ZeroExt ->
+    evalExpr st e |> map1 BitVector.ZExt t
+  | CastKind.FloatCast ->
+    evalExpr st e |> map1 BitVector.FCast t
+  | CastKind.SIntToFloat ->
+    evalExpr st e |> map2 BitVector.Itof t true
+  | CastKind.UIntToFloat ->
+    evalExpr st e |> map2 BitVector.Itof t false
   (* No direction is in force here, this evaluator having no notion of one, so
      the conversion rounds to nearest as everything else does. A direction the
      expression names outright is honoured by evalFtoI instead. *)
-  | CastKind.FloatToSInt -> evalExpr st e |> map1 BitVector.FtoiRound t
-  | _ -> Error ErrorCase.InvalidExprEvaluation
+  | CastKind.FloatToSInt ->
+    evalExpr st e |> map1 BitVector.FtoiRound t
+  | CastKind.RoundToIntegral ->
+    evalUnOpConc st e (roundToIntegral RoundingMode.ToNearestEven t)
+  | _ ->
+    Error ErrorCase.InvalidExprEvaluation
 
 /// <summary>
-/// Evaluates a body in a direction it names. A float-to-integer conversion is
-/// the one rounding this evaluator can follow -- BitVector has a conversion
-/// for each of the four directions, where its arithmetic is the host's and
-/// takes none -- so every other body is evaluated as though the mode said
-/// round-to-nearest, which is what this evaluator did before a direction could
-/// be expressed at all.
+/// Evaluates float-to-integer conversions and integral rounding in a named
+/// direction. Other bodies use the host's round-to-nearest arithmetic.
 /// </summary>
 and private evalRoundCtrl st mode body =
   match mode, body with
   | Num(Value = m), Cast(Kind = CastKind.FloatToSInt; Type = t; Operand = e) ->
     evalFtoI st (enum<RoundingMode> (int (m.ToUInt64()))) t e
+  | Num(Value = m), Cast(Kind = CastKind.RoundToIntegral; Type = t;
+                       Operand = e) ->
+    let mode = enum<RoundingMode> (int (m.ToUInt64()))
+    evalUnOpConc st e (roundToIntegral mode t)
   | _ ->
     evalExpr st body
 
@@ -194,6 +203,7 @@ and private evalRelOp st e1 e2 = function
   | RelOpType.LE -> evalBinOpConc st e1 e2 BitVector.Le
   | RelOpType.SLT -> evalBinOpConc st e1 e2 BitVector.SLt
   | RelOpType.SLE -> evalBinOpConc st e1 e2 BitVector.SLe
+  | RelOpType.FEQ -> evalBinOpConc st e1 e2 BitVector.FEq
   | RelOpType.FLT -> evalBinOpConc st e1 e2 BitVector.FLt
   | RelOpType.FLE -> evalBinOpConc st e1 e2 BitVector.FLe
   | RelOpType.FGT -> evalBinOpConc st e1 e2 BitVector.FGt

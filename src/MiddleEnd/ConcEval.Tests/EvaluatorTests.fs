@@ -81,6 +81,70 @@ type EvaluatorTests() =
     Assert.AreEqual<bool>(true, st.IsInstrTerminated)
     Assert.AreEqual<Addr>(2UL, st.PC)
 
+  let assertValue expected expr =
+    Assert.AreEqual<BitVector>(expected, Evaluator.evalExpr (newState ()) expr)
+    Assert.AreEqual(Ok(Def expected),
+                    SafeEvaluator.evalExpr (newState ()) expr)
+
+  [<TestMethod>]
+  member _.``Integral rounding preserves floating point values``() =
+    for t in [ 32<rt>; 64<rt> ] do
+      let num value =
+        let bits = System.BitConverter.DoubleToUInt64Bits value
+        BitVector.FCast(BitVector(bits, 64<rt>), t)
+      let src = AST.num (num 2.5)
+      AST.cast CastKind.RoundToIntegral t src |> assertValue (num 2.0)
+      for mode, expected in
+        [ RoundingMode.ToNearestEven, 2.0
+          RoundingMode.TowardPositive, 3.0
+          RoundingMode.TowardNegative, 2.0
+          RoundingMode.TowardZero, 2.0 ] do
+        AST.roundToIntegral mode t src |> assertValue (num expected)
+      for value in [ -0.0; infinity; -infinity; 1e30 ] do
+        let v = num value
+        AST.cast CastKind.RoundToIntegral t (AST.num v) |> assertValue v
+      AST.roundToIntegral RoundingMode.TowardZero t (AST.num (num -0.25))
+      |> assertValue (num -0.0)
+
+  [<TestMethod>]
+  member _.``Floating equality handles zeros and NaNs``() =
+    for t in [ 32<rt>; 64<rt> ] do
+      let num (bits: uint64) =
+        AST.num (BitVector.FCast(BitVector(bits, 64<rt>), t))
+      let zero = num 0UL
+      let negZero = num 0x8000000000000000UL
+      let nan = num 0x7ff8000000000000UL
+      AST.relop RelOpType.FEQ zero negZero
+      |> assertValue (BitVector.One 1<rt>)
+      AST.relop RelOpType.FEQ nan nan
+      |> assertValue (BitVector.Zero 1<rt>)
+
+  [<DataTestMethod>]
+  [<DataRow(false, "0000781e", "V0A", 0x4006000000000000UL,
+            "X0", 2UL)>]
+  [<DataRow(true, "0000781e", "V0A", 0x4006000000000000UL,
+            "X0", 2UL)>]
+  [<DataRow(false, "0000781e", "V0A", 0xc006000000000000UL,
+            "X0", 0xfffffffeUL)>]
+  [<DataRow(true, "0000781e", "V0A", 0xc006000000000000UL,
+            "X0", 0xfffffffeUL)>]
+  [<DataRow(false, "0000639e", "X0", 4UL, "V0A", 0x4010000000000000UL)>]
+  [<DataRow(true, "0000639e", "X0", 4UL, "V0A", 0x4010000000000000UL)>]
+  member _.``AArch64 conversions``(safe, hex, src, value, dst, expected) =
+    let bytes = ByteArray.ofHexString hex
+    let hdl = BinHandle.LoadRawImage(bytes, ISA "aarch64", OS.Linux)
+    let stmts = hdl.NewLiftingUnit().LiftInstruction(0UL)
+    let rf = hdl.RegisterFactory
+    let st = ConcState()
+    for name, v in [ "FPCR", 0UL; "FPSR", 0UL; "V0B", 0UL; src, value ] do
+      st.SetReg(rf.GetRegisterID name, BitVector((v: uint64), 64<rt>))
+    if safe then
+      Assert.AreEqual(Ok(), SafeEvaluator.evalInstr st stmts)
+    else
+      Evaluator.evalInstr st stmts
+    let actual = st.GetReg(rf.GetRegisterID(dst: string))
+    Assert.AreEqual<BitVector>(BitVector((expected: uint64), 64<rt>), actual)
+
   [<TestMethod>]
   member _.``Safe side effect terminates the instruction by default``() =
     let st = newState ()

@@ -63,16 +63,19 @@ let rec evalExpr (st: ConcState) e =
     if cond = tr then evalExpr st e1 else evalExpr st e2
   | Cast(Kind = kind; Type = t; Operand = e) ->
     evalCast st t e kind
-  (* A float-to-integer conversion in a direction named outright is the one
-     rounding this evaluator can follow: BitVector has a conversion for each of
-     the four, where its arithmetic is the host's and takes no direction. Every
-     other body is evaluated as though the mode said round-to-nearest, which is
-     what this evaluator did before the mode could be expressed at all. *)
+  (* Float-to-integer conversions and integral rounding follow an explicitly
+     named direction. Other bodies use the host's round-to-nearest arithmetic.
+     Outside RoundCtrl, this evaluator defaults to round-to-nearest. *)
   | RoundCtrl(Mode = Num(Value = m)
               Body = Cast(Kind = CastKind.FloatToSInt
                           Type = t
                           Operand = e)) ->
     evalFtoI (enum<RoundingMode> (int (m.ToUInt64()))) t (evalExpr st e)
+  | RoundCtrl(Mode = Num(Value = m)
+              Body = Cast(Kind = CastKind.RoundToIntegral
+                          Type = t
+                          Operand = e)) ->
+    roundToIntegral (enum<RoundingMode> (int (m.ToUInt64()))) t (evalExpr st e)
   | RoundCtrl(Body = body) ->
     evalExpr st body
   | Extract(Operand = e; Type = t; StartPos = p) ->
@@ -94,16 +97,25 @@ and private evalLoad st endian t addr =
     | Error _ -> raise (InvalidMemoryReadException addr)
 
 and private evalCast st t e = function
-  | CastKind.SignExt -> BitVector.SExt(evalExpr st e, t)
-  | CastKind.ZeroExt -> BitVector.ZExt(evalExpr st e, t)
-  | CastKind.FloatCast -> BitVector.FCast(evalExpr st e, t)
-  | CastKind.SIntToFloat -> BitVector.Itof(evalExpr st e, t, true)
-  | CastKind.UIntToFloat -> BitVector.Itof(evalExpr st e, t, false)
+  | CastKind.SignExt ->
+    BitVector.SExt(evalExpr st e, t)
+  | CastKind.ZeroExt ->
+    BitVector.ZExt(evalExpr st e, t)
+  | CastKind.FloatCast ->
+    BitVector.FCast(evalExpr st e, t)
+  | CastKind.SIntToFloat ->
+    BitVector.Itof(evalExpr st e, t, true)
+  | CastKind.UIntToFloat ->
+    BitVector.Itof(evalExpr st e, t, false)
   (* No direction is in force here, this evaluator having no notion of one, so
      the conversion rounds to nearest as everything else does. A direction the
      expression names outright is honoured by evalFtoI instead. *)
-  | CastKind.FloatToSInt -> BitVector.FtoiRound(evalExpr st e, t)
-  | _ -> raise IllegalASTTypeException
+  | CastKind.FloatToSInt ->
+    BitVector.FtoiRound(evalExpr st e, t)
+  | CastKind.RoundToIntegral ->
+    roundToIntegral RoundingMode.ToNearestEven t (evalExpr st e)
+  | _ ->
+    raise IllegalASTTypeException
 
 /// Converts a float to an integer in a direction the expression named.
 and private evalFtoI mode t v =
@@ -171,6 +183,7 @@ and private evalRelOp st e1 e2 typ =
   | RelOpType.LE -> BitVector.Le(e1, e2)
   | RelOpType.SLT -> BitVector.SLt(e1, e2)
   | RelOpType.SLE -> BitVector.SLe(e1, e2)
+  | RelOpType.FEQ -> BitVector.FEq(e1, e2)
   | RelOpType.FLT -> BitVector.FLt(e1, e2)
   | RelOpType.FLE -> BitVector.FLe(e1, e2)
   | RelOpType.FGT -> BitVector.FGt(e1, e2)
