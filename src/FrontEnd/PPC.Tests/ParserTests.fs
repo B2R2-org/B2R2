@@ -6564,7 +6564,7 @@ type VLEParserTests() =
     let parsable = parser :> IInstructionParsable
     let opcodeOf hex =
       (parsable.Parse(ByteArray.ofHexString hex, 0UL) :?> Instruction).Opcode
-    Assert.IsFalse parser.IsVLE
+    Assert.AreEqual<bool>(false, parser.IsVLE)
     Assert.AreEqual<Opcode>(MR, opcodeOf "7c832378")
     Assert.AreEqual<int>(4, parsable.InstructionAlignment)
     parser.IsVLE <- true
