@@ -589,6 +589,31 @@ type DataFlowTests() =
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, v0)
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, v1)
 
+  /// MIPS copies a register by oring it with zero, so `move a0, sp` hands the
+  /// callee the address of the slot at 0(sp) as well.
+  [<TestMethod>]
+  member _.``Constant Propagation forgets a slot that an or hands on``() =
+    let state =
+      [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+        "afbf001c" (* sw ra, 0x1c(sp) *)
+        "24010001" (* addiu at, zero, 1 *)
+        "a3a10000" (* sb at, 0(sp) *)
+        "04110005" (* bal 0x400028 *)
+        "03a02025" (* or a0, sp, zero *)
+        "93a20000" (* lbu v0, 0(sp) *)
+        "8fbf001c" (* lw ra, 0x1c(sp) *)
+        "03e00008" (* jr ra *)
+        "27bd0020" (* addiu sp, sp, 0x20 *)
+        "03e00008" (* jr ra *)
+        "a0800000" (* sb zero, 0(a0) *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+      |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x400018UL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
+
   /// A slot that a callee may write still tells what it holds if the callee
   /// does not: what the function stores there before the call.
   [<TestMethod>]

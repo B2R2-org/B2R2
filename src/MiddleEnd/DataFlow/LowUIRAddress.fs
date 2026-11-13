@@ -81,6 +81,7 @@ let rec evalExpr evalVar pt (e: Expr) =
     | BinOpType.ADD -> AddressDomain.add v1 v2
     | BinOpType.SUB -> AddressDomain.sub v1 v2
     | BinOpType.AND -> AddressDomain.``and`` v1 v2
+    | BinOpType.OR -> AddressDomain.``or`` v1 v2
     | _ -> AddressDomain.NotAConst
   | _ ->
     AddressDomain.NotAConst

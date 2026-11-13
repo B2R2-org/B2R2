@@ -116,10 +116,22 @@ module AddressDomain =
     | _ ->
       NotAConst
 
+  /// Computes the bitwise OR of the two lattice elements. Oring an address on
+  /// the stack with zero keeps it, as MIPS copies a register that way.
+  let ``or`` c1 c2 =
+    match c1, c2 with
+    | Undef, _ | _, Undef ->
+      Undef
+    | StackAddr off, Const z | Const z, StackAddr off when z.IsZero ->
+      StackAddr off
+    | _ ->
+      NotAConst
+
   /// Evaluates the given binary operator in this domain.
   let internal evalBinOp op c1 c2 =
     match op with
     | BinOpType.ADD -> add c1 c2
     | BinOpType.SUB -> sub c1 c2
     | BinOpType.AND -> ``and`` c1 c2
+    | BinOpType.OR -> ``or`` c1 c2
     | _ -> NotAConst
