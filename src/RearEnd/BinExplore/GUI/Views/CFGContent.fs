@@ -38,6 +38,7 @@ open Avalonia.Media
 open Avalonia.Input
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.FuncUI.VirtualDom
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -473,7 +474,9 @@ let inline private isSelectableToken word =
   | AsmWordKind.InstructionDelimiter -> false
   | _ -> true
 
-let private tokenView fnAddr provider model dispatch selected word token words =
+/// The token a view stands for rides in its Tag, so that the canvas can build
+/// the token's context menu when it is asked for instead of on every render.
+let private tokenView model dispatch selected word token =
   if not (isSelectableToken word) then
     tokenTextView model word :> IView
   else
@@ -483,21 +486,19 @@ let private tokenView fnAddr provider model dispatch selected word token words =
         else model.Theme.Common.Transparent
       )
       Border.cornerRadius 2.0
-      Control.contextMenu (
-        tokenContextMenu fnAddr provider model dispatch word token words
-      )
+      Control.tag token
       Control.onTapped (onTokenPressed dispatch token)
       Border.child (tokenTextView model word)
     ]
 
-let private disasmLnView fnAddr provider model dispatch tokenAt selected words =
+let private disasmLnView model dispatch tokenAt selected words =
   StackPanel.create [
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children [
       for wordIdx, word in Array.indexed words do
         let token = tokenAt wordIdx
         let isSelected = selected wordIdx
-        tokenView fnAddr provider model dispatch isSelected word token words
+        tokenView model dispatch isSelected word token
     ]
   ]
 
@@ -507,9 +508,8 @@ let private selectedTokenOf nID lineIdx wordIdx range =
     WordIndex = wordIdx
     Range = range }
 
-let private disasmView provider model dispatch loaded nID n =
+let private disasmView model dispatch loaded nID n =
   let viewState = loaded.ViewState
-  let fnAddr = loaded.FunctionAddress
   let lines =
     if model.Theme.Font.Monospace.FontSize * viewState.Zoom < 6.0 then [||]
     else ((n: IVertex<_>).VData :> IVisualizable).Visualize()
@@ -528,11 +528,11 @@ let private disasmView provider model dispatch loaded nID n =
             sel.NodeID = nID && sel.LineIndex = lnIdx && sel.WordIndex = wordIdx
           | None ->
             false
-        disasmLnView fnAddr provider model dispatch tokenAt selected words
+        disasmLnView model dispatch tokenAt selected words
     ]
   ]
 
-let private nodeView provider model dispatch nID loaded x y w h n =
+let private nodeView model dispatch nID loaded x y w h n =
   let viewState = loaded.ViewState
   let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
   Border.create [
@@ -554,14 +554,14 @@ let private nodeView provider model dispatch nID loaded x y w h n =
             Viewbox.stretch Stretch.Uniform
             Viewbox.horizontalAlignment HorizontalAlignment.Left
             Viewbox.verticalAlignment VerticalAlignment.Top
-            Viewbox.child (disasmView provider model dispatch loaded nID n)
+            Viewbox.child (disasmView model dispatch loaded nID n)
           ]
         )
       ]
     )
   ] |> View.withKey $"node-{nID}" :> IView
 
-let private graphNodes provider model dispatch loaded isVisible =
+let private graphNodes model dispatch loaded isVisible =
   let zoom = loaded.ViewState.Zoom
   [ for nodeID, n in Array.indexed loaded.Graph.Vertices do
       let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
@@ -571,7 +571,7 @@ let private graphNodes provider model dispatch loaded isVisible =
       else
         let w = ceil (w * zoom) + 1.1 (* margin to avoid clipping *)
         let h = ceil (h * zoom) + 1.1
-        nodeView provider model dispatch nodeID loaded x y w h n ]
+        nodeView model dispatch nodeID loaded x y w h n ]
 
 let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
@@ -652,6 +652,40 @@ let private onReleased (pressed, isPanning) dispatch e =
   if isPanning then releasePointer (e: PointerReleasedEventArgs) else ()
   if isPanning || Option.isSome pressed then e.Handled <- true else ()
 
+let rec private tryFindTokenTarget (source: obj) =
+  match source with
+  | :? GraphCanvas ->
+    None
+  | :? Control as control ->
+    match control.Tag with
+    | :? SelectedToken as token -> Some(control, token)
+    | _ -> tryFindTokenTarget (control.Parent :> obj)
+  | _ ->
+    None
+
+let private tokenWords loaded token =
+  let vertex = loaded.Graph.Vertices[token.NodeID]
+  let lines = (vertex.VData :> IVisualizable).Visualize()
+  lines[token.LineIndex]
+
+/// Opens the context menu of the token that was right-clicked. Building the
+/// menu lifts the instruction, so it happens here, once per request, rather
+/// than for every visible token on every render. A right press has already
+/// started a pan, and the release that would end it is consumed by the menu,
+/// so the pan is ended here.
+let private onTokenContextRequested provider model dispatch loaded e =
+  match tryFindTokenTarget (e: ContextRequestedEventArgs).Source with
+  | Some(target, token) ->
+    let words = tokenWords loaded token
+    let word = words[token.WordIndex]
+    let fnAddr = loaded.FunctionAddress
+    let menu = tokenContextMenu fnAddr provider model dispatch word token words
+    dispatch (CFGPaneMsg EndPan)
+    (VirtualDom.create menu :?> ContextMenu).Open target
+    e.Handled <- true
+  | None ->
+    ()
+
 let private graphCanvasView provider model vpSize dispatch loaded =
   let cfg = loaded.Graph
   let viewState = loaded.ViewState
@@ -673,9 +707,13 @@ let private graphCanvasView provider model vpSize dispatch loaded =
     Control.onTapped (onTapped dispatch)
     Control.onPointerMoved (onMoved pan dispatch, OnChangeOf pan)
     Control.onPointerReleased (onReleased pan dispatch, OnChangeOf pan)
+    Control.onContextRequested (
+      onTokenContextRequested provider model dispatch loaded,
+      SubPatchOptions.Always
+    )
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
-      yield! graphNodes provider model dispatch loaded isNodeVisible
+      yield! graphNodes model dispatch loaded isNodeVisible
     ]
   ]
 
