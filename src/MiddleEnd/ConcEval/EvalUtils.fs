@@ -39,6 +39,18 @@ let markUndefAfterFailure (st: ConcState) lhs =
   | TempVar(Index = n) -> st.UnsetTmp n
   | _ -> ()
 
+let private modeSwitches =
+  InterJmpKind.SwitchToARM ||| InterJmpKind.SwitchToThumb
+  ||| InterJmpKind.SwitchToMIPS ||| InterJmpKind.SwitchToMicroMIPS
+  ||| InterJmpKind.SwitchToMIPS16
+
+/// Ends the instruction at the inter-instruction jump it took, noting the mode
+/// switch the jump's kind names, if any, for the instruction it lands on.
+let endWithInterJmp (st: ConcState) kind =
+  let switch = kind &&& modeSwitches
+  if switch <> InterJmpKind.Base then st.ModeSwitch <- switch else ()
+  st.AbortInstr()
+
 /// Hands a side effect to the state's handler, which is what carries it out.
 /// Whether the statements after it run is the IR's to say rather than the
 /// handler's: an effect that takes control away from the instruction ends it

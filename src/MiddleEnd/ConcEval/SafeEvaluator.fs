@@ -269,8 +269,8 @@ let evalStmt (st: ConcState) stmt =
     evalJmp st target
   | CJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
     evalCJmp st cond t f
-  | InterJmp(Target = target) ->
-    evalPCUpdate st target |> Result.map st.AbortInstr
+  | InterJmp(Target = target; Kind = kind) ->
+    evalPCUpdate st target |> Result.map (fun () -> endWithInterJmp st kind)
   | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
     evalIntCJmp st c t f |> Result.map st.AbortInstr
   | ExternalCall(Call = call) ->

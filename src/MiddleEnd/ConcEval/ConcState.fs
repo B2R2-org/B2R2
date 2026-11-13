@@ -38,6 +38,7 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable stmtIdx = 0
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
+  let mutable modeSwitch = InterJmpKind.Base
   let mutable loadFailureHdl = LoadFailureEventHandler(fun _ _ _ e -> Error e)
   let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler(fun _ _ -> ())
@@ -83,6 +84,13 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   /// ends the instruction, so that we can ignore the rest of the statements.
   member _.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
+
+  /// The mode switch of the last inter-instruction jump that made one, as the
+  /// switch flags of its kind, or Base where none has. An instruction set
+  /// whose mode no register holds -- MIPS reads its encoding from a bit of its
+  /// own -- is left with this alone to say which mode the program is in.
+  member _.ModeSwitch
+    with get(): InterJmpKind = modeSwitch and set(k) = modeSwitch <- k
 
   /// Whether an instruction-level evaluation skips a statement it cannot
   /// evaluate and carries on, which is what lets a static analysis get through
@@ -191,6 +199,7 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
               StmtIdx = stmtIdx,
               CurrentInsLen = currentInsLen,
               IsInstrTerminated = isInstrTerminated,
+              ModeSwitch = modeSwitch,
               LoadFailureEventHandler = loadFailureHdl,
               ExternalCallEventHandler = externalCallEventHdl,
               SideEffectEventHandler = sideEffectHdl)

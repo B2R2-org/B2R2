@@ -307,6 +307,8 @@ type ConcExecutorValue private(binary: Binary,
       $"user condition at 0x{addr:x}"
     | ConcStopReason.InvalidInstructionAddress addr ->
       $"invalid address 0x{addr:x}"
+    | ConcStopReason.UndeterminedDecodeMode addr ->
+      $"undetermined decode mode at 0x{addr:x}"
     | ConcStopReason.CallHandlingFailure(addr, Some target, reason) ->
       $"call handling failure at 0x{addr:x} target=0x{target:x}: {reason}"
     | ConcStopReason.CallHandlingFailure(addr, None, reason) ->
