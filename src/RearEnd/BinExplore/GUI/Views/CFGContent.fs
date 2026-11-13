@@ -140,17 +140,17 @@ module private MinimapStaticLayer =
   let create (attrs: IAttr<MinimapStaticLayer> list) =
     View.createGeneric<MinimapStaticLayer> attrs
 
-let private getEdgeColor model = function
-  | InterJmpEdge -> model.Theme.Graph.InterJmpEdge
-  | InterCJmpTrueEdge -> model.Theme.Graph.InterCJmpTrueEdge
-  | InterCJmpFalseEdge -> model.Theme.Graph.InterCJmpFalseEdge
-  | IntraJmpEdge -> model.Theme.Graph.IntraJmpEdge
-  | IntraCJmpTrueEdge -> model.Theme.Graph.IntraCJmpTrueEdge
-  | IntraCJmpFalseEdge -> model.Theme.Graph.IntraCJmpFalseEdge
-  | FallThroughEdge -> model.Theme.Graph.FallthroughEdge
-  | CallEdge -> model.Theme.Graph.CallEdge
-  | RetEdge -> model.Theme.Graph.ReturnEdge
-  | _ -> model.Theme.Graph.InterJmpEdge
+let private getEdgeColor (theme: Theme) = function
+  | InterJmpEdge -> theme.Graph.InterJmpEdge
+  | InterCJmpTrueEdge -> theme.Graph.InterCJmpTrueEdge
+  | InterCJmpFalseEdge -> theme.Graph.InterCJmpFalseEdge
+  | IntraJmpEdge -> theme.Graph.IntraJmpEdge
+  | IntraCJmpTrueEdge -> theme.Graph.IntraCJmpTrueEdge
+  | IntraCJmpFalseEdge -> theme.Graph.IntraCJmpFalseEdge
+  | FallThroughEdge -> theme.Graph.FallthroughEdge
+  | CallEdge -> theme.Graph.CallEdge
+  | RetEdge -> theme.Graph.ReturnEdge
+  | _ -> theme.Graph.InterJmpEdge
 
 let private arrowheadPoints (tip: Point) (angleDeg: float) (size: float) =
   let rad = angleDeg * Math.PI / 180.0
@@ -159,14 +159,6 @@ let private arrowheadPoints (tip: Point) (angleDeg: float) (size: float) =
   let lx, ly = bx + (size / 2.0) * sin rad, by - (size / 2.0) * cos rad
   let rx, ry = bx - (size / 2.0) * sin rad, by + (size / 2.0) * cos rad
   [| tip; Point(lx, ly); Point(rx, ry) |]
-
-let private edgeLineView (pts: Point array) zoom (color: string) =
-  Polyline.create [
-    Polyline.points pts
-    Polyline.stroke color
-    Polyline.strokeThickness (1.0 * zoom)
-    Polyline.isHitTestVisible false
-  ] :> IView
 
 let private edgeHitAreaThickness zoom = 5.0 / sqrt zoom |> max 6.0 |> min 14.0
 
@@ -192,14 +184,13 @@ let private pointerXYOnGraphCanvas (e: PointerEventArgs) =
   | None ->
     struct (0.0, 0.0)
 
-let private onEdgeEntered dispatch eid _ =
-  dispatch (CFGPaneMsg(SetHoveredEdge eid))
-
-let private onEdgePressed dispatch zoom panX panY p1 p2 e =
+let private onEdgePressed dispatch view (points: Point[]) e =
   if (e: PointerPressedEventArgs).ClickCount = 2 then
+    let zoom = (view: CFGViewState).Zoom
+    let p1, p2 = points[0], points[points.Length - 1]
     let struct (x, y) = pointerXYOnGraphCanvas e
-    let gx = (x - panX) / zoom
-    let gy = (y - panY) / zoom
+    let gx = (x - view.PanX) / zoom
+    let gy = (y - view.PanY) / zoom
     let distToP1 = distSquared gx gy p1.X p1.Y
     let distToP2 = distSquared gx gy p2.X p2.Y
     let target = if distToP1 <= distToP2 then p2 else p1
@@ -207,61 +198,6 @@ let private onEdgePressed dispatch zoom panX panY p1 p2 e =
     e.Handled <- true
   else
     ()
-
-let private edgeHitAreaView dispatch (pts: Point[]) zoom panX panY p1 p2 eid =
-  let eid = Some eid
-  Polyline.create [
-    Polyline.points pts
-    Polyline.stroke "#01FFFFFF"
-    Polyline.strokeThickness (edgeHitAreaThickness zoom)
-    Control.onPointerEntered (onEdgeEntered dispatch eid, OnChangeOf eid)
-    Control.onPointerExited (fun _ ->
-      dispatch (CFGPaneMsg(SetHoveredEdge None)))
-    Tunnel.OnPointerPressed(
-      onEdgePressed dispatch zoom panX panY p1 p2,
-      OnChangeOf(zoom, panX, panY, p1, p2)
-    )
-  ] :> IView
-
-let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
-  Polygon.create [
-    Polygon.points (arrowheadPoints tip angle (8.0 * zoom))
-    Polygon.fill color
-    Polygon.isHitTestVisible false
-  ] :> IView
-
-let private edgeView model dispatch pts zoom panX panY color edgeID =
-  if Array.length pts >= 2 then
-    let p1 = Array.head pts
-    let p2 = Array.last pts
-    let scaled =
-      pts
-      |> Array.map (fun p -> Point(p.X * zoom + panX, p.Y * zoom + panY))
-    let tip = scaled[scaled.Length - 1]
-    let prev = scaled[scaled.Length - 2]
-    let angle = Math.Atan2(tip.Y - prev.Y, tip.X - prev.X) * 180.0 / Math.PI
-    Canvas.create [
-      Canvas.children [
-        if model.CFGIsPanning then ()
-        else edgeHitAreaView dispatch scaled zoom panX panY p1 p2 edgeID
-        edgeLineView scaled zoom color
-        arrowheadView tip angle zoom color
-      ]
-    ] :> IView
-    |> List.singleton
-  else
-    []
-
-let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
-  [ for edgeID, e in Array.indexed (cfg: VisGraph).Edges do
-      let pts = e.Label.Points
-      if isEdgeVisible edgeID then
-        let color =
-          if hovered = Some edgeID then model.Theme.Graph.HoveredEdge
-          else getEdgeColor model e.Label.Type
-        yield! edgeView model dispatch pts zoom panX panY color edgeID
-      else
-        () ]
 
 let private tokenTextViewUnselectable model txt =
   TextBlock.create [
@@ -513,7 +449,10 @@ let private onMoved (pressed, isPanning) dispatch (e: PointerEventArgs) =
     | _ ->
       false
   if shouldStartPan then capturePointer e else ()
-  dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
+  if Option.isSome pressed then
+    dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
+  else
+    ()
   if shouldStartPan || isPanning then e.Handled <- true else ()
 
 (* A release that ends a pan is the pan's; any other release, a click, is
@@ -735,6 +674,171 @@ let private shownRect (view: CFGViewState) (viewport: Size) =
   let x, y = -view.PanX / view.Zoom, -view.PanY / view.Zoom
   Rect(x, y, viewport.Width / view.Zoom, viewport.Height / view.Zoom)
 
+[<NoEquality; NoComparison>]
+type private GraphLayerState =
+  { Loaded: LoadedCFGState
+    Palette: Theme
+    Viewport: Size
+    IsPanning: bool
+    Dispatch: Message -> unit }
+
+let private sameGraphLayer a b =
+  obj.ReferenceEquals(a.Loaded.Graph, b.Loaded.Graph)
+  && obj.ReferenceEquals(a.Loaded.RenderCache, b.Loaded.RenderCache)
+
+let private sameCamera a b =
+  let aView, bView = a.Loaded.ViewState, b.Loaded.ViewState
+  aView.Zoom = bView.Zoom && aView.PanX = bView.PanX && aView.PanY = bView.PanY
+  && a.Viewport = b.Viewport
+
+let private graphTransform (view: CFGViewState) =
+  let zoom = view.Zoom
+  MatrixTransform(Matrix(zoom, 0.0, 0.0, zoom, view.PanX, view.PanY))
+
+/// Retains edge shapes in graph coordinates, including their hit geometry.
+type private CFGEdgeVisual(points: Point[], color: IBrush) as this =
+  inherit Canvas()
+
+  let line = Polyline()
+
+  let hit = Polyline()
+
+  let arrow = Polygon()
+
+  do
+    let tip, prev = points[points.Length - 1], points[points.Length - 2]
+    let angle = Math.Atan2(tip.Y - prev.Y, tip.X - prev.X) * 180.0 / Math.PI
+    line.Points <- Avalonia.Collections.AvaloniaList<Point>(points)
+    line.Stroke <- color
+    line.StrokeThickness <- 1.0
+    line.IsHitTestVisible <- false
+    hit.Points <- line.Points
+    hit.Stroke <- brushOfColor "#01FFFFFF"
+    arrow.Points <-
+      Avalonia.Collections.AvaloniaList<Point>(arrowheadPoints tip angle 8.0)
+    arrow.Fill <- color
+    arrow.IsHitTestVisible <- false
+    this.Children.Add hit
+    this.Children.Add line
+    this.Children.Add arrow
+
+  member _.HitArea = hit
+
+  member _.SetColor color =
+    line.Stroke <- color
+    arrow.Fill <- color
+
+  member _.SetHitWidth width = hit.StrokeThickness <- width
+
+/// Panning changes a single transform; only newly visible edges are built.
+type private CFGEdgeLayer() =
+  inherit Canvas()
+
+  let edges = Dictionary<int, CFGEdgeVisual>()
+
+  let mutable previous: GraphLayerState option = None
+
+  static let stateProperty =
+    AvaloniaProperty.Register<CFGEdgeLayer, GraphLayerState>("State")
+
+  static member State value =
+    let same (a: obj, b: obj) =
+      let a, b = unbox<GraphLayerState> a, unbox<GraphLayerState> b
+      sameGraphLayer a b && sameCamera a b
+      && a.Loaded.ViewState.HoveredEdge = b.Loaded.ViewState.HoveredEdge
+      && a.Palette = b.Palette
+      && a.IsPanning = b.IsPanning
+    AttrBuilder<'t>.CreateProperty<GraphLayerState>(
+      stateProperty, value, ValueSome same
+    )
+
+  member _.Color(state: GraphLayerState, id) =
+    let color =
+      if state.Loaded.ViewState.HoveredEdge = Some id then
+        state.Palette.Graph.HoveredEdge
+      else
+        getEdgeColor state.Palette state.Loaded.Graph.Edges[id].Label.Type
+    brushOfColor color
+
+  member this.Realize(state: GraphLayerState, id) =
+    let points = state.Loaded.Graph.Edges[id].Label.Points
+    let points = points |> Array.map (fun p -> Point(p.X, p.Y))
+    let edge = CFGEdgeVisual(points, this.Color(state, id))
+    edge.HitArea.PointerEntered.Add(fun _ ->
+      let dispatch = (this.GetValue stateProperty).Dispatch
+      dispatch (CFGPaneMsg(SetHoveredEdge(Some id))))
+    edge.HitArea.PointerExited.Add(fun _ ->
+      (this.GetValue stateProperty).Dispatch(CFGPaneMsg(SetHoveredEdge None)))
+    edge.HitArea.PointerPressed.Add(fun e ->
+      let current = this.GetValue stateProperty
+      let view = current.Loaded.ViewState
+      onEdgePressed current.Dispatch view points e)
+    edge.ZIndex <- id
+    edge.SetHitWidth(edgeHitAreaThickness state.Loaded.ViewState.Zoom
+                     / state.Loaded.ViewState.Zoom)
+    edges[id] <- edge
+    this.Children.Add edge
+
+  member this.SyncEdges(state: GraphLayerState) =
+    let view = state.Loaded.ViewState
+    let shown = shownRect view state.Viewport
+    let near = shown.Inflate(Thickness(shown.Width / 2.0, shown.Height / 2.0))
+    let kept = shown.Inflate(Thickness(shown.Width, shown.Height))
+    let index = state.Loaded.RenderCache.EdgeIndex
+    let keep = HashSet<int>(CFGSpatialIndex.query kept index)
+    let removed = edges.Keys |> Seq.filter (keep.Contains >> not) |> Seq.toArray
+    for id in removed do
+      this.Children.Remove edges[id] |> ignore
+      edges.Remove id |> ignore
+    for id in CFGSpatialIndex.query near index do
+      if not (edges.ContainsKey id) then this.Realize(state, id) else ()
+    let thickness = edgeHitAreaThickness view.Zoom / view.Zoom
+    for edge in edges.Values do edge.SetHitWidth thickness
+
+  member this.Sync(state: GraphLayerState) =
+    let view = state.Loaded.ViewState
+    let rebuild =
+      previous |> Option.forall (fun old -> not (sameGraphLayer old state))
+    let moved =
+      previous |> Option.forall (fun old -> not (sameCamera old state))
+    if rebuild then
+      this.Children.Clear()
+      edges.Clear()
+    else
+      ()
+    if rebuild || moved then
+      this.RenderTransformOrigin <- RelativePoint.TopLeft
+      this.RenderTransform <- graphTransform view
+      this.SyncEdges state
+    else
+      ()
+    match previous with
+    | Some old when not rebuild && old.Palette <> state.Palette ->
+      for KeyValue(id, edge) in edges do edge.SetColor(this.Color(state, id))
+    | Some old when old.Loaded.ViewState.HoveredEdge <> view.HoveredEdge ->
+      for id in [ old.Loaded.ViewState.HoveredEdge; view.HoveredEdge ] do
+        match id with
+        | Some id when edges.ContainsKey id ->
+          edges[id].SetColor(this.Color(state, id))
+        | _ ->
+          ()
+    | _ ->
+      ()
+    this.IsHitTestVisible <- not state.IsPanning
+    previous <- Some state
+
+  override this.OnPropertyChanged change =
+    base.OnPropertyChanged change
+    if change.Property = stateProperty then
+      this.Sync(this.GetValue stateProperty)
+    else
+      ()
+
+[<RequireQualifiedAccess>]
+module private CFGEdgeLayer =
+  let create (attrs: IAttr<CFGEdgeLayer> list) =
+    View.createGeneric<CFGEdgeLayer> attrs
+
 /// Holds the nodes of a CFG. It pans and zooms by transforming itself rather
 /// than by moving the nodes, so that a pan redraws nothing that is already on
 /// screen. Only the nodes near the viewport are made into controls; a node is
@@ -750,88 +854,20 @@ type private CFGNodeLayer() =
 
   let mutable selected = None
 
-  static let graphProperty =
-    AvaloniaProperty.Register<CFGNodeLayer, VisGraph>(
-      nameof Unchecked.defaultof<CFGNodeLayer>.CurrentGraph,
-      Unchecked.defaultof<VisGraph>
+  let mutable previous: GraphLayerState option = None
+
+  static let stateProperty =
+    AvaloniaProperty.Register<CFGNodeLayer, GraphLayerState>("State")
+
+  static member State value =
+    let same (a: obj, b: obj) =
+      let a, b = unbox<GraphLayerState> a, unbox<GraphLayerState> b
+      sameGraphLayer a b && sameCamera a b
+      && a.Loaded.ViewState.SelectedToken = b.Loaded.ViewState.SelectedToken
+      && a.Palette = b.Palette
+    AttrBuilder<'t>.CreateProperty<GraphLayerState>(
+      stateProperty, value, ValueSome same
     )
-
-  static let viewStateProperty =
-    AvaloniaProperty.Register<CFGNodeLayer, CFGViewState>(
-      nameof Unchecked.defaultof<CFGNodeLayer>.CurrentViewState,
-      Unchecked.defaultof<CFGViewState>
-    )
-
-  static let themeProperty =
-    AvaloniaProperty.Register<CFGNodeLayer, Theme>(
-      nameof Unchecked.defaultof<CFGNodeLayer>.CurrentTheme,
-      Unchecked.defaultof<Theme>
-    )
-
-  static let viewportProperty =
-    AvaloniaProperty.Register<CFGNodeLayer, Size>(
-      nameof Unchecked.defaultof<CFGNodeLayer>.CurrentViewport,
-      Size()
-    )
-
-  static member GraphProperty = graphProperty
-
-  static member ViewStateProperty = viewStateProperty
-
-  static member ThemeProperty = themeProperty
-
-  static member ViewportProperty = viewportProperty
-
-  member this.CurrentGraph
-    with get() = this.GetValue graphProperty
-    and set value = this.SetValue(graphProperty, value) |> ignore
-
-  member this.CurrentViewState
-    with get() = this.GetValue viewStateProperty
-    and set value = this.SetValue(viewStateProperty, value) |> ignore
-
-  member this.CurrentTheme
-    with get() = this.GetValue themeProperty
-    and set value = this.SetValue(themeProperty, value) |> ignore
-
-  member this.CurrentViewport
-    with get() = this.GetValue viewportProperty
-    and set value = this.SetValue(viewportProperty, value) |> ignore
-
-  member this.IsReady =
-    not (isNull (box this.CurrentGraph))
-    && not (isNull (box this.CurrentViewState))
-    && not (isNull (box this.CurrentTheme))
-
-  (* A graph is compared by identity: it does not change in place, and walking
-     it for equality on every render would cost what this layer saves. *)
-  static member Graph value =
-    let isSame (a: obj, b: obj) = obj.ReferenceEquals(a, b)
-    AttrBuilder<'t>.CreateProperty<VisGraph>(
-      CFGNodeLayer.GraphProperty, value, ValueSome isSame
-    )
-
-  static member ViewState value =
-    AttrBuilder<'t>.CreateProperty<CFGViewState>(
-      CFGNodeLayer.ViewStateProperty, value, ValueNone
-    )
-
-  static member Theme value =
-    AttrBuilder<'t>.CreateProperty<Theme>(
-      CFGNodeLayer.ThemeProperty, value, ValueNone
-    )
-
-  static member Viewport value =
-    AttrBuilder<'t>.CreateProperty<Size>(
-      CFGNodeLayer.ViewportProperty, value, ValueNone
-    )
-
-  member this.SyncTransform() =
-    let view = this.CurrentViewState
-    let zoom = view.Zoom
-    let matrix = Matrix(zoom, 0.0, 0.0, zoom, view.PanX, view.PanY)
-    this.RenderTransformOrigin <- RelativePoint.TopLeft
-    this.RenderTransform <- MatrixTransform matrix
 
   member _.SyncShowText(show) =
     if show <> showText then
@@ -854,61 +890,57 @@ type private CFGNodeLayer() =
     else
       ()
 
-  member this.Realize(nodeID, vData: VisBBlock) =
-    let node = CFGNodeVisual(nodeID, vData, this.CurrentTheme, charSize)
+  member this.Realize(state: GraphLayerState, nodeID) =
+    let data = state.Loaded.Graph.Vertices[nodeID].VData
+    let node = CFGNodeVisual(nodeID, data, state.Palette, charSize)
     node.SetShowText showText
     node.SetSelection(selectionIn nodeID selected)
-    Canvas.SetLeft(node, vData.Coordinate.X)
-    Canvas.SetTop(node, vData.Coordinate.Y)
+    Canvas.SetLeft(node, data.Coordinate.X)
+    Canvas.SetTop(node, data.Coordinate.Y)
+    node.ZIndex <- nodeID
     nodes[nodeID] <- node
     this.Children.Add node
 
-  member this.Unrealize(node: CFGNodeVisual) =
-    nodes.Remove node.NodeID |> ignore
-    this.Children.Remove node |> ignore
-
-  member this.SyncNodes() =
-    let shown = shownRect this.CurrentViewState this.CurrentViewport
+  member this.SyncNodes(state: GraphLayerState) =
+    let shown = shownRect state.Loaded.ViewState state.Viewport
     let near = shown.Inflate(Thickness(shown.Width / 2.0, shown.Height / 2.0))
     let kept = shown.Inflate(Thickness(shown.Width, shown.Height))
-    for nodeID, v in Array.indexed this.CurrentGraph.Vertices do
-      let vData = v.VData
-      let pos = vData.Coordinate
-      let rect = Rect(pos.X, pos.Y, vData.Width, vData.Height)
-      match nodes.TryGetValue nodeID with
-      | true, node when not (rect.Intersects kept) ->
-        this.Unrealize node
-      | false, _ when not vData.IsDummy && rect.Intersects near ->
-        this.Realize(nodeID, vData)
-      | _ ->
-        ()
+    let index = state.Loaded.RenderCache.NodeIndex
+    let keep = HashSet<int>(CFGSpatialIndex.query kept index)
+    let removed = nodes.Keys |> Seq.filter (keep.Contains >> not) |> Seq.toArray
+    for id in removed do
+      this.Children.Remove nodes[id] |> ignore
+      nodes.Remove id |> ignore
+    for id in CFGSpatialIndex.query near index do
+      if not (nodes.ContainsKey id) then this.Realize(state, id) else ()
 
-  member this.Sync() =
-    if this.IsReady then
-      let view = this.CurrentViewState
-      this.SyncTransform()
-      this.SyncShowText(isTextShown this.CurrentTheme view)
-      this.SyncSelection view.SelectedToken
-      this.SyncNodes()
+  member this.Sync(state: GraphLayerState) =
+    let view = state.Loaded.ViewState
+    let rebuild =
+      previous |> Option.forall (fun old ->
+        not (sameGraphLayer old state) || old.Palette <> state.Palette)
+    let moved =
+      previous |> Option.forall (fun old -> not (sameCamera old state))
+    if rebuild then
+      this.Children.Clear()
+      nodes.Clear()
+      charSize <- measureCharSize state.Palette
     else
       ()
-
-  member this.Rebuild() =
-    this.Children.Clear()
-    nodes.Clear()
-    if this.IsReady then
-      charSize <- measureCharSize this.CurrentTheme
-      this.Sync()
+    this.SyncShowText(isTextShown state.Palette view)
+    this.SyncSelection view.SelectedToken
+    if rebuild || moved then
+      this.RenderTransformOrigin <- RelativePoint.TopLeft
+      this.RenderTransform <- graphTransform view
+      this.SyncNodes state
     else
       ()
+    previous <- Some state
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
-    if change.Property = graphProperty || change.Property = themeProperty then
-      this.Rebuild()
-    elif change.Property = viewStateProperty
-         || change.Property = viewportProperty then
-      this.Sync()
+    if change.Property = stateProperty then
+      this.Sync(this.GetValue stateProperty)
     else
       ()
 
@@ -957,13 +989,10 @@ let private onNodeContextRequested provider model dispatch loaded e =
   | _ ->
     ()
 
-let private nodeLayerView provider model vpSize dispatch loaded =
-  let width, height = vpSize
+let private nodeLayerView provider model dispatch state =
+  let loaded = state.Loaded
   CFGNodeLayer.create [
-    CFGNodeLayer.Graph loaded.Graph
-    CFGNodeLayer.ViewState loaded.ViewState
-    CFGNodeLayer.Theme model.Theme
-    CFGNodeLayer.Viewport(Size(width, height))
+    CFGNodeLayer.State state
     Control.onTapped (onNodeTapped dispatch)
     Tunnel.OnContextRequested(
       onNodeContextRequested provider model dispatch loaded,
@@ -972,16 +1001,13 @@ let private nodeLayerView provider model vpSize dispatch loaded =
   ] :> IView
 
 let private graphCanvasView provider model vpSize dispatch loaded =
-  let cfg = loaded.Graph
-  let viewState = loaded.ViewState
-  let cache = loaded.RenderCache
-  let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
-  let hovered = viewState.HoveredEdge
   let viewportWidth, viewportHeight = vpSize
-  let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
-  let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
-  let isEdgeVisible eID =
-    CFGRenderCache.isEdgeVisible cache eID vpLeft vpRight vpTop vpBottom
+  let state =
+    { Loaded = loaded
+      Palette = model.Theme
+      Viewport = Size(viewportWidth, viewportHeight)
+      IsPanning = model.CFGIsPanning
+      Dispatch = dispatch }
   let pan = model.CFGPressedPointer, model.CFGIsPanning
   GraphCanvas.create [
     Canvas.background model.Theme.Graph.Background
@@ -994,8 +1020,8 @@ let private graphCanvasView provider model vpSize dispatch loaded =
       OnChangeOf model.CFGIsPanning
     )
     Canvas.children [
-      yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
-      nodeLayerView provider model vpSize dispatch loaded
+      CFGEdgeLayer.create [ CFGEdgeLayer.State state ]
+      nodeLayerView provider model dispatch state
     ]
   ]
 

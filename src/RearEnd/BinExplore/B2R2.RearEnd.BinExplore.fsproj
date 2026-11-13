@@ -31,6 +31,7 @@
     <Compile Include="GUI\FunctionItem.fs" />
     <Compile Include="GUI\SectionItem.fs" />
     <Compile Include="GUI\CFGViewState.fs" />
+    <Compile Include="GUI\CFGSpatialIndex.fs" />
     <Compile Include="GUI\CFGRenderCache.fs" />
     <Compile Include="GUI\LoadedCFGState.fs" />
     <Compile Include="GUI\LinearDocument.fs" />

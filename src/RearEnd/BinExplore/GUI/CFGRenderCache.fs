@@ -24,72 +24,33 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-open System
+open Avalonia
 open B2R2.RearEnd.Visualization
 
+/// Spatial queries shared by the retained graph layers.
 type CFGRenderCache =
-  { EdgeBounds: EdgeBounds array
-    EdgeSegmentBounds: EdgeBounds array array }
-
-and EdgeBounds =
-  { MinX: float
-    MaxX: float
-    MinY: float
-    MaxY: float }
-with
-  member this.Intersects(left: float, right: float, top: float, bottom: float) =
-    this.MinX < right
-    && this.MaxX > left
-    && this.MinY < bottom
-    && this.MaxY > top
+  { NodeIndex: CFGSpatialIndex
+    EdgeIndex: CFGSpatialIndex }
 
 [<RequireQualifiedAccess>]
 module CFGRenderCache =
-  let hasVisibleSegment renderCache edgeID left right top bottom =
-    renderCache.EdgeSegmentBounds[edgeID]
-    |> Array.exists (fun bounds -> bounds.Intersects(left, right, top, bottom))
+  let private nodeBounds (graph: VisGraph) =
+    graph.Vertices |> Array.mapi (fun id v ->
+      let data = v.VData
+      id, Rect(data.Coordinate.X, data.Coordinate.Y, data.Width, data.Height))
+    |> Array.filter (fun (id, _) -> not graph.Vertices[id].VData.IsDummy)
 
-  let isEdgeVisible renderCache edgeID left right top bottom =
-    renderCache.EdgeBounds[edgeID].Intersects(left, right, top, bottom)
-    && hasVisibleSegment renderCache edgeID left right top bottom
+  let private edgeSegments (graph: VisGraph) =
+    graph.Edges |> Array.mapi (fun id edge ->
+      let points = edge.Label.Points
+      Array.init (max 0 (points.Length - 1)) (fun i ->
+        let a, b = points[i], points[i + 1]
+        let left, top = min a.X b.X, min a.Y b.Y
+        let width, height = abs (a.X - b.X), abs (a.Y - b.Y)
+        (* Give horizontal and vertical segments nonempty bounds. *)
+        id, Rect(left, top, width, height).Inflate(1.0)))
+    |> Array.concat
 
-  let private computeEdgeBounds (pts: VisPosition[]) =
-    if pts.Length < 2 then
-      { MinX = Double.PositiveInfinity
-        MaxX = Double.NegativeInfinity
-        MinY = Double.PositiveInfinity
-        MaxY = Double.NegativeInfinity }
-    else
-      let mutable minX = pts[0].X
-      let mutable maxX = pts[0].X
-      let mutable minY = pts[0].Y
-      let mutable maxY = pts[0].Y
-      for i in 1 .. pts.Length - 1 do
-        let p = pts[i]
-        minX <- min minX p.X
-        maxX <- max maxX p.X
-        minY <- min minY p.Y
-        maxY <- max maxY p.Y
-      { MinX = minX
-        MaxX = maxX
-        MinY = minY
-        MaxY = maxY }
-
-  let private computeSegmentBounds (pts: VisPosition[]) =
-    Array.init (max 0 (pts.Length - 1)) (fun i ->
-      let p1 = pts[i]
-      let p2 = pts[i + 1]
-      { MinX = min p1.X p2.X
-        MaxX = max p1.X p2.X
-        MinY = min p1.Y p2.Y
-        MaxY = max p1.Y p2.Y })
-
-  let create (graph: VisGraph) =
-    let edgeBounds, edgeSegmentBounds =
-      graph.Edges
-      |> Array.map (fun e ->
-        let pts = e.Label.Points
-        computeEdgeBounds pts, computeSegmentBounds pts)
-      |> Array.unzip
-    { EdgeBounds = edgeBounds
-      EdgeSegmentBounds = edgeSegmentBounds }
+  let create graph =
+    { NodeIndex = CFGSpatialIndex.create (nodeBounds graph)
+      EdgeIndex = CFGSpatialIndex.create (edgeSegments graph) }
