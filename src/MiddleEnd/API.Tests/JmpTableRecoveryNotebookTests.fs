@@ -116,6 +116,21 @@ type JmpTableRecoveryNotebookTests() =
     let idx = notes.GetPotentialEndPointIndex bytes.TableAddress
     Assert.AreEqual<int>(13, idx)
 
+  (* A function walks a table from its first entry again as it builds on,
+     confirming the entries as it goes, while the entries that an earlier walk
+     reached stay in its CFG until it starts over. Ending the table before them
+     has to tell so, however far the current walk has come. *)
+  [<TestMethod>]
+  member _.``Notebook tells that an earlier walk reached past a new end``() =
+    let walked = table 0x1010UL 0x400100UL None
+    let endsBefore walks =
+      let notes = JmpTableRecoveryNotebook()
+      notes.Register(0x1000UL, walked) |> ignore
+      for idx in walks do notes.SetConfirmedEndPoint(walked.TableAddress, idx)
+      notes.EndBefore(walked.TableAddress, 0x400110UL)
+    Assert.AreEqual<bool>(false, endsBefore [ 1 ])
+    Assert.AreEqual<bool>(true, endsBefore [ 6; 1 ])
+
   [<TestMethod>]
   member _.``Notebook refuses a table that starts at a phantom``() =
     let notes = JmpTableRecoveryNotebook()
