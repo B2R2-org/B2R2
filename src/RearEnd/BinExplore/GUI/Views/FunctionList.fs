@@ -43,7 +43,7 @@ let private userInputView model dispatch =
     Border.child (
         TextBox.create [
         TextBox.text model.FunctionFilter
-        TextBox.watermark "Filter functions..."
+        TextBox.placeHolderText "Filter functions..."
         TextBox.fontSize model.Theme.Font.Scale.Normal
         TextBox.foreground model.Theme.Text.Primary
         TextBox.onTextChanged (fun text -> dispatch (UpdateFunctionFilter text))
@@ -128,7 +128,7 @@ let private listItemTemplate model dispatch =
     Border.create [
       Border.background Brushes.Transparent
       Control.contextMenu (functionContextMenu model dispatch fn)
-      Control.onPointerPressed (onFunctionPressed dispatch fn)
+      Tunnel.OnPointerPressed(onFunctionPressed dispatch fn)
       Border.child (
         StackPanel.create [
           StackPanel.orientation Orientation.Horizontal

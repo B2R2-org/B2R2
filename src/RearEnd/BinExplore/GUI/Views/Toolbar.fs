@@ -371,7 +371,7 @@ module internal SearchBox = begin
       TextBox.height ToolbarHeight
       TextBox.text localState.SearchText.Current
       TextBox.fontSize model.Theme.Font.Scale.Small
-      TextBox.watermark "Search..."
+      TextBox.placeHolderText "Search..."
       TextBox.verticalContentAlignment VerticalAlignment.Center
       TextBox.background model.Theme.Toolbar.ControlBackground
       TextBox.foreground model.Theme.Toolbar.ControlForeground
@@ -383,7 +383,7 @@ module internal SearchBox = begin
         else Thickness(6.0, 0.0, 28.0, 0.0)
       )
       TextBox.onTextChanged (onSearchTextChanged localState)
-      TextBox.onKeyDown (
+      Tunnel.OnKeyDown(
         onSearchKeyDown model dispatch localState results, OnChangeOf results
       )
     ]
@@ -399,7 +399,7 @@ module internal SearchBox = begin
       Button.borderBrush model.Theme.Common.Transparent
       Button.borderThickness 0.0
       Button.padding 0.0
-      Control.onPointerPressed (fun args ->
+      Tunnel.OnPointerPressed(fun args ->
         clearSearch model dispatch localState
         args.Handled <- true)
       Button.content (
@@ -603,10 +603,10 @@ module private CFGKindSelect = begin
 
   let getState model =
     match Model.tryGetFocusedActiveTab model with
-    | Some { ID = id; Content = CFGContent(_, Loaded { ViewState = view }) } ->
-      view.CFGKind, true, id
+    | Some { Content = CFGContent(_, Loaded { ViewState = view }) } ->
+      view.CFGKind, true
     | _ ->
-      CFGKind.Disasm, false, "none"
+      CFGKind.Disasm, false
 
   let onGraphKindChanged dispatch (args: obj) =
     match args with
@@ -625,7 +625,7 @@ module private CFGKindSelect = begin
     )
 
   let view model dispatch =
-    let currentCFGKind, isEnabled, tabKey = getState model
+    let currentCFGKind, isEnabled = getState model
     ComboBox.create [
       ComboBox.width 100.0
       ComboBox.height ToolbarHeight
@@ -639,9 +639,14 @@ module private CFGKindSelect = begin
       ComboBox.isEnabled isEnabled
       ComboBox.onSelectedItemChanged (onGraphKindChanged dispatch)
       ItemsControl.itemTemplate (itemTemplate model)
-    ] |> View.withKey $"graph-select-{tabKey}"
+    ]
 
 end
+
+let private isChecked (e: Interactivity.RoutedEventArgs) =
+  match e.Source with
+  | :? ToggleButton as button -> button.IsChecked.GetValueOrDefault()
+  | _ -> false
 
 module private MinimapToggle = begin
 
@@ -656,6 +661,9 @@ module private MinimapToggle = begin
     if isActive then model.Theme.Toolbar.ActiveControlBackground
     else model.Theme.Toolbar.ControlBackground
 
+  let onToggled dispatch tabKey e =
+    dispatch (CFGPaneMsg(ToggleMinimap(tabKey, isChecked e)))
+
   let view model dispatch =
     let isEnabled, isActive, tabKey = getState model
     ToggleButton.create
@@ -669,12 +677,11 @@ module private MinimapToggle = begin
         ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onChecked (fun _ ->
-          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, true))))
-        ToggleButton.onUnchecked (fun _ ->
-          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, false))))
+        ToggleButton.onIsCheckedChanged (
+          onToggled dispatch tabKey,
+          OnChangeOf tabKey
+        )
         ToggleButton.content (mkIcon (IconAssets.mapIcon model) 20.0) ]
-      |> View.withKey $"minimap-toggle-{tabKey}"
 
 end
 
@@ -693,10 +700,9 @@ module private SyncToggle = begin
         ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onChecked (fun _ -> dispatch (SetSyncEnabled true))
-        ToggleButton.onUnchecked (fun _ -> dispatch (SetSyncEnabled false))
+        ToggleButton.onIsCheckedChanged (fun e ->
+          dispatch (SetSyncEnabled(isChecked e)))
         ToggleButton.content (mkIcon (IconAssets.syncIcon model) 20.0) ]
-      |> View.withKey "sync-toggle"
 
 end
 

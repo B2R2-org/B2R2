@@ -632,10 +632,10 @@ let private visibleItemsView model dispatch doc (state: LinearViewState) =
     Canvas.height (LinearViewState.totalHeight state)
     Canvas.background model.Theme.Linear.Background
     Control.focusable true
-    Control.onPointerPressed focusPointerSource
-    Control.onKeyDown (
+    Tunnel.OnPointerPressed focusPointerSource
+    Tunnel.OnKeyDown(
       onNavigationKeyDown dispatch state,
-      OnChangeOf state.ScrollOffsetY
+      OnChangeOf state
     )
     Canvas.children [
       LinearRenderLayer.create [
@@ -656,11 +656,11 @@ let private visibleItemsView model dispatch doc (state: LinearViewState) =
 let private bodyView model dispatch doc (state: LinearViewState) =
   ScrollViewer.create [
     Control.focusable true
-    Control.onKeyDown (
+    Tunnel.OnKeyDown(
       onNavigationKeyDown dispatch state,
-      OnChangeOf state.ScrollOffsetY
+      OnChangeOf state
     )
-    Control.onPointerWheelChanged (onPointerWheelChanged dispatch)
+    Tunnel.OnPointerWheelChanged(onPointerWheelChanged dispatch)
     ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
     ScrollViewer.onScrollChanged (onScrollChanged dispatch)
     ScrollViewer.offset (Vector(0.0, state.ScrollOffsetY))

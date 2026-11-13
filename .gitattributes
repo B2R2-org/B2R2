@@ -1,12 +1,23 @@
-# Line-ending policy: these are text and are stored with LF. (These rules
-# sat in a file named .gitattribute, without the s, which git never read.)
-*.sln text
-*.fs text
-*.fsi text
-*.fsproj text
-*.js text
-*.css text
-*.html text
+# Line-ending policy: every text file is stored with LF and checked out with
+# LF on every platform, Windows included. fslint reads the files on disk and
+# rejects CRLF, so a checkout that turned LF into CRLF would fail the lint
+# for files nobody touched. Git tells text from binary on its own; the
+# binary formats in the tree are named as well so that a misguess never
+# rewrites their bytes. (These rules once sat in a file named .gitattribute,
+# without the s, which git never read.)
+* text=auto eol=lf
+*.sln text eol=lf
+*.fs text eol=lf
+*.fsi text eol=lf
+*.fsproj text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.zip binary
+*.png binary
+*.ico binary
+*.icns binary
+*.ttf binary
 
 # GitHub's language bar counts every programming-language file it finds, so
 # the few here that are not F# -- the Mach fixture generator, the packaging
