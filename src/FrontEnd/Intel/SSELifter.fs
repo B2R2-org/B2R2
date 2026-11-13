@@ -174,6 +174,12 @@ let movlhps (ins: Instruction) bld =
     direct dst := src
   }
 
+/// Fits the given 64-bit mask of sign bits in the register that the given
+/// destination writes, as a 32-bit one of x86 holds only its low half.
+let fitSignMask dst mask =
+  let rt = Expr.typeOf (AST.unwrap dst)
+  if rt < 64<rt> then AST.xtlo rt mask else mask
+
 let movmskps (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
@@ -184,7 +190,7 @@ let movmskps (ins: Instruction) bld =
     let b1 = (srcA >> (numI32 62 64<rt>) .& (numI32 0b10 64<rt>))
     let b2 = (srcB >> (numI32 29 64<rt>) .& (numI32 0b100 64<rt>))
     let b3 = (srcB >> (numI32 60 64<rt>) .& (numI32 0b1000 64<rt>))
-    sized oprSize dst := b3 .| b2 .| b1 .| b0
+    sized oprSize dst := fitSignMask dst (b3 .| b2 .| b1 .| b0)
   }
 
 let movmskpd (ins: Instruction) bld =
