@@ -276,9 +276,7 @@ let evalStmt (st: ConcState) stmt =
     |> Result.map (fun struct (name, args) ->
       st.OnExternalCall(name, args, st) |> st.NextStmt)
   | SideEffect(Effect = eff) ->
-    st.OnSideEffect(eff, st)
-    if st.IsInstrTerminated then () else st.AbortInstr true
-    Ok()
+    evalSideEffect st eff |> Ok
 
 let private evalStmtOrSkip (st: ConcState) stmt =
   match evalStmt st stmt with

@@ -86,6 +86,12 @@ type EvaluatorTests() =
     Assert.AreEqual(Ok(Def expected),
                     SafeEvaluator.evalExpr (newState ()) expr)
 
+  let evalInstrWith safe st stmts =
+    if safe then
+      Assert.AreEqual(Ok(), SafeEvaluator.evalInstr st stmts)
+    else
+      Evaluator.evalInstr st stmts
+
   [<TestMethod>]
   member _.``Integral rounding preserves floating point values``() =
     for t in [ 32<rt>; 64<rt> ] do
@@ -138,10 +144,7 @@ type EvaluatorTests() =
     let st = ConcState()
     for name, v in [ "FPCR", 0UL; "FPSR", 0UL; "V0B", 0UL; src, value ] do
       st.SetReg(rf.GetRegisterID name, BitVector((v: uint64), 64<rt>))
-    if safe then
-      Assert.AreEqual(Ok(), SafeEvaluator.evalInstr st stmts)
-    else
-      Evaluator.evalInstr st stmts
+    evalInstrWith safe st stmts
     let actual = st.GetReg(rf.GetRegisterID(dst: string))
     Assert.AreEqual<BitVector>(BitVector((expected: uint64), 64<rt>), actual)
 
@@ -157,6 +160,41 @@ type EvaluatorTests() =
     let st = newState ()
     Evaluator.evalStmt st (AST.sideEffect SysCall)
     assertTerminatedWithPCAdvanced st
+
+  [<DataTestMethod>]
+  [<DataRow(false)>]
+  [<DataRow(true)>]
+  member _.``A LOCK-prefixed instruction does its work``(safe) =
+    (* lock add dword ptr [rsp], 1 *)
+    let hdl, stmts = liftIntel [| 0xf0uy; 0x83uy; 0x04uy; 0x24uy; 0x01uy |]
+    let st = ConcState()
+    let rsp = hdl.RegisterFactory.GetRegisterID "RSP"
+    st.SetReg(rsp, BitVector(0x8000UL, 64<rt>))
+    Memory.write 0x8000UL (BitVector(41UL, 32<rt>)) Endian.Little st.Memory
+    evalInstrWith safe st stmts
+    let actual = Memory.read 0x8000UL Endian.Little 32<rt> st.Memory
+    Assert.AreEqual(Ok(BitVector(42UL, 32<rt>)), actual)
+    Assert.AreEqual<Addr>(5UL, st.PC)
+
+  [<DataTestMethod>]
+  [<DataRow(false)>]
+  [<DataRow(true)>]
+  member _.``An aligned RISC-V load does its work``(safe) =
+    (* fld ft0, 0(sp), which brackets an aligned access with AtomicBegin and
+       AtomicEnd *)
+    let bytes = [| 0x07uy; 0x30uy; 0x01uy; 0x00uy |]
+    let isa = ISA(Architecture.RISCV, WordSize.Bit64)
+    let hdl = BinHandle.LoadRawImage(bytes, isa, OS.Linux)
+    let stmts = hdl.NewLiftingUnit().LiftInstruction(0UL)
+    let rf = hdl.RegisterFactory
+    let one = BitVector(0x3ff0000000000000UL, 64<rt>)
+    let st = ConcState()
+    st.SetReg(rf.GetRegisterID "X2", BitVector(0x8000UL, 64<rt>))
+    st.SetReg(rf.GetRegisterID "F0", BitVector.Zero 64<rt>)
+    Memory.write 0x8000UL one Endian.Little st.Memory
+    evalInstrWith safe st stmts
+    Assert.AreEqual<BitVector>(one, st.GetReg(rf.GetRegisterID "F0"))
+    Assert.AreEqual<Addr>(4UL, st.PC)
 
   [<TestMethod>]
   member _.``Undefined expression raises a catchable exception``() =

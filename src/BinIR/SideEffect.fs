@@ -102,6 +102,31 @@ module SideEffect =
       true
 
   /// <summary>
+  /// Returns whether the effect takes control away from the instruction, so
+  /// that the statements lifted after it are not reached. A lifter relies on
+  /// both answers: a trap is placed where falling through would run what it
+  /// guards (an x86 divide falls through from its divide-error trap into the
+  /// division), and a marker is placed between the statements that do the
+  /// work (an x86 LOCK-prefixed instruction sits between AtomicBegin and
+  /// AtomicEnd). Only the effects that plainly go on are named; everything
+  /// else answers true, so an effect added later is taken to end the
+  /// instruction until someone has said otherwise.
+  /// </summary>
+  [<CompiledName "EndsInstruction">]
+  let endsInstruction sideEffect =
+    match sideEffect with
+    | Fence | Delay | AtomicBegin | AtomicEnd
+    | ClockCounterRead _ | ProcessorInfoRead
+    | SaveWindow | RestoreWindow | FlushWindows ->
+      false
+#if EMULATION
+    | FlagsUpdate ->
+      false
+#endif
+    | _ ->
+      true
+
+  /// <summary>
   /// Retrieves the LowUIR string representation of the side effect.
   /// </summary>
   [<CompiledName "ToString">]

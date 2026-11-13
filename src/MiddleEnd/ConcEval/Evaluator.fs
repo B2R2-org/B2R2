@@ -238,8 +238,7 @@ let evalStmt (st: ConcState) stmt =
     let struct (name, args) = evalCall st call
     st.OnExternalCall(name, args, st) |> st.NextStmt
   | SideEffect(Effect = eff) ->
-    st.OnSideEffect(eff, st)
-    if st.IsInstrTerminated then () else st.AbortInstr true
+    evalSideEffect st eff
 
 let private evalStmtOrSkip (st: ConcState) stmt =
   try

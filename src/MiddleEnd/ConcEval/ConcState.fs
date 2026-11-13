@@ -79,8 +79,8 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   member _.Labels with get() = lbls
 
   /// Indicate whether to terminate the current instruction or not. This flag is
-  /// set to true when we encounter an inter-jump statement or SideEffect, so
-  /// that we can ignore the rest of the statements.
+  /// set to true when we encounter an inter-jump statement or a SideEffect that
+  /// ends the instruction, so that we can ignore the rest of the statements.
   member _.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
 
@@ -99,10 +99,12 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   member _.ExternalCallEventHandler
     with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
 
-  /// Side-effect event handler. A handler that does not terminate the current
-  /// instruction on its own leaves the evaluator to terminate it and advance
-  /// the PC past the instruction; a handler that sets the PC itself must call
-  /// `AbortInstr()` to keep it.
+  /// Side-effect event handler. After it returns, an effect that ends the
+  /// instruction (see `SideEffect.endsInstruction`) has the evaluator terminate
+  /// the instruction and advance the PC past it, unless the handler terminated
+  /// it on its own, and any other effect has evaluation go on to the next
+  /// statement. A handler that sets the PC itself must call `AbortInstr()` to
+  /// keep it.
   member _.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 

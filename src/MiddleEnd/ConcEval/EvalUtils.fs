@@ -25,6 +25,7 @@
 module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// The one-bit true value that evaluated conditions are tested against.
@@ -37,3 +38,14 @@ let markUndefAfterFailure (st: ConcState) lhs =
   | Var(RegisterID = n) -> st.UnsetReg n
   | TempVar(Index = n) -> st.UnsetTmp n
   | _ -> ()
+
+/// Hands a side effect to the state's handler, which is what carries it out.
+/// Whether the statements after it run is the IR's to say rather than the
+/// handler's: an effect that takes control away from the instruction ends it
+/// and advances the PC past it, unless the handler has ended it already, and
+/// any other effect lets evaluation go on to the next statement.
+let evalSideEffect (st: ConcState) eff =
+  st.OnSideEffect(eff, st)
+  if st.IsInstrTerminated then ()
+  elif SideEffect.endsInstruction eff then st.AbortInstr true
+  else st.NextStmt()

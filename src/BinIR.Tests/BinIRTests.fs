@@ -162,3 +162,27 @@ type BinIRTests() =
       UnsupportedInstruction
       Terminate ]
     |> List.iter (check true)
+
+  [<TestMethod>]
+  member _.``Side Effect Instruction Ending Test``() =
+    let check expected eff =
+      let msg = SideEffect.toString eff
+      Assert.AreEqual<bool>(expected, SideEffect.endsInstruction eff, msg)
+    [ Fence
+      Delay
+      AtomicBegin
+      AtomicEnd
+      ClockCounterRead None
+      ProcessorInfoRead
+      SaveWindow
+      RestoreWindow
+      FlushWindows ]
+    |> List.iter (check false)
+    [ Breakpoint
+      Terminate
+      SysCall
+      Interrupt 0x80
+      Exception DivideError
+      UndefinedInstruction
+      UnsupportedInstruction ]
+    |> List.iter (check true)
