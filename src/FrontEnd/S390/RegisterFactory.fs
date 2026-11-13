@@ -30,6 +30,8 @@ open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various s390 register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.R15 |> Register.toRegID |> Some
+
   let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "R0"
   let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "R1"
   let r2 = AST.var 64<rt> (Register.toRegID Register.R2) "R2"
@@ -186,10 +188,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer =
-      Register.R15
-      |> Register.toRegID
-      |> Some
+    member _.StackPointer = stackPointer
 
     member _.FramePointer = None
 

@@ -31,6 +31,10 @@ open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various RISCV register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.X2 |> Register.toRegID |> Some
+
+  let framePointer = Register.X8 |> Register.toRegID |> Some
+
   let rt = WordSize.toRegType isa.WordSize
 
   (* FLEN, which is not XLEN. A float register is sixty-four bits wide whenever
@@ -291,9 +295,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer = Register.X2 |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = Register.X8 |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with

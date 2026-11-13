@@ -32,6 +32,10 @@ open type Register
 
 /// Represents a factory for accessing various MIPS register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = R29 |> Register.toRegID |> Some
+
+  let framePointer = R30 |> Register.toRegID |> Some
+
   let rt = WordSize.toRegType isa.WordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
@@ -158,9 +162,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = PC |> Register.toRegID
 
-    member _.StackPointer = R29 |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = R30 |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with

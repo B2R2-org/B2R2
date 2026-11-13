@@ -35,6 +35,8 @@ do ()
 
 /// Represents a factory for accessing various PPC register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = R1 |> Register.toRegID |> Some
+
   let rt = WordSize.toRegType isa.WordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
@@ -294,7 +296,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = IAR |> Register.toRegID
 
-    member _.StackPointer = R1 |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
     member _.FramePointer = None
 

@@ -37,6 +37,10 @@ do ()
 /// a floating-point register holds is the sixty-four bits of a T_floating
 /// number whatever format an instruction reads it in.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.R30 |> Register.toRegID |> Some
+
+  let framePointer = Register.R15 |> Register.toRegID |> Some
+
   let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "r0"
   let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "r1"
   let r2 = AST.var 64<rt> (Register.toRegID Register.R2) "r2"
@@ -114,9 +118,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer = Register.R30 |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = Register.R15 |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with

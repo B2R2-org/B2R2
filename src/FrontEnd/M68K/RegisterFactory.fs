@@ -30,6 +30,10 @@ open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various m68k register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.A7 |> Register.toRegID |> Some
+
+  let framePointer = Register.A6 |> Register.toRegID |> Some
+
   let d0 = AST.var 32<rt> (Register.toRegID Register.D0) "d0"
   let d1 = AST.var 32<rt> (Register.toRegID Register.D1) "d1"
   let d2 = AST.var 32<rt> (Register.toRegID Register.D2) "d2"
@@ -108,15 +112,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer =
-      Register.A7
-      |> Register.toRegID
-      |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer =
-      Register.A6
-      |> Register.toRegID
-      |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with

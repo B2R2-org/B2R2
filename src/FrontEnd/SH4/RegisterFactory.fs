@@ -30,6 +30,10 @@ open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various SH4 register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.R15 |> Register.toRegID |> Some
+
+  let framePointer = Register.R14 |> Register.toRegID |> Some
+
   (* Each variable takes the width RegisterHelper assigns it, so a register
      variable and the GetRegType this factory reports for it agree: the T bit is
      one bit wide, a double-precision pair is sixty-four. Building them all at
@@ -182,9 +186,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer = Register.R15 |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = Register.R14 |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with

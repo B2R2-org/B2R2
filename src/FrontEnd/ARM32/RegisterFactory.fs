@@ -31,6 +31,10 @@ open type Register
 
 /// Represents a factory for accessing various ARM32 register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = SP |> Register.toRegID |> Some
+
+  let framePointer = FP |> Register.toRegID |> Some
+
   let r0 = AST.var 32<rt> (Register.toRegID R0) "R0"
   let r1 = AST.var 32<rt> (Register.toRegID R1) "R1"
   let r2 = AST.var 32<rt> (Register.toRegID R2) "R2"
@@ -257,9 +261,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = PC |> Register.toRegID
 
-    member _.StackPointer = SP |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = FP |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar name =
       match Register.ofRegID name with

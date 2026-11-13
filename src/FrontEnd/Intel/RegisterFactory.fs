@@ -35,6 +35,16 @@ open type WordSize
 type RegisterFactory(isa: ISA) =
   let wordSize = isa.WordSize
 
+  let stackPointer =
+    if WordSize.is32 wordSize then ESP |> Register.toRegID
+    else RSP |> Register.toRegID
+    |> Some
+
+  let framePointer =
+    if WordSize.is32 wordSize then EBP |> Register.toRegID
+    else RBP |> Register.toRegID
+    |> Some
+
   let reg64 wordSize t name =
     if wordSize = Bit32 then AST.undef 64<rt> name else AST.var 64<rt> t name
 
@@ -672,15 +682,9 @@ type RegisterFactory(isa: ISA) =
       if WordSize.is32 wordSize then EIP |> Register.toRegID
       else RIP |> Register.toRegID
 
-    member _.StackPointer =
-      if WordSize.is32 wordSize then ESP |> Register.toRegID
-      else RSP |> Register.toRegID
-      |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer =
-      if WordSize.is32 wordSize then EBP |> Register.toRegID
-      else RBP |> Register.toRegID
-      |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with

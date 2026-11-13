@@ -44,13 +44,14 @@ do ()
 type RegisterFactory(isa: ISA) =
   let pcRID = Register.PC |> Register.toRegID
   let spRID = Register.SP |> Register.toRegID
+  let stackPointer = Some spRID
 
   interface IRegisterFactory with
     member _.ISA = isa
 
     member _.ProgramCounter = pcRID
 
-    member _.StackPointer = Some spRID
+    member _.StackPointer = stackPointer
 
     member _.FramePointer = None
 

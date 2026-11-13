@@ -35,6 +35,10 @@ do ()
 
 /// Represents a factory for accessing various SPARC register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = O6 |> Register.toRegID |> Some
+
+  let framePointer = I6 |> Register.toRegID |> Some
+
   let rt = WordSize.toRegType isa.WordSize
   let fRegType = WordSize.toRegType WordSize.Bit32
 
@@ -155,9 +159,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = PC |> Register.toRegID
 
-    member _.StackPointer = O6 |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = I6 |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with

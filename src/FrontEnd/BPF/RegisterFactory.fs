@@ -36,6 +36,8 @@ do ()
 /// register is a quadword wide, an instruction of the thirty-two bit class
 /// reading the lower half of one and clearing the upper half when it writes.
 type RegisterFactory(isa: ISA) =
+  let framePointer = Register.R10 |> Register.toRegID |> Some
+
   let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "r0"
   let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "r1"
   let r2 = AST.var 64<rt> (Register.toRegID Register.R2) "r2"
@@ -59,7 +61,7 @@ type RegisterFactory(isa: ISA) =
        below is the whole of what this machine has. *)
     member _.StackPointer = None
 
-    member _.FramePointer = Register.R10 |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with

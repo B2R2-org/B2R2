@@ -35,6 +35,10 @@ do ()
 
 /// Represents a factory for accessing various AVR register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.toRegID SP |> Some
+
+  let framePointer = Register.toRegID Y |> Some
+
   let wordSize = isa.WordSize
 
   let regType = WordSize.toRegType wordSize
@@ -97,11 +101,11 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.toRegID PC
 
-    member _.StackPointer = Register.toRegID SP |> Some
+    member _.StackPointer = stackPointer
 
     (* Y (R29:R28) is the frame pointer the ABI assigns, so a routine with a
        frame keeps its base there. *)
-    member _.FramePointer = Register.toRegID Y |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with

@@ -36,6 +36,10 @@ do ()
 /// locate the evaluation stack, the local variables and the arguments, and the
 /// program counter, all of them a quadword wide.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.SP |> Register.toRegID |> Some
+
+  let framePointer = Register.FP |> Register.toRegID |> Some
+
   let pc = AST.pcvar 64<rt> "PC"
   let sp = AST.var 64<rt> (Register.toRegID Register.SP) "SP"
   let fp = AST.var 64<rt> (Register.toRegID Register.FP) "FP"
@@ -46,9 +50,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer = Register.SP |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
-    member _.FramePointer = Register.FP |> Register.toRegID |> Some
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with

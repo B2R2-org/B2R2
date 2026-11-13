@@ -30,6 +30,8 @@ open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various EVM register variables.
 type RegisterFactory(isa: ISA) =
+  let stackPointer = Register.SP |> Register.toRegID |> Some
+
   let pc = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
   let gas = AST.var 64<rt> (Register.toRegID Register.GAS) "GAS"
   let sp = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
@@ -43,7 +45,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer = Register.SP |> Register.toRegID |> Some
+    member _.StackPointer = stackPointer
 
     member _.FramePointer = Terminator.futureFeature ()
 
