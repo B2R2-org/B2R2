@@ -603,10 +603,10 @@ module private CFGKindSelect = begin
 
   let getState model =
     match Model.tryGetFocusedActiveTab model with
-    | Some { ID = id; Content = CFGContent(_, Loaded { ViewState = view }) } ->
-      view.CFGKind, true, id
+    | Some { Content = CFGContent(_, Loaded { ViewState = view }) } ->
+      view.CFGKind, true
     | _ ->
-      CFGKind.Disasm, false, "none"
+      CFGKind.Disasm, false
 
   let onGraphKindChanged dispatch (args: obj) =
     match args with
@@ -625,7 +625,7 @@ module private CFGKindSelect = begin
     )
 
   let view model dispatch =
-    let currentCFGKind, isEnabled, tabKey = getState model
+    let currentCFGKind, isEnabled = getState model
     ComboBox.create [
       ComboBox.width 100.0
       ComboBox.height ToolbarHeight
@@ -639,7 +639,7 @@ module private CFGKindSelect = begin
       ComboBox.isEnabled isEnabled
       ComboBox.onSelectedItemChanged (onGraphKindChanged dispatch)
       ItemsControl.itemTemplate (itemTemplate model)
-    ] |> View.withKey $"graph-select-{tabKey}"
+    ]
 
 end
 
@@ -661,6 +661,9 @@ module private MinimapToggle = begin
     if isActive then model.Theme.Toolbar.ActiveControlBackground
     else model.Theme.Toolbar.ControlBackground
 
+  let onToggled dispatch tabKey e =
+    dispatch (CFGPaneMsg(ToggleMinimap(tabKey, isChecked e)))
+
   let view model dispatch =
     let isEnabled, isActive, tabKey = getState model
     ToggleButton.create
@@ -674,10 +677,11 @@ module private MinimapToggle = begin
         ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onIsCheckedChanged (fun e ->
-          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, isChecked e))))
+        ToggleButton.onIsCheckedChanged (
+          onToggled dispatch tabKey,
+          OnChangeOf tabKey
+        )
         ToggleButton.content (mkIcon (IconAssets.mapIcon model) 20.0) ]
-      |> View.withKey $"minimap-toggle-{tabKey}"
 
 end
 
@@ -699,7 +703,6 @@ module private SyncToggle = begin
         ToggleButton.onIsCheckedChanged (fun e ->
           dispatch (SetSyncEnabled(isChecked e)))
         ToggleButton.content (mkIcon (IconAssets.syncIcon model) 20.0) ]
-      |> View.withKey "sync-toggle"
 
 end
 

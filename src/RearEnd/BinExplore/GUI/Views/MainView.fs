@@ -116,6 +116,8 @@ let private leftPanelView model dispatch =
 
 let private isFocusedPane model paneID = model.FocusedPaneID = Some paneID
 
+let private onPanePressed paneID dispatch _ = dispatch (FocusPane paneID)
+
 let private onContentSizeChanged paneID dispatch (e: SizeChangedEventArgs) =
   let w, h = e.NewSize.Width, e.NewSize.Height
   dispatch (UpdateViewportSize(paneID, w, h))
@@ -148,13 +150,14 @@ let private tabContentView tokenContextProvider pane model dispatch =
 let rec private paneView tokenContextProvider pane model dispatch =
   match pane with
   | Leaf(paneID, paneState) ->
+    let patch = OnChangeOf paneID
     Border.create [
       Border.borderThickness 1.0
       Border.borderBrush (
         if isFocusedPane model paneID then model.Theme.Panel.Border
         else model.Theme.Common.Transparent
       )
-      Control.onPointerPressed (fun _ -> dispatch (FocusPane paneID))
+      Control.onPointerPressed (onPanePressed paneID dispatch, patch)
       Border.child (
         DockPanel.create [
           DockPanel.children [
@@ -163,7 +166,10 @@ let rec private paneView tokenContextProvider pane model dispatch =
               Border.padding 0.0
               Border.margin 0.0
               Border.borderThickness 0.0
-              Control.onSizeChanged (onContentSizeChanged paneID dispatch)
+              Control.onSizeChanged (
+                onContentSizeChanged paneID dispatch,
+                patch
+              )
               Border.child (
                 tabContentView tokenContextProvider paneState model dispatch
               )

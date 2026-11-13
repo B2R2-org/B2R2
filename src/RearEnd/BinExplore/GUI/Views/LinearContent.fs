@@ -635,7 +635,7 @@ let private visibleItemsView model dispatch doc (state: LinearViewState) =
     Control.onPointerPressed focusPointerSource
     Control.onKeyDown (
       onNavigationKeyDown dispatch state,
-      OnChangeOf state.ScrollOffsetY
+      OnChangeOf state
     )
     Canvas.children [
       LinearRenderLayer.create [
@@ -658,7 +658,7 @@ let private bodyView model dispatch doc (state: LinearViewState) =
     Control.focusable true
     Control.onKeyDown (
       onNavigationKeyDown dispatch state,
-      OnChangeOf state.ScrollOffsetY
+      OnChangeOf state
     )
     Control.onPointerWheelChanged (onPointerWheelChanged dispatch)
     ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto

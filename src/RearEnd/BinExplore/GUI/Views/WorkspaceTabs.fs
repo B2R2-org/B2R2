@@ -90,16 +90,18 @@ let private onTabClick paneID tabID dispatch (e: PointerPressedEventArgs) =
 
 let private tabContextMenu paneID (pane: PaneState) dispatch (tab: Tab) =
   let moveMenuItem (header: string) placement =
+    let move _ = dispatch (MoveTabRelative(placement, tab.ID))
     MenuItem.create [
       MenuItem.header header
-      MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(placement, tab.ID)))
+      MenuItem.onClick (move, OnChangeOf(placement, tab.ID))
     ]
   let pinMenu =
     match tab.Content with
     | CFGContent(func, _) when pane.PreviewTab = Some tab ->
+      let pin _ = dispatch (PinCFGTab func)
       [ MenuItem.create [
           MenuItem.header "Pin this tab"
-          MenuItem.onClick (fun _ -> dispatch (PinCFGTab func))
+          MenuItem.onClick (pin, OnChangeOf func)
         ] :> IView
         Separator.create [] ]
     | _ ->
@@ -161,7 +163,7 @@ let private getTabTextColor model pane tab =
 let private getTabFontStyle pane tab =
   if pane.PreviewTab = Some tab then FontStyle.Italic else FontStyle.Normal
 
-let private themedTabIconView model tab iconSource =
+let private themedTabIconView model iconSource =
   Image.create [
     Image.source (iconSource model)
     Image.width 14.0
@@ -169,16 +171,16 @@ let private themedTabIconView model tab iconSource =
     Image.stretch Stretch.Uniform
     Image.verticalAlignment VerticalAlignment.Center
     Image.margin (0.0, 0.0, 4.0, 0.0)
-  ] |> View.withKey $"{tab.ID}-icon" :> IView
+  ] :> IView
 
 let private tabIconView model pane (tab: Tab) =
   match tab.Content with
   | CFGContent _ ->
-    themedTabIconView model tab IconAssets.cfgIcon
+    themedTabIconView model IconAssets.cfgIcon
   | LinearContent ->
-    themedTabIconView model tab IconAssets.linearIcon
+    themedTabIconView model IconAssets.linearIcon
   | HexContent ->
-    themedTabIconView model tab IconAssets.binaryIcon
+    themedTabIconView model IconAssets.binaryIcon
   | _ ->
     TextBlock.create [
       TextBlock.text ""
@@ -187,7 +189,7 @@ let private tabIconView model pane (tab: Tab) =
       TextBlock.foreground (getTabTextColor model pane tab)
       TextBlock.verticalAlignment VerticalAlignment.Center
       TextBlock.margin (0.0, 0.0, 4.0, 0.0)
-    ] |> View.withKey $"{tab.ID}-icon" :> IView
+    ] :> IView
 
 let private tabLabelView model pane tab =
   TextBlock.create [
@@ -202,9 +204,10 @@ let private tabLabelView model pane tab =
     TextBlock.maxWidth TabTextMaxWidth
     TextBlock.textWrapping TextWrapping.NoWrap
     TextBlock.textTrimming TextTrimming.CharacterEllipsis
-  ] |> View.withKey $"{tab.ID}-label" :> IView
+  ] :> IView
 
 let private tabButtonView paneID model dispatch tab =
+  let close _ = dispatch (CloseTab(paneID, tab.ID))
   Button.create [
     StackPanel.verticalAlignment VerticalAlignment.Center
     Button.content "\u00D7"
@@ -213,8 +216,8 @@ let private tabButtonView paneID model dispatch tab =
     Button.borderThickness 0.0
     Button.padding (5.0, 0.0, 5.0, 0.0)
     Button.fontSize model.Theme.Font.Scale.Large
-    Button.onClick (fun _ -> dispatch (CloseTab(paneID, tab.ID)))
-  ] |> View.withKey $"{tab.ID}-close"
+    Button.onClick (close, OnChangeOf(paneID, tab.ID))
+  ]
 
 let private tabContentView paneID pane model dispatch (tab: Tab) =
   StackPanel.create [
@@ -230,7 +233,7 @@ let private tabContentView paneID pane model dispatch (tab: Tab) =
           tabIconView model pane tab
           tabLabelView model pane tab
         ]
-      ] |> View.withKey $"{tab.ID}-clickarea"
+      ]
       tabButtonView paneID model dispatch tab
     ]
   ]
@@ -239,11 +242,12 @@ let private tabStripView paneID pane model dispatch =
   StackPanel.create [
     Control.allowDrop true
     Control.onDragOver onPaneDragOver
-    Control.onDrop (onPaneDrop paneID dispatch)
+    Control.onDrop (onPaneDrop paneID dispatch, OnChangeOf paneID)
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children (
       getVisibleTabs pane
       |> List.map (fun tab ->
+        let patch = OnChangeOf(paneID, tab.ID)
         Border.create [
           Border.background (getTabBackground model pane tab)
           Border.maxWidth TabMaxWidth
@@ -252,12 +256,12 @@ let private tabStripView paneID pane model dispatch =
           Border.padding (10.0, 5.0, 5.0, 5.0)
           Control.contextMenu (tabContextMenu paneID pane dispatch tab)
           Control.allowDrop true
-          Control.onPointerPressed (onTabClick paneID tab.ID dispatch)
+          Control.onPointerPressed (onTabClick paneID tab.ID dispatch, patch)
           Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
-          Control.onDragOver (onTabDrag paneID tab.ID dispatch)
-          Control.onDrop (onTabDrop paneID dispatch)
+          Control.onDragOver (onTabDrag paneID tab.ID dispatch, patch)
+          Control.onDrop (onTabDrop paneID dispatch, OnChangeOf paneID)
           Border.child (tabContentView paneID pane model dispatch tab)
-        ] |> View.withKey $"{tab.ID}-tab" :> IView
+        ] :> IView
       )
     )
   ]
@@ -273,7 +277,7 @@ let view paneID model dispatch =
         ScrollViewer.create [
           Control.allowDrop true
           Control.onDragOver onPaneDragOver
-          Control.onDrop (onPaneDrop paneID dispatch)
+          Control.onDrop (onPaneDrop paneID dispatch, OnChangeOf paneID)
           ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
           ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Disabled
           ScrollViewer.onPointerReleased (fun _ -> dispatch EndTabDrag)

@@ -191,6 +191,9 @@ let private pointerXYOnGraphCanvas (e: PointerEventArgs) =
   | None ->
     struct (0.0, 0.0)
 
+let private onEdgeEntered dispatch eid _ =
+  dispatch (CFGPaneMsg(SetHoveredEdge eid))
+
 let private onEdgePressed dispatch zoom panX panY p1 p2 e =
   if (e: PointerPressedEventArgs).ClickCount = 2 then
     let struct (x, y) = pointerXYOnGraphCanvas e
@@ -210,11 +213,13 @@ let private edgeHitAreaView dispatch (pts: Point[]) zoom panX panY p1 p2 eid =
     Polyline.points pts
     Polyline.stroke "#01FFFFFF"
     Polyline.strokeThickness (edgeHitAreaThickness zoom)
-    Control.onPointerEntered (fun _ ->
-      dispatch (CFGPaneMsg(SetHoveredEdge eid)))
+    Control.onPointerEntered (onEdgeEntered dispatch eid, OnChangeOf eid)
     Control.onPointerExited (fun _ ->
       dispatch (CFGPaneMsg(SetHoveredEdge None)))
-    Control.onPointerPressed (onEdgePressed dispatch zoom panX panY p1 p2)
+    Control.onPointerPressed (
+      onEdgePressed dispatch zoom panX panY p1 p2,
+      OnChangeOf(zoom, panX, panY, p1, p2)
+    )
   ] :> IView
 
 let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
@@ -241,8 +246,7 @@ let private edgeView model dispatch pts zoom panX panY color edgeID =
         edgeLineView scaled zoom color
         arrowheadView tip angle zoom color
       ]
-    ]
-    |> View.withKey $"edge-{edgeID}" :> IView
+    ] :> IView
     |> List.singleton
   else
     []
@@ -629,11 +633,11 @@ let private onTapped dispatch (e: TappedEventArgs) =
   dispatch (CFGPaneMsg(SetSelectedToken None))
   e.Handled <- true
 
-let private onMoved model dispatch (e: PointerEventArgs) =
+let private onMoved (pressed, isPanning) dispatch (e: PointerEventArgs) =
   let struct (x, y) = pointerXY e
   let shouldStartPan =
-    match model.CFGPressedPointer with
-    | Some(pressedX, pressedY) when not model.CFGIsPanning ->
+    match pressed with
+    | Some(pressedX, pressedY) when not isPanning ->
       let dx = x - pressedX
       let dy = y - pressedY
       dx * dx + dy * dy >= CFGPanStartThresholdSquared
@@ -641,13 +645,12 @@ let private onMoved model dispatch (e: PointerEventArgs) =
       false
   if shouldStartPan then capturePointer e else ()
   dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
-  if shouldStartPan || model.CFGIsPanning then e.Handled <- true else ()
+  if shouldStartPan || isPanning then e.Handled <- true else ()
 
-let private onReleased model dispatch (e: PointerReleasedEventArgs) =
+let private onReleased (pressed, isPanning) dispatch e =
   dispatch (CFGPaneMsg EndPan)
-  if model.CFGIsPanning then releasePointer e else ()
-  if model.CFGIsPanning || model.CFGPressedPointer.IsSome then e.Handled <- true
-  else ()
+  if isPanning then releasePointer (e: PointerReleasedEventArgs) else ()
+  if isPanning || Option.isSome pressed then e.Handled <- true else ()
 
 let private graphCanvasView provider model vpSize dispatch loaded =
   let cfg = loaded.Graph
@@ -662,13 +665,14 @@ let private graphCanvasView provider model vpSize dispatch loaded =
     CFGRenderCache.isEdgeVisible cache eID vpLeft vpRight vpTop vpBottom
   let isNodeVisible x y w h =
     x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
+  let pan = model.CFGPressedPointer, model.CFGIsPanning
   GraphCanvas.create [
     Canvas.background model.Theme.Graph.Background
     Control.onPointerWheelChanged (onWheel dispatch)
     Control.onPointerPressed (onPressed dispatch)
     Control.onTapped (onTapped dispatch)
-    Control.onPointerMoved (onMoved model dispatch)
-    Control.onPointerReleased (onReleased model dispatch)
+    Control.onPointerMoved (onMoved pan dispatch, OnChangeOf pan)
+    Control.onPointerReleased (onReleased pan dispatch, OnChangeOf pan)
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
       yield! graphNodes provider model dispatch loaded isNodeVisible
@@ -703,6 +707,8 @@ let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
   e.Handled <- true
 
 let private minimapView model dispatch (minimap: MinimapStaticCache) viewState =
+  let origin = viewState.GraphMinX, viewState.GraphMinY
+  let clickScope = minimap.Scale, minimap.OffsetX, minimap.OffsetY, origin
   Border.create [
     Border.width minimap.Width
     Border.height minimap.Height
@@ -717,8 +723,14 @@ let private minimapView model dispatch (minimap: MinimapStaticCache) viewState =
         Canvas.height minimap.Height
         Canvas.background model.Theme.Panel.AltBackground
         Canvas.opacity 0.9
-        Control.onPointerPressed (onMinimapClick dispatch minimap viewState)
-        Control.onPointerMoved (onRectMoved dispatch minimap.Scale)
+        Control.onPointerPressed (
+          onMinimapClick dispatch minimap viewState,
+          OnChangeOf clickScope
+        )
+        Control.onPointerMoved (
+          onRectMoved dispatch minimap.Scale,
+          OnChangeOf minimap.Scale
+        )
         Control.onPointerReleased (onRectReleased dispatch)
         Canvas.children [
           MinimapStaticLayer.create [
@@ -777,7 +789,10 @@ let private minimapViewport model vpSize dispatch minimap viewState =
             Border.borderThickness 3.0
             Border.cursor (new Cursor(StandardCursorType.SizeAll))
             Control.onPointerPressed (onRectPressed dispatch)
-            Control.onPointerMoved (onRectMoved dispatch scale)
+            Control.onPointerMoved (
+              onRectMoved dispatch scale,
+              OnChangeOf scale
+            )
             Control.onPointerReleased (onRectReleased dispatch)
           ]
         ]
