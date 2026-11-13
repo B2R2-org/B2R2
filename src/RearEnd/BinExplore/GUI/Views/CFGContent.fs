@@ -516,10 +516,16 @@ let private onMoved (pressed, isPanning) dispatch (e: PointerEventArgs) =
   dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
   if shouldStartPan || isPanning then e.Handled <- true else ()
 
-let private onReleased (pressed, isPanning) dispatch e =
+(* A release that ends a pan is the pan's; any other release, a click, is
+   left to the controls beneath, which is where a right click finds the
+   context menu of a token. *)
+let private onReleased isPanning dispatch (e: PointerReleasedEventArgs) =
   dispatch (CFGPaneMsg EndPan)
-  if isPanning then releasePointer (e: PointerReleasedEventArgs) else ()
-  if isPanning || Option.isSome pressed then e.Handled <- true else ()
+  if isPanning then
+    releasePointer e
+    e.Handled <- true
+  else
+    ()
 
 (* The border and padding that VisBBlock lays out around the text of a node. *)
 let [<Literal>] private NodeInset = 5.0
@@ -927,15 +933,12 @@ let private tokenWords loaded token =
 
 /// Opens the context menu of the given token. Building the menu lifts the
 /// instruction, so it happens here, once per request, rather than for every
-/// visible token on every render. A right press has already started a pan,
-/// and the release that would end it is consumed by the menu, so the pan is
-/// ended here.
+/// visible token on every render.
 let private openTokenMenu provider model dispatch loaded token target =
   let words = tokenWords loaded token
   let word = words[token.WordIndex]
   let fnAddr = loaded.FunctionAddress
   let menu = tokenContextMenu fnAddr provider model dispatch word token words
-  dispatch (CFGPaneMsg EndPan)
   (VirtualDom.create menu :?> ContextMenu).Open target
 
 let private onNodeContextRequested provider model dispatch loaded e =
@@ -986,7 +989,10 @@ let private graphCanvasView provider model vpSize dispatch loaded =
     Tunnel.OnPointerPressed(onPressed dispatch)
     Control.onTapped (onTapped dispatch)
     Tunnel.OnPointerMoved(onMoved pan dispatch, OnChangeOf pan)
-    Tunnel.OnPointerReleased(onReleased pan dispatch, OnChangeOf pan)
+    Tunnel.OnPointerReleased(
+      onReleased model.CFGIsPanning dispatch,
+      OnChangeOf model.CFGIsPanning
+    )
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
       nodeLayerView provider model vpSize dispatch loaded
