@@ -347,6 +347,18 @@ type MIPSBinaryBrewTests() =
     let callee = fns[0x400520UL].Callees[LeafCallSite 0x400530UL]
     Assert.AreEqual<CalleeKind>(RegularCallee 0x400690UL, callee)
 
+  (* GCC traps with teq zero, zero where it proves a path wrong, as after a
+     store through a null pointer, and nothing runs after the trap. *)
+  [<TestMethod>]
+  member _.``Nothing runs after a teq of zero with zero``() =
+    let fns =
+      recoverCode
+        [ "a0000000" (* sb zero, 0(zero) *)
+          "00000034" (* teq zero, zero *)
+          "03e00008" (* jr ra, which no path reaches *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])
+
   (* The error_tail of gnulib exits unless its status is zero. GCC keeps the
      status in s0 across the calls before the test, copying it there by oring
      it with the zero register, and branches to the return by comparing s0 with

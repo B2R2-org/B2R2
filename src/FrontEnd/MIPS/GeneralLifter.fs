@@ -3770,6 +3770,13 @@ let syscall (ins: Instruction) bld =
     AST.sideEffect SysCall
   }
 
+/// Takes the Trap exception of a trap whose comparison always holds, with no
+/// comparison and no way on to the next instruction.
+let trap (ins: Instruction) bld =
+  lift bld ins {
+    AST.sideEffect (Interrupt 13)
+  }
+
 let seb ins bld =
   lift bld ins {
     let rd, rt = transTwoOprs ins bld
