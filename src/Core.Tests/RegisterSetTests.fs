@@ -44,6 +44,21 @@ type RegisterSetTests() =
     Assert.AreEqual<int>(65, s.MaxNumElems)
     Assert.AreEqual<int>(2, s.BucketCount)
 
+  [<DataTestMethod>]
+  [<DataRow(378)>]
+  [<DataRow(404)>]
+  [<DataRow(621)>]
+  member _.``Default set supports extended register IDs``(id: int) =
+    let s = RegisterSet()
+    let registers = List<int>()
+    Assert.AreEqual<bool>(false, s.Contains id)
+    s.Add id
+    Assert.AreEqual<bool>(true, s.Contains id)
+    s.Iterate registers.Add
+    CollectionAssert.AreEqual([| id |], registers)
+    s.Remove id
+    Assert.AreEqual<bool>(true, s.IsEmpty())
+
   [<TestMethod>]
   member _.``Add Test 1``() =
     let s = RegisterSet(65)

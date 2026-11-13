@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.Tests
 
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -132,6 +133,20 @@ type LiftingUnitTests() =
     let lifted = lu.LiftBBlock(addr = 0UL)
     Assert.AreEqual<bool>(true, lifted.IsTerminated)
     Assert.AreEqual<int>(3, lifted.Statements.Length)
+
+  [<TestMethod>]
+  member _.``[LiftingUnit] optimize MRS X2 CTR_EL0``() =
+    let code = ByteArray.ofHexString "22003bd5"
+    let isa = ISA Architecture.ARMv8
+    let hdl = BinHandle.LoadRawImage(code, isa)
+    let unit = hdl.NewLiftingUnit()
+    Assert.AreEqual<string>("mrs x2, ctr_el0", unit.DisasmInstruction(0UL))
+    let regVar reg =
+      ARM64.Register.toRegID reg |> hdl.RegisterFactory.GetRegVar
+    let expected =
+      AST.put (regVar ARM64.Register.X2) (regVar ARM64.Register.CTREL0)
+    let stmts = unit.LiftInstruction(0UL, true)
+    Assert.AreEqual<bool>(true, Array.contains expected stmts)
 
   (* The four members below slice the file span themselves. Each must reject an
      unreadable pointer instead of letting a span-level exception escape, so

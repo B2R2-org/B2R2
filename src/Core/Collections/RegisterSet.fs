@@ -51,7 +51,9 @@ type RegisterSet(maxNumElems: int) =
     else
       ()
 
-  new() = RegisterSet(378) (* Number of registers for AARCH64 = 378 *)
+  /// Creates a set for register IDs 0 through 1023, leaving room for ISA
+  /// extensions beyond the currently defined registers.
+  new() = RegisterSet(1024)
 
   /// Gets the maximum number of elements that this set can hold.
   member _.MaxNumElems with get() = maxNumElems
