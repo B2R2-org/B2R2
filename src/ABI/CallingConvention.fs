@@ -293,7 +293,8 @@ module CallingConvention =
         [| ArgLocation.Reg(mips MIPS.Register.F12)
            ArgLocation.Reg(mips MIPS.Register.F14) |]
       IntReturnLocation = ArgLocation.Reg(mips MIPS.Register.R2)
-      FloatReturnLocation = ArgLocation.Reg(mips MIPS.Register.F0)
+      FloatReturnLocation = (* a double takes two 32-bit FPRs *)
+        ArgLocation.RegPair(mips MIPS.Register.F0, mips MIPS.Register.F1)
       ArgClassification = Independent
       CalleeSavedRegisters = (* R30 is s8, the frame pointer *)
         set [ yield! mipsRange MIPS.Register.R16 MIPS.Register.R23

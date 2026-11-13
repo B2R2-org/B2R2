@@ -324,15 +324,24 @@ type CallingConventionTests() =
       Assert.AreEqual<bool>(true, cc.IsCalleeSaved(mips r), string r)
 
   (* o32 passes the first two floats in f12 and f14, each a double's even
-     half, and returns one in f0. *)
+     half. *)
   [<TestMethod>]
   member _.``o32 passes floats in f12 and f14``() =
     let cc = CallingConvention.create OS.Linux (ISA "mips32")
     let mips r = MIPS.Register.toRegID r
     Assert.AreEqual<RegisterID>(mips MIPS.Register.F12, cc.FloatArgRegister 0)
     Assert.AreEqual<RegisterID>(mips MIPS.Register.F14, cc.FloatArgRegister 1)
-    Assert.AreEqual<RegisterID>(mips MIPS.Register.F0, cc.FloatReturnRegister)
     Assert.AreEqual<RegisterID>(mips MIPS.Register.R2, cc.IntReturnRegister)
+
+  (* An FPR of o32 holds thirty-two bits, so a double comes back in f0 and
+     f1: gsl_stats_quantile_from_sorted_data of GSL returns 0.0 by clearing
+     both, with mtc1 zero, f0 and mtc1 zero, f1. *)
+  [<TestMethod>]
+  member _.``o32 returns a double in f0 and f1``() =
+    let cc = CallingConvention.create OS.Linux (ISA "mips32")
+    let mips r = MIPS.Register.toRegID r
+    let pair = ArgLocation.RegPair(mips MIPS.Register.F0, mips MIPS.Register.F1)
+    Assert.AreEqual<ArgLocation>(pair, cc.FloatReturnLocation)
 
   (* n64 passes the first eight arguments in a0 to a7, or f12 to f19 for a
      float, each by its position, and the rest on the stack, the first of them

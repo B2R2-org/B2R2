@@ -60,10 +60,12 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     | _ ->
       (e, AST.undef (Expr.typeOf e) "ret") :: acc
 
+  /// Collects the definitions of the registers that hold a floating-point
+  /// return value, both halves of a double that takes two registers.
   let floatReturnValueDef (hdl: BinHandle) =
-    hdl.Conventions.Calling.FloatReturnRegister
-    |> hdl.RegisterFactory.GetRegVar
-    |> returnValueDefs []
+    ArgLocation.toRegisters hdl.Conventions.Calling.FloatReturnLocation
+    |> List.map hdl.RegisterFactory.GetRegVar
+    |> List.fold returnValueDefs []
     |> List.toArray
 
   /// Makes the definitions that invalidate the given registers, which are the
