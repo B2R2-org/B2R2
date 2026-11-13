@@ -157,6 +157,30 @@ type MIPSBinaryBrewTests() =
     let rodata = "0040054000400548" (* .word 0x400540, 0x400548 *)
     CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain code rodata)
 
+  (* A branch runs its delay slot as a part of its block, so the slot is no
+     gap between blocks that code nothing else reaches may fill, though a
+     block starts right past it: here past the slots at 0x400528, 0x40053c,
+     and 0x400544. *)
+  [<TestMethod>]
+  member _.``A delay slot is no gap of a function with a table``() =
+    let code =
+      [ "2c810001" (* sltiu at, a0, 1 *)
+        "10200008" (* beqz at, 0x400548 *)
+        "00041080" (* sll v0, a0, 2 *)
+        "3c010040" (* lui at, 0x40 *)
+        "00220821" (* addu at, at, v0 *)
+        "8c2106f4" (* lw at, 0x6f4(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "24020001" (* addiu v0, zero, 1 *) ]
+    let rodata = "0040054000400548" (* .word 0x400540, 0x400548 *)
+    let fns = recoverPatched mips32 code rodata
+    let expected = [| 0x400520UL; 0x40052cUL; 0x400540UL; 0x400548UL |]
+    CollectionAssert.AreEqual(expected, blocksOf fns[0x400520UL])
+
   (* MIPS64 code checks a 32-bit index, then takes its low word with DEXT,
      which the IR masks, before it scales the index. *)
   [<TestMethod>]

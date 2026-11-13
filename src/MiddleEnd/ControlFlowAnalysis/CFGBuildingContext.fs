@@ -94,6 +94,16 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let scanningUnit = lazy (hdl: BinHandle).NewLiftingUnit()
 
+  /// Gets the addresses that the given block takes up: those of its
+  /// instructions, and the delay slot of the last one, which runs with it.
+  let coveredRange (v: IVertex<LowUIRBasicBlock>) =
+    let range = v.VData.Internals.Range
+    match v.VData.Internals.LastInstruction with
+    | :? MIPS.Instruction as ins ->
+      AddrRange.create range.Min (ins.FallThroughAddress - 1UL)
+    | _ ->
+      range
+
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
 
@@ -405,7 +415,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
       this.CFG.Vertices
       |> Array.fold (fun acc v ->
         if v.VData.Internals.IsAbstract then acc
-        else v.VData.Internals.Range :: acc) []
+        else coveredRange v :: acc) []
       |> List.sortBy (fun r -> r.Min)
       |> fun ranges -> this.FindGap([], endAddr, this.FunctionAddress, ranges)
       |> List.rev
