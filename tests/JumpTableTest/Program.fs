@@ -1,6 +1,7 @@
 (*
   Scores B2R2's jump table recovery against the JumpTableBench ground truth:
-  x86, x64, ARMv7, as armhf and armel, and AArch64.
+  x86, x64, ARMv7, as armhf and armel, AArch64, and MIPS, as mips32 and
+  mips64.
 
     dotnet run --project tests/JumpTableTest -c Release -- <bin> <truth>
 
@@ -106,6 +107,8 @@ let private isaOf arch =
   | "x64" -> Some(Architecture.Intel, WordSize.Bit64)
   | "armhf" | "armel" -> Some(Architecture.ARMv7, WordSize.Bit32)
   | "aarch64" -> Some(Architecture.ARMv8, WordSize.Bit64)
+  | "mips32" -> Some(Architecture.MIPS, WordSize.Bit32)
+  | "mips64" -> Some(Architecture.MIPS, WordSize.Bit64)
   | _ -> None
 
 /// Loads the binary a case names, unless the ground truth names an
