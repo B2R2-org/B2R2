@@ -346,6 +346,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         BinOp(BinOpType.MUL, rt, e1, Num(BitVector(coeff, rt)))
       | _ ->
         BinOp(BinOpType.ADD, rt, e1, e2)
+    (* A shift by zero scales nothing, as MIPS64 code sign-extends a word by
+       shifting it so. *)
+    | BinOp(BinOpType.SHL, _, e, Num n) when n.IsZero ->
+      simplifyMultiplication e
     | BinOp(BinOpType.SHL, rt, e1, e2) ->
       let e1 = simplifyMultiplication e1
       let e2 = simplifyMultiplication e2
@@ -460,9 +464,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   /// Decomposes an index into the variable it derives from and the constant
   /// added to that variable, looking through copies, extensions, masks that
-  /// keep the low word, and constant additions, but not through an extension
-  /// of a variable that carries no width and that no definition computes, so
-  /// that the variable holding the extension becomes the root instead.
+  /// keep the low word, shifts by zero, as SLL of MIPS64 sign-extends a word
+  /// with, and constant additions, but not through an extension of a variable
+  /// that carries no width and that no definition computes, so that the
+  /// variable holding the extension becomes the root instead.
   let rec decomposeIndex findDef e =
     match e with
     | Var v ->
@@ -484,6 +489,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       decomposeIndex findDef e
     | BinOp(BinOpType.AND, _, e, Num m)
     | BinOp(BinOpType.AND, _, Num m, e) when isLowWordMask m ->
+      decomposeIndex findDef e
+    | BinOp(BinOpType.SHL, _, e, Num n) when n.IsZero ->
       decomposeIndex findDef e
     | _ ->
       None

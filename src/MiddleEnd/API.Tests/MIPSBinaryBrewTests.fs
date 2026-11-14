@@ -204,6 +204,29 @@ type MIPSBinaryBrewTests() =
     let rodata = "00000001200008dc00000001200008e4"
     CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain64 code rodata)
 
+  (* MIPS64 code sign-extends a 32-bit index with SLL by zero, which the IR
+     keeps as a shift, before it checks and scales the index. *)
+  [<TestMethod>]
+  member _.``A table ends at the range check of a sign-extended index``() =
+    let code =
+      [ "2482ffff" (* addiu v0, a0, -1 *)
+        "00021000" (* sll v0, v0, 0 *)
+        "2c430001" (* sltiu v1, v0, 1 *)
+        "10600009" (* beqz v1, 0x1200008e4 *)
+        "3c011200" (* lui at, 0x1200 *)
+        "00010938" (* dsll at, at, 4 *)
+        "000210f8" (* dsll v0, v0, 3 *)
+        "0022082d" (* daddu at, at, v0 *)
+        "dc210ac8" (* ld at, 0xac8(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "64020000" (* daddiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "64020001" (* daddiu v0, zero, 1 *) ]
+    let rodata = "00000001200008dc00000001200008e4"
+    CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain64 code rodata)
+
   (* A mask on the index bounds a table as a range check does, when the code
      masks rather than checks it. *)
   [<TestMethod>]
