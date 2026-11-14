@@ -63,6 +63,7 @@
     <Compile Include="GUI\Views\FunctionList.fs" />
     <Compile Include="GUI\Views\HexOverview.fs" />
     <Compile Include="GUI\Views\SectionList.fs" />
+    <Compile Include="GUI\Views\NavigationPanel.fs" />
     <Compile Include="GUI\Views\Toolbar.fs" />
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />
     <Compile Include="GUI\Views\CFGContent.fs" />

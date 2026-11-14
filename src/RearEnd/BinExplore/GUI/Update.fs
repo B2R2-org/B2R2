@@ -375,6 +375,8 @@ let private activateLoadedBinary arbiter (model: Model) id =
       |> Option.bind (Model.tryFindTab model)
       |> Option.orElseWith (fun () ->
         Model.tryFindBinaryTab id Tab.isLinearView model)
+      |> Option.orElseWith (fun () ->
+        Model.tryFindBinaryTab id (fun _ -> true) model)
     let model =
       match existing with
       | Some(paneID, _, tab, _) ->
@@ -425,9 +427,14 @@ let openBinaryCompleted arbiter model filePath (info: BinaryInfo) =
       else
         let source = arbiter.ForBinary id
         let binary = buildLoadedBinaryModel source model info
+        let order = model.BinaryOrder @ [ id ]
+        let height =
+          model.BinaryListHeight
+          |> Option.map (max (NavigationPanel.requiredHeight order.Length))
         { model with
             Binaries = Map.add id binary model.Binaries
-            BinaryOrder = model.BinaryOrder @ [ id ] }
+            BinaryOrder = order
+            BinaryListHeight = height }
     if model.SelectedBinaryID = Some id then
       let model =
         { model with LoadingBinaryPath = None; StatusMessage = None }
@@ -1344,6 +1351,32 @@ let setSyncEnabled (arbiter: Arbiter<_, _>) (model: Model) enabled =
     Model.mapSelectedBinary (fun b -> { b with SyncEnabled = enabled }) model
   if enabled then syncViewsWithActiveCFGIfEnabled arbiter model, Elmish.Cmd.none
   else model, Elmish.Cmd.none
+
+let selectBinary arbiter (model: Model) id =
+  if Map.containsKey id model.Binaries then
+    let pendingPath = model.LoadingBinaryPath
+    let model, cmd = activateLoadedBinary arbiter model id
+    let model = { model with LoadingBinaryPath = pendingPath }
+    match model.ActiveTab with
+    | Some tab when tab.BinaryID = id ->
+      let paneID = Model.getFocusedPaneID model
+      let model, switchCmd = switchTab arbiter model paneID tab.ID
+      model, Elmish.Cmd.batch [ cmd; switchCmd ]
+    | _ ->
+      model, cmd
+  else
+    model, Elmish.Cmd.none
+
+let setBinaryListExpanded model expanded =
+  { model with BinaryListExpanded = expanded }, Elmish.Cmd.none
+
+let setBinaryListHeight model height =
+  if Double.IsFinite height then
+    let model =
+      { model with BinaryListHeight = Some(max 56.0 (min 300.0 height)) }
+    model, Elmish.Cmd.none
+  else
+    model, Elmish.Cmd.none
 
 let startTabDrag (model: Model) paneID tabID =
   let model = { model with FocusedPaneID = Some paneID }

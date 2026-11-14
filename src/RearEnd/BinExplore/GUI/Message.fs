@@ -48,6 +48,12 @@ type Message =
   | LinearAnalysisFailed of AnalysisRequest * reason: string
   /// Routes a view event through its originating tab's binary and pane.
   | TabMsg of tabID: string * Message
+  /// Selects an opened binary and restores its last active tab.
+  | SelectBinary of BinaryID
+  /// Expands or collapses the opened-binary list.
+  | SetBinaryListExpanded of bool
+  /// Remembers the height chosen by dragging the navigation splitter.
+  | SetBinaryListHeight of float
   /// Message to close the current workspace.
   | CloseWorkspace
   /// Message to focus a specific pane by its ID.

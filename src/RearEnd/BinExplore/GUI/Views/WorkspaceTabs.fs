@@ -26,6 +26,8 @@
 module B2R2.RearEnd.BinExplore.GUI.WorkspaceTabs
 
 open System
+open System.Globalization
+open System.IO
 open Avalonia.Controls
 open Avalonia.Controls.Primitives
 open Avalonia.Layout
@@ -34,9 +36,11 @@ open Avalonia.Input
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
-let [<Literal>] private TabMaxWidth = 220.0
+let [<Literal>] private TabMaxWidth = 260.0
 
-let [<Literal>] private TabTextMaxWidth = 165.0
+let [<Literal>] private TabTextMaxWidth = 205.0
+
+let [<Literal>] private MaxFileNameLength = 10
 
 let [<Literal>] private DragPayloadSeparator = "|"
 
@@ -191,10 +195,25 @@ let private tabIconView model pane (tab: Tab) =
       TextBlock.margin (0.0, 0.0, 4.0, 0.0)
     ] :> IView
 
+let private shortFileName path =
+  let name = Path.GetFileName(path: string)
+  let starts = StringInfo.ParseCombiningCharacters name
+  let suffix = "..."
+  if starts.Length > MaxFileNameLength then
+    name.Substring(0, starts[MaxFileNameLength - suffix.Length]) + suffix
+  else
+    name
+
 let private tabLabelView model pane tab =
+  let title =
+    match Map.tryFind tab.BinaryID model.Binaries with
+    | Some binary ->
+      $"{shortFileName binary.Info.Path} - {tab.Title}"
+    | None ->
+      tab.Title
   TextBlock.create [
     StackPanel.verticalAlignment VerticalAlignment.Center
-    TextBlock.text tab.Title
+    TextBlock.text title
     TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
     TextBlock.background model.Theme.Common.Transparent
     TextBlock.foreground (getTabTextColor model pane tab)
@@ -220,6 +239,10 @@ let private tabButtonView paneID model dispatch tab =
   ]
 
 let private tabContentView paneID pane model dispatch (tab: Tab) =
+  let tooltip =
+    match Map.tryFind tab.BinaryID model.Binaries with
+    | Some binary -> $"{binary.Info.Path}\n{tab.Title}"
+    | None -> tab.Title
   StackPanel.create [
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children [
@@ -228,7 +251,11 @@ let private tabContentView paneID pane model dispatch (tab: Tab) =
         StackPanel.verticalAlignment VerticalAlignment.Center
         StackPanel.background model.Theme.Common.Transparent
         Control.focusable true
-        ToolTip.tip tab.Title
+        ToolTip.tip (
+          TextBlock.create [
+            TextBlock.text tooltip
+            TextBlock.textWrapping TextWrapping.NoWrap
+          ])
         StackPanel.children [
           tabIconView model pane tab
           tabLabelView model pane tab

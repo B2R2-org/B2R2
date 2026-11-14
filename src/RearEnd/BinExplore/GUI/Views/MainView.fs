@@ -111,11 +111,6 @@ let private sideMenuView model dispatch =
     )
   ]
 
-let private leftPanelView (model: Model) dispatch =
-  match model.WorkspacePanel with
-  | FunctionPanel -> FunctionList.view model dispatch :> IView
-  | SectionPanel -> SectionList.view model dispatch
-
 let private isFocusedPane model paneID = model.FocusedPaneID = Some paneID
 
 let private onPanePressed paneID dispatch _ = dispatch (FocusPane paneID)
@@ -243,7 +238,7 @@ let private workspaceView tokenContextProvider model dispatch =
       Grid.create [
         Grid.column 1
         Grid.children [
-          leftPanelView model dispatch
+          NavigationPanel.view model dispatch
         ]
       ]
       GridSplitter.create [

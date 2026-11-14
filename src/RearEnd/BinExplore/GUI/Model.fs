@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open System
+open System.IO
 open B2R2.RearEnd.BinExplore
 
 /// Represents the state of the main view.
@@ -32,6 +34,10 @@ type Model =
     Binaries: Map<BinaryID, BinaryModel>
     /// Opened binaries in their original loading order.
     BinaryOrder: BinaryID list
+    /// Whether the opened-binary list is expanded.
+    BinaryListExpanded: bool
+    /// User-selected list height, or None to size it to its contents.
+    BinaryListHeight: float option
     /// Binary currently shown in the navigation panels.
     SelectedBinaryID: BinaryID option
     /// Path of the binary currently loading.
@@ -62,6 +68,20 @@ and TabDragState =
     Tab: Tab }
 
 module Model =
+  let getBinaryLabel id (model: Model) =
+    match Map.tryFind id model.Binaries with
+    | Some binary ->
+      let name = Path.GetFileName binary.Info.Path
+      let duplicated =
+        model.Binaries |> Map.exists (fun otherID other ->
+          let otherName = Path.GetFileName other.Info.Path
+          otherID <> id
+          && StringComparer.OrdinalIgnoreCase.Equals(otherName, name))
+      if duplicated then $"{name} - {Path.GetDirectoryName binary.Info.Path}"
+      else name
+    | None ->
+      ""
+
   let tryGetSelectedBinary (model: Model) =
     model.SelectedBinaryID
     |> Option.bind (fun id -> Map.tryFind id model.Binaries)

@@ -45,6 +45,8 @@ type MainWindow<'FnCtx, 'GlCtx>
     let rootPane = Pane.createLeaf ()
     { Binaries = Map.empty
       BinaryOrder = []
+      BinaryListExpanded = true
+      BinaryListHeight = None
       SelectedBinaryID = None
       LoadingBinaryPath = None
       RootPane = rootPane
@@ -61,6 +63,12 @@ type MainWindow<'FnCtx, 'GlCtx>
 
   let rec update (msg: Message) (model: Model) =
     match msg with
+    | Message.SelectBinary id ->
+      Update.selectBinary arbiter model id
+    | SetBinaryListExpanded expanded ->
+      Update.setBinaryListExpanded model expanded
+    | SetBinaryListHeight height ->
+      Update.setBinaryListHeight model height
     | TabMsg(tabID, message) ->
       Update.routeTabMessage update model tabID message
     | OpenBinary filePath ->
