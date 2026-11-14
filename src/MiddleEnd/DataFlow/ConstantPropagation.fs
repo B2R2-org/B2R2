@@ -67,6 +67,24 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
     | c ->
       c
 
+  /// Loads a value of the given type from the given address, which the address
+  /// domain does not know, as a register that holds no stack address gives
+  /// it, e.g., gp in MIPS code: what the binary holds there if the address is
+  /// a constant in the GOT where only the loader writes. A register that
+  /// holds any other address may walk memory in a loop, and a CFG that still
+  /// lacks the way back shows only the first pass, so the register looks
+  /// constant while what it reads is not. An address that is not known yet
+  /// leaves the value so, until it is. The address domain, which settles
+  /// first, knows nothing of an argument, so the address tells what is known
+  /// of an address that reads one: that no one knows it.
+  let loadThroughRegister rt = function
+    | ConstantDomain.Const addr ->
+      LoaderOnlyMemory.tryReadGOT hdl (addr.ToUInt64()) rt
+      |> Option.map ConstantDomain.Const
+      |> Option.defaultValue ConstantDomain.NotAConst
+    | c ->
+      c
+
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | PCVar(Type = rt) ->
@@ -79,10 +97,9 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
       state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
     | Load(Endian = _m; Type = rt; Addr = addr) ->
       let addrValue = state.EvaluateAddressExpr(pp, addr)
-      match LowUIRAddress.tryGetMemoryVarKind addrValue, addrValue with
-      | Some vk, _ -> loadVar state pp rt vk
-      | None, AddressDomain.Undef -> ConstantDomain.Undef
-      | None, _ -> ConstantDomain.NotAConst
+      match LowUIRAddress.tryGetMemoryVarKind addrValue with
+      | Some vk -> loadVar state pp rt vk
+      | None -> evaluateExpr state pp addr |> loadThroughRegister rt
     | UnOp(Op = op; Operand = e) ->
       evaluateExpr state pp e
       |> ConstantDomain.evalUnOp op
@@ -124,7 +141,7 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    LowUIRSparseDataFlow.State(hdl, lattice, scheme)
+    LowUIRSparseDataFlow.State(hdl, lattice, scheme, initialValueProvider)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state

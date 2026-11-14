@@ -44,7 +44,10 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx> =
      * ins: IInstruction
     -> FunctionSummary<LowUIR.Stmt>
 
-  /// Makes a dummy function summary for an unknown function.
+  /// Makes a dummy function summary for an unknown function, the callee of an
+  /// indirect call whose target is unknown. It writes through none of the
+  /// pointers that the call may hand it, as nothing tells which registers it
+  /// takes.
   abstract MakeUnknownFunctionSummary:
        hdl: BinHandle
      * ins: IInstruction

@@ -48,9 +48,10 @@ type internal TailCallJudgment =
 /// Represents the rules that the CFG recovery follows where architectures
 /// differ: where a call enters its callee, whether a jump calls a function as
 /// its tail, whether a call calls a function at all, whether an indirect call
-/// returns, which entries of a jump table are holes, and whether a function
-/// needs building again. Workers share the rules, so the rules keep no state;
-/// what a function has to remember lives in its context.
+/// returns, which entries of a jump table are holes, where a jump table ends,
+/// and whether a function needs building again. Workers share the rules, so
+/// the rules keep no state; what a function has to remember lives in its
+/// context.
 type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   /// Returns the address of the function that a call or a jump to the given
   /// target enters.
@@ -96,6 +97,15 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * callee: Addr
     -> bool
 
+  /// Finds the callee of the indirect call that ends the given vertex from
+  /// what the code and the binary fix, such as a slot whose content the binary
+  /// gives and that the code reads the target from. Returns None when the
+  /// rules do not tell.
+  abstract TryResolveIndirectCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> Addr option
+
   /// Judges whether the indirect call that ends the given vertex returns, along
   /// with how many bytes its callee pops when it does. Returns None when the
   /// rules do not tell.
@@ -111,6 +121,15 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   abstract IsJumpTableHole:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * target: Addr
+    -> bool
+
+  /// Checks if the given jump table ends before its entry at the given index,
+  /// which the code of an architecture may tell where neither the entries
+  /// nor the data past them do.
+  abstract EndsJumpTableBefore:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * JmpTableInfo
+    * idx: int
     -> bool
 
   /// Checks if the function that the given context has built needs building

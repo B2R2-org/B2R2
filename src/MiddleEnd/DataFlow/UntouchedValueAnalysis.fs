@@ -52,6 +52,13 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | StackLocal offset when offset >= 0 -> mkUntouched varKind
     | _ -> UntouchedValueDomain.Undef
 
+  (* The data flow knows a register that holds zero, such as the zero register
+     of MIPS, which the lifter reads like any other register. *)
+  let isZero (state: LowUIRSparseDataFlow.State<_>) pp e =
+    match state.EvaluateAddressExpr(pp, e) with
+    | AddressDomain.Const bv -> bv.IsZero
+    | _ -> false
+
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | Var _ | TempVar _ ->
@@ -64,6 +71,16 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | Extract(Operand = e)
     | Cast(Kind = CastKind.ZeroExt; Operand = e)
     | Cast(Kind = CastKind.SignExt; Operand = e) ->
+      evaluateExpr state pp e
+    (* An operation with zero that leaves the other operand as it is passes
+       the value on, as MIPS copies a register by oring it with zero. *)
+    | BinOp(Op = (BinOpType.ADD | BinOpType.OR | BinOpType.XOR)
+            Left = z
+            Right = e) when isZero state pp z ->
+      evaluateExpr state pp e
+    | BinOp(Op = (BinOpType.ADD | BinOpType.OR | BinOpType.XOR | BinOpType.SUB)
+            Left = e
+            Right = z) when isZero state pp z ->
       evaluateExpr state pp e
     | _ ->
       UntouchedValueDomain.Touched

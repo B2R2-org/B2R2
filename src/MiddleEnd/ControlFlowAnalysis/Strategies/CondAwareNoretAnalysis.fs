@@ -574,39 +574,53 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | _ -> tryFindLocalDef stmts (i - 1) var
 
   /// Checks if the given expression, which the i-th of the given statements
-  /// reads, is zero, following the definitions in the block.
-  let rec isLocallyZero stmts i e =
+  /// reads, is zero, following the definitions in the block. What the block
+  /// reads as it comes in is zero if the given function finds it so at the
+  /// read, as the data flow finds the zero register of MIPS.
+  let rec isZeroAt isKnownZero stmts i e =
     match e with
     | Zero ->
       true
     | LowUIR.Var _ | LowUIR.TempVar _ ->
       match tryFindLocalDef stmts i e with
-      | Some(j, src) -> isLocallyZero stmts j src
-      | None -> false
+      | Some(j, src) -> isZeroAt isKnownZero stmts j src
+      | None -> isKnownZero (snd stmts[i]) e
     | _ ->
       false
+
+  /// Matches a comparison of the given kind between two operands, one of
+  /// which the given function finds zero, and gives the other.
+  [<return: Struct>]
+  let (|ComparisonWithZero|_|) isZero op e =
+    match e with
+    | LowUIR.RelOp(Op = o; Left = l; Right = r) when o = op ->
+      if isZero r then ValueSome l
+      elif isZero l then ValueSome r
+      else ValueNone
+    | _ ->
+      ValueNone
 
   /// Finds what the given expression, which the i-th of the given statements
   /// of a block reads, tests against zero: a register or memory read, along
   /// with the program point at which it is read, and whether the expression
   /// is non-zero exactly when the read is zero. Only those tests that tell
   /// zero from any other value count, and the definitions in the block are
-  /// followed.
-  let rec tryFindZeroTest stmts i e =
-    let find = tryFindZeroTest stmts i
+  /// followed. The given function tells whether what the block reads as it
+  /// comes in is zero.
+  let rec tryFindZeroTest isKnownZero stmts i e =
+    let find = tryFindZeroTest isKnownZero stmts i
+    let isZero = isZeroAt isKnownZero stmts i
     let negate = Option.map (fun (read, pp, onZero) -> read, pp, not onZero)
     match e with
     | LowUIR.Var _ | LowUIR.TempVar _ ->
       match tryFindLocalDef stmts i e with
-      | Some(j, src) -> tryFindZeroTest stmts j src
+      | Some(j, src) -> tryFindZeroTest isKnownZero stmts j src
       | None -> Some(e, snd stmts[i], false)
     | LowUIR.Load _ ->
       Some(e, snd stmts[i], false)
-    | LowUIR.RelOp(Op = RelOpType.EQ; Left = e; Right = Zero)
-    | LowUIR.RelOp(Op = RelOpType.EQ; Left = Zero; Right = e) ->
+    | ComparisonWithZero isZero RelOpType.EQ e ->
       find e |> negate
-    | LowUIR.RelOp(Op = RelOpType.NEQ; Left = e; Right = Zero)
-    | LowUIR.RelOp(Op = RelOpType.NEQ; Left = Zero; Right = e) ->
+    | ComparisonWithZero isZero RelOpType.NEQ e ->
       find e
     | LowUIR.UnOp(Op = UnOpType.NOT; Operand = e)
       when LowUIR.Expr.typeOf e = 1<rt> ->
@@ -620,11 +634,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | LowUIR.BinOp(Op = (BinOpType.AND | BinOpType.OR); Left = e1; Right = e2)
       when e1 = e2 ->
       find e1
-    | LowUIR.BinOp(Op = BinOpType.SUB; Left = e; Right = Zero) ->
+    | LowUIR.BinOp(Op = BinOpType.SUB; Left = e; Right = z) when isZero z ->
       find e
     (* ARM subtracts zero to compare with it by adding its complement and one,
        which leaves what it compares. *)
-    | SubByComplement(e, z) when isLocallyZero stmts i z ->
+    | SubByComplement(e, z) when isZero z ->
       find e
     (* The low part of a register holds an argument narrower than the
        register, such as an int in RDI, which is what a test of it tells. *)
@@ -662,6 +676,13 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | false, _ ->
       None
 
+  /// Checks if the data flow of the given state finds the given expression
+  /// zero at the given program point, as it finds the zero register of MIPS.
+  let isKnownZero (state: LowUIRSparseDataFlow.State<_>) pp e =
+    match state.EvaluateAddressExpr(pp, e) with
+    | AddressDomain.Const bv -> bv.IsZero
+    | _ -> false
+
   /// Traces the given test of a read at a program point back to the argument
   /// that the function gets untouched, through the definitions that reach the
   /// read from other blocks, as when a conditional instruction of ARM parts a
@@ -673,17 +694,20 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       Some(loc, onZero)
     | None, (LowUIR.Var _ | LowUIR.TempVar _) ->
       tryFindOuterDef state pp read
-      |> Option.bind (fun (stmts, i, src) -> tryFindZeroTest stmts i src)
+      |> Option.bind (fun (stmts, i, src) ->
+        tryFindZeroTest (isKnownZero state) stmts i src)
       |> Option.bind (fun (read, pp, onDefZero) ->
         tryTraceZeroTest hdl state (read, pp, onZero <> onDefZero))
     | None, _ ->
       None
 
   /// Finds the argument that the given guard finds zero whenever it lets a
-  /// path through. The data flow that tells whether the guard tests one is
-  /// computed only once the guard tests something that may be one.
+  /// path through. The data flow, which tells what the guard compares with
+  /// zero and whether that is one, is computed only once the guard may compare
+  /// something with zero.
   let tryGetZeroOnGuard hdl (state: Lazy<_>) ((stmts, cond), outcome) =
-    match tryFindZeroTest stmts (Array.length stmts - 1) cond with
+    let isZero pp e = isKnownZero state.Value pp e
+    match tryFindZeroTest isZero stmts (Array.length stmts - 1) cond with
     | Some test ->
       match tryTraceZeroTest hdl state.Value test with
       | Some(loc, onZero) when onZero = outcome -> Some loc

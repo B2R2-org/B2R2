@@ -120,6 +120,18 @@ type LifterTests() =
           "PF := (~ ((T_5:I8 ^ (T_5:I8 >> 0x1:I8))[0:0]))"
           "} // 1" |]
 
+  (* The sign bits of the four singles gather in the 64-bit halves of XMM0
+     that hold them, and ECX takes the low half of the mask. *)
+  [<TestMethod>]
+  member _.``[X86] MOVMSKPS fits its mask in a 32-bit register (1)``() =
+    testX86 "0F50C8" (* movmskps ecx, xmm0 *)
+    <| [| "(3) {"
+          "ECX := ((((((ZMM0B >> 0x3c:I64) & 0x8:I64) | "
+          + "((ZMM0B >> 0x1d:I64) & 0x4:I64)) | "
+          + "((ZMM0A >> 0x3e:I64) & 0x2:I64)) | "
+          + "((ZMM0A >> 0x1f:I64) & 0x1:I64))[31:0])"
+          "} // 3" |]
+
   [<TestMethod>]
   member _.``[X64] MOV instruction lift Test (1)``() =
     testX64 "488EC1"

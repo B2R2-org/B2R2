@@ -88,7 +88,9 @@ and CalleeInfo =
     /// The caller-saved registers that the callee may modify.
     Clobbered: Set<RegisterID>
     /// Whether the callee is an external function.
-    IsExternal: bool }
+    IsExternal: bool
+    /// What the callee writes through the pointers it gets.
+    PointerWrites: PointerWrites }
 with
   /// Returns the callee information to be replaced with the real one once the
   /// callee is built. Nothing is assumed about the callee until then.
@@ -96,7 +98,8 @@ with
     { Status = UnknownNoRet
       Unwinding = 0
       Clobbered = Set.empty
-      IsExternal = false }
+      IsExternal = false
+      PointerWrites = UnknownPointerWrites }
 
 /// Represents an interface for setting the priority of an action.
 and IPrioritizable =

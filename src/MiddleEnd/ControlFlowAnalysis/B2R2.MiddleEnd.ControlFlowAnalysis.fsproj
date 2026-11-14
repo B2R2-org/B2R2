@@ -48,10 +48,13 @@
     <Compile Include="Strategies\Guard.fs" />
     <Compile Include="Strategies\CondAwareNoretAnalysis.fs" />
     <Compile Include="Strategies\CalleeClobberAnalysis.fs" />
+    <Compile Include="Strategies\PointerWriteAnalysis.fs" />
     <Compile Include="Strategies\ARM64Code.fs" />
+    <Compile Include="Strategies\MIPSCode.fs" />
     <Compile Include="Strategies\JmpTableAnalysis.fs" />
     <Compile Include="Strategies\SRetAnalysis.fs" />
     <Compile Include="Strategies\SyscallAnalysis.fs" />
+    <Compile Include="Strategies\ReturnAddress.fs" />
     <Compile Include="Strategies\FunctionSummarizer.fs" />
     <Compile Include="Strategies\EVMGlobalContext.fs" />
     <Compile Include="Strategies\EVMFunctionSummarizer.fs" />
@@ -59,6 +62,7 @@
     <Compile Include="Strategies\ARM32Code.fs" />
     <Compile Include="Strategies\ARM32EntryEvidence.fs" />
     <Compile Include="Strategies\ARM32FunctionIdentification.fs" />
+    <Compile Include="Strategies\MIPSFunctionIdentification.fs" />
     <Compile Include="Strategies\PythonFunctionIdentification.fs" />
     <Compile Include="Strategies\ICFGRecovery.fs" />
     <Compile Include="Strategies\ICFGRecoveryRules.fs" />
@@ -66,6 +70,7 @@
     <Compile Include="Strategies\CFGRecoveryRules.fs" />
     <Compile Include="Strategies\IntelCFGRecoveryRules.fs" />
     <Compile Include="Strategies\ARM32CFGRecoveryRules.fs" />
+    <Compile Include="Strategies\MIPSCFGRecoveryRules.fs" />
     <Compile Include="Strategies\CFGRecoveryOptions.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <Compile Include="Strategies\EVMCFGHelper.fs" />

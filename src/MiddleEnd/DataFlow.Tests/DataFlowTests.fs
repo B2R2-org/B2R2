@@ -137,6 +137,85 @@ type DataFlowTests() =
     dfa.Compute cfg |> ignore
     cp.State
 
+  /// Loads MIPS code at 0x400000 that stores one in the slot at 0x10(sp) and
+  /// two in the one at 0x14(sp), hands the address of the first to the
+  /// function at 0x400034, which runs the given code, and loads the slots into
+  /// v0 at 0x400020 and v1 at 0x400024 once the callee returns. The function
+  /// saves ra at 0x1c(sp), above the slots, and restores it at 0x400028.
+  let loadCallWithSlotAddress callee =
+    [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+      "afbf001c" (* sw ra, 0x1c(sp) *)
+      "24010001" (* addiu at, zero, 1 *)
+      "a3a10010" (* sb at, 0x10(sp) *)
+      "24010002" (* addiu at, zero, 2 *)
+      "a3a10014" (* sb at, 0x14(sp) *)
+      "04110006" (* bal 0x400034 *)
+      "27a40010" (* addiu a0, sp, 0x10 *)
+      "93a20010" (* lbu v0, 0x10(sp) *)
+      "93a30014" (* lbu v1, 0x14(sp) *)
+      "8fbf001c" (* lw ra, 0x1c(sp) *)
+      "03e00008" (* jr ra *)
+      "27bd0020" (* addiu sp, sp, 0x20 *) ]
+    @ callee
+    |> String.concat ""
+    |> Binaries.loadMIPSAt 0x400000UL
+
+  /// Computes constant propagation on the function at 0x400000 of the given
+  /// brew.
+  let computeCallerAt0x400000 (brew: MiddleEnd.BinaryBrew<_, _>) =
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    cp.State
+
+  /// Computes constant propagation on the code that loadCallWithSlotAddress
+  /// loads with the given callee, and returns what v0 and v1 hold once loaded.
+  let computeSlotsAfterCall callee =
+    let state = loadCallWithSlotAddress callee |> computeCallerAt0x400000
+    let valueAt addr r =
+      let rid = FrontEnd.MIPS.Register.toRegID r
+      let vp = { ProgramPoint = ProgramPoint(addr, 1); VarKind = Regular rid }
+      state.GetAbsValue vp
+    let v0 = valueAt 0x400020UL FrontEnd.MIPS.Register.R2
+    let v1 = valueAt 0x400024UL FrontEnd.MIPS.Register.R3
+    v0, v1
+
+  /// Finds what the stack slot that the instruction at the given address reads
+  /// holds as if no call wrote it, in the given state.
+  let readSlotBeyondCalls (state: LowUIRSparseDataFlow.State<_>) addr =
+    state.UseDefMap
+    |> Seq.pick (fun (KeyValue(u, def)) ->
+      match u.VarKind with
+      | StackLocal _ when u.ProgramPoint.Address = addr -> Some def
+      | _ -> None)
+    |> state.TryGetAbsValueBeyondCalls
+
+  /// Loads MIPS code at 0x400000 that stores one in the slot at 0x10(sp),
+  /// hands its address to the function at 0x400040 three times in a loop,
+  /// and loads the slot into v0 at 0x40002c once the loop ends. The callee
+  /// writes a byte through the address.
+  let loadLoopCallWithSlotAddress () =
+    [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+      "afbf001c" (* sw ra, 0x1c(sp) *)
+      "afb00018" (* sw s0, 0x18(sp) *)
+      "24010001" (* addiu at, zero, 1 *)
+      "a3a10010" (* sb at, 0x10(sp) *)
+      "24100003" (* addiu s0, zero, 3 *)
+      "04110009" (* bal 0x400040 *)
+      "27a40010" (* addiu a0, sp, 0x10 *)
+      "2610ffff" (* addiu s0, s0, -1 *)
+      "1600fffc" (* bnez s0, 0x400018 *)
+      "00000000" (* nop *)
+      "93a20010" (* lbu v0, 0x10(sp) *)
+      "8fb00018" (* lw s0, 0x18(sp) *)
+      "8fbf001c" (* lw ra, 0x1c(sp) *)
+      "03e00008" (* jr ra *)
+      "27bd0020" (* addiu sp, sp, 0x20 *)
+      "03e00008" (* jr ra *)
+      "a0800000" (* sb zero, 0(a0) *) ]
+    |> String.concat ""
+    |> Binaries.loadMIPSAt 0x400000UL
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Reaching Definitions Test 1``() =
@@ -391,6 +470,249 @@ type DataFlowTests() =
     let out = state.GetAbsValue(irReg 0x7fffffe8UL 1 Register.EAX)
     Assert.AreEqual<ConstantDomain.Lattice>(mkConst 0x12345678u 32<rt>, out)
 
+  /// MIPS reads zero from its zero register, whose initial value no
+  /// instruction replaces.
+  [<TestMethod>]
+  member _.``Constant Propagation reads the MIPS zero register as zero``() =
+    (* addiu v0, zero, 6 ; jr ra ; nop *)
+    let brew = Binaries.loadMIPSAt 0x400000UL "2402000603e0000800000000"
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400000UL, 1); VarKind = v0 }
+    let six = mkConst 6u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
+
+  /// A MIPS PIC function finds gp from t9, which holds its own address on
+  /// entry when the data flow is told which function it runs in.
+  [<TestMethod>]
+  member _.``Constant Propagation gives t9 the MIPS function address``() =
+    (* lui gp, 0x1 ; addu gp, gp, t9 ; jr ra ; nop *)
+    let hex = "3c1c00010399e02103e0000800000000"
+    let brew = Binaries.loadMIPSAt 0x400000UL hex
+    let hdl = brew.BinHandle
+    let cfg = brew.Functions[0x400000UL].CFG
+    let gp = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R28)
+    let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = gp }
+    let provider = RegisterInitialValueProvider.createForFunction hdl 0x400000UL
+    let cp = ConstantPropagation(hdl, cfg.Vertices, provider)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let gpValue = mkConst 0x410000u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(gpValue, state.GetAbsValue vp)
+
+  /// A register that holds an address outside the GOT may walk memory in a
+  /// loop, and a CFG that still lacks the way back shows only its first pass,
+  /// so a load through it reads nothing, though the register holds a
+  /// constant and only the loader writes where it points.
+  [<TestMethod>]
+  member _.``Constant Propagation loads nothing outside the GOT``() =
+    (* lui v1, 0x40 ; lw v0, 0x10(v1) ; jr ra ; nop ; .word 0x12345678 *)
+    let hex = "3c0300408c62001003e000080000000012345678"
+    let brew = Binaries.loadMIPSAt 0x400000UL hex
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = v0 }
+    let top = ConstantDomain.NotAConst
+    Assert.AreEqual<ConstantDomain.Lattice>(top, state.GetAbsValue vp)
+
+  /// A load through a byte that the code loads through an argument reads
+  /// what no one knows, rather than nothing yet, which a phi would drop for a
+  /// constant that another path brings.
+  [<TestMethod>]
+  member _.``Constant Propagation loads nothing through a loaded byte``() =
+    (* lbu v1, 0(a0) ; lw v0, 0(v1) ; jr ra ; nop *)
+    let hex = "908300008c62000003e0000800000000"
+    let brew = Binaries.loadMIPSAt 0x400000UL hex
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400004UL, 1); VarKind = v0 }
+    let top = ConstantDomain.NotAConst
+    Assert.AreEqual<ConstantDomain.Lattice>(top, state.GetAbsValue vp)
+
+  /// CFG recovery hands new blocks over in no particular order, so a load
+  /// through gp may come before the block that sets gp. It then reads nothing
+  /// yet, rather than what no one knows, and reads the GOT once gp is known.
+  [<TestMethod>]
+  member _.``Constant Propagation loads through gp that it learns late``() =
+    (* lui gp, 0x43 ; b 0x400530 ; addiu gp, gp, -0x7ff0 ; nop
+       lw v0, -0x7fe8(gp) ; jr ra ; nop *)
+    let hex = "3c1c004310000002279c8010000000008f82801803e0000800000000"
+    let hdl = Binaries.loadPatchedMIPS "elf_mips32" 0x520 hex
+    let cfg = MiddleEnd.BinaryBrew(hdl).Functions[0x400520UL].CFG
+    let lateFirst =
+      cfg.Vertices
+      |> Array.sortByDescending _.VData.Internals.BlockAddress
+    let cp = ConstantPropagation(hdl, lateFirst)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let v0 = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2)
+    let vp = { ProgramPoint = ProgramPoint(0x400530UL, 1); VarKind = v0 }
+    let gotEntry = mkConst 0x400520u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(gotEntry, state.GetAbsValue vp)
+
+  /// A callee may write through the address of a slot that its caller hands
+  /// it, so the caller no longer knows what it stored in the bytes that the
+  /// callee writes there, though it does know what it stored past them.
+  [<TestMethod>]
+  member _.``Constant Propagation forgets the bytes that a callee writes``() =
+    let callee =
+      [ "03e00008" (* jr ra *)
+        "a0800000" (* sb zero, 0(a0) *) ]
+    let v0, v1 = computeSlotsAfterCall callee
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, v0)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 2u 32<rt>, v1)
+
+  /// A slot stays as it was across a callee that writes nothing through the
+  /// address of the slot.
+  [<TestMethod>]
+  member _.``Constant Propagation keeps a slot a callee does not write``() =
+    let callee =
+      [ "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let v0, v1 = computeSlotsAfterCall callee
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 1u 32<rt>, v0)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 2u 32<rt>, v1)
+
+  /// A callee that writes through the address of a slot at an index may write
+  /// the slots from there up to the ones in which its caller saves registers.
+  [<TestMethod>]
+  member _.``Constant Propagation forgets slots a callee indexes from``() =
+    let callee =
+      [ "00854021" (* addu t0, a0, a1 *)
+        "03e00008" (* jr ra *)
+        "a1000000" (* sb zero, 0(t0) *) ]
+    let v0, v1 = computeSlotsAfterCall callee
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, v0)
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, v1)
+
+  /// MIPS copies a register by oring it with zero, so `move a0, sp` hands the
+  /// callee the address of the slot at 0(sp) as well.
+  [<TestMethod>]
+  member _.``Constant Propagation forgets a slot that an or hands on``() =
+    let state =
+      [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+        "afbf001c" (* sw ra, 0x1c(sp) *)
+        "24010001" (* addiu at, zero, 1 *)
+        "a3a10000" (* sb at, 0(sp) *)
+        "04110005" (* bal 0x400028 *)
+        "03a02025" (* or a0, sp, zero *)
+        "93a20000" (* lbu v0, 0(sp) *)
+        "8fbf001c" (* lw ra, 0x1c(sp) *)
+        "03e00008" (* jr ra *)
+        "27bd0020" (* addiu sp, sp, 0x20 *)
+        "03e00008" (* jr ra *)
+        "a0800000" (* sb zero, 0(a0) *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+      |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x400018UL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
+
+  /// MIPS builds a constant too wide for an immediate with lui and ori, as
+  /// the size of a big frame and the offset of a slot in it, and reaches the
+  /// slot through the register that it adds the stack pointer to.
+  [<TestMethod>]
+  member _.``Constant Propagation finds a slot that ori offsets``() =
+    let state =
+      [ "3c010001" (* lui at, 0x1 *)
+        "34210020" (* ori at, at, 0x20 *)
+        "03a1e823" (* subu sp, sp, at *)
+        "24030007" (* addiu v1, zero, 7 *)
+        "3c080001" (* lui t0, 0x1 *)
+        "35080010" (* ori t0, t0, 0x10 *)
+        "011d4021" (* addu t0, t0, sp *)
+        "ad030000" (* sw v1, 0(t0) *)
+        "3c090001" (* lui t1, 0x1 *)
+        "35290010" (* ori t1, t1, 0x10 *)
+        "013d4821" (* addu t1, t1, sp *)
+        "8d220000" (* lw v0, 0(t1) *)
+        "3c010001" (* lui at, 0x1 *)
+        "34210020" (* ori at, at, 0x20 *)
+        "03a1e821" (* addu sp, sp, at *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+      |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x40002cUL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 7u 32<rt>, loaded)
+
+  /// An address that an instruction reaches from the stack pointer goes into
+  /// another register for the code to pass on or to walk, and a walk in a loop
+  /// that the CFG does not show yet would make the register look as if it held
+  /// one slot, so a load through it reads no slot.
+  [<TestMethod>]
+  member _.``Constant Propagation reads no slot through a taken address``() =
+    let state =
+      [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+        "afa00008" (* sw zero, 8(sp) *)
+        "27a40008" (* addiu a0, sp, 8 *)
+        "8c820000" (* lw v0, 0(a0) *)
+        "03e00008" (* jr ra *)
+        "27bd0020" (* addiu sp, sp, 0x20 *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+      |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x40000cUL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
+
+  /// What a register holds on entry is no known address, so a register that
+  /// holds either that or the address of a slot holds no known one, and the
+  /// store through it names no slot.
+  [<TestMethod>]
+  member _.``Address domain knows no register on entry``() =
+    let brew =
+      [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+        "14800003" (* bnez a0, 0x400014 *)
+        "00000000" (* nop *)
+        "24080008" (* addiu t0, zero, 8 *)
+        "011d2021" (* addu a0, t0, sp *)
+        "ac800000" (* sw zero, 0(a0) *)
+        "03e00008" (* jr ra *)
+        "27bd0020" (* addiu sp, sp, 0x20 *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+    let state = computeCallerAt0x400000 brew
+    let a0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R4
+    let a0Var = brew.BinHandle.RegisterFactory.GetRegVar a0
+    let addr = state.EvaluateAddressExpr(ProgramPoint(0x400014UL, 1), a0Var)
+    Assert.AreEqual<AddressDomain.Lattice>(AddressDomain.NotAConst, addr)
+
+  /// A slot that a callee may write still tells what it holds if the callee
+  /// does not: what the function stores there before the call.
+  [<TestMethod>]
+  member _.``Constant Propagation finds a slot as if no call wrote it``() =
+    let callee =
+      [ "03e00008" (* jr ra *)
+        "a0800000" (* sb zero, 0(a0) *) ]
+    let state = loadCallWithSlotAddress callee |> computeCallerAt0x400000
+    let slot = readSlotBeyondCalls state 0x400020UL
+    let expected = Some(mkConst 1u 8<rt>)
+    Assert.AreEqual<ConstantDomain.Lattice option>(expected, slot)
+
+  /// A call in a loop may write a slot that the loop reads back in, so the
+  /// slot reaches the call both from before the loop and from the call itself.
+  [<TestMethod>]
+  member _.``Constant Propagation finds a slot past a call in a loop``() =
+    let state = loadLoopCallWithSlotAddress () |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x40002cUL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    let slot = readSlotBeyondCalls state 0x40002cUL
+    let expected = Some(mkConst 1u 8<rt>)
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
+    Assert.AreEqual<ConstantDomain.Lattice option>(expected, slot)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
@@ -479,6 +801,49 @@ type DataFlowTests() =
       |> UntouchedValueDomain.Untouched
     let out = state.GetAbsValue(irReg 0x0UL 1 Register.EAX)
     Assert.AreEqual<UntouchedValueDomain.Lattice>(arg, out)
+
+  /// MIPS copies a register by oring it with the zero register, which leaves
+  /// the value untouched.
+  [<TestMethod>]
+  member _.``Untouched Value Analysis passes a value through the zero``() =
+    (* move s0, a0 ; jr ra ; nop *)
+    let brew = Binaries.loadMIPSAt 0x400000UL "0080802503e0000800000000"
+    let cfg = brew.Functions[0x400000UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    let regOf r = Regular(FrontEnd.MIPS.Register.toRegID r)
+    let s0 = regOf FrontEnd.MIPS.Register.R16
+    let vp = { ProgramPoint = ProgramPoint(0x400000UL, 1); VarKind = s0 }
+    let a0 =
+      regOf FrontEnd.MIPS.Register.R4
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(a0, state.GetAbsValue vp)
+
+  /// A callee that writes through the address of a slot at an index may write
+  /// the slots from there up to the ones in which its caller saves registers,
+  /// but not those, so ra comes back as the caller saved it.
+  [<TestMethod>]
+  member _.``Untouched Value Analysis keeps saves above a slot it hands on``() =
+    let callee =
+      [ "00854021" (* addu t0, a0, a1 *)
+        "03e00008" (* jr ra *)
+        "a1000000" (* sb zero, 0(t0) *) ]
+    let brew = loadCallWithSlotAddress callee
+    let cfg = brew.Functions[0x400000UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    let ra = Regular(FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R31)
+    let vp = { ProgramPoint = ProgramPoint(0x400028UL, 1); VarKind = ra }
+    let saved =
+      ra
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(saved, state.GetAbsValue vp)
 
   [<TestMethod>]
   member _.``Sensitive Constant Propagation EvalExpr 1``() =

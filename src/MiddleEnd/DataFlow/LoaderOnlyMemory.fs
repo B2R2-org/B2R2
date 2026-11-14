@@ -52,3 +52,16 @@ let tryRead (hdl: BinHandle) addr rt =
     | Error _ -> None
   | _ ->
     None
+
+/// Checks if the given address lies in the GOT, which code reads through the
+/// GOT pointer of its function, as MIPS code reads through gp, rather than
+/// through a pointer that walks memory.
+let isInGOT (file: IBinFile) addr =
+  match BinFileOps.tryFindSectionNameByAddr file addr with
+  | Ok name -> name = ".got"
+  | Error _ -> false
+
+/// Reads the value of the given type that the binary holds at the given
+/// address, as tryRead does, only if the address lies in the GOT.
+let tryReadGOT (hdl: BinHandle) addr rt =
+  if isInGOT hdl.File addr then tryRead hdl addr rt else None

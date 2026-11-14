@@ -229,6 +229,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       e
     | Extract(Cast(CastKind.SignExt, _, e), rt, 0) when Expr.typeOf e = rt ->
       e
+    (* A register that the code reloads from the stack reads back as all the
+       bits of what the code stored there. *)
+    | Extract(e, rt, 0) when Expr.typeOf e = rt ->
+      simplify e
     | Extract(e, rt, pos) ->
       Extract(simplify e, rt, pos)
     | expr ->
@@ -342,6 +346,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         BinOp(BinOpType.MUL, rt, e1, Num(BitVector(coeff, rt)))
       | _ ->
         BinOp(BinOpType.ADD, rt, e1, e2)
+    (* A shift by zero scales nothing, as MIPS64 code sign-extends a word by
+       shifting it so. *)
+    | BinOp(BinOpType.SHL, _, e, Num n) when n.IsZero ->
+      simplifyMultiplication e
     | BinOp(BinOpType.SHL, rt, e1, e2) ->
       let e1 = simplifyMultiplication e1
       let e2 = simplifyMultiplication e2
@@ -448,11 +456,18 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       false
 
+  /// Checks if the given mask keeps the low word of a 64-bit value, which
+  /// takes the value as a 32-bit index, as DEXT of MIPS64 does, rather than
+  /// bounds the index, as a narrower mask does.
+  let isLowWordMask (m: BitVector) =
+    m.Length = 64<rt> && m.ToUInt64() = 0xffffffffUL
+
   /// Decomposes an index into the variable it derives from and the constant
-  /// added to that variable, looking through copies, extensions, and constant
-  /// additions, but not through an extension of a variable that carries no
-  /// width and that no definition computes, so that the variable holding the
-  /// extension becomes the root instead.
+  /// added to that variable, looking through copies, extensions, masks that
+  /// keep the low word, shifts by zero, as SLL of MIPS64 sign-extends a word
+  /// with, and constant additions, but not through an extension of a variable
+  /// that carries no width and that no definition computes, so that the
+  /// variable holding the extension becomes the root instead.
   let rec decomposeIndex findDef e =
     match e with
     | Var v ->
@@ -471,6 +486,11 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Cast(CastKind.ZeroExt, _, e)
     | Cast(CastKind.SignExt, _, e)
     | Extract(e, _, 0) when not (isWidthlessLeaf findDef e) ->
+      decomposeIndex findDef e
+    | BinOp(BinOpType.AND, _, e, Num m)
+    | BinOp(BinOpType.AND, _, Num m, e) when isLowWordMask m ->
+      decomposeIndex findDef e
+    | BinOp(BinOpType.SHL, _, e, Num n) when n.IsZero ->
       decomposeIndex findDef e
     | _ ->
       None
@@ -816,6 +836,64 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | c, _ ->
       c
 
+  /// Finds the constant that the given variable holds as the given function
+  /// finds it, or else, for a stack slot that a call may write, the one that
+  /// the slot holds if no call writes it. GCC spills the address of a table
+  /// right above an object whose address the code hands to a callee, which a
+  /// summary that tells no size lets write up to the saved registers. The
+  /// entries of the table confirm the address, while the index and its range
+  /// check never read a constant this way, so that a stale one never bounds a
+  /// table.
+  let findConstBeyondCalls (state: LowUIRSparseDataFlow.State<_>) findConst =
+    fun (v: Variable) ->
+      match findConst v, v.Kind with
+      | ConstantDomain.NotAConst, StackVar _ ->
+        match state.SSAVarToVp.TryGetValue v with
+        | true, vp ->
+          match state.TryGetAbsValueBeyondCalls vp with
+          | Some(ConstantDomain.Const _ as c) -> c
+          | _ -> ConstantDomain.NotAConst
+        | false, _ ->
+          ConstantDomain.NotAConst
+      | c, _ ->
+        c
+
+  /// Finds the definition of the given variable as the given function finds
+  /// it, or else, for a register that the function reads as it holds on
+  /// entry, the value it holds then, if the data flow knows it, as the zero
+  /// register of MIPS holds zero, which a range check compares with.
+  let findDefOrEntryValue findDef fromCP (v: Variable) =
+    match findDef v with
+    | None when v.Identifier = 0 ->
+      match fromCP v with
+      | ConstantDomain.Const bv -> Some(Def(v, Num bv))
+      | _ -> None
+    | def ->
+      def
+
+  /// Checks if the given address folds to one in the GOT of the given binary.
+  let isInGOT (hdl: BinHandle) findConst findDef addr =
+    match constantFold findConst findDef addr |> simplify with
+    | Num a -> LoaderOnlyMemory.isInGOT hdl.File (a.ToUInt64())
+    | _ -> false
+
+  /// Finds the definition of the given variable as the given function finds
+  /// it, except that a load from the GOT defines it as the constant that the
+  /// data flow gives it, as MIPS code loads the page of a table from there,
+  /// which the load itself leaves unknown. No other load becomes a constant,
+  /// as the data flow of a CFG that still lacks paths may take an index for
+  /// one, and so the entry that the index selects.
+  let findDefOrGOTEntry hdl findConst findDef (v: Variable) =
+    match findDef v with
+    | Some(Def(_, Load(_, _, addr))) as def ->
+      match findConst v with
+      | ConstantDomain.Const bv when isInGOT hdl findConst findDef addr ->
+        Some(Def(v, Num bv))
+      | _ ->
+        def
+    | def ->
+      def
+
   /// Finds the vertex that starts with the phi defining the given variable,
   /// if a phi defines it.
   let tryFindPhiVertex (state: LowUIRSparseDataFlow.State<_>) var =
@@ -1036,10 +1114,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match found with
     | Ok(v, (exp, guards, domGuards)) ->
       let fromCP = findConstFromIRCFG state
-      let findDef = findDefFromIRCFG state
+      let findDef =
+        findDefOrEntryValue (findDefFromIRCFG state) fromCP
+        |> findDefOrGOTEntry ctx.BinHandle fromCP
       let expandPhi = expandPhiFromIRCFG fromCP
       let findConst =
         findConstOrLoaded ctx.BinHandle fromCP
+        |> findConstBeyondCalls state
         |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
       findSymbPattern expandPhi findConst findDef fnAddr insAddr 0 exp
@@ -1210,6 +1291,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let collectDataReferences (hdl: BinHandle) =
     match hdl.ISA with
     | AArch64 -> ARM64Code.collectDataReferences hdl
+    | MIPS -> MIPSCode.collectDataReferences hdl
     | _ -> [||]
 
   /// Returns the addresses of data that the code of the given binary computes

@@ -274,37 +274,66 @@ module CallingConvention =
               yield! highHalves 0 31 ]
       ReturnAddressLocation = InRegister(arm64 ARM64.Register.X30) }
 
-  let private linuxMIPS () = (* o32/n64 differ in FP arg regs; not modeled *)
+  /// Returns the MIPS registers from first to last, by their numbers.
+  let private mipsRange (first: MIPS.Register) (last: MIPS.Register) =
+    [ for r in int first .. int last -> mips (enum<MIPS.Register> r) ]
+
+  /// Returns the MIPS registers from first to last as argument locations.
+  let private mipsArgs first last =
+    mipsRange first last |> List.map ArgLocation.Reg
+
+  let private linuxMIPS32 () = (* o32 *)
     { IntArgs =
         [| ArgLocation.Reg(mips MIPS.Register.R4)
            ArgLocation.Reg(mips MIPS.Register.R5)
            ArgLocation.Reg(mips MIPS.Register.R6)
            ArgLocation.Reg(mips MIPS.Register.R7)
-           ArgLocation.Reg(mips MIPS.Register.R8)
-           ArgLocation.Reg(mips MIPS.Register.R9) |]
-      FloatArgs = [||]
+           ArgLocation.Stack { FirstOffset = 16; SlotSize = 4 } |]
+      FloatArgs =
+        [| ArgLocation.Reg(mips MIPS.Register.F12)
+           ArgLocation.Reg(mips MIPS.Register.F14) |]
+      IntReturnLocation = ArgLocation.Reg(mips MIPS.Register.R2)
+      FloatReturnLocation = (* a double takes two 32-bit FPRs *)
+        ArgLocation.RegPair(mips MIPS.Register.F0, mips MIPS.Register.F1)
+      ArgClassification = Independent
+      CalleeSavedRegisters = (* R30 is s8, the frame pointer *)
+        set [ yield! mipsRange MIPS.Register.R16 MIPS.Register.R23
+              mips MIPS.Register.R29
+              mips MIPS.Register.R30
+              yield! mipsRange MIPS.Register.F20 MIPS.Register.F31 ]
+      CallerSavedRegisters = (* gp too: the caller reloads it after a call *)
+        set [ yield! mipsRange MIPS.Register.R1 MIPS.Register.R15
+              mips MIPS.Register.R24
+              mips MIPS.Register.R25
+              mips MIPS.Register.R28
+              mips MIPS.Register.R31
+              mips MIPS.Register.HI
+              mips MIPS.Register.LO
+              yield! mipsRange MIPS.Register.F0 MIPS.Register.F19 ]
+      ReturnAddressLocation = InRegister(mips MIPS.Register.R31) }
+
+  let private linuxMIPS64 () = (* n64 *)
+    { IntArgs =
+        [| yield! mipsArgs MIPS.Register.R4 MIPS.Register.R11
+           ArgLocation.Stack { FirstOffset = 0; SlotSize = 8 } |]
+      FloatArgs = [| yield! mipsArgs MIPS.Register.F12 MIPS.Register.F19 |]
       IntReturnLocation = ArgLocation.Reg(mips MIPS.Register.R2)
       FloatReturnLocation = ArgLocation.Reg(mips MIPS.Register.F0)
-      ArgClassification = Independent
-      CalleeSavedRegisters =
-        set [ mips MIPS.Register.R16
-              mips MIPS.Register.R17
-              mips MIPS.Register.R18
-              mips MIPS.Register.R19
-              mips MIPS.Register.R20
-              mips MIPS.Register.R21
-              mips MIPS.Register.R22
-              mips MIPS.Register.R23
-              mips MIPS.Register.R30 ]
+      ArgClassification = Positional
+      CalleeSavedRegisters = (* R28 is gp, R30 s8 *)
+        set [ yield! mipsRange MIPS.Register.R16 MIPS.Register.R23
+              mips MIPS.Register.R28
+              mips MIPS.Register.R29
+              mips MIPS.Register.R30
+              yield! mipsRange MIPS.Register.F24 MIPS.Register.F31 ]
       CallerSavedRegisters =
-        set [ mips MIPS.Register.R8
-              mips MIPS.Register.R9
-              mips MIPS.Register.R10
-              mips MIPS.Register.R11
-              mips MIPS.Register.R12
-              mips MIPS.Register.R13
-              mips MIPS.Register.R14
-              mips MIPS.Register.R15 ]
+        set [ yield! mipsRange MIPS.Register.R1 MIPS.Register.R15
+              mips MIPS.Register.R24
+              mips MIPS.Register.R25
+              mips MIPS.Register.R31
+              mips MIPS.Register.HI
+              mips MIPS.Register.LO
+              yield! mipsRange MIPS.Register.F0 MIPS.Register.F23 ]
       ReturnAddressLocation = InRegister(mips MIPS.Register.R31) }
 
   let private linuxPPC32 () = (* System V PowerPC ABI *)
@@ -808,7 +837,8 @@ module CallingConvention =
     | _, X86 -> linuxX86 ()
     | _, ARM32 -> linuxARM32 isa
     | _, AArch64 -> linuxAArch64 ()
-    | _, MIPS -> linuxMIPS ()
+    | _, MIPS32 -> linuxMIPS32 ()
+    | _, MIPS64 -> linuxMIPS64 ()
     | _, PPC32 -> linuxPPC32 ()
     | _, PPC64 -> linuxPPC64 ()
     | _, RISCV -> linuxRISCV ()

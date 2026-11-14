@@ -57,12 +57,14 @@ let initialValue (hdl: BinHandle) =
 /// if the address is a known one: a slot of the stack frame or a global
 /// variable.
 let tryGetMemoryVarKind = function
-  | AddressDomain.StackAddr off -> Some(StackLocal(toFrameOffset off))
+  | AddressDomain.OnStack off -> Some(StackLocal(toFrameOffset off))
   | AddressDomain.Const addr -> Some(Global(addr.ToUInt64()))
   | _ -> None
 
 /// Evaluates the given expression in the address domain at the given point,
-/// resolving every variable it reads through `evalVar`.
+/// resolving every variable it reads through `evalVar`. The domain follows no
+/// value through memory, so what a load reads is unknown once its address is
+/// known.
 let rec evalExpr evalVar pt (e: Expr) =
   match e with
   | Num(Value = bv) ->
@@ -70,10 +72,9 @@ let rec evalExpr evalVar pt (e: Expr) =
   | Var _ | TempVar _ ->
     evalVar (VarKind.ofIRExpr e) pt
   | Load(Addr = addr) ->
-    let c = evalExpr evalVar pt addr
-    match tryGetMemoryVarKind c with
-    | Some vk -> evalVar vk pt
-    | None -> c
+    match evalExpr evalVar pt addr with
+    | AddressDomain.Undef -> AddressDomain.Undef
+    | _ -> AddressDomain.NotAConst
   | BinOp(Op = binOpType; Left = e1; Right = e2) ->
     let v1 = evalExpr evalVar pt e1
     let v2 = evalExpr evalVar pt e2
@@ -81,6 +82,7 @@ let rec evalExpr evalVar pt (e: Expr) =
     | BinOpType.ADD -> AddressDomain.add v1 v2
     | BinOpType.SUB -> AddressDomain.sub v1 v2
     | BinOpType.AND -> AddressDomain.``and`` v1 v2
+    | BinOpType.OR -> AddressDomain.``or`` v1 v2
     | _ -> AddressDomain.NotAConst
   | _ ->
     AddressDomain.NotAConst

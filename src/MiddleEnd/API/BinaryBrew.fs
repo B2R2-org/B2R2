@@ -142,6 +142,8 @@ type BinaryBrew =
     match hdl.ISA with
     | ARM32 ->
       ARM32FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
+    | MIPS ->
+      MIPSFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | _ ->
       FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 

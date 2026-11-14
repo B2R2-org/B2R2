@@ -42,7 +42,9 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable cfg = LowUIRCFG.create Mutable
 
-  let cp = ConstantPropagation((hdl: BinHandle), cfg.Vertices)
+  let cp =
+    let provider = RegisterInitialValueProvider.createForFunction hdl entryPoint
+    ConstantPropagation((hdl: BinHandle), cfg.Vertices, provider)
 
   let uva = UntouchedValueAnalysis(hdl, cfg.Vertices)
 
@@ -82,6 +84,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let clobberedRegs = HashSet(ClobberedRegisters.ofCallingConvention hdl)
 
+  let mutable pointerWrites = lazy UnknownPointerWrites
+
   let mutable managerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null = null
 
   let mutable jumpTableChannel: IJumpTableChannel | null = null
@@ -91,6 +95,16 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   let mutable entryMode = ARM32Mode.ARM
 
   let scanningUnit = lazy (hdl: BinHandle).NewLiftingUnit()
+
+  /// Gets the addresses that the given block takes up: those of its
+  /// instructions, and the delay slot of the last one, which runs with it.
+  let coveredRange (v: IVertex<LowUIRBasicBlock>) =
+    let range = v.VData.Internals.Range
+    match v.VData.Internals.LastInstruction with
+    | :? MIPS.Instruction as ins ->
+      AddrRange.create range.Min (ins.FallThroughAddress - 1UL)
+    | _ ->
+      range
 
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
@@ -222,6 +236,11 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// recovery narrows it down.
   member _.ClobberedRegs with get() = clobberedRegs
 
+  /// What this function writes through the pointers it gets. It starts with
+  /// anything, which is the safe assumption, and the analysis at the end of
+  /// the recovery narrows it down.
+  member _.PointerWrites with get(): PointerWrites = pointerWrites.Value
+
   /// The user-defined per-function context.
   member _.UserContext with get(): 'FnCtx = userCtx
 
@@ -250,13 +269,19 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   member _.UpdateGlobalContext(updater: 'GlCtx -> 'GlCtx) =
     managerChannel.UpdateGlobalContext updater
 
+  /// Sets how to find what this function writes through the pointers it gets,
+  /// which runs only once its callers need to know, as a function often ends
+  /// many times before it is done.
+  member internal _.SetPointerWrites v = pointerWrites <- v
+
   /// Takes a snapshot of what the callers of this function need to know about
   /// it, which stays valid even after this context changes.
   member internal this.ToCalleeInfo() =
     { Status = this.NonReturningStatus
       Unwinding = this.UnwindingBytes
       Clobbered = Set.ofSeq this.ClobberedRegs
-      IsExternal = false }
+      IsExternal = false
+      PointerWrites = this.PointerWrites }
 
   /// Resets the context to its initial state.
   member internal this.Reset() =
@@ -403,7 +428,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
       this.CFG.Vertices
       |> Array.fold (fun acc v ->
         if v.VData.Internals.IsAbstract then acc
-        else v.VData.Internals.Range :: acc) []
+        else coveredRange v :: acc) []
       |> List.sortBy (fun r -> r.Min)
       |> fun ranges -> this.FindGap([], endAddr, this.FunctionAddress, ranges)
       |> List.rev

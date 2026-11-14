@@ -67,6 +67,11 @@ type Instruction
     | Opcode.JALRSHB | Opcode.BLTZALS | Opcode.BGEZALS -> true
     | _ -> false
 
+  let alwaysTraps () =
+    match op, opr with
+    | Opcode.TEQ, TwoOperands(OpReg r1, OpReg r2) -> r1 = r2
+    | _ -> false
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -114,6 +119,10 @@ type Instruction
   /// Whether this is a branch that runs the instruction after it, in its
   /// delay slot, before it transfers control.
   member _.HasDelaySlot with get(): bool = hasDelaySlot ()
+
+  /// Checks if this instruction always traps, as a TEQ of a register with
+  /// itself does: GCC traps with teq zero, zero where it proves a path wrong.
+  member _.AlwaysTraps with get(): bool = alwaysTraps ()
 
   /// <summary>
   /// The instruction in the delay slot of this branch, which the branch runs
@@ -211,6 +220,8 @@ type Instruction
     member _.IsExit =
       match op with
       | Opcode.DERET | Opcode.ERET | Opcode.ERETNC -> true
+      (* A trap that always takes place returns, if at all, to itself. *)
+      | Opcode.TEQ -> alwaysTraps ()
       | _ -> false
 
     member _.IsNop = op = Opcode.NOP

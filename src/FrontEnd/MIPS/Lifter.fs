@@ -737,6 +737,8 @@ let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
     nop ins bld
   | Op.SYSCALL ->
     syscall ins bld
+  | Op.TEQ when ins.AlwaysTraps ->
+    trap ins bld
   (* The conditional traps, which differ only in the comparison. The
      immediate forms sign-extend what they compare against, including the two
      that then compare it as unsigned -- which is the architecture's rule and

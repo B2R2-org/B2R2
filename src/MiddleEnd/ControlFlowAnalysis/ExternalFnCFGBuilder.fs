@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Represents the builder for an external function, which is responsible for
 /// storing auxiliary information about the function, such as caller
@@ -44,7 +45,8 @@ type ExternalFnCFGBuilder
     { Status = noretStatus
       Unwinding = 0
       Clobbered = Set.ofSeq (ClobberedRegisters.ofCallingConvention hdl)
-      IsExternal = true }
+      IsExternal = true
+      PointerWrites = UnknownPointerWrites }
 
   /// Returns the location in this binary that refers to the external function.
   /// An import trampoline is executable code, whereas a relocation slot is

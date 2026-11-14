@@ -402,6 +402,33 @@ type ELFTests() =
     writeUInt64 bytes (sec + 24) 0xffffffffUL (* sh_offset *)
     ELFBinFile(fileName, bytes, None, None)
 
+  /// Reads the big-endian unsigned integer of the given width at the given
+  /// offset.
+  static let readBigEndian (bytes: byte[]) offset width =
+    Array.sub bytes offset width
+    |> Array.fold (fun v b -> (v <<< 8) ||| uint64 b) 0UL
+
+  /// Turns the .symtab of a big-endian ELF image into a null section, as if
+  /// strip had removed it.
+  static let stripBigEndian (bytes: byte[]) =
+    let shoffAt, width, shentAt =
+      if bytes[4] = 2uy then 0x28, 8, 0x3a else 0x20, 4, 0x2e
+    let shoff = int (readBigEndian bytes shoffAt width)
+    let shentsize = int (readBigEndian bytes shentAt 2)
+    let shnum = int (readBigEndian bytes (shentAt + 2) 2)
+    for i in 0 .. shnum - 1 do
+      let typ = shoff + i * shentsize + 4
+      if readBigEndian bytes typ 4 = 2UL (* SHT_SYMTAB *) then
+        Array.fill bytes typ 4 0uy
+      else
+        ()
+
+  /// Parses the given big-endian fixture without its .symtab.
+  static let parseStrippedBigEndian fileName =
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    stripBigEndian bytes
+    ELFBinFile(fileName, bytes, None, None)
+
   /// Returns the first symbol of the first dynamic symbol table.
   static let firstDynamicSymbol (file: ELFBinFile) =
     file.Symbols.DynamicSymbols[0]
@@ -1264,6 +1291,30 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x1129UL)
     Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x3df0UL)
     Assert.AreEqual<bool>(false, file.IsReadOnlyAfterLoading 0x4010UL)
+
+  [<TestMethod>]
+  member _.``[ELF] MIPS local GOT read-only after loading test``() =
+    (* Only the loader writes the local entries of a MIPS GOT, the first
+       DT_MIPS_LOCAL_GOTNO words from DT_PLTGOT, although their segment stays
+       writable for the global entries after them, which lazy binding writes
+       as the program runs. *)
+    let isLoaderOnly (file: ELFBinFile) addr = file.IsReadOnlyAfterLoading addr
+    Assert.AreEqual<bool>(true, isLoaderOnly mips32File 0x420028UL)
+    Assert.AreEqual<bool>(false, isLoaderOnly mips32File 0x42002cUL)
+    Assert.AreEqual<bool>(true, isLoaderOnly mips64File 0x120020060UL)
+    Assert.AreEqual<bool>(false, isLoaderOnly mips64File 0x120020068UL)
+
+  [<TestMethod>]
+  member _.``[ELF] MIPS .pdr function addresses test``() =
+    (* The assembler writes a .pdr record for each function, which starts with
+       the address of the function, and strip keeps the section, so the
+       static helper still has its entry once .symtab is gone. n64 records
+       keep only the low 32 bits of the address. *)
+    let hasEntry fileName addr =
+      let file = parseStrippedBigEndian fileName :> IBinFile
+      file.Structure.Value.FunctionAddresses.Contains addr
+    Assert.AreEqual<bool>(true, hasEntry "elf_mips32" 0x400690UL)
+    Assert.AreEqual<bool>(true, hasEntry "elf_mips64" 0x120000a60UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =

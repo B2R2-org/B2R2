@@ -133,7 +133,7 @@ module private CFGRecovery =
       jmptbl.NumEntries <- idx + 1
       ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
       ctx.JumpTableRecoveryStatus.Pop() |> ignore
-      sendJmpTblRecoverySuccess ctx queue jmptbl idx
+      sendJmpTblRecoverySuccess ctx rules queue jmptbl idx
     | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
       let noret, unwinding = calleeInfo.Status, calleeInfo.Unwinding
@@ -179,6 +179,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
   let arm32Rules = ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
+  let mipsRules = MIPSCFGRecoveryRules<'FnCtx, 'GlCtx>()
+
   /// Returns the rules for the architecture of the binary that the given
   /// context builds a function of. The binary tells, rather than the ISA that
   /// the strategy may be made with, as a strategy made without one serves a
@@ -187,6 +189,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     match ctx.BinHandle.ISA with
     | Intel -> intelRules :> ICFGRecoveryRules<_, _>
     | ARM32 -> arm32Rules :> ICFGRecoveryRules<_, _>
+    | MIPS -> mipsRules :> ICFGRecoveryRules<_, _>
     | _ -> defaultRules :> ICFGRecoveryRules<_, _>
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
@@ -273,6 +276,9 @@ type CFGRecovery<'FnCtx, 'GlCtx
   new(sretAnalysis, options: CFGRecoveryOptions) =
     let summarizer = FunctionSummarizer()
     let syscallAnalysis = SyscallAnalysis()
+    let calleeAnalyses =
+      (CalleeClobberAnalysis() :> ICFGAnalysis<unit -> unit>)
+      <+> PointerWriteAnalysis()
     let jmptblAnalysis, postAnalysis =
       if options.UseSSA then
         let ssaLifter = SSALifter() :> ICFGAnalysis<_>
@@ -281,12 +287,12 @@ type CFGRecovery<'FnCtx, 'GlCtx
         let jmpTableAnalysis =
           JmpTableAnalysis(Some ssaOnly) :> IJmpTableAnalyzable<_, _>
         let noret = ssaLifter <+> CondAwareNoretAnalysis()
-        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
+        jmpTableAnalysis, noret <+> calleeAnalyses
       else
         let jmpTableAnalysis =
           JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>
         let noret = CondAwareNoretAnalysis() :> ICFGAnalysis<unit -> unit>
-        jmpTableAnalysis, noret <+> CalleeClobberAnalysis()
+        jmpTableAnalysis, noret <+> calleeAnalyses
     CFGRecovery(summarizer,
                 jmptblAnalysis,
                 sretAnalysis,

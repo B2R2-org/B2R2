@@ -120,7 +120,7 @@ module private CFGRecoveryRules =
     let hdl = ctx.BinHandle
     match hdl.File with
     | :? BinFile.ELFBinFile as elf ->
-      let nextAddr = skipPadding ctx (ins.Address + uint64 ins.Length)
+      let nextAddr = skipPadding ctx (ReturnAddress.ofCall ins)
       match elf.TryFindFDERange ins.Address with
       | Some frame when frame.IsIncluding nextAddr ->
         judgeByFrameDepth hdl elf ins.Address nextAddr
@@ -180,6 +180,12 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * callee: Addr
     -> bool
 
+  /// Finds the callee of the indirect call that ends the given vertex.
+  abstract TryResolveIndirectCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> Addr option
+
   /// Judges whether the indirect call that ends the given vertex returns, along
   /// with how many bytes its callee pops when it does.
   abstract TryJudgeIndirectReturn:
@@ -192,6 +198,13 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   abstract IsJumpTableHole:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * target: Addr
+    -> bool
+
+  /// Checks if the given jump table ends before its entry at the given index.
+  abstract EndsJumpTableBefore:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * JmpTableInfo
+    * idx: int
     -> bool
 
   /// Checks if the function that the given context has built needs building
@@ -225,6 +238,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Takes every call for a call to a function.
   default _.IsGetPCThunk(_, _, _) = false
 
+  /// Leaves every indirect call to the data flow.
+  default _.TryResolveIndirectCallee(_, _) = None
+
   /// Judges by the call frame information.
   default _.TryJudgeIndirectReturn(ctx, caller) =
     tryJudgeReturnByCFA ctx caller.VData.Internals.LastInstruction
@@ -232,6 +248,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Takes no target for a hole, leaving the padding at the end of a function
   /// to the recovery itself.
   default _.IsJumpTableHole(_, _) = false
+
+  /// Ends no table, leaving its end to its entries and to the data past them,
+  /// as a range check may admit fewer entries than a compiler emits.
+  default _.EndsJumpTableBefore(_, _, _) = false
 
   /// Finds nothing in a built function that calls for building it again.
   default _.RequiresRebuild _ = false
@@ -256,11 +276,17 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     member this.IsGetPCThunk(ctx, bbl, callee) =
       this.IsGetPCThunk(ctx, bbl, callee)
 
+    member this.TryResolveIndirectCallee(ctx, caller) =
+      this.TryResolveIndirectCallee(ctx, caller)
+
     member this.TryJudgeIndirectReturn(ctx, caller) =
       this.TryJudgeIndirectReturn(ctx, caller)
 
     member this.IsJumpTableHole(ctx, target) =
       this.IsJumpTableHole(ctx, target)
+
+    member this.EndsJumpTableBefore(ctx, jmptbl, idx) =
+      this.EndsJumpTableBefore(ctx, jmptbl, idx)
 
     member this.RequiresRebuild ctx = this.RequiresRebuild ctx
 

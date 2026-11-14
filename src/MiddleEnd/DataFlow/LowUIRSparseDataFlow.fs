@@ -30,6 +30,7 @@ open B2R2
 open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
@@ -38,12 +39,14 @@ open B2R2.MiddleEnd.BinGraph
 type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
          lattice: ILattice<'Lattice>,
-         scheme: IScheme<'Lattice>) =
+         scheme: IScheme<'Lattice>,
+         ?initialValueProvider) =
 
   /// Holds the initial stack pointer value in the address domain.
   let spInitial = LowUIRAddress.initialValue hdl
 
-  let initialValueProvider = RegisterInitialValueProvider.create hdl
+  let initialValueProvider =
+    defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
 
   /// Caches the statements of every CFG vertex, along with their program
   /// points.
@@ -77,6 +80,34 @@ type State<'Lattice when 'Lattice: equality>
   /// and its statements never change afterwards.
   let everUsedVarKinds = HashSet<VarKind>()
 
+  /// Maps a program point to the stack slot whose address the statement there
+  /// puts in a register other than those that follow the stack, where a
+  /// callee may get it.
+  let stackAddrEscapes = Dictionary<ProgramPoint, int>()
+
+  /// Maps a program point to the stack slot in which the statement there saves
+  /// what a register holds on entry.
+  let registerSaves = Dictionary<ProgramPoint, int>()
+
+  /// Holds the offsets of the stack slots that the function reads anywhere.
+  let usedStackOffsets = SortedSet<int>()
+
+  /// Maps a call to the offsets of the stack slots that its callee may write,
+  /// in ascending order.
+  let callClobbers = Dictionary<IVertex<LowUIRBasicBlock>, int[]>()
+
+  /// Holds the registers in which the calling convention passes arguments.
+  let argRegisters =
+    lazy
+      match hdl.ISA.Arch with
+      | Architecture.EVM ->
+        [||]
+      | _ ->
+        hdl.Conventions.Calling.IntArgs
+        |> Array.choose (function
+          | ArgLocation.Reg rid -> Some rid
+          | _ -> None)
+
   /// Holds the vertices that need to be analyzed for reconstructing data flow
   /// information.
   let verticesForProcessing = HashSet<IVertex<LowUIRBasicBlock>>()
@@ -104,10 +135,12 @@ type State<'Lattice when 'Lattice: equality>
     | Some(stackVar, c) when varKind = stackVar ->
       c
     | _ ->
+      (* What the function gets is unknown, unless the binary fixes it, as it
+         fixes the global pointer of MIPS. *)
       match RegisterInitialValueProvider.tryGetInitialVarValue
               initialValueProvider varKind with
       | Some bv -> AddressDomain.Const bv
-      | None -> AddressDomain.Undef
+      | None -> AddressDomain.NotAConst
 
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with
@@ -323,6 +356,60 @@ type State<'Lattice when 'Lattice: equality>
     | SSA.PCVar _ -> None
     |> Option.map (fun vk -> { ProgramPoint = ProgramPoint.Fake; VarKind = vk })
 
+  /// Gets the definitions that the phi defining the given variable point
+  /// joins, if a phi defines it.
+  let tryGetPhiOperands vp =
+    match stmtCache.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+    | true, (_, v) when v.VData.Internals.PPoint = vp.ProgramPoint ->
+      match phiInfos.TryGetValue v with
+      | true, phiInfo when phiInfo.ContainsKey vp.VarKind ->
+        Some(Seq.toArray phiInfo[vp.VarKind].Values)
+      | _ ->
+        None
+    | _ ->
+      None
+
+  /// Gets the call that makes the given definition of a stack slot, which a
+  /// call makes of a slot that its callee may write.
+  let tryGetCallDefining vp =
+    match vp.VarKind with
+    | StackLocal _ ->
+      match stmtCache.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+      | true, (_, v) when v.VData.Internals.IsAbstract -> Some v
+      | _ -> None
+    | _ ->
+      None
+
+  /// Gets the definition of the given variable kind that reaches the given
+  /// vertex.
+  let tryGetIncomingDef v vk =
+    match perVertexIncomingDefs.TryGetValue v with
+    | true, defs -> Map.tryFind vk defs
+    | false, _ -> None
+
+  /// Collects into defs the definitions that statements make and that reach
+  /// the given ones through phis and past the calls that may write a stack
+  /// slot. Returns false if what the function gets on entry reaches them.
+  let rec collectDefsBeyondCalls (visited: HashSet<_>) defs vps =
+    match vps with
+    | [] ->
+      true
+    | vp :: _ when vp.ProgramPoint.IsFake ->
+      false
+    | vp :: rest when not (visited.Add vp) ->
+      collectDefsBeyondCalls visited defs rest
+    | vp :: rest ->
+      match tryGetPhiOperands vp, tryGetCallDefining vp with
+      | Some operands, _ ->
+        collectDefsBeyondCalls visited defs (List.ofArray operands @ rest)
+      | None, Some v ->
+        match tryGetIncomingDef v vp.VarKind with
+        | Some def -> collectDefsBeyondCalls visited defs (def :: rest)
+        | None -> false
+      | None, None ->
+        (defs: ResizeArray<_>).Add vp
+        collectDefsBeyondCalls visited defs rest
+
   let domainSubState =
     let flowQueue = UniqueQueue()
     let defSiteQueue = UniqueQueue()
@@ -379,6 +466,10 @@ type State<'Lattice when 'Lattice: equality>
     verticesForRemoval.Clear()
     usedVarKindsMemo.Clear()
     everUsedVarKinds.Clear()
+    stackAddrEscapes.Clear()
+    registerSaves.Clear()
+    usedStackOffsets.Clear()
+    callClobbers.Clear()
     vpToSSAVar.Clear()
     ssaVarCounter <- 0
     ssaVarToVp.Clear()
@@ -423,6 +514,16 @@ type State<'Lattice when 'Lattice: equality>
   member internal _.UsedVarKindsMemo with get() = usedVarKindsMemo
 
   member internal _.EverUsedVarKinds with get() = everUsedVarKinds
+
+  member internal _.StackAddrEscapes with get() = stackAddrEscapes
+
+  member internal _.RegisterSaves with get() = registerSaves
+
+  member internal _.UsedStackOffsets with get() = usedStackOffsets
+
+  member internal _.CallClobbers with get() = callClobbers
+
+  member internal _.ArgRegisters with get() = argRegisters.Value
 
   /// Maps an SSA variable to its corresponding variable point.
   member _.SSAVarToVp with get() = ssaVarToVp :> IReadOnlyDictionary<_, _>
@@ -481,19 +582,22 @@ type State<'Lattice when 'Lattice: equality>
     |> fun (irStmt, pp) -> translateToSSAStmt pp irStmt
 
   /// Tries to get the definition of the given SSA variable in an SSA form.
-  member _.TryGetSSADef v =
-    if not <| ssaVarToVp.ContainsKey v then
+  member _.TryGetSSADef var =
+    if not <| ssaVarToVp.ContainsKey var then
       None
     else
-      let vp = ssaVarToVp[v]
+      let vp = ssaVarToVp[var]
       let pp = vp.ProgramPoint
       let stmt, v = stmtCache.StmtOfBBLs[pp]
       let pp' = v.VData.Internals.PPoint
       let isPhi = pp = pp'
       if not isPhi then
+        (* A call defines the stack slots that its callee may write at its
+           last statement, which defines something else if anything, so they
+           come back as if from outside. *)
         match translateToSSAStmt pp stmt with
-        | SSA.SideEffect _ -> None
-        | s -> Some s
+        | SSA.Def(defined, _) as s when defined = var -> Some s
+        | _ -> None
       else
         generatePhiSSAStmt vp |> Some
 
@@ -512,6 +616,26 @@ type State<'Lattice when 'Lattice: equality>
       | _ ->
         None
     | _ ->
+      None
+
+  /// Gets the definitions that the phi defining the given variable point
+  /// joins, if a phi defines it.
+  member _.TryGetPhiOperands vp = tryGetPhiOperands vp
+
+  /// Returns the abstract value that the given definition would hold if no
+  /// call wrote the stack slots that it may write: the join of what the
+  /// statements that reach the definition through phis and past such calls
+  /// define. A call only may write such a slot, so this tells what the slot
+  /// holds if the call does not, which whoever reads it has to confirm on its
+  /// own. Returns None if what the function gets on entry reaches it.
+  member _.TryGetAbsValueBeyondCalls vp =
+    let defs = ResizeArray()
+    if collectDefsBeyondCalls (HashSet()) defs [ vp ] then
+      defs
+      |> Seq.map domainGetAbsValue
+      |> Seq.fold (fun acc v -> lattice.Join(acc, v)) lattice.Bottom
+      |> Some
+    else
       None
 
   /// Returns the abstract value at the given variable point.
@@ -601,11 +725,21 @@ module internal AnalysisCore = begin
     | false, _ ->
       ()
 
+  /// Forgets what the statements of the given vertex tell about the stack:
+  /// the slots whose addresses they hand on and those in which they save
+  /// registers.
+  let forgetStackFacts (state: State<_>) v =
+    for _, pp in state.GetStmtInfos v do
+      state.StackAddrEscapes.Remove pp |> ignore
+      state.RegisterSaves.Remove pp |> ignore
+    state.CallClobbers.Remove v |> ignore
+
   /// Invalidates the dataflow chains of the vertices that are pending
   /// removal, since a vertex leaving the graph makes its chains invalid.
   let rec removeInvalidChains (state: State<_>) =
     match state.DequeueVertexForRemoval() with
     | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
+      forgetStackFacts state v
       state.RemoveStmtsOf v
       removePhisOf state v
       state.MutablePhiInfos.Remove v |> ignore
@@ -623,6 +757,18 @@ module internal AnalysisCore = begin
   let tryGetMemoryVarKind (state: State<_>) pp e =
     state.EvaluateAddressExpr(pp, e)
     |> LowUIRAddress.tryGetMemoryVarKind
+
+  /// Gets the stack slots that the call at the given vertex lets its callee
+  /// write, along with the program point at which it defines them: its last
+  /// statement.
+  let tryGetCallClobbers (state: State<_>) v =
+    match state.CallClobbers.TryGetValue v with
+    | true, offsets when offsets.Length > 0 ->
+      state.GetStmtInfos v
+      |> Array.tryLast
+      |> Option.map (fun (_, pp) -> pp, offsets)
+    | _ ->
+      None
 
   /// Computes the inverse dominance frontier in linear time.
   let computeInverseDF g (dom: IForwardDominance<_>) v =
@@ -680,6 +826,11 @@ module internal AnalysisCore = begin
           |> Option.iter (fun vk -> varKinds.Add vk |> ignore)
         | _ ->
           ()
+      match tryGetCallClobbers state v with
+      | Some(_, offsets) ->
+        for off in offsets do varKinds.Add(StackLocal off) |> ignore
+      | None ->
+        ()
       memo[v] <- varKinds
       varKinds
 
@@ -744,6 +895,21 @@ module internal AnalysisCore = begin
         ()
     changed
 
+  /// Notes the variable kinds that the pending vertices read, along with the
+  /// stack slots among them. Every vertex is marked pending at least once,
+  /// when it is first added, so folding only the currently pending ones into
+  /// the persistent sets (rather than rescanning the whole graph every time)
+  /// still accounts for every vertex exactly once over the state's lifetime.
+  let noteUsedVarKinds (state: State<_>) =
+    for v in state.PendingVertices do
+      for varKind in getUsedVarKinds state.UsedVarKindsMemo state v do
+        if state.EverUsedVarKinds.Add varKind then
+          match varKind with
+          | StackLocal off -> state.UsedStackOffsets.Add off |> ignore
+          | _ -> ()
+        else
+          ()
+
   /// Maps each vertex to the insertion points whose inverse dominance frontier
   /// it belongs to, so that a newly placed phi node only wakes up the insertion
   /// points that can possibly need another one.
@@ -767,14 +933,8 @@ module internal AnalysisCore = begin
   let placePhis g state (dom: IForwardDominance<_>) =
     let memo = Dictionary()
     let buf = ResizeArray()
-    (* Every vertex is marked pending at least once, when it is first added,
-       so folding only the currently pending ones into the persistent
-       everUsed set (rather than rescanning the whole graph every time) still
-       accounts for every vertex exactly once over the state's lifetime. *)
-    let everUsed = (state: State<_>).EverUsedVarKinds
-    for v in state.PendingVertices do
-      for varKind in getUsedVarKinds state.UsedVarKindsMemo state v do
-        everUsed.Add varKind |> ignore
+    noteUsedVarKinds state
+    let everUsed = state.EverUsedVarKinds
     let candidates = collectPhiInsertionCandidates g state
     let invDFs, dependents = buildInverseDFIndex g dom candidates
     let worklist = Queue candidates
@@ -895,6 +1055,19 @@ module internal AnalysisCore = begin
     | IntraJmpEdge -> true
     | _ -> false
 
+  /// Adds to the given definitions going out of the given vertex those that it
+  /// makes of the stack slots that a callee may write, if it is a call that
+  /// lets its callee write them.
+  let addClobberDefs state v defs =
+    match tryGetCallClobbers state v with
+    | Some(pp, offsets) ->
+      offsets
+      |> Array.fold (fun defs off ->
+        let kind = StackLocal off
+        Map.add kind { ProgramPoint = pp; VarKind = kind } defs) defs
+    | None ->
+      defs
+
   /// Updates the DU/UD chains for the given basic block and return the defined
   /// variables in the block.
   let updateChainsWithBBLStmts g (state: State<_>) v defs =
@@ -911,7 +1084,7 @@ module internal AnalysisCore = begin
       if pp.Address <> prevAddr then defs <- outs else ()
       updateWithStmt state &outs &defs stmt pp
       prevAddr <- pp.Address
-    if intraBlockContinues then defs else outs
+    if intraBlockContinues then defs else addClobberDefs state v outs
 
   /// Updates the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =
@@ -1050,6 +1223,44 @@ module internal AnalysisCore = begin
       | true, uses ->
         uses |> Seq.iter (enqueueUse subState vp)
 
+  /// Notes whether the given value, which the statement at pp puts in a
+  /// register other than those that follow the stack, is the address of a
+  /// stack slot.
+  let noteStackAddrEscape (state: State<_>) pp value =
+    match value with
+    | AddressDomain.OnStack off ->
+      state.StackAddrEscapes[pp] <- LowUIRAddress.toFrameOffset off
+    | _ ->
+      state.StackAddrEscapes.Remove pp |> ignore
+
+  /// Checks if no definition in the function reaches the given use of a
+  /// variable at pp, which then holds what it held on entry.
+  let readsEntryValue (state: State<_>) pp e =
+    let vp = { ProgramPoint = pp; VarKind = VarKind.ofIRExpr e }
+    match state.UseDefMap.TryGetValue vp with
+    | true, def -> def.ProgramPoint.IsFake
+    | false, _ -> false
+
+  /// Checks if the given value, which the statement at pp stores, is what a
+  /// register holds on entry, or the low part of it, as MIPS stores a word.
+  let isEntryValueOfRegister state pp value =
+    match value with
+    | Var _ ->
+      readsEntryValue state pp value
+    | Extract(Operand = Var _ as reg; StartPos = 0) ->
+      readsEntryValue state pp reg
+    | _ ->
+      false
+
+  /// Notes whether the store at pp saves in a stack slot what a register holds
+  /// on entry.
+  let noteRegisterSave (state: State<_>) pp addr value =
+    match state.EvaluateAddressExpr(pp, addr) with
+    | AddressDomain.OnStack off when isEntryValueOfRegister state pp value ->
+      state.RegisterSaves[pp] <- LowUIRAddress.toFrameOffset off
+    | _ ->
+      state.RegisterSaves.Remove pp |> ignore
+
   let spTransfer (state: State<_>) (stmt, pp) =
     match stmt with
     | Put(Dst = dst; Src = src) ->
@@ -1058,9 +1269,12 @@ module internal AnalysisCore = begin
         match varKind with
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
           state.EvaluateAddressExpr(pp, src)
+          |> AddressDomain.holdInStackPointer
           |> Some
         | Regular _ ->
-          AddressDomain.NotAConst |> Some
+          let value = state.EvaluateAddressExpr(pp, src)
+          noteStackAddrEscape state pp value
+          AddressDomain.hold value |> Some
         | Temporary _ ->
           state.EvaluateAddressExpr(pp, src) |> Some
         | _ ->
@@ -1074,10 +1288,12 @@ module internal AnalysisCore = begin
         let prevConst = subState.GetAbsValue vp
         let defUseMap = state.DefUseMap
         updateAbsValue subState defUseMap vp prevConst currConst
+    | Store(Addr = addr; Value = value) ->
+      noteRegisterSave state pp addr value
     | _ ->
       ()
 
-  let domainTransfer (state: State<_>) (stmt, pp) =
+  let transferStmtInDomain (state: State<_>) (stmt, pp) =
     match stmt with
     | Put(Dst = dst; Src = src) ->
       let varKind = VarKind.ofIRExpr dst
@@ -1100,6 +1316,35 @@ module internal AnalysisCore = begin
         ()
     | _ ->
       ()
+
+  /// Gets the stack slots that a call defines at the statement at pp, if it
+  /// is the one at which the call lets its callee write them.
+  let tryGetClobbersAt (state: State<_>) (pp: ProgramPoint) =
+    if pp.CallSite.IsSome then
+      match state.StmtOfBBLs.TryGetValue pp with
+      | true, (_, v) ->
+        match tryGetCallClobbers state v with
+        | Some(clobberPP, offsets) when clobberPP = pp -> Some offsets
+        | _ -> None
+      | false, _ ->
+        None
+    else
+      None
+
+  /// Lets a call define at pp the given stack slots, which its callee may
+  /// write, as holding what the analysis cannot tell.
+  let transferClobbers (state: State<_>) pp offsets =
+    let subState = state.DomainSubState
+    let rt = WordSize.toRegType state.BinHandle.ISA.WordSize
+    let unknown = state.Scheme.EvalExpr(pp, AST.undef rt "clobbered")
+    for off in offsets do
+      let vp = { ProgramPoint = pp; VarKind = StackLocal off }
+      let prev = subState.GetAbsValue vp
+      updateAbsValue subState state.DefUseMap vp prev unknown
+
+  let domainTransfer state (stmt, pp) =
+    transferStmtInDomain state (stmt, pp)
+    tryGetClobbersAt state pp |> Option.iter (transferClobbers state pp)
 
   let transferPhi state subState phiInfo defPp =
     phiInfo
@@ -1215,6 +1460,87 @@ module internal AnalysisCore = begin
   let propagateDomain g state =
     propagateAux g state state.DomainSubState domainTransfer
 
+  /// Gets the stack slot whose address the given register holds as the call
+  /// at a vertex with the given incoming definitions starts.
+  let tryGetSlotAtCall (state: State<_>) defs rid =
+    match Map.tryFind (Regular rid) defs with
+    | Some def ->
+      match state.StackAddrEscapes.TryGetValue def.ProgramPoint with
+      | true, start -> Some start
+      | false, _ -> None
+    | None ->
+      None
+
+  /// Finds what the given summary says that its function writes through the
+  /// pointer in the given register.
+  let tryGetExtent writes rid =
+    match writes with
+    | UnknownPointerWrites -> Some AnyBytes
+    | PointerWritesOf extents -> Map.tryFind rid extents
+
+  /// Gets the offsets from lo up to hi that a callee writes through a pointer
+  /// to the stack slot at start, as the given extent tells. An object whose
+  /// size nothing tells runs up to the first slot above it in which the
+  /// function saves a register, or else up to the stack pointer on entry. The
+  /// address of a slot that saves a register hands on no object, as a frame
+  /// pointer of Thumb code points there.
+  let tryGetWrittenRange (saves: SortedSet<int>) start extent =
+    match extent with
+    | WrittenBytes(lo, hi) ->
+      Some(start + lo, start + hi)
+    | AnyBytes when start < 0 && not (saves.Contains start) ->
+      let above = saves.GetViewBetween(start + 1, 0)
+      Some(start, if above.Count > 0 then above.Min else 0)
+    | AnyBytes ->
+      None
+
+  /// Computes the offsets of the stack slots that the callee of the call at
+  /// the given vertex may write, among those that the function reads: what
+  /// its summary says that it writes through each argument register that
+  /// holds the address of a slot as the call starts.
+  let computeCallClobbers (state: State<_>) saves v =
+    let summary = (v: IVertex<LowUIRBasicBlock>).VData.Internals.AbstractContent
+    let defs =
+      match state.PerVertexIncomingDefs.TryGetValue v with
+      | true, defs -> defs
+      | false, _ -> Map.empty
+    let clobbered = SortedSet<int>()
+    for rid in state.ArgRegisters do
+      tryGetSlotAtCall state defs rid
+      |> Option.bind (fun start ->
+        tryGetExtent summary.PointerWrites rid
+        |> Option.bind (tryGetWrittenRange saves start))
+      |> Option.iter (fun (lo, hi) ->
+        if lo < hi then
+          clobbered.UnionWith(state.UsedStackOffsets.GetViewBetween(lo, hi - 1))
+        else
+          ())
+    Seq.toArray clobbered
+
+  /// Updates the stack slots that each call may write, once the stack pointer
+  /// propagation has found the slots whose addresses the function puts in
+  /// registers. A call whose slots change defines new ones, so it is pending
+  /// again, as a new vertex would be, and writes its slots again if it has
+  /// run.
+  let updateCallClobbers g (state: State<_>) =
+    noteUsedVarKinds state
+    let saves = SortedSet(state.RegisterSaves.Values)
+    for v in (g: IDiGraph<LowUIRBasicBlock, _>).Vertices do
+      if v.VData.Internals.IsAbstract then
+        let offsets = computeCallClobbers state saves v
+        match state.CallClobbers.TryGetValue v with
+        | true, prev when prev = offsets ->
+          ()
+        | false, _ when Array.isEmpty offsets ->
+          ()
+        | _ ->
+          state.CallClobbers[v] <- offsets
+          state.MarkVertexAsPending v
+          tryGetCallClobbers state v
+          |> Option.iter (fst >> state.DomainSubState.DefSiteQueue.Enqueue)
+      else
+        ()
+
 end (* end of AnalysisCore *)
 
 /// Computes the data flow incrementally.
@@ -1228,6 +1554,7 @@ let compute g (state: State<_>) =
   (* Stack pointer propagation lets us recognize stack slot reads that the
      first pass could not, so the memoized used variable kinds are stale. *)
   state.UsedVarKindsMemo.Clear()
+  updateCallClobbers g state
   calculateChains g state dom
   propagateDomain g state
   state.ClearPendingVertices()
