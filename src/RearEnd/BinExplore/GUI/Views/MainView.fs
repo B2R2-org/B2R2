@@ -32,6 +32,7 @@ open Avalonia.FuncUI.Types
 open Avalonia.Media
 
 let private navButton model isSelected (icon: IView) (tooltip: string) onClick =
+  let model: Model = model
   let isSelected = isSelected model.WorkspacePanel
   Button.create [
     Button.width 36.0
@@ -109,7 +110,7 @@ let private sideMenuView model dispatch =
     )
   ]
 
-let private leftPanelView model dispatch =
+let private leftPanelView (model: Model) dispatch =
   match model.WorkspacePanel with
   | FunctionPanel -> FunctionList.view model dispatch :> IView
   | SectionPanel -> SectionList.view model dispatch

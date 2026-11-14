@@ -303,6 +303,7 @@ let private appendMenuSection title items model dispatch =
         compactMonoMenuItemWithString model dispatch item None ]
 
 let private openPCTarget provider model dispatch fnAddr target =
+  let model: Model = model
   if (provider: ITokenContextProvider).IsAddressInFunction(fnAddr, target) then
     dispatch (CFGPaneMsg(JumpPanToAddr target))
   else

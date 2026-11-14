@@ -47,6 +47,7 @@
     <Compile Include="GUI\Pane.fs" />
     <Compile Include="GUI\OffsetSnapshot.fs" />
     <Compile Include="GUI\StatusBarState.fs" />
+    <Compile Include="GUI\BinaryModel.fs" />
     <Compile Include="GUI\ITokenContextProvider.fs" />
     <Compile Include="GUI\Clipboard.fs" />
     <Compile Include="GUI\Model.fs" />

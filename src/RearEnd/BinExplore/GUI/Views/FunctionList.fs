@@ -51,7 +51,7 @@ let private userInputView model dispatch =
     )
   ]
 
-let private filterFunctions model =
+let private filterFunctions (model: Model) =
   if String.IsNullOrWhiteSpace model.FunctionFilter then
     model.Functions
   else
@@ -91,7 +91,7 @@ let private mkText model (color: string) isBold txt =
       TextBlock.fontWeight
         (if isBold then FontWeight.Bold else FontWeight.Regular) ] :> IView
 
-let private functionLabelWithHighlight model func =
+let private functionLabelWithHighlight (model: Model) func =
   let label = FunctionItem.displayName func
   let addressPrefix = $"{func.Address:X}: "
   let addressPrefixLen = addressPrefix.Length

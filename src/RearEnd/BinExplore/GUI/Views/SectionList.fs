@@ -193,7 +193,7 @@ let private sectionItemView (model: Model) (section: SectionItem) =
       )
     ])
 
-let private listBodyView model =
+let private listBodyView (model: Model) =
   ScrollViewer.create [
     ScrollViewer.content (
       if List.isEmpty model.Sections then

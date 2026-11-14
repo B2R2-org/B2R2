@@ -38,7 +38,7 @@ type Message =
   /// confirmed.
   | ConfirmDroppedBinary of string
   /// Message emitted when binary loading has finished.
-  | OpenBinaryCompleted of string
+  | OpenBinaryCompleted of path: string * BinaryInfo
   /// Message emitted when binary loading failed.
   | OpenBinaryFailed of path: string * reason: string
   /// Message emitted when linear-view analysis has finished.

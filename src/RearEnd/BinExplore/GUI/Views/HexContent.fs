@@ -913,7 +913,7 @@ let private emptyStateView model =
     TextBlock.fontSize model.Theme.Font.Scale.Normal
   ]
 
-let view pane model dispatch =
+let view pane (model: Model) dispatch =
   match pane.ActiveTab, model.Hexdump with
   | Some { Content = HexContent }, Some state -> bodyView model dispatch state
   | _ -> emptyStateView model

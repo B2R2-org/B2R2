@@ -43,34 +43,21 @@ type MainWindow<'FnCtx, 'GlCtx>
     let themeMode = if useDarkTheme then Builtin Dark else Builtin Light
     let customThemes = Map.empty
     let rootPane = Pane.createLeaf ()
-    let loadingBinaryPath, msg =
-      match arbiter.GetBinaryBrew() with
-      | Ok brew ->
-        let path = brew.BinHandle.File.Path
-        Some path, Elmish.Cmd.ofMsg (OpenBinaryCompleted path)
-      | _ ->
-        None, Elmish.Cmd.none
-    { LoadedBinary = None
-      LoadingBinaryPath = loadingBinaryPath
-      Functions = []
-      FunctionFilter = ""
-      Sections = []
+    { Binaries = Map.empty
+      BinaryOrder = []
+      SelectedBinaryID = None
+      LoadingBinaryPath = None
       RootPane = rootPane
       FocusedPaneID = Some rootPane.ID
       DraggingTab = None
       CustomThemes = customThemes
       ThemeMode = themeMode
       Theme = Theme.resolve themeMode customThemes
-      WorkspacePanel = FunctionPanel
       CFGIsPanning = false
       CFGPressedPointer = None
       CFGPanPointer = None
-      LinearDocument = None
-      LinearViewState = None
-      SyncEnabled = true
-      Hexdump = None
-      OffsetSnapshot = OffsetSnapshot.empty
-      StatusBarState = EmptyStatus }, msg
+      StatusMessage = None }
+    |> Update.initializeSession arbiter
 
   let update (msg: Message) (model: Model) =
     match msg with
@@ -80,8 +67,8 @@ type MainWindow<'FnCtx, 'GlCtx>
       Update.dropBinary this arbiter model filePath
     | ConfirmDroppedBinary filePath ->
       Update.replaceBinary arbiter model filePath
-    | OpenBinaryCompleted filePath ->
-      Update.openBinaryCompleted arbiter model filePath
+    | OpenBinaryCompleted(filePath, info) ->
+      Update.openBinaryCompleted arbiter model filePath info
     | OpenBinaryFailed(filePath, reason) ->
       Update.openBinaryFailed model filePath reason
     | LinearAnalysisCompleted(filePath, doc, state) ->
@@ -139,7 +126,7 @@ type MainWindow<'FnCtx, 'GlCtx>
     | UpdateStatusMsg msg ->
       Update.updateStatusMsg model msg
     | ClearStatusMsg ->
-      Update.clearStatusMsg arbiter model
+      Update.clearStatusMsg model
     | UpdateStatusOffsetCtx(sOff, eOff, sects) ->
       Update.updateStatusOffsetCtx model sOff eOff sects
     | ExitApplication ->

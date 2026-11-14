@@ -135,7 +135,7 @@ let private fileOffsetCtxView model offsetCtx =
   | None ->
     messageView model "" :> IView
 
-let private getDisplayedOffsetRangeInfo model =
+let private getDisplayedOffsetRangeInfo (model: Model) =
   model.OffsetSnapshot.Selection
   |> Option.orElse model.OffsetSnapshot.Viewport
 

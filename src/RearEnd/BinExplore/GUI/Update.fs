@@ -54,7 +54,7 @@ let private deferHexdumpScrollCmd offsetY: Elmish.Cmd<Message> =
 
 let private loadBinaryAsync (arbiter: Arbiter<_, _>) (filePath: string) =
   async {
-    return arbiter.AddBinary filePath
+    return arbiter.OpenBinary filePath
   }
 
 let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) (filePath: string) =
@@ -75,9 +75,9 @@ let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) (filePath: string) =
     Async.Start(async {
       try
         match! loadBinaryAsync arbiter filePath with
-        | Ok() ->
+        | Ok info ->
           running <- false
-          dispatchOnUi dispatch (OpenBinaryCompleted filePath)
+          dispatchOnUi dispatch (OpenBinaryCompleted(filePath, info))
         | Error reason ->
           running <- false
           dispatchOnUi dispatch (OpenBinaryFailed(filePath, reason))
@@ -100,11 +100,11 @@ let private confirmDroppedBinaryCmd (owner: Window) currentPath droppedPath =
                     "Cancel"
                     (fun _ -> dispatch (ConfirmDroppedBinary droppedPath)))
 
-let private startLinearAnalysisCmd arbiter filePath sections fontSize =
+let private startLinearAnalysisCmd source filePath sections fontSize =
   cmdOfSub (fun dispatch ->
     Async.Start(async {
       try
-        match (arbiter: Arbiter<_, _>).GetBinaryBrew() with
+        match (source: IBinarySource<_, _>).GetBinaryBrew() with
         | Ok brew ->
           let doc = LinearDocument.load brew sections
           let state = LinearViewState.ofDocument doc fontSize
@@ -120,10 +120,7 @@ let openBinary (arbiter: Arbiter<_, _>) model filePath =
   if String.IsNullOrWhiteSpace filePath then
     model, Elmish.Cmd.none
   else
-    let updatedModel =
-      { model with
-          LoadingBinaryPath = Some filePath
-          OffsetSnapshot = OffsetSnapshot.empty }
+    let updatedModel = { model with LoadingBinaryPath = Some filePath }
     updatedModel, startLoadWorkflowCmd arbiter filePath
 
 let private mkText typeface fontSize text =
@@ -308,10 +305,11 @@ let private buildSpans (theme: Theme) (file: IBinFile) =
 let private buildHexAnnotations theme (file: IBinFile) (state: HexdumpState) =
   { state with AnnotationSpans = buildSpans theme file }
 
-let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
-  match API.getFunctions arbiter true,
-        API.getSections arbiter,
-        API.getFile arbiter with
+let private buildLoadedBinaryModel source model info =
+  let binary = BinaryModel.init info
+  match API.getFunctions source true,
+        API.getSections source,
+        API.getFile source with
   | Ok fns, Ok secs, Ok file ->
     let sections =
       secs |> ImmutableArray.map SectionItem.make |> List.ofArray
@@ -321,18 +319,24 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
       HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits fontSize
       |> buildHexAnnotations model.Theme file
       |> initializeHexdumpTabView model
-    let initialTab = Some(Tab.ofLinearView ())
     let functionItems =
       fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray
-    let fileStatus = FileLoaded(filePath, FileFormat.toString file.Format)
-    functionItems, sections, Some hexdump, fileStatus, initialTab
-  | _ ->
-    [], [], None, EmptyStatus, None
+    { binary with
+        Functions = functionItems
+        Sections = sections
+        Hexdump = Some hexdump
+        StatusBarState =
+          FileLoaded(info.Path, FileFormat.toString file.Format) }
+  | Error reason, _, _
+  | _, Error reason, _
+  | _, _, Error reason ->
+    { binary with StatusBarState = MessageOnly reason }
 
-let openBinaryCompleted arbiter (model: Model) filePath =
-  if model.LoadingBinaryPath = Some filePath then
-    let fns, sections, hexdump, statusBar, initialTab =
-      buildLoadedBinaryState arbiter model filePath
+let private activateLoadedBinary arbiter (model: Model) id =
+  let arbiter: Arbiter<_, _> = arbiter
+  match Map.tryFind id model.Binaries with
+  | Some binary ->
+    let initialTab = binary.Hexdump |> Option.map (fun _ -> Tab.ofLinearView ())
     let nextModel =
       Model.mapFocusedPane
         (fun pane ->
@@ -343,26 +347,61 @@ let openBinaryCompleted arbiter (model: Model) filePath =
                            | None -> () ]
               PreviewTab = None })
         { model with
-            LoadedBinary = Some filePath
+            SelectedBinaryID = Some id
             LoadingBinaryPath = None
-            Functions = fns
-            Sections = sections
-            FunctionFilter = ""
             DraggingTab = None
-            WorkspacePanel = FunctionPanel
-            LinearDocument = None
-            LinearViewState = None
-            Hexdump = hexdump
-            OffsetSnapshot = OffsetSnapshot.empty
-            StatusBarState = statusBar }
+            StatusMessage = None }
     let cmd =
       match initialTab with
-      | Some _ ->
+      | Some _ when binary.LinearDocument.IsNone ->
         startLinearAnalysisCmd
-          arbiter filePath sections model.Theme.Font.Monospace.FontSize
-      | None ->
+          (arbiter.ForBinary id)
+          binary.Info.Path
+          binary.Sections
+          model.Theme.Font.Monospace.FontSize
+      | _ ->
         Elmish.Cmd.none
     nextModel, cmd
+  | None ->
+    model, Elmish.Cmd.none
+
+let initializeSession (arbiter: Arbiter<_, _>) model =
+  let snapshot = arbiter.GetSessionSnapshot()
+  let binaries =
+    snapshot.Binaries
+    |> List.map (fun info ->
+      let source = arbiter.ForBinary info.BinaryID
+      info.BinaryID, buildLoadedBinaryModel source model info)
+    |> Map.ofList
+  let model =
+    let order = snapshot.Binaries |> List.map (fun info -> info.BinaryID)
+    { model with
+        Binaries = binaries
+        BinaryOrder = order }
+  match snapshot.CurrentBinaryID with
+  | Some id -> activateLoadedBinary arbiter model id
+  | None -> model, Elmish.Cmd.none
+
+let openBinaryCompleted arbiter model filePath (info: BinaryInfo) =
+  let model: Model = model
+  let arbiter: Arbiter<_, _> = arbiter
+  if model.LoadingBinaryPath = Some filePath then
+    let id = info.BinaryID
+    let model =
+      if Map.containsKey id model.Binaries then
+        model
+      else
+        let source = arbiter.ForBinary id
+        let binary = buildLoadedBinaryModel source model info
+        { model with
+            Binaries = Map.add id binary model.Binaries
+            BinaryOrder = model.BinaryOrder @ [ id ] }
+    if model.SelectedBinaryID = Some id then
+      let model =
+        { model with LoadingBinaryPath = None; StatusMessage = None }
+      model, Elmish.Cmd.none
+    else
+      activateLoadedBinary arbiter model id
   else
     model, Elmish.Cmd.none
 
@@ -371,38 +410,32 @@ let openBinaryFailed model filePath reason =
     let updatedModel =
       { model with
           LoadingBinaryPath = None
-          OffsetSnapshot = OffsetSnapshot.empty
-          StatusBarState = MessageOnly $"Failed to load binary: {reason}" }
+          StatusMessage = Some $"Failed to load binary: {reason}" }
     updatedModel, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
 let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
   arbiter.CloseSession()
-  Model.mapFocusedPane
-    (fun pane ->
-      { pane with
-          ActiveTab = None
-          OpenTabs = []
-          PreviewTab = None })
-    { model with
-        LoadedBinary = None
-        LoadingBinaryPath = None
-        Functions = []
-        FunctionFilter = ""
-        DraggingTab = None
-        WorkspacePanel = FunctionPanel
-        LinearDocument = None
-        LinearViewState = None
-        Hexdump = None
-        OffsetSnapshot = OffsetSnapshot.empty
-        StatusBarState = EmptyStatus }, Elmish.Cmd.none
+  let rootPane = Pane.createLeaf ()
+  { model with
+      Binaries = Map.empty
+      BinaryOrder = []
+      SelectedBinaryID = None
+      LoadingBinaryPath = None
+      RootPane = rootPane
+      FocusedPaneID = Some rootPane.ID
+      DraggingTab = None
+      CFGIsPanning = false
+      CFGPressedPointer = None
+      CFGPanPointer = None
+      StatusMessage = None }, Elmish.Cmd.none
 
 let replaceBinary arbiter model filePath =
   let model, _ = closeWorkspace arbiter model
   openBinary arbiter model filePath
 
-let dropBinary owner arbiter model filePath =
+let dropBinary owner arbiter (model: Model) filePath =
   match model.LoadedBinary with
   | None ->
     openBinary arbiter model filePath
@@ -490,24 +523,24 @@ let private syncOffsetSnapshotWithActiveTab arbiter (model: Model) =
   let snapshot =
     { Selection = tryGetSelectionOffsetRangeInfo arbiter model
       Viewport = tryGetViewportOffsetRangeInfo arbiter model }
-  { model with OffsetSnapshot = snapshot }
+  Model.mapSelectedBinary (fun b -> { b with OffsetSnapshot = snapshot }) model
 
-let linearAnalysisCompleted arbiter model filePath doc state =
+let linearAnalysisCompleted arbiter (model: Model) filePath doc state =
   if model.LoadedBinary = Some filePath then
     let state = initializeLinearView model doc state
-    { model with
-        LinearDocument = Some doc
-        LinearViewState = Some state }
+    Model.mapSelectedBinary (fun binary ->
+      { binary with
+          LinearDocument = Some doc
+          LinearViewState = Some state }) model
     |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
-let linearAnalysisFailed model filePath reason =
+let linearAnalysisFailed (model: Model) filePath reason =
   if model.LoadedBinary = Some filePath then
     let updatedModel =
       { model with
-          StatusBarState =
-            MessageOnly $"Failed to analyze linear view: {reason}" }
+          StatusMessage = Some $"Failed to analyze linear view: {reason}" }
     updatedModel, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
@@ -532,7 +565,8 @@ let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
   let model =
     match model.Hexdump with
     | Some hexdump ->
-      { model with Hexdump = Some(activateHexdumpView model hexdump) }
+      Model.mapSelectedBinary (fun binary ->
+        { binary with Hexdump = Some(activateHexdumpView model hexdump) }) model
     | None ->
       model
   match Model.tryFindTab model Tab.HexdumpTabID with
@@ -561,8 +595,9 @@ let openLinearViewTab (arbiter: Arbiter<_, _>) (model: Model) =
   let model =
     match model.LinearDocument, model.LinearViewState with
     | Some doc, Some state ->
-      { model with
-          LinearViewState = Some(initializeLinearView model doc state) }
+      let state = initializeLinearView model doc state
+      Model.mapSelectedBinary (fun binary ->
+        { binary with LinearViewState = Some state }) model
     | _ ->
       model
   match Model.tryFindTab model Tab.LinearViewTabID with
@@ -625,7 +660,7 @@ let private updateHexdumpState arbiter (model: Model) update =
       |> fun state ->
         let view = clampHexScrollState state state.View
         { state with View = view }
-    { model with Hexdump = Some hexdump }
+    Model.mapSelectedBinary (fun b -> { b with Hexdump = Some hexdump }) model
     |> syncOffsetSnapshotWithActiveTab arbiter
   | _ ->
     model
@@ -635,7 +670,7 @@ let private updateHexViewState arbiter (model: Model) updateView =
     let view = updateView hexdump.View
     { hexdump with View = view }), Elmish.Cmd.none
 
-let private syncHexViewportWithLinear model =
+let private syncHexViewportWithLinear (model: Model) =
   match model.LinearDocument, model.LinearViewState, model.Hexdump with
   | Some doc, Some state, Some hexdump ->
     match LinearProjection.tryGetTopVisibleFileOffset doc state with
@@ -648,7 +683,8 @@ let private syncHexViewportWithLinear model =
             ScrollOffsetY = float row * rowHeight
             ScrollGuard = NoScrollGuard }
         |> clampHexScrollState hexdump
-      { model with Hexdump = Some { hexdump with View = view } }
+      Model.mapSelectedBinary (fun binary ->
+        { binary with Hexdump = Some { hexdump with View = view } }) model
     | None ->
       model
   | _ ->
@@ -660,7 +696,8 @@ let private updateLinearViewState arbiter (model: Model) update =
     let linearViewState =
       update doc state
       |> fun state -> clampLinearScrollState state
-    { model with LinearViewState = Some linearViewState }
+    Model.mapSelectedBinary (fun binary ->
+      { binary with LinearViewState = Some linearViewState }) model
     |> syncHexViewportWithLinear
     |> syncOffsetSnapshotWithActiveTab arbiter
   | _ ->
@@ -796,7 +833,9 @@ let private jumpHexdump (model: Model) byteIndex length =
   | Some hexdump ->
     let nextHexdump, targetOffsetY, pendingDelta =
       computeJumpedHexdump model.Theme hexdump byteIndex length
-    let model = { model with Hexdump = Some nextHexdump }
+    let model =
+      Model.mapSelectedBinary (fun binary ->
+        { binary with Hexdump = Some nextHexdump }) model
     let hasHexdumpTab = Model.tryFindTab model Tab.HexdumpTabID |> Option.isSome
     let cmd =
       if hasHexdumpTab && abs pendingDelta > 0.5 then
@@ -895,7 +934,8 @@ let private syncLinearWithFileOffset (model: Model) offset =
       let state =
         { state with ScrollOffsetY = offsetY }
         |> clampLinearScrollState
-      { model with LinearViewState = Some state }
+      Model.mapSelectedBinary (fun binary ->
+        { binary with LinearViewState = Some state }) model
     | None ->
       model
   | _ ->
@@ -932,7 +972,8 @@ let setTopFileOffset arbiter (model: Model) offset =
             ScrollRow = row
             ScrollOffsetY = float row * rowHeight
             ScrollGuard = NoScrollGuard }
-      { model with Hexdump = Some { hexdump with View = view } }
+      Model.mapSelectedBinary (fun binary ->
+        { binary with Hexdump = Some { hexdump with View = view } }) model
     | None ->
       model
   syncLinearWithFileOffset model (int offset)
@@ -1227,8 +1268,9 @@ let switchTab arbiter (model: Model) paneID tabID =
       if tab.ID = Tab.HexdumpTabID then
         match model.Hexdump with
         | Some hexdump ->
-          { model with
-              Hexdump = Some(prepareHexdumpViewForActivation hexdump) }
+          Model.mapSelectedBinary (fun binary ->
+            { binary with
+                Hexdump = Some(prepareHexdumpViewForActivation hexdump) }) model
         | None ->
           model
       else
@@ -1243,7 +1285,8 @@ let switchTab arbiter (model: Model) paneID tabID =
     model, Elmish.Cmd.none
 
 let setSyncEnabled (arbiter: Arbiter<_, _>) (model: Model) enabled =
-  let model = { model with SyncEnabled = enabled }
+  let model =
+    Model.mapSelectedBinary (fun b -> { b with SyncEnabled = enabled }) model
   if enabled then syncViewsWithActiveCFGIfEnabled arbiter model, Elmish.Cmd.none
   else model, Elmish.Cmd.none
 
@@ -1317,19 +1360,26 @@ let private applyThemeVariant (window: Window) mode =
   | Custom _ -> ()
 
 let setThemeMode window arbiter model mode =
+  let arbiter: Arbiter<_, _> = arbiter
   applyThemeVariant window mode
   let theme = Theme.resolve mode model.CustomThemes
-  let hexdump =
-    match model.Hexdump, API.getFile arbiter with
-    | Some hexdump, Ok file -> Some(buildHexAnnotations theme file hexdump)
-    | _ -> model.Hexdump
+  let binaries =
+    model.Binaries
+    |> Map.map (fun id binary ->
+      match binary.Hexdump, API.getFile (arbiter.ForBinary id) with
+      | Some hexdump, Ok file ->
+        { binary with Hexdump = Some(buildHexAnnotations theme file hexdump) }
+      | _ ->
+        binary)
   { model with
       ThemeMode = mode
       Theme = theme
-      Hexdump = hexdump }, Elmish.Cmd.none
+      Binaries = binaries }, Elmish.Cmd.none
 
 let updateFunctionFilter model text =
-  { model with FunctionFilter = text }, Elmish.Cmd.none
+  let model =
+    Model.mapSelectedBinary (fun b -> { b with FunctionFilter = text }) model
+  model, Elmish.Cmd.none
 
 let selectWorkspacePanel (arbiter: Arbiter<_, _>) model panel =
   match panel with
@@ -1342,11 +1392,14 @@ let selectWorkspacePanel (arbiter: Arbiter<_, _>) model panel =
         |> List.ofArray
       | Error _ ->
         []
-    { model with
-        Sections = sections
-        WorkspacePanel = SectionPanel }, Elmish.Cmd.none
+    Model.mapSelectedBinary (fun binary ->
+      { binary with
+          Sections = sections
+          WorkspacePanel = SectionPanel }) model, Elmish.Cmd.none
   | _ ->
-    { model with WorkspacePanel = panel }, Elmish.Cmd.none
+    let model =
+      Model.mapSelectedBinary (fun b -> { b with WorkspacePanel = panel }) model
+    model, Elmish.Cmd.none
 
 let private findTopNodeAndBounds (cfg: VisGraph) =
   let vs = cfg.Vertices
@@ -1847,18 +1900,16 @@ let updateCFG arbiter (model: Model) msg =
   | ToggleMinimap(tabID, activate) -> toggleMinimap model tabID activate
 
 let updateStatusMsg (model: Model) msg =
-  { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
+  { model with StatusMessage = Some msg }, Elmish.Cmd.none
 
-let clearStatusMsg (arbiter: Arbiter<_, _>) (model: Model) =
-  match model.LoadedBinary, API.getFileFormat arbiter with
-  | Some path, Ok fmt ->
-    let status = FileLoaded(path, FileFormat.toString fmt)
-    { model with StatusBarState = status }, Elmish.Cmd.none
-  | _ ->
-    { model with StatusBarState = EmptyStatus }, Elmish.Cmd.none
+let clearStatusMsg (model: Model) =
+  { model with StatusMessage = None }, Elmish.Cmd.none
 
 let updateStatusOffsetCtx (model: Model) sOff eOff sections =
   let selection = Some(mkOffsetRangeInfo sOff eOff sections)
-  { model with
-      OffsetSnapshot =
-        { model.OffsetSnapshot with Selection = selection } }, Elmish.Cmd.none
+  let model =
+    Model.mapSelectedBinary (fun binary ->
+      { binary with
+          OffsetSnapshot =
+            { binary.OffsetSnapshot with Selection = selection } }) model
+  model, Elmish.Cmd.none

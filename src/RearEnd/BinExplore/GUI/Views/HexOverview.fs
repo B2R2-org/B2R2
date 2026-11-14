@@ -70,11 +70,11 @@ let private computeBucketRange docLength bucketCount bucketIdx =
     else int64 (float docLength * float (bucketIdx + 1) / float bucketCount)
   rangeStart, rangeEndExclusive
 
-let private tryGetCurrentOffsetRange model =
+let private tryGetCurrentOffsetRange (model: Model) =
   model.OffsetSnapshot.Selection
   |> Option.map (fun ctx -> ctx.Range)
 
-let private tryGetViewportOffsetRange model =
+let private tryGetViewportOffsetRange (model: Model) =
   model.OffsetSnapshot.Viewport
   |> Option.map (fun ctx -> ctx.Range)
 
@@ -441,7 +441,7 @@ module private HexOverviewLayer =
   let create (attrs: IAttr<HexOverviewLayer> list) =
     View.createGeneric<HexOverviewLayer> attrs
 
-let private overviewBodyView model dispatch =
+let private overviewBodyView (model: Model) dispatch =
   HexOverviewLayer.create [
     Control.horizontalAlignment HorizontalAlignment.Stretch
     Control.verticalAlignment VerticalAlignment.Stretch

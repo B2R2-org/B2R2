@@ -681,7 +681,7 @@ let private emptyStateView model text =
     )
   ] :> IView
 
-let view pane model dispatch =
+let view pane (model: Model) dispatch =
   match pane.ActiveTab, model.LinearDocument, model.LinearViewState with
   | Some { Content = LinearContent }, Some doc, Some state ->
     bodyView model dispatch doc state
