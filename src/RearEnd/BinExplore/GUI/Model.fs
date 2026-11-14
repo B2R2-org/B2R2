@@ -40,8 +40,8 @@ type Model =
     BinaryListHeight: float option
     /// Binary currently shown in the navigation panels.
     SelectedBinaryID: BinaryID option
-    /// Path of the binary currently loading.
-    LoadingBinaryPath: string option
+    /// Requested files waiting, loading, or available for retry.
+    BinaryLoads: BinaryLoad list
     /// Root of the editor pane tree.
     RootPane: Pane
     /// Currently focused leaf pane.

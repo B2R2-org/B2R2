@@ -48,7 +48,7 @@ type MainWindow<'FnCtx, 'GlCtx>
       BinaryListExpanded = true
       BinaryListHeight = None
       SelectedBinaryID = None
-      LoadingBinaryPath = None
+      BinaryLoads = []
       RootPane = rootPane
       FocusedPaneID = Some rootPane.ID
       DraggingTab = None
@@ -71,16 +71,18 @@ type MainWindow<'FnCtx, 'GlCtx>
       Update.setBinaryListHeight model height
     | TabMsg(tabID, message) ->
       Update.routeTabMessage update model tabID message
-    | OpenBinary filePath ->
-      Update.openBinary arbiter model filePath
-    | DropBinary filePath ->
-      Update.dropBinary this arbiter model filePath
-    | ConfirmDroppedBinary filePath ->
-      Update.replaceBinary arbiter model filePath
-    | OpenBinaryCompleted(filePath, info) ->
-      Update.openBinaryCompleted arbiter model filePath info
-    | OpenBinaryFailed(filePath, reason) ->
-      Update.openBinaryFailed model filePath reason
+    | OpenBinaries paths ->
+      Update.openBinaries arbiter model paths
+    | RetryBinaryLoad requestID ->
+      Update.retryBinaryLoad arbiter model requestID
+    | Message.CancelBinaryLoad requestID ->
+      Update.cancelBinaryLoad arbiter model requestID
+    | DismissBinaryLoad requestID ->
+      Update.dismissBinaryLoad model requestID
+    | OpenBinaryCompleted(requestID, info) ->
+      Update.openBinaryCompleted arbiter model requestID info
+    | OpenBinaryFailed(requestID, reason) ->
+      Update.openBinaryFailed arbiter model requestID reason
     | LinearAnalysisCompleted(request, doc, state) ->
       Update.linearAnalysisCompleted arbiter model request doc state
     | LinearAnalysisFailed(request, reason) ->

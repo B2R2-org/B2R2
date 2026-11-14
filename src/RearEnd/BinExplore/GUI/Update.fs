@@ -61,53 +61,126 @@ let private deferHexdumpScrollCmd tabID offsetY: Elmish.Cmd<Message> =
       DispatcherPriority.Background
     ))
 
-let private loadBinaryAsync (arbiter: Arbiter<_, _>) (filePath: string) =
-  async {
-    return arbiter.OpenBinary filePath
-  }
-
-let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) (filePath: string) =
+let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) request =
+  let request: BinaryLoad = request
   cmdOfSub (fun dispatch ->
-    let displayName = Path.GetFileName filePath
-    let mutable running = true
-    let dots = [| "."; ".."; "..." |]
-    let animate =
-      async {
-        let mutable i = 0
-        while running do
-          dispatchOnUi dispatch
-          <| UpdateStatusMsg $"Loading {displayName} {dots[i % dots.Length]}"
-          do! Async.Sleep 250
-          i <- i + 1
-      }
-    Async.Start animate
+    let operation =
+      arbiter.OpenBinaryAsync(request.Path, requestID = request.RequestID)
     Async.Start(async {
       try
-        match! loadBinaryAsync arbiter filePath with
+        match! operation |> Async.AwaitTask with
         | Ok info ->
-          running <- false
-          dispatchOnUi dispatch (OpenBinaryCompleted(filePath, info))
+          dispatchOnUi dispatch (OpenBinaryCompleted(request.RequestID, info))
         | Error reason ->
-          running <- false
-          dispatchOnUi dispatch (OpenBinaryFailed(filePath, reason))
+          dispatchOnUi dispatch
+          <| OpenBinaryFailed(request.RequestID, reason)
       with ex ->
-        running <- false
-        dispatchOnUi dispatch (OpenBinaryFailed(filePath, ex.Message))
+        dispatchOnUi dispatch
+        <| OpenBinaryFailed(request.RequestID, ex.Message)
     }))
 
-let private confirmDroppedBinaryCmd (owner: Window) currentPath droppedPath =
-  cmdOfSub (fun dispatch ->
-    let currentName = Path.GetFileName(currentPath: string)
-    let droppedName = Path.GetFileName(droppedPath: string)
-    let text =
-      [ $"{owner.Title} has already loaded a binary ({currentName})."
-        $"Do you still want to load a new binary ({droppedName})?" ]
-      |> String.concat " "
-    Dialogs.confirm owner
-                    text
-                    "Load"
-                    "Cancel"
-                    (fun _ -> dispatch (ConfirmDroppedBinary droppedPath)))
+let private startNextBinaryLoad arbiter (model: Model) =
+  if model.BinaryLoads |> List.exists (fun r -> r.State = LoadingBinary) then
+    model, Elmish.Cmd.none
+  else
+    match model.BinaryLoads |> List.tryFind (fun r -> r.State = Queued) with
+    | Some request ->
+      let loads =
+        model.BinaryLoads |> List.map (fun r ->
+          if r.RequestID = request.RequestID then
+            { r with State = LoadingBinary }
+          else
+            r)
+      { model with BinaryLoads = loads }, startLoadWorkflowCmd arbiter request
+    | None ->
+      model, Elmish.Cmd.none
+
+let private growBinaryList (model: Model) =
+  let count = model.BinaryOrder.Length + model.BinaryLoads.Length
+  { model with
+      BinaryListHeight =
+        model.BinaryListHeight
+        |> Option.map (max (NavigationPanel.requiredHeight count)) }
+
+let private enqueueBinary (model: Model) path =
+  if String.IsNullOrWhiteSpace path then
+    model
+  else
+    let request = BinaryLoad.create path
+    let exists =
+      model.Binaries |> Map.exists (fun _ b ->
+        BinaryLoad.samePath b.Info.Path request.Path)
+    let pending =
+      model.BinaryLoads |> List.tryFind (fun r ->
+        BinaryLoad.samePath r.Path request.Path)
+    match exists, pending with
+    | true, _ ->
+      model
+    | false, Some { State = BinaryLoadState.LoadFailed _ }
+    | false, Some { State = LoadCanceled } ->
+      let loads =
+        model.BinaryLoads |> List.map (fun r ->
+          if BinaryLoad.samePath r.Path request.Path then request else r)
+      { model with BinaryLoads = loads }
+    | false, Some _ ->
+      model
+    | false, None ->
+      { model with BinaryLoads = model.BinaryLoads @ [ request ] }
+
+let private selectExistingBinaryCmd (model: Model) paths =
+  paths
+  |> List.tryLast
+  |> Option.map BinaryLoad.create
+  |> Option.bind (fun request ->
+    model.Binaries |> Map.toList |> List.tryFind (fun (_, binary) ->
+      BinaryLoad.samePath binary.Info.Path request.Path))
+  |> Option.map (fun (id, _) -> Elmish.Cmd.ofMsg (Message.SelectBinary id))
+  |> Option.defaultValue Elmish.Cmd.none
+
+let openBinaries arbiter model paths =
+  let selectCmd = selectExistingBinaryCmd model paths
+  let model = List.fold enqueueBinary model paths
+  let model, loadCmd =
+    { model with StatusMessage = None }
+    |> growBinaryList
+    |> startNextBinaryLoad arbiter
+  model, Elmish.Cmd.batch [ selectCmd; loadCmd ]
+
+let retryBinaryLoad arbiter (model: Model) requestID =
+  let loads =
+    model.BinaryLoads |> List.map (fun request ->
+      match request.State with
+      | BinaryLoadState.LoadFailed _ | LoadCanceled
+        when request.RequestID = requestID ->
+        BinaryLoad.create request.Path
+      | _ ->
+        request)
+  { model with BinaryLoads = loads } |> startNextBinaryLoad arbiter
+
+let cancelBinaryLoad (arbiter: Arbiter<_, _>) model requestID =
+  let loads =
+    model.BinaryLoads |> List.map (fun request ->
+      if request.RequestID <> requestID then
+        request
+      else
+        match request.State with
+        | Queued ->
+          { request with State = LoadCanceled }
+        | LoadingBinary when arbiter.CancelBinaryLoad requestID ->
+          { request with State = LoadCanceled }
+        | _ ->
+          request)
+  { model with BinaryLoads = loads } |> startNextBinaryLoad arbiter
+
+let dismissBinaryLoad (model: Model) requestID =
+  let loads =
+    model.BinaryLoads |> List.filter (fun request ->
+      match request.State with
+      | BinaryLoadState.LoadFailed _ | LoadCanceled ->
+        request.RequestID <> requestID
+      | _ ->
+        true)
+  { model with BinaryLoads = loads }, Elmish.Cmd.none
 
 let private startLinearAnalysisCmd source request sections fontSize =
   cmdOfSub (fun dispatch ->
@@ -144,13 +217,6 @@ let private ensureLinearAnalysis arbiter (model: Model) id =
     model, cmd
   | _ ->
     model, Elmish.Cmd.none
-
-let openBinary (arbiter: Arbiter<_, _>) model filePath =
-  if String.IsNullOrWhiteSpace filePath then
-    model, Elmish.Cmd.none
-  else
-    let updatedModel = { model with LoadingBinaryPath = Some filePath }
-    updatedModel, startLoadWorkflowCmd arbiter filePath
 
 let private mkText typeface fontSize text =
   FormattedText(
@@ -367,7 +433,6 @@ let private activateLoadedBinary arbiter (model: Model) id =
     let model =
       { model with
           SelectedBinaryID = Some id
-          LoadingBinaryPath = None
           DraggingTab = None
           StatusMessage = None }
     let existing =
@@ -416,41 +481,44 @@ let initializeSession (arbiter: Arbiter<_, _>) model =
   | Some id -> activateLoadedBinary arbiter model id
   | None -> model, Elmish.Cmd.none
 
-let openBinaryCompleted arbiter model filePath (info: BinaryInfo) =
-  let model: Model = model
+let private isActiveBinaryLoad (model: Model) requestID =
+  model.BinaryLoads |> List.exists (fun request ->
+    request.RequestID = requestID && request.State = LoadingBinary)
+
+let openBinaryCompleted arbiter model requestID (info: BinaryInfo) =
   let arbiter: Arbiter<_, _> = arbiter
-  if model.LoadingBinaryPath = Some filePath then
+  if isActiveBinaryLoad model requestID then
     let id = info.BinaryID
+    let model =
+      { model with
+          BinaryLoads =
+            model.BinaryLoads |> List.filter (fun request ->
+              request.RequestID <> requestID) }
     let model =
       if Map.containsKey id model.Binaries then
         model
       else
         let source = arbiter.ForBinary id
         let binary = buildLoadedBinaryModel source model info
-        let order = model.BinaryOrder @ [ id ]
-        let height =
-          model.BinaryListHeight
-          |> Option.map (max (NavigationPanel.requiredHeight order.Length))
         { model with
             Binaries = Map.add id binary model.Binaries
-            BinaryOrder = order
-            BinaryListHeight = height }
-    if model.SelectedBinaryID = Some id then
-      let model =
-        { model with LoadingBinaryPath = None; StatusMessage = None }
-      model, Elmish.Cmd.none
-    else
-      activateLoadedBinary arbiter model id
+            BinaryOrder = model.BinaryOrder @ [ id ] }
+        |> growBinaryList
+    let model, analysisCmd = activateLoadedBinary arbiter model id
+    let model, loadCmd = startNextBinaryLoad arbiter model
+    model, Elmish.Cmd.batch [ analysisCmd; loadCmd ]
   else
     model, Elmish.Cmd.none
 
-let openBinaryFailed model filePath reason =
-  if model.LoadingBinaryPath = Some filePath then
-    let updatedModel =
-      { model with
-          LoadingBinaryPath = None
-          StatusMessage = Some $"Failed to load binary: {reason}" }
-    updatedModel, Elmish.Cmd.none
+let openBinaryFailed arbiter model requestID reason =
+  if isActiveBinaryLoad model requestID then
+    let loads =
+      model.BinaryLoads |> List.map (fun request ->
+        if request.RequestID = requestID then
+          { request with State = BinaryLoadState.LoadFailed reason }
+        else
+          request)
+    { model with BinaryLoads = loads } |> startNextBinaryLoad arbiter
   else
     model, Elmish.Cmd.none
 
@@ -461,7 +529,7 @@ let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
       Binaries = Map.empty
       BinaryOrder = []
       SelectedBinaryID = None
-      LoadingBinaryPath = None
+      BinaryLoads = []
       RootPane = rootPane
       FocusedPaneID = Some rootPane.ID
       DraggingTab = None
@@ -469,17 +537,6 @@ let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
       CFGPressedPointer = None
       CFGPanPointer = None
       StatusMessage = None }, Elmish.Cmd.none
-
-let replaceBinary arbiter model filePath =
-  let model, _ = closeWorkspace arbiter model
-  openBinary arbiter model filePath
-
-let dropBinary owner arbiter (model: Model) filePath =
-  match model.LoadedBinary with
-  | None ->
-    openBinary arbiter model filePath
-  | Some currentPath ->
-    model, confirmDroppedBinaryCmd owner currentPath filePath
 
 let private tryGetSelectedFileOffsetRange selection =
   let startOffset = min selection.Anchor selection.Caret
@@ -1354,9 +1411,7 @@ let setSyncEnabled (arbiter: Arbiter<_, _>) (model: Model) enabled =
 
 let selectBinary arbiter (model: Model) id =
   if Map.containsKey id model.Binaries then
-    let pendingPath = model.LoadingBinaryPath
     let model, cmd = activateLoadedBinary arbiter model id
-    let model = { model with LoadingBinaryPath = pendingPath }
     match model.ActiveTab with
     | Some tab when tab.BinaryID = id ->
       let paneID = Model.getFocusedPaneID model

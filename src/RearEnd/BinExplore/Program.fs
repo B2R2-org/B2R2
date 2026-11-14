@@ -51,9 +51,12 @@ let private brewWithProgress (brew: unit -> BinaryBrew<_, _>) =
   brew
 
 let private loadAllFiles (arbiter: Arbiter<_, _>) files =
-  files
-  |> List.forall (fun file -> arbiter.AddBinary file |> Result.isOk)
-  |> fun ok -> assert ok
+  for file in files do
+    match arbiter.AddBinary file with
+    | Ok() ->
+      ()
+    | Error reason ->
+      Console.Error.WriteLine $"[!] Failed to open {file}: {reason}"
 
 let private startServerAndUI files (opts: BinExploreOpts) loader =
   let arbiter = Arbiter(loader, opts.LogFile)
@@ -72,19 +75,22 @@ let private runWithBrewLoader files (opts: BinExploreOpts) =
   match opts.ISA with
   | EVM ->
     { new IBrewLoadable<_, _> with
-        member _.LoadBrew file =
+        member _.LoadBrew(file, token) =
+          token.ThrowIfCancellationRequested()
           let hdl = BinHandle.LoadFile(file, opts.ISA, None)
           let cfgRecovery = Strategies.EVMCFGRecovery()
+          let cfgRecovery = CancellableStrategy(cfgRecovery, token)
           brewWithProgress (fun () -> EVMBinaryBrew(hdl, cfgRecovery)) }
     |> startServerAndUI files opts
   | _ ->
     { new IBrewLoadable<_, _> with
-        member _.LoadBrew file =
+        member _.LoadBrew(file, token) =
+          token.ThrowIfCancellationRequested()
           let hdl = BinHandle.LoadFile(file, opts.ISA, None)
           let exnInfo = ExceptionInfo hdl
           let options = Strategies.CFGRecoveryOptions.Default
           let cfgRecovery = Strategies.CFGRecovery(hdl.ISA, options)
-          let strategy = cfgRecovery :> ICFGBuildingStrategy<_, _>
+          let strategy = CancellableStrategy(cfgRecovery, token)
           brewWithProgress (fun () -> BinaryBrew(hdl, exnInfo, strategy)) }
     |> startServerAndUI files opts
 

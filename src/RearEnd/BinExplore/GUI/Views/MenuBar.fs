@@ -41,7 +41,7 @@ let private tryGetHostTopLevel (source: obj) =
     null
 
 let private pickBinary (topLevel: TopLevel) =
-  FilePickerOpenOptions(Title = "Open Binary", AllowMultiple = false)
+  FilePickerOpenOptions(Title = "Open Binaries", AllowMultiple = true)
   |> topLevel.StorageProvider.OpenFilePickerAsync
   |> Async.AwaitTask
 
@@ -54,9 +54,9 @@ let private openBinaryDialog dispatch (source: obj) =
       dispatch (UpdateStatusMsg "Opening the system file dialog ...")
       try
         let! files = pickBinary topLevel
-        match Seq.tryHead files with
-        | Some file -> dispatch (OpenBinary file.Path.LocalPath)
-        | None -> dispatch ClearStatusMsg
+        let paths = files |> Seq.map (fun f -> f.Path.LocalPath) |> List.ofSeq
+        if List.isEmpty paths then dispatch ClearStatusMsg
+        else dispatch (OpenBinaries paths)
       with ex ->
         dispatch (UpdateStatusMsg $"Failed to open file dialog: {ex.Message}")
     } |> Async.StartImmediate
@@ -68,7 +68,7 @@ let private menuFile model dispatch =
     MenuItem.foreground model.Theme.Menu.ItemForeground
     MenuItem.viewItems [
       MenuItem.create [
-        MenuItem.header "Open Binary..."
+        MenuItem.header "Open Binaries..."
         MenuItem.background model.Theme.Menu.ItemBackground
         MenuItem.foreground model.Theme.Menu.ItemForeground
         MenuItem.onClick (fun e -> openBinaryDialog dispatch e.Source)
@@ -77,7 +77,8 @@ let private menuFile model dispatch =
         MenuItem.header "Close Session"
         MenuItem.background model.Theme.Menu.ItemBackground
         MenuItem.foreground model.Theme.Menu.ItemForeground
-        MenuItem.isEnabled model.LoadedBinary.IsSome
+        MenuItem.isEnabled (
+          not model.Binaries.IsEmpty || not model.BinaryLoads.IsEmpty)
         MenuItem.onClick (fun _ -> dispatch CloseWorkspace)
       ]
       MenuItem.create [

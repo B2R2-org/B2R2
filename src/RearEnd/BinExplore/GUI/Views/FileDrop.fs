@@ -26,14 +26,14 @@ module B2R2.RearEnd.BinExplore.GUI.FileDrop
 
 open Avalonia.Input
 
-let private tryGetDroppedFilePath (e: DragEventArgs) =
+let private getDroppedFilePaths (e: DragEventArgs) =
   let files = DataTransferExtensions.TryGetFiles e.DataTransfer
   if isNull files then
-    None
+    []
   else
     files
-    |> Seq.tryHead
-    |> Option.map (fun f -> f.Path.LocalPath)
+    |> Seq.map (fun f -> f.Path.LocalPath)
+    |> List.ofSeq
 
 let onDragOver (e: DragEventArgs) =
   if e.DataTransfer.Contains DataFormat.File then
@@ -43,9 +43,9 @@ let onDragOver (e: DragEventArgs) =
     ()
 
 let onDrop dispatch (e: DragEventArgs) =
-  match tryGetDroppedFilePath e with
-  | Some path ->
-    dispatch (DropBinary path)
+  match getDroppedFilePaths e with
+  | _ :: _ as paths ->
+    dispatch (OpenBinaries paths)
     e.Handled <- true
-  | None ->
+  | [] ->
     ()

@@ -257,9 +257,10 @@ let private workspaceView tokenContextProvider model dispatch =
   ]
 
 let private mainArea tokenContextProvider (model: Model) dispatch =
-  match model.LoadedBinary with
-  | None -> Welcome.view model dispatch
-  | Some _ -> workspaceView tokenContextProvider model dispatch
+  if model.Binaries.IsEmpty && model.BinaryLoads.IsEmpty then
+    Welcome.view model dispatch
+  else
+    workspaceView tokenContextProvider model dispatch
 
 let private onMainViewKeyDown (e: KeyEventArgs) =
   if e.Key = Key.F && e.KeyModifiers.HasFlag KeyModifiers.Control then

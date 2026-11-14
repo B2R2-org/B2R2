@@ -30,17 +30,18 @@ open B2R2.RearEnd.BinExplore
 
 /// Represents messages that can be sent to the main view.
 type Message =
-  /// Message to open a binary file, carrying the file path.
-  | OpenBinary of string
-  /// Message emitted when a binary file is dropped onto the window.
-  | DropBinary of string
-  /// Message emitted when replacing the current binary with a dropped file is
-  /// confirmed.
-  | ConfirmDroppedBinary of string
+  /// Opens all selected or dropped files without replacing the session.
+  | OpenBinaries of string list
+  /// Retries a failed file with a fresh request identity.
+  | RetryBinaryLoad of System.Guid
+  /// Cancels a queued or active file load.
+  | CancelBinaryLoad of System.Guid
+  /// Removes a failed file from the opened-binary list.
+  | DismissBinaryLoad of System.Guid
   /// Message emitted when binary loading has finished.
-  | OpenBinaryCompleted of path: string * BinaryInfo
+  | OpenBinaryCompleted of requestID: System.Guid * BinaryInfo
   /// Message emitted when binary loading failed.
-  | OpenBinaryFailed of path: string * reason: string
+  | OpenBinaryFailed of requestID: System.Guid * reason: string
   /// Message emitted when linear-view analysis has finished.
   | LinearAnalysisCompleted of
     AnalysisRequest * LinearDocument * LinearViewState

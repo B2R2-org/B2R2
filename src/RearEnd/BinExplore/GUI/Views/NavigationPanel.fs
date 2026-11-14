@@ -106,17 +106,74 @@ let private binaryRowView model dispatch (binary: BinaryModel) =
     Button.content (binaryRowContentView model id selected status)
   ] :> IView
 
-let private loadingRowView model path =
-  TextBlock.create [
-    TextBlock.height RowHeight
-    TextBlock.text $"Loading {Path.GetFileName(path: string)}..."
-    TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize model.Theme.Font.Scale.Small
-    TextBlock.padding (10.0, 0.0, 8.0, 0.0)
-    TextBlock.verticalAlignment VerticalAlignment.Center
-    TextBlock.textTrimming TextTrimming.CharacterEllipsis
-    ToolTip.tip (filePathView path)
-  ] :> IView
+let private loadActionView model label message dispatch =
+  let label: string = label
+  Button.create [
+    Button.content label
+    Button.padding (4.0, 0.0, 4.0, 0.0)
+    Button.fontSize model.Theme.Font.Scale.XSmall
+    Button.foreground model.Theme.Text.Secondary
+    Button.background model.Theme.Common.Transparent
+    Button.onClick ((fun _ -> dispatch message), OnChangeOf message)
+  ]
+
+let private loadingStatus request =
+  let request: BinaryLoad = request
+  match request.State with
+  | Queued ->
+    "Queued", request.Path
+  | LoadingBinary ->
+    "Loading", request.Path
+  | LoadCanceled ->
+    "Canceled", request.Path
+  | BinaryLoadState.LoadFailed reason ->
+    "Failed", $"{request.Path}\n{reason}"
+
+let private loadActionsView model dispatch request =
+  let request: BinaryLoad = request
+  let retry = RetryBinaryLoad request.RequestID
+  let dismiss = DismissBinaryLoad request.RequestID
+  let cancel = Message.CancelBinaryLoad request.RequestID
+  StackPanel.create [
+    Grid.column 2
+    StackPanel.orientation Orientation.Horizontal
+    StackPanel.children [
+      match request.State with
+      | Queued | LoadingBinary ->
+        loadActionView model "Cancel" cancel dispatch
+      | BinaryLoadState.LoadFailed _ | LoadCanceled ->
+        loadActionView model "Retry" retry dispatch
+        loadActionView model "\u00D7" dismiss dispatch
+    ]
+  ]
+
+let private loadingRowView model dispatch request =
+  let request: BinaryLoad = request
+  let status, tooltip = loadingStatus request
+  Grid.create [
+    Grid.height RowHeight
+    Grid.columnDefinitions "*,Auto,Auto"
+    Grid.margin (10.0, 0.0, 8.0, 0.0)
+    ToolTip.tip (filePathView tooltip)
+    Grid.children [
+      TextBlock.create [
+        TextBlock.text (Path.GetFileName request.Path)
+        TextBlock.foreground model.Theme.Text.Muted
+        TextBlock.fontSize model.Theme.Font.Scale.Small
+        TextBlock.verticalAlignment VerticalAlignment.Center
+        TextBlock.textTrimming TextTrimming.CharacterEllipsis
+      ]
+      TextBlock.create [
+        Grid.column 1
+        TextBlock.text status
+        TextBlock.foreground model.Theme.Text.Muted
+        TextBlock.fontSize model.Theme.Font.Scale.XSmall
+        TextBlock.verticalAlignment VerticalAlignment.Center
+        TextBlock.margin (6.0, 0.0, 0.0, 0.0)
+      ]
+      loadActionsView model dispatch request
+    ]
+  ] |> View.withKey $"load-{request.RequestID}" :> IView
 
 let private binaryRowsView (model: Model) dispatch =
   ScrollViewer.create [
@@ -129,9 +186,8 @@ let private binaryRowsView (model: Model) dispatch =
             match Map.tryFind id model.Binaries with
             | Some binary -> binaryRowView model dispatch binary
             | None -> ()
-          match model.LoadingBinaryPath with
-          | Some path -> loadingRowView model path
-          | None -> ()
+          for request in model.BinaryLoads do
+            loadingRowView model dispatch request
         ]
       ])
   ]
@@ -139,7 +195,7 @@ let private binaryRowsView (model: Model) dispatch =
 let private binaryListHeaderView model dispatch =
   let expanded = model.BinaryListExpanded
   let arrow = if expanded then "\u25BE" else "\u25B8"
-  let count = List.length model.BinaryOrder
+  let count = model.BinaryOrder.Length + model.BinaryLoads.Length
   let toggle _ = dispatch (SetBinaryListExpanded(not expanded))
   Button.create [
     Button.dock Dock.Top
@@ -182,8 +238,7 @@ let requiredHeight count =
 
 let private binaryListHeight model =
   if model.BinaryListExpanded then
-    let pending = if model.LoadingBinaryPath.IsSome then 1 else 0
-    let count = List.length model.BinaryOrder + pending
+    let count = model.BinaryOrder.Length + model.BinaryLoads.Length
     model.BinaryListHeight
     |> Option.defaultValue (requiredHeight count)
   else

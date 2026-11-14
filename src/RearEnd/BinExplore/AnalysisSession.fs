@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.BinExplore
 open System
 open System.Collections.Generic
 open System.IO
+open System.Threading
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
@@ -66,8 +67,25 @@ type AnalysisSession<'FnCtx, 'GlCtx>
   member _.CurrentBinary with get() =
     currentBinaryID |> Option.map (fun id -> binaries[id])
 
+  /// Looks up the identity associated with a normalized file path.
+  member _.TryFindInfo(path) = tryFindInfo path
+
+  /// Registers a completed load on the session's owning thread.
+  member _.RegisterBinary(path, brew) =
+    match paths.TryGetValue path with
+    | true, info ->
+      currentBinaryID <- Some info.BinaryID
+      info
+    | false, _ ->
+      let info = { BinaryID = BinaryID.Create(); Path = path }
+      binaries[info.BinaryID] <- brew
+      paths[path] <- info
+      binaryOrder.Add info
+      currentBinaryID <- Some info.BinaryID
+      info
+
   /// Opens and selects a binary, reusing its identity if already loaded.
-  member _.OpenBinary(path) =
+  member this.OpenBinary(path) =
     try
       let path = Path.GetFullPath path
       match paths.TryGetValue path with
@@ -75,13 +93,8 @@ type AnalysisSession<'FnCtx, 'GlCtx>
         currentBinaryID <- Some info.BinaryID
         Ok info
       | false, _ ->
-        let brew = brewLoader.LoadBrew path
-        let info = { BinaryID = BinaryID.Create(); Path = path }
-        binaries[info.BinaryID] <- brew
-        paths[path] <- info
-        binaryOrder.Add info
-        currentBinaryID <- Some info.BinaryID
-        Ok info
+        let brew = brewLoader.LoadBrew(path, CancellationToken.None)
+        Ok(this.RegisterBinary(path, brew))
     with e ->
       Error e.Message
 
@@ -112,4 +125,5 @@ type AnalysisSession<'FnCtx, 'GlCtx>
       Error $"Binary ({id}) is not loaded."
 
 and IBrewLoadable<'FnCtx, 'GlCtx> =
-  abstract LoadBrew: path: string -> BinaryBrew<'FnCtx, 'GlCtx>
+  abstract LoadBrew:
+    path: string * CancellationToken -> BinaryBrew<'FnCtx, 'GlCtx>
