@@ -353,6 +353,22 @@ type MIPSBinaryBrewTests() =
     let fns = recoverPatched mips32 code ""
     CollectionAssert.AreEqual([| 0x400520UL |], blocksOf fns[0x400520UL])
 
+  (* Code that keeps gp in another register, as clang keeps it in s0, loads t9
+     through that register and copies it to gp in the delay slot of the call,
+     so the load reads the GOT entry that one through gp would. *)
+  [<TestMethod>]
+  member _.``A call reads the GOT through a register it copies to gp``() =
+    let code =
+      [ "3c100043" (* lui s0, 0x43 *)
+        "26108010" (* addiu s0, s0, -0x7ff0 *)
+        "8e19802c" (* lw t9, -0x7fd4(s0) *)
+        "0320f809" (* jalr t9 *)
+        "0200e025" (* move gp, s0 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let fns = recoverPatched mips32 code ""
+    CollectionAssert.AreEqual([| 0x400520UL |], blocksOf fns[0x400520UL])
+
   (* A local GOT entry holds a page, to which the code adds the low half of
      the address of the function that it calls through t9. *)
   [<TestMethod>]

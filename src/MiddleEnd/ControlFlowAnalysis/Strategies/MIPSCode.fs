@@ -630,30 +630,56 @@ module internal MIPSCode =
     /// The address that LUI and ADDIU build from its two halves.
     | Halves of Addr
 
+  /// Finds the register that the given instruction copies to gp, if it does.
+  let private tryGetCopyToGP (ins: Instruction) =
+    match ins.Opcode, ins.Operands with
+    | (Opcode.OR | Opcode.ADDU | Opcode.DADDU),
+      ThreeOperands(OpReg d, OpReg s, OpReg Register.R0)
+      when int d = GPNumber ->
+      Some(int s)
+    | _ ->
+      None
+
+  /// Gets the registers that hold gp as the given call runs: gp, and the one
+  /// that the delay slot of the call copies to gp, as code that keeps gp in
+  /// another register, such as s0 in clang code, restores it for each call.
+  let private getGPHolders (call: Instruction) =
+    match call.DelaySlot |> Option.bind tryGetCopyToGP with
+    | Some r -> Set.ofList [ GPNumber; r ]
+    | None -> Set.singleton GPNumber
+
+  /// Leaves out of the given holders of gp the register other than gp that the
+  /// given instruction writes, as it held something else before.
+  let private forgetWritten ins holders =
+    match accessesOf ins |> fst with
+    | Some r when r <> GPNumber -> Set.remove r holders
+    | _ -> holders
+
   /// Finds where the given instructions build the value of t9 last, going back
-  /// from the one at idx: the GOT entry that they load, along with what they
-  /// add to it after, as code reaching a function through a local page does,
-  /// or the two halves of an address, which a linker makes of the load of a
-  /// local entry in code that it fixes in place.
-  let rec private tryFindT9Source (instrs: Instruction[]) idx (added: uint64) =
+  /// from the one at idx: the GOT entry that they load through one of the
+  /// given holders of gp, along with what they add to it after, as code
+  /// reaching a function through a local page does, or the two halves of an
+  /// address, which a linker makes of the load of a local entry in code that
+  /// it fixes in place.
+  let rec private tryFindT9Source (instrs: Instruction[]) holders idx added =
     if idx < 0 then
       None
     else
       let ins = instrs[idx]
       match ins.Opcode, ins.Operands with
       | (Opcode.LW | Opcode.LD), TwoOperands(OpReg d, OpMem(b, Imm offset, _))
-        when int d = T9 && int b = GPNumber ->
+        when int d = T9 && Set.contains (int b) holders ->
         Some(GOTEntry(uint64 offset, added))
       | Opcode.LUI, TwoOperands(OpReg d, OpImm imm) when int d = T9 ->
         Some(Halves(highOf imm + added))
       | (Opcode.ADDIU | Opcode.DADDIU),
         ThreeOperands(OpReg d, OpReg s, OpImm imm)
         when int d = T9 && int s = T9 && added = 0UL ->
-        tryFindT9Source instrs (idx - 1) (signExtend16 imm)
+        tryFindT9Source instrs holders (idx - 1) (signExtend16 imm)
       | _ when writesT9 ins ->
         None
       | _ ->
-        tryFindT9Source instrs (idx - 1) added
+        tryFindT9Source instrs (forgetWritten ins holders) (idx - 1) added
 
   /// Reads the GOT entry at the given address, of either kind: a global entry
   /// holds the address of its function, or that of the stub through which the
@@ -692,7 +718,7 @@ module internal MIPSCode =
     let instrs = instrs |> Array.map (fun ins -> ins :?> Instruction)
     let last = instrs.Length - 1
     if last >= 0 && callsThroughT9 instrs[last] then
-      tryFindT9Source instrs (last - 1) 0UL
+      tryFindT9Source instrs (getGPHolders instrs[last]) (last - 1) 0UL
       |> Option.bind (tryReadT9Source hdl)
       |> Option.filter (fun target ->
         target <> 0UL && hdl.File.IsExecutableAddr target)
