@@ -41,12 +41,21 @@ let private dispatchOnUi dispatch msg =
 
 let private cmdOfSub sub: Elmish.Cmd<Message> = [ sub ]
 
-let private deferHexdumpScrollCmd offsetY: Elmish.Cmd<Message> =
+let private getBinarySource (arbiter: Arbiter<_, _>) (model: Model) =
+  match model.SelectedBinaryID with
+  | Some id ->
+    arbiter.ForBinary id
+  | None ->
+    { new IBinarySource<_, _> with
+        member _.GetBinaryBrew() = Error "No binary is selected." }
+
+let private deferHexdumpScrollCmd tabID offsetY: Elmish.Cmd<Message> =
   cmdOfSub (fun dispatch ->
     Dispatcher.UIThread.Post(
       (fun () ->
         Dispatcher.UIThread.Post(
-          (fun () -> dispatch (HexdumpPaneMsg(SetScrollOffset offsetY))),
+          (fun () ->
+            dispatch (TabMsg(tabID, HexdumpPaneMsg(SetScrollOffset offsetY)))),
           DispatcherPriority.Background
         )),
       DispatcherPriority.Background
@@ -100,7 +109,7 @@ let private confirmDroppedBinaryCmd (owner: Window) currentPath droppedPath =
                     "Cancel"
                     (fun _ -> dispatch (ConfirmDroppedBinary droppedPath)))
 
-let private startLinearAnalysisCmd source filePath sections fontSize =
+let private startLinearAnalysisCmd source request sections fontSize =
   cmdOfSub (fun dispatch ->
     Async.Start(async {
       try
@@ -108,13 +117,33 @@ let private startLinearAnalysisCmd source filePath sections fontSize =
         | Ok brew ->
           let doc = LinearDocument.load brew sections
           let state = LinearViewState.ofDocument doc fontSize
-          dispatchOnUi dispatch (LinearAnalysisCompleted(filePath, doc, state))
+          dispatchOnUi dispatch (LinearAnalysisCompleted(request, doc, state))
         | _ ->
           dispatchOnUi dispatch
-          <| LinearAnalysisFailed(filePath, "Failed to get loaded file.")
+          <| LinearAnalysisFailed(request, "Failed to get loaded file.")
       with ex ->
-        dispatchOnUi dispatch (LinearAnalysisFailed(filePath, ex.Message))
+        dispatchOnUi dispatch (LinearAnalysisFailed(request, ex.Message))
     }))
+
+let private ensureLinearAnalysis arbiter (model: Model) id =
+  match Map.tryFind id model.Binaries with
+  | Some binary
+    when binary.Hexdump.IsSome
+      && binary.LinearDocument.IsNone
+      && binary.LinearRequest.IsNone ->
+    let request = AnalysisRequest.create id
+    let source = (arbiter: Arbiter<_, _>).ForBinary id
+    let model =
+      Model.mapBinary id (fun binary ->
+        { binary with
+            LinearRequest = Some request
+            LinearError = None }) model
+    let cmd =
+      startLinearAnalysisCmd
+        source request binary.Sections model.Theme.Font.Monospace.FontSize
+    model, cmd
+  | _ ->
+    model, Elmish.Cmd.none
 
 let openBinary (arbiter: Arbiter<_, _>) model filePath =
   if String.IsNullOrWhiteSpace filePath then
@@ -333,35 +362,38 @@ let private buildLoadedBinaryModel source model info =
     { binary with StatusBarState = MessageOnly reason }
 
 let private activateLoadedBinary arbiter (model: Model) id =
-  let arbiter: Arbiter<_, _> = arbiter
   match Map.tryFind id model.Binaries with
   | Some binary ->
-    let initialTab = binary.Hexdump |> Option.map (fun _ -> Tab.ofLinearView ())
-    let nextModel =
-      Model.mapFocusedPane
-        (fun pane ->
+    let model =
+      { model with
+          SelectedBinaryID = Some id
+          LoadingBinaryPath = None
+          DraggingTab = None
+          StatusMessage = None }
+    let existing =
+      binary.LastActiveTabID
+      |> Option.bind (Model.tryFindTab model)
+      |> Option.orElseWith (fun () ->
+        Model.tryFindBinaryTab id Tab.isLinearView model)
+    let model =
+      match existing with
+      | Some(paneID, _, tab, _) ->
+        Model.mapPaneByID paneID
+          (fun pane -> { pane with ActiveTab = Some tab })
+          { model with FocusedPaneID = Some paneID }
+      | None when binary.Hexdump.IsSome ->
+        let tab = Tab.ofLinearView id
+        Model.mapFocusedPane (fun pane ->
           { pane with
-              ActiveTab = initialTab
-              OpenTabs = [ match initialTab with
-                           | Some tab -> tab
-                           | None -> () ]
-              PreviewTab = None })
-        { model with
-            SelectedBinaryID = Some id
-            LoadingBinaryPath = None
-            DraggingTab = None
-            StatusMessage = None }
-    let cmd =
-      match initialTab with
-      | Some _ when binary.LinearDocument.IsNone ->
-        startLinearAnalysisCmd
-          (arbiter.ForBinary id)
-          binary.Info.Path
-          binary.Sections
-          model.Theme.Font.Monospace.FontSize
-      | _ ->
-        Elmish.Cmd.none
-    nextModel, cmd
+              ActiveTab = Some tab
+              OpenTabs = pane.OpenTabs @ [ tab ] }) model
+      | None ->
+        model
+    let model =
+      match model.ActiveTab with
+      | Some tab when tab.BinaryID = id -> Model.followFocusedTab model
+      | _ -> model
+    ensureLinearAnalysis arbiter model id
   | None ->
     model, Elmish.Cmd.none
 
@@ -461,8 +493,8 @@ let private mkOffsetRangeInfo sOff eOff sections =
   { Range = { Start = sOff; End = eOff }
     SectionRange = buildSectionRange sections }
 
-let private tryGetOffsetRangeInfo arbiter (sOff: uint32) (eOff: uint32) =
-  match API.getFile arbiter with
+let private tryGetOffsetRangeInfo source (sOff: uint32) (eOff: uint32) =
+  match API.getFile source with
   | Ok file ->
     let sec = findSectionRange file sOff eOff
     Some(mkOffsetRangeInfo sOff eOff sec)
@@ -484,65 +516,90 @@ let private tryGetVisibleLinearOffsetRange linearDoc linearViewState =
     uint32 startOffset, uint32 endOffset)
 
 let private tryGetSelectionOffsetRangeInfo arbiter (model: Model) =
+  let source = getBinarySource arbiter model
   match model.ActiveTab, model.Hexdump with
   | Some { Content = HexContent }, Some { Selection = Some sel } ->
     tryGetSelectedFileOffsetRange sel
-    |> Option.bind (fun (sOff, eOff) -> tryGetOffsetRangeInfo arbiter sOff eOff)
+    |> Option.bind (fun (sOff, eOff) -> tryGetOffsetRangeInfo source sOff eOff)
   | Some { Content = CFGContent(func, Loaded st) }, _ ->
     match st.ViewState.SelectedToken with
     | Some { Range = Some range } ->
-      tryGetOffsetRangeInfo arbiter (uint32 range.Min) (uint32 range.Max)
+      tryGetOffsetRangeInfo source (uint32 range.Min) (uint32 range.Max)
     | _ ->
       tryGetOffsetRangeInfo
-        arbiter
+        source
         (uint32 func.OffsetRange.Value.Min)
         (uint32 func.OffsetRange.Value.Max)
   | _ ->
     None
 
 let private tryGetViewportOffsetRangeInfo arbiter (model: Model) =
+  let source = getBinarySource arbiter model
   match model.ActiveTab with
   | Some { Content = LinearContent } ->
     match model.LinearDocument, model.LinearViewState with
     | Some doc, Some state ->
       tryGetVisibleLinearOffsetRange doc state
       |> Option.bind (fun (sOff, eOff) ->
-        tryGetOffsetRangeInfo arbiter sOff eOff)
+        tryGetOffsetRangeInfo source sOff eOff)
     | _ ->
       None
   | _ ->
-    match model.Hexdump, Model.tryFindTab model Tab.HexdumpTabID with
+    match model.Hexdump, Model.tryFindSelectedBinaryTab Tab.isHexdump model with
     | Some hexdump, Some _ ->
       tryGetVisibleFileOffsetRange hexdump
       |> Option.bind (fun (sOff, eOff) ->
-        tryGetOffsetRangeInfo arbiter sOff eOff)
+        tryGetOffsetRangeInfo source sOff eOff)
     | _ ->
       None
 
 let private syncOffsetSnapshotWithActiveTab arbiter (model: Model) =
-  let snapshot =
-    { Selection = tryGetSelectionOffsetRangeInfo arbiter model
-      Viewport = tryGetViewportOffsetRangeInfo arbiter model }
-  Model.mapSelectedBinary (fun b -> { b with OffsetSnapshot = snapshot }) model
-
-let linearAnalysisCompleted arbiter (model: Model) filePath doc state =
-  if model.LoadedBinary = Some filePath then
-    let state = initializeLinearView model doc state
+  match model.ActiveTab with
+  | Some tab when Some tab.BinaryID <> model.SelectedBinaryID ->
+    model
+  | _ ->
+    let snapshot =
+      { Selection = tryGetSelectionOffsetRangeInfo arbiter model
+        Viewport = tryGetViewportOffsetRangeInfo arbiter model }
     Model.mapSelectedBinary (fun binary ->
-      { binary with
-          LinearDocument = Some doc
-          LinearViewState = Some state }) model
-    |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
-  else
+      { binary with OffsetSnapshot = snapshot }) model
+
+let linearAnalysisCompleted arbiter model request doc state =
+  let model: Model = model
+  let request: AnalysisRequest = request
+  match Map.tryFind request.BinaryID model.Binaries with
+  | Some binary when binary.LinearRequest = Some request ->
+    let context =
+      match Model.tryFindBinaryTab request.BinaryID Tab.isLinearView model with
+      | Some(paneID, _, _, _) -> Model.forPane paneID model
+      | None -> model
+    let state = initializeLinearView context doc state
+    let model =
+      Model.mapBinary request.BinaryID (fun binary ->
+        { binary with
+            LinearRequest = None
+            LinearError = None
+            LinearDocument = Some doc
+            LinearViewState = Some state }) model
+    let model =
+      if model.SelectedBinaryID = Some request.BinaryID then
+        syncOffsetSnapshotWithActiveTab arbiter model
+      else
+        model
+    model, Elmish.Cmd.none
+  | _ ->
     model, Elmish.Cmd.none
 
-let linearAnalysisFailed (model: Model) filePath reason =
-  if model.LoadedBinary = Some filePath then
-    let updatedModel =
-      { model with
-          StatusMessage = Some $"Failed to analyze linear view: {reason}" }
-    updatedModel, Elmish.Cmd.none
-  else
+let linearAnalysisFailed (model: Model) request reason =
+  let request: AnalysisRequest = request
+  match Map.tryFind request.BinaryID model.Binaries with
+  | Some binary when binary.LinearRequest = Some request ->
+    let reason = $"Failed to analyze linear view: {reason}"
+    Model.mapBinary request.BinaryID (fun binary ->
+      { binary with
+          LinearRequest = None
+          LinearError = Some reason }) model, Elmish.Cmd.none
+  | _ ->
     model, Elmish.Cmd.none
 
 let private replaceTabByID tabID newTab oldTab =
@@ -561,66 +618,51 @@ let private replaceTabReferences (model: Model) tab =
         PreviewTab = preview
         ActiveTab = active }) model
 
-let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
-  let model =
-    match model.Hexdump with
-    | Some hexdump ->
-      Model.mapSelectedBinary (fun binary ->
-        { binary with Hexdump = Some(activateHexdumpView model hexdump) }) model
+let private activateOrOpenTab predicate createTab (model: Model) =
+  match model.SelectedBinaryID with
+  | Some id ->
+    match Model.tryFindBinaryTab id predicate model with
+    | Some(paneID, _, tab, _) ->
+      Model.mapPaneByID paneID
+        (fun pane -> { pane with ActiveTab = Some tab })
+        { model with FocusedPaneID = Some paneID }
+      |> Model.followFocusedTab
     | None ->
-      model
-  match Model.tryFindTab model Tab.HexdumpTabID with
-  | Some(paneID, _, tab, _) ->
-    Model.mapPaneByID paneID (fun pane ->
-      { pane with
-          ActiveTab = Some tab
-          OpenTabs = pane.OpenTabs
-          PreviewTab = pane.PreviewTab }) model
-    |> fun nextModel ->
-      { nextModel with FocusedPaneID = Some paneID }
-      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
-  | None ->
-    match model.Hexdump with
-    | Some _ ->
-      let tab = Tab.ofHexdump ()
+      let tab = createTab id
       Model.mapFocusedPane (fun pane ->
-          { pane with
-              ActiveTab = Some tab
-              OpenTabs = tab :: pane.OpenTabs }) model
-      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
-    | None ->
-      model, Elmish.Cmd.none
+        { pane with
+            ActiveTab = Some tab
+            OpenTabs = pane.OpenTabs @ [ tab ] }) model
+      |> Model.followFocusedTab
+  | None ->
+    model
 
-let openLinearViewTab (arbiter: Arbiter<_, _>) (model: Model) =
-  let model =
-    match model.LinearDocument, model.LinearViewState with
-    | Some doc, Some state ->
-      let state = initializeLinearView model doc state
-      Model.mapSelectedBinary (fun binary ->
-        { binary with LinearViewState = Some state }) model
-    | _ ->
-      model
-  match Model.tryFindTab model Tab.LinearViewTabID with
-  | Some(paneID, _, tab, _) ->
-    Model.mapPaneByID paneID (fun pane ->
-      { pane with
-          ActiveTab = Some tab
-          OpenTabs = pane.OpenTabs
-          PreviewTab = pane.PreviewTab }) model
-    |> fun nextModel ->
-      { nextModel with FocusedPaneID = Some paneID }
-      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
+let openHexdumpTab arbiter (model: Model) =
+  match model.Hexdump with
+  | Some hexdump ->
+    Model.mapSelectedBinary (fun binary ->
+      { binary with Hexdump = Some(activateHexdumpView model hexdump) }) model
+    |> activateOrOpenTab Tab.isHexdump Tab.ofHexdump
+    |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   | None ->
-    match model.LinearViewState with
-    | Some _ ->
-      let tab = Tab.ofLinearView ()
-      Model.mapFocusedPane (fun pane ->
-          { pane with
-              ActiveTab = Some tab
-              OpenTabs = tab :: pane.OpenTabs }) model
-      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
-    | None ->
-      model, Elmish.Cmd.none
+    model, Elmish.Cmd.none
+
+let openLinearViewTab arbiter (model: Model) =
+  match model.SelectedBinaryID with
+  | Some id ->
+    let model, cmd = ensureLinearAnalysis arbiter model id
+    let model =
+      match model.LinearDocument, model.LinearViewState with
+      | Some doc, Some state ->
+        let state = initializeLinearView model doc state
+        Model.mapSelectedBinary (fun binary ->
+          { binary with LinearViewState = Some state }) model
+      | _ ->
+        model
+    activateOrOpenTab Tab.isLinearView Tab.ofLinearView model
+    |> syncOffsetSnapshotWithActiveTab arbiter, cmd
+  | None ->
+    model, Elmish.Cmd.none
 
 let private mapCFGTabState newState (tab: Tab) =
   match tab.Content with
@@ -742,7 +784,8 @@ let private recomputeHexViewLayout arbiter (model: Model) updateView =
 let private resizeOpenedHexdumpTab arbiter (model: Model) paneID width height =
   let containsHexdumpTab pane =
     Model.getVisibleTabsFromPane pane
-    |> List.exists (fun t -> t.ID = Tab.HexdumpTabID)
+    |> List.exists (fun tab ->
+      Some tab.BinaryID = model.SelectedBinaryID && Tab.isHexdump tab)
   match Pane.tryFindLeaf paneID model.RootPane with
   | Some pane when containsHexdumpTab pane ->
     updateHexdumpState arbiter model (fun hexdump ->
@@ -771,7 +814,8 @@ let private resizeOpenedHexdumpTab arbiter (model: Model) paneID width height =
 let private resizeOpenedLinearTab arbiter (model: Model) paneID width height =
   let containsLinearTab pane =
     Model.getVisibleTabsFromPane pane
-    |> List.exists (fun t -> t.ID = Tab.LinearViewTabID)
+    |> List.exists (fun tab ->
+      Some tab.BinaryID = model.SelectedBinaryID && Tab.isLinearView tab)
   match Pane.tryFindLeaf paneID model.RootPane with
   | Some pane when containsLinearTab pane ->
     updateLinearViewState arbiter model (fun doc linearViewState ->
@@ -836,11 +880,13 @@ let private jumpHexdump (model: Model) byteIndex length =
     let model =
       Model.mapSelectedBinary (fun binary ->
         { binary with Hexdump = Some nextHexdump }) model
-    let hasHexdumpTab = Model.tryFindTab model Tab.HexdumpTabID |> Option.isSome
+    let hasHexdumpTab =
+      Model.tryFindSelectedBinaryTab Tab.isHexdump model |> Option.isSome
     let cmd =
-      if hasHexdumpTab && abs pendingDelta > 0.5 then
-        deferHexdumpScrollCmd targetOffsetY
-      else
+      match model.ActiveTab with
+      | Some tab when hasHexdumpTab && abs pendingDelta > 0.5 ->
+        deferHexdumpScrollCmd tab.ID targetOffsetY
+      | _ ->
         Elmish.Cmd.none
     model, cmd
   | _ ->
@@ -852,7 +898,7 @@ let private jumpHexdumpToOffset arbiter model (offset: uint64) =
     |> fun (nextHexdump, _, _) -> nextHexdump)
 
 let private jumpHexdumpToAddress arbiter model addr =
-  match API.getFile arbiter with
+  match API.getFile (getBinarySource arbiter model) with
   | Ok file when file.IsValidAddr addr ->
     let ptr = file.GetBoundedPointer addr
     jumpHexdumpToOffset arbiter model (uint64 ptr.Offset)
@@ -876,7 +922,7 @@ let private setHexdumpSelection arbiter model selection =
     { hexdump with Selection = clampHexSelection hexdump selection })
 
 let private setHexdumpSelectionFromAddrRange arbiter model (range: AddrRange) =
-  match API.getFile arbiter with
+  match API.getFile (getBinarySource arbiter model) with
   | Ok file when file.IsValidAddr range.Min ->
     let startPtr = file.GetBoundedPointer range.Min
     let endPtr =
@@ -900,16 +946,17 @@ type private CFGSyncTarget =
 
 let private tryGetActiveCFGSyncTarget (model: Model) =
   match model.ActiveTab with
-  | Some { Content = CFGContent(fn, Loaded st) } ->
+  | Some { BinaryID = id; Content = CFGContent(fn, Loaded st) }
+    when Some id = model.SelectedBinaryID ->
     match st.ViewState.SelectedToken with
     | Some { Range = Some range } -> Some(CFGAddressRange range)
     | _ -> Some(CFGOffsetRange fn.OffsetRange.Value)
   | _ ->
     None
 
-let private tryGetTargetFileOffset arbiter = function
+let private tryGetTargetFileOffset source = function
   | CFGAddressRange range ->
-    match API.getFile arbiter with
+    match API.getFile source with
     | Ok file when file.IsValidAddr range.Min ->
       let ptr = file.GetBoundedPointer range.Min
       Some ptr.Offset
@@ -942,7 +989,7 @@ let private syncLinearWithFileOffset (model: Model) offset =
     model
 
 let private syncLinearWithCFGTarget arbiter (model: Model) target =
-  match tryGetTargetFileOffset arbiter target with
+  match tryGetTargetFileOffset (getBinarySource arbiter model) target with
   | Some offset -> syncLinearWithFileOffset model offset
   | None -> model
 
@@ -1114,92 +1161,97 @@ let updateLinear arbiter (model: Model) msg =
   | _ ->
     model, Elmish.Cmd.none
 
-let private getCFG (arbiter: Arbiter<_, _>) (model: Model) cfgKind addr =
-  match cfgKind with
-  | CFGKind.Disasm ->
-    measureMaxCharSize model
-    ||> API.getDisasmCFG arbiter addr
-  | CFGKind.LowUIR ->
-    measureMaxCharSize model
-    ||> API.getLowUIRCFG arbiter addr
-  | CFGKind.SSA ->
-    measureMaxCharSize model
-    ||> API.getSSACFG arbiter addr
-  | _ ->
-    API.getCallCFG arbiter
+let private getCFG source (request: CFGRequest) (cw, ch) =
+  match request.Kind with
+  | CFGKind.Disasm -> API.getDisasmCFG source request.Address cw ch
+  | CFGKind.LowUIR -> API.getLowUIRCFG source request.Address cw ch
+  | CFGKind.SSA -> API.getSSACFG source request.Address cw ch
+  | _ -> API.getCallCFG source
 
-let private loadCFGCmd arbiter model (fn: FunctionItem) kind (tab: Tab) =
-  let id, addr = tab.ID, fn.Address
+let private loadCFGCmd arbiter request charSize =
+  let source = (arbiter: Arbiter<_, _>).ForBinary request.Analysis.BinaryID
   cmdOfSub (fun dispatch ->
     Async.Start(async {
       try
-        match getCFG arbiter model kind addr with
+        match getCFG source request charSize with
         | Ok cfg ->
-          dispatchOnUi dispatch (CFGLoadMsg(LoadCompleted(id, addr, kind, cfg)))
+          dispatchOnUi dispatch (CFGLoadMsg(LoadCompleted(request, cfg)))
         | Error e ->
-          dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(id, e)))
+          dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(request, e)))
       with ex ->
-        dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(id, ex.Message)))
+        dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(request, ex.Message)))
     }))
+
+let private startCFGLoad arbiter model tab kind =
+  match tab.Content with
+  | CFGContent(fn, _) ->
+    let request =
+      { Analysis = AnalysisRequest.create tab.BinaryID
+        TabID = tab.ID
+        Address = fn.Address
+        Kind = kind }
+    let tab = mapCFGTabState (Loading request.Analysis) tab
+    let model = replaceTabReferences model tab
+    model, loadCFGCmd arbiter request (measureMaxCharSize model)
+  | _ ->
+    model, Elmish.Cmd.none
 
 let private startLoadIfNeeded arbiter tab (model: Model) =
   match tab.Content with
-  | CFGContent(fn, NotLoaded) ->
-    let loadingTab = mapCFGTabState Loading tab
-    let model =
-      Model.mapFocusedPane (fun pane ->
-        let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID loadingTab)
-        let preview =
-          pane.PreviewTab |> Option.map (replaceTabByID tab.ID loadingTab)
-        { pane with
-            ActiveTab = Some loadingTab
-            OpenTabs = opens
-            PreviewTab = preview }) model
-    model, loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
+  | CFGContent(_, NotLoaded) ->
+    startCFGLoad arbiter model tab CFGKind.Disasm
   | _ ->
     let tab = refreshCFGTabMinimap model tab
-    let sync =
+    let model =
       replaceTabReferences model tab |> syncOffsetSnapshotWithActiveTab arbiter
-    sync, Elmish.Cmd.none
+    model, Elmish.Cmd.none
 
-let openCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
-  let tab = Tab.ofFunctionItem fnItem
-  match Model.tryFindTab model tab.ID with
-  | Some(paneID, _, tab, _) ->
-    startLoadIfNeeded arbiter tab (Model.mapPaneByID paneID
-      (fun pane -> { pane with ActiveTab = Some tab })
-      model)
-    |> fun (nextModel, cmd) ->
-      { nextModel with FocusedPaneID = Some paneID }
-      |> syncViewsWithActiveCFGIfEnabled arbiter, cmd
-  | None ->
-    startLoadIfNeeded arbiter tab (Model.mapFocusedPane
-      (fun pane -> { pane with ActiveTab = Some tab; PreviewTab = Some tab })
-      model)
-    |> fun (nextModel, cmd) ->
-      let syncedModel = syncViewsWithActiveCFGIfEnabled arbiter nextModel
-      syncedModel, cmd
+let private openCFGTabForBinary arbiter model fnItem id =
+  let tab = Tab.ofFunctionItem id fnItem
+  let model =
+    match Model.tryFindBinaryTab id (Tab.isFunction fnItem) model with
+    | Some(paneID, _, tab, _) ->
+      Model.mapPaneByID paneID
+        (fun pane -> { pane with ActiveTab = Some tab })
+        (Model.forPane paneID model)
+    | None ->
+      Model.mapFocusedPane
+        (fun pane -> { pane with ActiveTab = Some tab; PreviewTab = Some tab })
+        model
+    |> Model.followFocusedTab
+  let tab = model.ActiveTab.Value
+  let model, cmd = startLoadIfNeeded arbiter tab model
+  syncViewsWithActiveCFGIfEnabled arbiter model, cmd
 
-let pinCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
-  let tab = Tab.ofFunctionItem fnItem
+let openCFGTab arbiter (model: Model) fnItem =
+  match model.SelectedBinaryID with
+  | Some id -> openCFGTabForBinary arbiter model fnItem id
+  | None -> model, Elmish.Cmd.none
+
+let private pinCFGTabForBinary arbiter model fnItem id =
+  let tab = Tab.ofFunctionItem id fnItem
   let paneID, newOpenTabs, tab =
-    match Model.tryFindTab model tab.ID with
+    match Model.tryFindBinaryTab id (Tab.isFunction fnItem) model with
     | Some(paneID, paneState, tab, isPreview) ->
       if isPreview then paneID, tab :: paneState.OpenTabs, tab
       else paneID, paneState.OpenTabs, tab
     | None ->
       let paneID = Model.getFocusedPaneID model
       paneID, tab :: model.OpenTabs, tab
-  startLoadIfNeeded arbiter tab (Model.mapPaneByID paneID
-    (fun pane ->
+  let model =
+    Model.mapPaneByID paneID (fun pane ->
       { pane with
           ActiveTab = Some tab
           OpenTabs = newOpenTabs
-          PreviewTab = None })
-    model)
-  |> fun (nextModel, cmd) ->
-    { nextModel with FocusedPaneID = Some paneID }
-    |> syncViewsWithActiveCFGIfEnabled arbiter, cmd
+          PreviewTab = None }) (Model.forPane paneID model)
+    |> Model.followFocusedTab
+  let model, cmd = startLoadIfNeeded arbiter tab model
+  syncViewsWithActiveCFGIfEnabled arbiter model, cmd
+
+let pinCFGTab arbiter (model: Model) fnItem =
+  match model.SelectedBinaryID with
+  | Some id -> pinCFGTabForBinary arbiter model fnItem id
+  | None -> model, Elmish.Cmd.none
 
 let private isPaneEmpty pane =
   pane.ActiveTab.IsNone
@@ -1256,6 +1308,7 @@ let closeTab arbiter (model: Model) paneID tabID =
           FocusedPaneID = Some paneID
           DraggingTab = dragging }
     |> normalizePaneModel
+    |> Model.followFocusedTab
     |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
@@ -1264,8 +1317,9 @@ let switchTab arbiter (model: Model) paneID tabID =
   let model = { model with FocusedPaneID = Some paneID }
   match Model.tryFindVisibleTab model tabID with
   | Some tab ->
+    let model = { model with SelectedBinaryID = Some tab.BinaryID }
     let model =
-      if tab.ID = Tab.HexdumpTabID then
+      if Tab.isHexdump tab then
         match model.Hexdump with
         | Some hexdump ->
           Model.mapSelectedBinary (fun binary ->
@@ -1276,9 +1330,10 @@ let switchTab arbiter (model: Model) paneID tabID =
       else
         model
     let tab =
-      if tab.ID = Tab.HexdumpTabID then tab else refreshCFGTabMinimap model tab
+      if Tab.isHexdump tab then tab else refreshCFGTabMinimap model tab
     replaceTabReferences (Model.mapFocusedPane
       (fun pane -> { pane with ActiveTab = Some tab }) model) tab
+    |> Model.followFocusedTab
     |> syncOffsetSnapshotWithActiveTab arbiter
     |> syncViewsWithActiveCFGIfEnabled arbiter, Elmish.Cmd.none
   | None ->
@@ -1381,25 +1436,10 @@ let updateFunctionFilter model text =
     Model.mapSelectedBinary (fun b -> { b with FunctionFilter = text }) model
   model, Elmish.Cmd.none
 
-let selectWorkspacePanel (arbiter: Arbiter<_, _>) model panel =
-  match panel with
-  | SectionPanel ->
-    let sections =
-      match API.getSections arbiter with
-      | Ok secs ->
-        secs
-        |> ImmutableArray.map SectionItem.make
-        |> List.ofArray
-      | Error _ ->
-        []
-    Model.mapSelectedBinary (fun binary ->
-      { binary with
-          Sections = sections
-          WorkspacePanel = SectionPanel }) model, Elmish.Cmd.none
-  | _ ->
-    let model =
-      Model.mapSelectedBinary (fun b -> { b with WorkspacePanel = panel }) model
-    model, Elmish.Cmd.none
+let selectWorkspacePanel model panel =
+  let model =
+    Model.mapSelectedBinary (fun b -> { b with WorkspacePanel = panel }) model
+  model, Elmish.Cmd.none
 
 let private findTopNodeAndBounds (cfg: VisGraph) =
   let vs = cfg.Vertices
@@ -1453,29 +1493,42 @@ let private computeInitialCFGViewState cfgKind (cfg: VisGraph) (model: Model) =
         GraphMaxX = maxX
         GraphMaxY = maxY }
 
-let loadCFGCompleted arbiter (model: Model) tabID addr cfgKind cfg =
-  match Model.tryFindTab model tabID with
-  | Some(_, _, tab, _) ->
-    let viewState = computeInitialCFGViewState cfgKind cfg model
+let private isPendingCFG request (tab: Tab) =
+  tab.BinaryID = request.Analysis.BinaryID
+  && match tab.Content with
+     | CFGContent(_, Loading pending) -> pending = request.Analysis
+     | _ -> false
+
+let loadCFGCompleted arbiter model request cfg =
+  match Model.tryFindTab model request.TabID with
+  | Some(paneID, _, tab, _) when isPendingCFG request tab ->
+    let context = Model.forPane paneID model
+    let viewState = computeInitialCFGViewState request.Kind cfg context
     let loaded =
       { Graph = cfg
-        FunctionAddress = addr
+        FunctionAddress = request.Address
         ViewState = viewState
-        Minimap = createMinimapCache model viewState cfg
+        Minimap = createMinimapCache context viewState cfg
         RenderCache = CFGRenderCache.create cfg }
     let tab = mapCFGTabState (Loaded loaded) tab
-    replaceTabReferences model tab
-    |> syncOffsetSnapshotWithActiveTab arbiter
-    |> syncViewsWithActiveCFGIfEnabled arbiter, Elmish.Cmd.none
-  | None ->
+    let model = replaceTabReferences model tab
+    let model =
+      match model.ActiveTab with
+      | Some active when active.ID = tab.ID ->
+        syncOffsetSnapshotWithActiveTab arbiter model
+        |> syncViewsWithActiveCFGIfEnabled arbiter
+      | _ ->
+        model
+    model, Elmish.Cmd.none
+  | _ ->
     model, Elmish.Cmd.none
 
-let loadCFGFailed (model: Model) tabID _reason =
-  match Model.tryFindTab model tabID with
-  | Some(_, _, tab, _) ->
+let loadCFGFailed (model: Model) request _reason =
+  match Model.tryFindTab model request.TabID with
+  | Some(_, _, tab, _) when isPendingCFG request tab ->
     let tab = mapCFGTabState NotLoaded tab
     replaceTabReferences model tab, Elmish.Cmd.none
-  | None ->
+  | _ ->
     model, Elmish.Cmd.none
 
 let private updateCFGViewState target update =
@@ -1633,6 +1686,23 @@ let setHoveredCFGEdge (model: Model) edgeID =
   | None ->
     model, Elmish.Cmd.none
 
+let private resizePaneDocuments arbiter model paneID size =
+  match Pane.tryFindLeaf paneID model.RootPane with
+  | Some pane ->
+    Model.getVisibleTabsFromPane pane
+    |> List.distinctBy (fun tab -> tab.BinaryID)
+    |> List.fold (fun model tab ->
+      let context =
+        { model with
+            SelectedBinaryID = Some tab.BinaryID
+            FocusedPaneID = Some paneID }
+      let width, height = size
+      let updated = resizeOpenedHexdumpTab arbiter context paneID width height
+      let updated = resizeOpenedLinearTab arbiter updated paneID width height
+      Model.restoreContext model updated) model
+  | None ->
+    model
+
 let updateCFGViewportSize arbiter (model: Model) paneID width height =
   if width <= 0.0 || height <= 0.0 then
     model, Elmish.Cmd.none
@@ -1647,8 +1717,7 @@ let updateCFGViewportSize arbiter (model: Model) paneID width height =
         Model.mapPaneByID paneID
           (fun pane -> { pane with ContentViewportSize = viewportSize })
           model
-      let model = resizeOpenedHexdumpTab arbiter model paneID width height
-      let model = resizeOpenedLinearTab arbiter model paneID width height
+      let model = resizePaneDocuments arbiter model paneID viewportSize
       match pane.ActiveTab with
       | Some { Content = CFGContent _ } as activeTab ->
         let tab = activeTab.Value
@@ -1669,11 +1738,11 @@ let updateCFGViewportSize arbiter (model: Model) paneID width height =
 
 let changeCFGKind (arbiter: Arbiter<_, _>) (model: Model) kind =
   match model.ActiveTab with
-  | Some { Content = CFGContent(fn, Loaded { ViewState = view }) }
-    when view.CFGKind <> kind ->
-    let tabContent = CFGContent(fn, NotLoaded)
-    let tab = { model.ActiveTab.Value with Content = tabContent }
-    replaceTabReferences model tab, loadCFGCmd arbiter model fn kind tab
+  | Some { Content = CFGContent(_, Loaded { ViewState = view }) }
+    when view.CFGKind = kind ->
+    model, Elmish.Cmd.none
+  | Some({ Content = CFGContent _ } as tab) ->
+    startCFGLoad arbiter model tab kind
   | _ ->
     model, Elmish.Cmd.none
 
@@ -1693,7 +1762,8 @@ let focusPane (arbiter: Arbiter<_, _>) (model: Model) paneID =
   if model.FocusedPaneID = Some paneID then
     model, Elmish.Cmd.none
   elif Pane.tryFindLeaf paneID model.RootPane |> Option.isSome then
-    { model with FocusedPaneID = Some paneID }
+    Model.forPane paneID model
+    |> Model.followFocusedTab
     |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
@@ -1758,6 +1828,7 @@ let rec private replacePane paneID replacement = function
 
 let private finalizeMovedTab arbiter model =
   model
+  |> Model.followFocusedTab
   |> syncOffsetSnapshotWithActiveTab arbiter
   |> syncViewsWithActiveCFGIfEnabled arbiter
 
@@ -1881,10 +1952,10 @@ let updateViewportSize arbiter (model: Model) paneID width height =
 
 let updateCFGLoad arbiter (model: Model) msg =
   match msg with
-  | LoadCompleted(tabID, addr, cfgKind, cfg) ->
-    loadCFGCompleted arbiter model tabID addr cfgKind cfg
-  | LoadFailed(tabID, reason) ->
-    loadCFGFailed model tabID reason
+  | LoadCompleted(request, cfg) ->
+    loadCFGCompleted arbiter model request cfg
+  | LoadFailed(request, reason) ->
+    loadCFGFailed model request reason
 
 let updateCFG arbiter (model: Model) msg =
   match msg with
@@ -1913,3 +1984,19 @@ let updateStatusOffsetCtx (model: Model) sOff eOff sections =
           OffsetSnapshot =
             { binary.OffsetSnapshot with Selection = selection } }) model
   model, Elmish.Cmd.none
+
+let routeTabMessage update model tabID message =
+  match Model.tryFindTab model tabID with
+  | Some(paneID, pane, tab, _)
+    when pane.ActiveTab |> Option.exists (fun active -> active.ID = tabID)
+      && Map.containsKey tab.BinaryID model.Binaries ->
+    let updated, cmd = update message (Model.forPane paneID model)
+    let updated =
+      match message with
+      | OpenCFGTab _ | PinCFGTab _ | OpenHexdumpTab | OpenLinearViewTab ->
+        updated
+      | _ ->
+        Model.restoreContext model updated
+    updated, cmd
+  | _ ->
+    model, Elmish.Cmd.none

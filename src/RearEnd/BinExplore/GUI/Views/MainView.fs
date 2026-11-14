@@ -27,6 +27,7 @@ module B2R2.RearEnd.BinExplore.GUI.MainView
 open Avalonia.Controls
 open Avalonia.Input
 open Avalonia.Layout
+open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
@@ -125,15 +126,20 @@ let private onContentSizeChanged paneID dispatch (e: SizeChangedEventArgs) =
 
 let [<Literal>] private MinSidePanelWidth = 190.0
 
-let private tabContentView tokenContextProvider pane model dispatch =
-  match pane.ActiveTab with
-  | Some { Content = CFGContent _ } ->
+let private tabContentView createProvider pane model dispatch =
+  let provider =
+    pane.ActiveTab |> Option.map (fun tab -> createProvider tab.BinaryID)
+  let dispatch message =
+    pane.ActiveTab
+    |> Option.iter (fun tab -> dispatch (TabMsg(tab.ID, message)))
+  match pane.ActiveTab, provider with
+  | Some { Content = CFGContent _ }, Some tokenContextProvider ->
     CFGContent.view tokenContextProvider pane model dispatch
-  | Some { Content = LinearContent } ->
+  | Some { Content = LinearContent }, _ ->
     LinearContent.view pane model dispatch
-  | Some { Content = HexContent } ->
+  | Some { Content = HexContent }, _ ->
     HexContent.view pane model dispatch
-  | Some { Content = SectionContent } ->
+  | Some { Content = SectionContent }, _ ->
     Border.create [
       Border.borderThickness 0.0
       Border.child (
@@ -145,13 +151,24 @@ let private tabContentView tokenContextProvider pane model dispatch =
         ]
       )
     ]
-  | None ->
-    CFGContent.view tokenContextProvider pane model dispatch
+  | _ ->
+    Border.create [
+      Border.child (
+        TextBlock.create [
+          TextBlock.text "Select a function to open its CFG."
+          TextBlock.foreground model.Theme.Text.Muted
+          TextBlock.margin 10.0
+        ])
+    ]
 
 let rec private paneView tokenContextProvider pane model dispatch =
   match pane with
   | Leaf(paneID, paneState) ->
     let patch = OnChangeOf paneID
+    let contentModel = Model.forPane paneID model
+    let contentKey =
+      paneState.ActiveTab |> Option.map (fun tab -> tab.ID)
+      |> Option.defaultValue "empty"
     Border.create [
       Border.borderThickness 1.0
       Border.borderBrush (
@@ -172,9 +189,10 @@ let rec private paneView tokenContextProvider pane model dispatch =
                 patch
               )
               Border.child (
-                tabContentView tokenContextProvider paneState model dispatch
+                tabContentView
+                  tokenContextProvider paneState contentModel dispatch
               )
-            ]
+            ] |> View.withKey contentKey
           ]
         ]
       )

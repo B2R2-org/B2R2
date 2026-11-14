@@ -42,9 +42,12 @@ type Message =
   /// Message emitted when binary loading failed.
   | OpenBinaryFailed of path: string * reason: string
   /// Message emitted when linear-view analysis has finished.
-  | LinearAnalysisCompleted of path: string * LinearDocument * LinearViewState
+  | LinearAnalysisCompleted of
+    AnalysisRequest * LinearDocument * LinearViewState
   /// Message emitted when linear-view analysis failed.
-  | LinearAnalysisFailed of path: string * reason: string
+  | LinearAnalysisFailed of AnalysisRequest * reason: string
+  /// Routes a view event through its originating tab's binary and pane.
+  | TabMsg of tabID: string * Message
   /// Message to close the current workspace.
   | CloseWorkspace
   /// Message to focus a specific pane by its ID.
@@ -126,9 +129,16 @@ and CFGPanSpace =
 /// information to update the corresponding CFG tab state.
 and CFGLoadMessage =
   /// Message emitted when CFG loading has completed.
-  | LoadCompleted of tabID: string * addr: Addr * CFGKind * cfg: VisGraph
+  | LoadCompleted of CFGRequest * cfg: VisGraph
   /// Message emitted when CFG loading failed.
-  | LoadFailed of tabID: string * reason: string
+  | LoadFailed of CFGRequest * reason: string
+
+/// Identifies one CFG request, including its target tab and graph kind.
+and CFGRequest =
+  { Analysis: AnalysisRequest
+    TabID: string
+    Address: Addr
+    Kind: CFGKind }
 
 /// Represents messages related to user interactions in the current active CFG
 /// tab.

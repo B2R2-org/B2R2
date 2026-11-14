@@ -43,6 +43,7 @@
     <Compile Include="GUI\LinearProjection.fs" />
     <Compile Include="GUI\HexdumpState.fs" />
     <Compile Include="GUI\WorkspacePanel.fs" />
+    <Compile Include="GUI\AnalysisRequest.fs" />
     <Compile Include="GUI\Tab.fs" />
     <Compile Include="GUI\Pane.fs" />
     <Compile Include="GUI\OffsetSnapshot.fs" />

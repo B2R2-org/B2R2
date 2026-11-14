@@ -24,10 +24,15 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open System
+open B2R2.RearEnd.BinExplore
+
 /// Represents a tab in the UI.
 type Tab =
   { /// The unique identifier of the tab.
     ID: string
+    /// Binary owning this tab's content.
+    BinaryID: BinaryID
     /// The title of the tab displayed in the UI.
     Title: string
     /// The content of the tab.
@@ -48,28 +53,42 @@ and TabContent =
 /// currently loading, or fully loaded with the content of type 'T.
 and TabContentState<'T> =
   | NotLoaded
-  | Loading
+  | Loading of AnalysisRequest
   | Loaded of 'T
 
 [<RequireQualifiedAccess>]
 module Tab =
-  let [<Literal>] LinearViewTabID = "linearview"
+  let isHexdump tab =
+    match tab.Content with
+    | HexContent -> true
+    | _ -> false
 
-  let [<Literal>] HexdumpTabID = "hexdump"
+  let isLinearView tab =
+    match tab.Content with
+    | LinearContent -> true
+    | _ -> false
+
+  let isFunction (func: FunctionItem) tab =
+    match tab.Content with
+    | CFGContent(fn, _) -> fn.FuncID = func.FuncID
+    | _ -> false
 
   /// Creates a new Tab instance for a given FunctionItem, with the content set
   /// to a CFGTab.
-  let ofFunctionItem func =
-    { ID = $"fn-{func.FuncID}"
+  let ofFunctionItem binaryID (func: FunctionItem) =
+    { ID = Guid.NewGuid().ToString("N")
+      BinaryID = binaryID
       Title = func.Name
       Content = CFGContent(func, NotLoaded) }
 
-  let ofLinearView () =
-    { ID = LinearViewTabID
+  let ofLinearView binaryID =
+    { ID = Guid.NewGuid().ToString("N")
+      BinaryID = binaryID
       Title = "Linear View"
       Content = LinearContent }
 
-  let ofHexdump () =
-    { ID = HexdumpTabID
+  let ofHexdump binaryID =
+    { ID = Guid.NewGuid().ToString("N")
+      BinaryID = binaryID
       Title = "Hexdump"
       Content = HexContent }

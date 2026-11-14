@@ -1186,7 +1186,7 @@ let view tokenContextProvider pane (model: Model) dispatch =
       match pane.ActiveTab with
       | Some { Content = CFGContent(_, NotLoaded) } ->
         unloadedView model "CFG is not loaded."
-      | Some { Content = CFGContent(_, Loading) } ->
+      | Some { Content = CFGContent(_, Loading _) } ->
         unloadedView model "CFG is now loading ..."
       | Some { Content = CFGContent(_, Loaded loaded) } ->
         let viewportSize = pane.ContentViewportSize

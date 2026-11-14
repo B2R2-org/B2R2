@@ -686,6 +686,10 @@ let view pane (model: Model) dispatch =
   | Some { Content = LinearContent }, Some doc, Some state ->
     bodyView model dispatch doc state
   | Some { Content = LinearContent }, _, _ when model.LoadedBinary.IsSome ->
-    emptyStateView model "Analyzing linear view..."
+    let message =
+      model.SelectedBinary
+      |> Option.bind (fun binary -> binary.LinearError)
+      |> Option.defaultValue "Analyzing linear view..."
+    emptyStateView model message
   | _ ->
     emptyStateView model "No linear items loaded."

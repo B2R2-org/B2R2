@@ -98,7 +98,7 @@ let private tabContextMenu paneID (pane: PaneState) dispatch (tab: Tab) =
   let pinMenu =
     match tab.Content with
     | CFGContent(func, _) when pane.PreviewTab = Some tab ->
-      let pin _ = dispatch (PinCFGTab func)
+      let pin _ = dispatch (TabMsg(tab.ID, PinCFGTab func))
       [ MenuItem.create [
           MenuItem.header "Pin this tab"
           MenuItem.onClick (pin, OnChangeOf func)

@@ -119,6 +119,26 @@ module Model =
     tryGetFocusedPane model
     |> Option.bind (fun pane -> pane.ActiveTab)
 
+  let forPane paneID model =
+    let model = { model with FocusedPaneID = Some paneID }
+    match tryGetFocusedActiveTab model with
+    | Some tab -> { model with SelectedBinaryID = Some tab.BinaryID }
+    | None -> model
+
+  let restoreContext original updated =
+    { updated with
+        FocusedPaneID = original.FocusedPaneID
+        SelectedBinaryID = original.SelectedBinaryID }
+
+  let followFocusedTab model =
+    match tryGetFocusedActiveTab model with
+    | Some tab ->
+      { model with SelectedBinaryID = Some tab.BinaryID }
+      |> mapBinary tab.BinaryID (fun binary ->
+        { binary with LastActiveTabID = Some tab.ID })
+    | None ->
+      model
+
   let rec private mapPaneState paneID fn = function
     | Leaf(id, paneState) when id = paneID ->
       Leaf(id, fn paneState)
@@ -147,21 +167,31 @@ module Model =
     | None ->
       None
 
-  let tryFindTab model tabID =
+  let tryFindTabWhere predicate model =
     let rec findAllPane = function
       | Leaf(paneID, paneState) ->
         match paneState.PreviewTab with
-        | Some preview when preview.ID = tabID ->
+        | Some preview when predicate preview ->
           Some(paneID, paneState, preview, true)
         | _ ->
           paneState.OpenTabs
-          |> List.tryFind (fun tab -> tab.ID = tabID)
+          |> List.tryFind predicate
           |> Option.map (fun tab -> paneID, paneState, tab, false)
       | Split(_, _, first, second) ->
         match findAllPane first with
         | Some result -> Some result
         | None -> findAllPane second
     findAllPane model.RootPane
+
+  let tryFindTab model tabID =
+    tryFindTabWhere (fun tab -> tab.ID = tabID) model
+
+  let tryFindBinaryTab binaryID predicate model =
+    tryFindTabWhere (fun tab -> tab.BinaryID = binaryID && predicate tab) model
+
+  let tryFindSelectedBinaryTab predicate model =
+    model.SelectedBinaryID
+    |> Option.bind (fun id -> tryFindBinaryTab id predicate model)
 
 type Model with
   member this.SelectedBinary = Model.tryGetSelectedBinary this
@@ -201,7 +231,10 @@ type Model with
     | Some message ->
       MessageOnly message
     | None ->
-      Model.getSelectedValue EmptyStatus (fun b -> b.StatusBarState) this
+      match this.SelectedBinary with
+      | Some { LinearError = Some reason } -> MessageOnly reason
+      | Some binary -> binary.StatusBarState
+      | None -> EmptyStatus
 
   member this.ActiveTab = (Model.getFocusedPaneOrDefault this).ActiveTab
 

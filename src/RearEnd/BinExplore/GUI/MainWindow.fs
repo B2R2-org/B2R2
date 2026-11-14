@@ -59,8 +59,10 @@ type MainWindow<'FnCtx, 'GlCtx>
       StatusMessage = None }
     |> Update.initializeSession arbiter
 
-  let update (msg: Message) (model: Model) =
+  let rec update (msg: Message) (model: Model) =
     match msg with
+    | TabMsg(tabID, message) ->
+      Update.routeTabMessage update model tabID message
     | OpenBinary filePath ->
       Update.openBinary arbiter model filePath
     | DropBinary filePath ->
@@ -71,10 +73,10 @@ type MainWindow<'FnCtx, 'GlCtx>
       Update.openBinaryCompleted arbiter model filePath info
     | OpenBinaryFailed(filePath, reason) ->
       Update.openBinaryFailed model filePath reason
-    | LinearAnalysisCompleted(filePath, doc, state) ->
-      Update.linearAnalysisCompleted arbiter model filePath doc state
-    | LinearAnalysisFailed(filePath, reason) ->
-      Update.linearAnalysisFailed model filePath reason
+    | LinearAnalysisCompleted(request, doc, state) ->
+      Update.linearAnalysisCompleted arbiter model request doc state
+    | LinearAnalysisFailed(request, reason) ->
+      Update.linearAnalysisFailed model request reason
     | CloseWorkspace ->
       Update.closeWorkspace arbiter model
     | OpenCFGTab fnItem ->
@@ -120,7 +122,7 @@ type MainWindow<'FnCtx, 'GlCtx>
     | UpdateFunctionFilter text ->
       Update.updateFunctionFilter model text
     | SelectWorkspacePanel panel ->
-      Update.selectWorkspacePanel arbiter model panel
+      Update.selectWorkspacePanel model panel
     | SetSyncEnabled enabled ->
       Update.setSyncEnabled arbiter model enabled
     | UpdateStatusMsg msg ->
@@ -133,10 +135,10 @@ type MainWindow<'FnCtx, 'GlCtx>
       this.Close()
       model, Elmish.Cmd.none
 
-  let tokenContextProvider =
+  let tokenContextProvider (binaryID: BinaryID) =
     { new ITokenContextProvider with
         member _.GetInstructionInfo addr =
-          match arbiter.GetBinaryBrew() with
+          match arbiter.GetBinaryBrew(binaryID) with
           | Ok brew ->
             let liftingUnit = brew.BinHandle.NewLiftingUnit()
             let ins = liftingUnit.ParseInstruction addr
@@ -163,12 +165,12 @@ type MainWindow<'FnCtx, 'GlCtx>
                PCTargets = [||] |}
 
         member _.GetCallers funcAddr =
-          match arbiter.GetBinaryBrew() with
+          match arbiter.GetBinaryBrew(binaryID) with
           | Ok brew -> brew.Functions[funcAddr].Callers |> Seq.toArray
           | Error _ -> [||]
 
         member _.IsAddressInFunction(fnAddr, queryAddr) =
-          match arbiter.GetBinaryBrew() with
+          match arbiter.GetBinaryBrew(binaryID) with
           | Ok brew ->
             brew.Functions[fnAddr].CFG.Vertices
             |> Array.exists (fun v ->
@@ -178,7 +180,7 @@ type MainWindow<'FnCtx, 'GlCtx>
             false
 
         member _.TryGetSectionName addr =
-          match arbiter.GetBinaryBrew() with
+          match arbiter.GetBinaryBrew(binaryID) with
           | Ok brew ->
             BinFileOps.tryFindSectionNameByAddr brew.BinHandle.File addr
             |> Result.toOption

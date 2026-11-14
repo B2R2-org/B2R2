@@ -35,6 +35,9 @@ type BinaryModel =
     WorkspacePanel: WorkspacePanel
     LinearDocument: LinearDocument option
     LinearViewState: LinearViewState option
+    LinearRequest: AnalysisRequest option
+    LinearError: string option
+    LastActiveTabID: string option
     SyncEnabled: bool
     Hexdump: HexdumpState option
     OffsetSnapshot: OffsetSnapshot
@@ -50,6 +53,9 @@ module BinaryModel =
       WorkspacePanel = FunctionPanel
       LinearDocument = None
       LinearViewState = None
+      LinearRequest = None
+      LinearError = None
+      LastActiveTabID = None
       SyncEnabled = true
       Hexdump = None
       OffsetSnapshot = OffsetSnapshot.empty
