@@ -144,7 +144,7 @@ type private ProvenanceTracer(state: LowUIRSparseDataFlow.State<_>, args) =
       readUse reader pp (VarKind.ofIRExpr e)
     | Load(Addr = addr) ->
       match state.EvaluateAddressExpr(pp, addr) with
-      | AddressDomain.StackAddr off ->
+      | AddressDomain.OnStack off ->
         readUse reader pp (StackLocal(LowUIRAddress.toFrameOffset off))
       | _ ->
         Unrelated
@@ -292,7 +292,7 @@ module private PointerWriteHelper =
   /// a stack slot or a fixed one, which no argument points to.
   let isKnownAddress (state: LowUIRSparseDataFlow.State<_>) pp addr =
     match state.EvaluateAddressExpr(pp, addr) with
-    | AddressDomain.StackAddr _ | AddressDomain.Const _ -> true
+    | AddressDomain.OnStack _ | AddressDomain.Const _ -> true
     | _ -> false
 
   /// Notes what the stores of the given vertex write through the pointers

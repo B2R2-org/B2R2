@@ -614,6 +614,80 @@ type DataFlowTests() =
     let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
 
+  /// MIPS builds a constant too wide for an immediate with lui and ori, as
+  /// the size of a big frame and the offset of a slot in it, and reaches the
+  /// slot through the register that it adds the stack pointer to.
+  [<TestMethod>]
+  member _.``Constant Propagation finds a slot that ori offsets``() =
+    let state =
+      [ "3c010001" (* lui at, 0x1 *)
+        "34210020" (* ori at, at, 0x20 *)
+        "03a1e823" (* subu sp, sp, at *)
+        "24030007" (* addiu v1, zero, 7 *)
+        "3c080001" (* lui t0, 0x1 *)
+        "35080010" (* ori t0, t0, 0x10 *)
+        "011d4021" (* addu t0, t0, sp *)
+        "ad030000" (* sw v1, 0(t0) *)
+        "3c090001" (* lui t1, 0x1 *)
+        "35290010" (* ori t1, t1, 0x10 *)
+        "013d4821" (* addu t1, t1, sp *)
+        "8d220000" (* lw v0, 0(t1) *)
+        "3c010001" (* lui at, 0x1 *)
+        "34210020" (* ori at, at, 0x20 *)
+        "03a1e821" (* addu sp, sp, at *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+      |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x40002cUL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 7u 32<rt>, loaded)
+
+  /// An address that an instruction reaches from the stack pointer goes into
+  /// another register for the code to pass on or to walk, and a walk in a loop
+  /// that the CFG does not show yet would make the register look as if it held
+  /// one slot, so a load through it reads no slot.
+  [<TestMethod>]
+  member _.``Constant Propagation reads no slot through a taken address``() =
+    let state =
+      [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+        "afa00008" (* sw zero, 8(sp) *)
+        "27a40008" (* addiu a0, sp, 8 *)
+        "8c820000" (* lw v0, 0(a0) *)
+        "03e00008" (* jr ra *)
+        "27bd0020" (* addiu sp, sp, 0x20 *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+      |> computeCallerAt0x400000
+    let v0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R2
+    let pp = ProgramPoint(0x40000cUL, 1)
+    let loaded = state.GetAbsValue { ProgramPoint = pp; VarKind = Regular v0 }
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
+
+  /// What a register holds on entry is no known address, so a register that
+  /// holds either that or the address of a slot holds no known one, and the
+  /// store through it names no slot.
+  [<TestMethod>]
+  member _.``Address domain knows no register on entry``() =
+    let brew =
+      [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+        "14800003" (* bnez a0, 0x400014 *)
+        "00000000" (* nop *)
+        "24080008" (* addiu t0, zero, 8 *)
+        "011d2021" (* addu a0, t0, sp *)
+        "ac800000" (* sw zero, 0(a0) *)
+        "03e00008" (* jr ra *)
+        "27bd0020" (* addiu sp, sp, 0x20 *) ]
+      |> String.concat ""
+      |> Binaries.loadMIPSAt 0x400000UL
+    let state = computeCallerAt0x400000 brew
+    let a0 = FrontEnd.MIPS.Register.toRegID FrontEnd.MIPS.Register.R4
+    let a0Var = brew.BinHandle.RegisterFactory.GetRegVar a0
+    let addr = state.EvaluateAddressExpr(ProgramPoint(0x400014UL, 1), a0Var)
+    Assert.AreEqual<AddressDomain.Lattice>(AddressDomain.NotAConst, addr)
+
   /// A slot that a callee may write still tells what it holds if the callee
   /// does not: what the function stores there before the call.
   [<TestMethod>]

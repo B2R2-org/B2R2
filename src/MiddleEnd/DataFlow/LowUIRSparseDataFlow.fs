@@ -135,10 +135,12 @@ type State<'Lattice when 'Lattice: equality>
     | Some(stackVar, c) when varKind = stackVar ->
       c
     | _ ->
+      (* What the function gets is unknown, unless the binary fixes it, as it
+         fixes the global pointer of MIPS. *)
       match RegisterInitialValueProvider.tryGetInitialVarValue
               initialValueProvider varKind with
       | Some bv -> AddressDomain.Const bv
-      | None -> AddressDomain.Undef
+      | None -> AddressDomain.NotAConst
 
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with
@@ -1226,7 +1228,7 @@ module internal AnalysisCore = begin
   /// stack slot.
   let noteStackAddrEscape (state: State<_>) pp value =
     match value with
-    | AddressDomain.StackAddr off ->
+    | AddressDomain.OnStack off ->
       state.StackAddrEscapes[pp] <- LowUIRAddress.toFrameOffset off
     | _ ->
       state.StackAddrEscapes.Remove pp |> ignore
@@ -1254,7 +1256,7 @@ module internal AnalysisCore = begin
   /// on entry.
   let noteRegisterSave (state: State<_>) pp addr value =
     match state.EvaluateAddressExpr(pp, addr) with
-    | AddressDomain.StackAddr off when isEntryValueOfRegister state pp value ->
+    | AddressDomain.OnStack off when isEntryValueOfRegister state pp value ->
       state.RegisterSaves[pp] <- LowUIRAddress.toFrameOffset off
     | _ ->
       state.RegisterSaves.Remove pp |> ignore
@@ -1267,10 +1269,12 @@ module internal AnalysisCore = begin
         match varKind with
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
           state.EvaluateAddressExpr(pp, src)
+          |> AddressDomain.holdInStackPointer
           |> Some
         | Regular _ ->
-          noteStackAddrEscape state pp (state.EvaluateAddressExpr(pp, src))
-          AddressDomain.NotAConst |> Some
+          let value = state.EvaluateAddressExpr(pp, src)
+          noteStackAddrEscape state pp value
+          AddressDomain.hold value |> Some
         | Temporary _ ->
           state.EvaluateAddressExpr(pp, src) |> Some
         | _ ->
