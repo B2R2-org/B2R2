@@ -237,6 +237,7 @@ let opCodeToString = function
   | Op.CdotFSW -> "fsw"
   | Op.CdotFLWSP -> "flw"
   | Op.CdotFSWSP -> "fsw"
+  | Op.CdotUNIMP -> "unimp"
   | _ -> Terminator.impossible ()
 
 let roundModeToString = function

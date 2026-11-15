@@ -231,4 +231,24 @@ type ParserTests() =
   member _.``[RISCV32] C.SLLI cannot shift past a word``() =
     testUnsupported WordSize.Bit32 "0215"
 
+  (* The halfword of all zeros is illegal by definition rather than for want
+     of a meaning, so it reads as an instruction of its own. *)
+  [<TestMethod>]
+  member _.``[RISCV32] C.UNIMP is the halfword of all zeros``() =
+    "0000"
+    ++ (CdotUNIMP ** [])
+    ||> testRISCV WordSize.Bit32
+
+  [<TestMethod>]
+  member _.``[RISCV64] C.UNIMP is the halfword of all zeros``() =
+    "0000"
+    ++ (CdotUNIMP ** [])
+    ||> testRISCV WordSize.Bit64
+
+  (* C.ADDI4SPN that adds nothing is reserved wherever the rest is not
+     zero. *)
+  [<TestMethod>]
+  member _.``[RISCV64] C.ADDI4SPN of nothing stays reserved``() =
+    testUnsupported WordSize.Bit64 "0400"
+
 // vim: set tw=80 sts=2 sw=2:

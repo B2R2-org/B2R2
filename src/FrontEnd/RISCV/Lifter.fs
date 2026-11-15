@@ -91,6 +91,7 @@ let translate (ins: Instruction) bld =
   | Op.SLTIU ->
     sltiu ins bld
   | Op.CdotJ
+  | Op.CdotJAL
   | Op.JAL ->
     jal ins bld
   | Op.CdotJR
@@ -138,6 +139,8 @@ let translate (ins: Instruction) bld =
     sideEffects ins bld Breakpoint
   | Op.ECALL ->
     sideEffects ins bld SysCall
+  | Op.CdotUNIMP ->
+    sideEffects ins bld UndefinedInstruction
   | Op.CdotSRAI
   | Op.SRAI ->
     srai ins bld

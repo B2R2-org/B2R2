@@ -143,11 +143,13 @@ type Instruction
 
     member _.IsInterrupt = op = Opcode.ECALL
 
-    (* EBREAK returns, if at all, to the instruction itself, and GCC puts one
-       where __builtin_trap is, so control never reaches the next one. *)
+    (* EBREAK and the illegal halfword return, if at all, to the instruction
+       itself: GCC puts an EBREAK where __builtin_trap is, and compilers pad
+       with the other where control never comes, so the next instruction is
+       not where control goes on. *)
     member _.IsExit =
       match op with
-      | Opcode.EBREAK | Opcode.CdotEBREAK -> true
+      | Opcode.EBREAK | Opcode.CdotEBREAK | Opcode.CdotUNIMP -> true
       | _ -> false
 
     member _.IsNop = isNop ()

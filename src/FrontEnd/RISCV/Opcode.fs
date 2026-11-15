@@ -239,6 +239,9 @@ type Opcode =
   | CdotFSW = 196
   | CdotFLWSP = 197
   | CdotFSWSP = 198
-  | InvalOP = 199
+  (* The halfword of all zeros, which RVC defines to be illegal at both
+     widths, so that running into zeroed memory traps *)
+  | CdotUNIMP = 199
+  | InvalOP = 200
 
 type internal Op = Opcode

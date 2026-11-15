@@ -144,14 +144,16 @@ type InstructionTests() =
     Assert.AreEqual<bool>(false, ins.IsRET)
     CollectionAssert.AreEqual(Array.empty<Addr>, nexts ins)
 
-  (* EBREAK returns, if at all, to the instruction itself, so control never
-     reaches the next one, which glibc leaves after the call that never
-     returns in _start, and GCC after __builtin_trap. *)
+  (* EBREAK and the illegal halfword return, if at all, to the instruction
+     itself, so control never reaches the next one: glibc leaves an EBREAK
+     after the call that never returns in _start, GCC another where
+     __builtin_trap is, and compilers pad with the illegal halfword. *)
   [<TestMethod>]
-  member _.``[RISCV64] a breakpoint has no next address``() =
+  member _.``[RISCV64] a trap has no next address``() =
     let traps =
       [ "0290" (* c.ebreak *)
-        "73001000" (* ebreak *) ]
+        "73001000" (* ebreak *)
+        "0000" (* unimp *) ]
     for hex in traps do
       let ins = parse64 0x6744UL hex
       Assert.AreEqual<bool>(true, ins.IsTerminator null, hex)
