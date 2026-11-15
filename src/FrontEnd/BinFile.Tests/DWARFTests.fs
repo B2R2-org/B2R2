@@ -37,6 +37,9 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 /// given bytes are not a valid instruction sequence.
 type private InvalidDWExpr = DWExpression.InvalidDWInstructionExpException
 
+/// Represents the RISCV registers under a shorter name.
+type private RISCVReg = B2R2.FrontEnd.RISCV.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -259,3 +262,14 @@ type DWARFTests() =
        follows it is never read, and the FDE is taken to start at an entry. *)
     let bytes = [| DWCFAGNUWindowSave; DWCFADefCFAOffset; 0x10uy |]
     Assert.AreEqual<bool>(false, startsMidFrame bytes)
+
+  [<TestMethod>]
+  member _.``[DWARF] RISCV registers are numbered alike at both widths``() =
+    (* DWARF numbers x0 to x31 and then f0 to f31, which the call frame
+       information of an rv32 binary names as much as that of an rv64 one. *)
+    let rid reg = B2R2.FrontEnd.RISCV.Register.toRegID reg
+    let sp, f1 = rid RISCVReg.X2, rid RISCVReg.F1
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.RISCV, Endian.Little, wordSize)
+      Assert.AreEqual<RegisterID>(sp, DWRegister.toRegID isa 2uy)
+      Assert.AreEqual<RegisterID>(f1, DWRegister.toRegID isa 33uy)

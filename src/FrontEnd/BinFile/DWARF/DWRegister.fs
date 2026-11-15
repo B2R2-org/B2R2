@@ -161,7 +161,7 @@ let toRegID isa regnum =
   | X64 -> toIntelx64Register regnum
   | AArch64 -> toAArch64Register regnum
   | MIPS -> toMIPSRegister regnum
-  | RISCV64 -> toRISCVRegister regnum
+  | RISCV -> toRISCVRegister regnum
   | PPC32 -> toPPC32Register regnum
   | SH4 -> toSH4Register regnum
   | _ -> Terminator.futureFeature ()
