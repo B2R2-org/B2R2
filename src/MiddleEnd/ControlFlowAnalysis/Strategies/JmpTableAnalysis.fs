@@ -858,6 +858,71 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | c, _ ->
         c
 
+  /// This is a practical limit for the number of nodes into which the
+  /// definition of a variable unfolds, which no index or table address comes
+  /// near.
+  let [<Literal>] MaxUnfoldedSize = 4096L
+
+  /// Adds the given sizes, saturating past MaxUnfoldedSize, so that sizes that
+  /// double along a chain of definitions never overflow.
+  let addSizes a b = min (MaxUnfoldedSize + 1L) (a + b)
+
+  /// This is the size that sizes holds for a variable while its definition is
+  /// being counted. No count is ever zero.
+  let [<Literal>] CountingSize = 0L
+
+  /// Counts the nodes into which the definition of the given variable unfolds,
+  /// as far as MaxUnfoldedSize, remembering the count of every variable on the
+  /// way in sizes. A variable whose own definition unfolds past the limit
+  /// counts as one node where another reads it, as it stays folded there. So
+  /// does one whose definition reads it back, which unfolds without end: the
+  /// data flow claims that much when two blocks overlap and share the program
+  /// points of their common tail, as a table entry past the end of a table can
+  /// make them do.
+  let rec countUnfolded findDef (sizes: Dictionary<Variable, int64>) v =
+    match sizes.TryGetValue v with
+    | true, CountingSize ->
+      sizes[v] <- MaxUnfoldedSize + 1L
+      MaxUnfoldedSize + 1L
+    | true, n ->
+      n
+    | false, _ ->
+      sizes[v] <- CountingSize
+      let n =
+        match findDef v with
+        | Some(Def(_, e)) -> countUnfoldedExpr findDef sizes e
+        | _ -> 1L
+      if sizes[v] = CountingSize then sizes[v] <- n else ()
+      sizes[v]
+
+  and countUnfoldedExpr findDef sizes e =
+    let count = countUnfoldedExpr findDef sizes
+    match e with
+    | Var v ->
+      let n = countUnfolded findDef sizes v
+      if n > MaxUnfoldedSize then 1L else n
+    | Load(_, _, e) | UnOp(_, _, e) | Cast(_, _, e) | Extract(e, _, _) ->
+      addSizes 1L (count e)
+    | Store(_, _, e1, e2) | BinOp(_, _, e1, e2) | RelOp(_, _, e1, e2)
+    | RoundCtrl(e1, _, e2) ->
+      addSizes 1L (addSizes (count e1) (count e2))
+    | Ite(e1, _, e2, e3) ->
+      addSizes 1L (addSizes (count e1) (addSizes (count e2) (count e3)))
+    | _ ->
+      1L
+
+  /// Finds the definition of the given variable as the given function finds
+  /// it, unless the definition unfolds into more than MaxUnfoldedSize nodes:
+  /// the variable then reads as one that nothing defines. The analysis
+  /// unfolds what it follows into a tree, so a chain of definitions that each
+  /// read the last twice, as the CLZ of AArch64 does in each of its twelve
+  /// steps, costs it time exponential in the length of the chain.
+  let findDefWithinSize findDef =
+    let sizes = Dictionary<Variable, int64>()
+    fun v ->
+      if countUnfolded findDef sizes v > MaxUnfoldedSize then None
+      else findDef v
+
   /// Finds the definition of the given variable as the given function finds
   /// it, or else, for a register that the function reads as it holds on
   /// entry, the value it holds then, if the data flow knows it, as the zero
@@ -1114,8 +1179,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match found with
     | Ok(v, (exp, guards, domGuards)) ->
       let fromCP = findConstFromIRCFG state
+      let defs = findDefFromIRCFG state |> findDefWithinSize
       let findDef =
-        findDefOrEntryValue (findDefFromIRCFG state) fromCP
+        findDefOrEntryValue defs fromCP
         |> findDefOrGOTEntry ctx.BinHandle fromCP
       let expandPhi = expandPhiFromIRCFG fromCP
       let findConst =
@@ -1155,7 +1221,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match found with
     | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromSSACFG state
-      let findDef = findDefFromSSACFG state
+      let findDef = findDefFromSSACFG state |> findDefWithinSize
       let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
       |> Result.map (guardOrigin findDef guards domGuards)

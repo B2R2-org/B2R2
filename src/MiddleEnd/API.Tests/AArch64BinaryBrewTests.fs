@@ -95,6 +95,39 @@ type AArch64BinaryBrewTests() =
     let targets = indirectJumpTargetsOf fns[0x0UL]
     CollectionAssert.AreEqual([| 0x28UL; 0x30UL; 0x38UL; 0x40UL |], targets)
 
+  (* Clang switches on the lowest set bit of a mask, whose position RBIT and
+     CLZ count. The lifted CLZ reads each of its twelve steps twice, so the
+     index unfolds into millions of nodes, which the analysis has to leave
+     folded to read the table in time. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A clang table switches on the lowest set bit in time``() =
+    let fns =
+      recoverCode
+        [ "14000094" (* bl 0x50 *)
+          "0800c0da" (* rbit x8, x0 *)
+          "0811c0da" (* clz x8, x8 *)
+          "1f0d00f1" (* cmp x8, #3 *)
+          "a8010054" (* b.hi 0x44 *)
+          "09000090" (* adrp x9, 0x0 *)
+          "29310191" (* add x9, x9, #0x4c *)
+          "8a000010" (* adr x10, 0x2c *)
+          "2b696838" (* ldrb w11, [x9, x8] *)
+          "4a090b8b" (* add x10, x10, x11, lsl #2 *)
+          "40011fd6" (* br x10 *)
+          "00008052" (* mov w0, #0 *)
+          "c0035fd6" (* ret *)
+          "20008052" (* mov w0, #1 *)
+          "c0035fd6" (* ret *)
+          "40008052" (* mov w0, #2 *)
+          "c0035fd6" (* ret *)
+          "60008052" (* mov w0, #3 *)
+          "c0035fd6" (* ret *)
+          "00020406" (* .byte 0, 2, 4, 6 *)
+          "c0035fd6" (* ret *) ]
+    let targets = indirectJumpTargetsOf fns[0x0UL]
+    CollectionAssert.AreEqual([| 0x2cUL; 0x34UL; 0x3cUL; 0x44UL |], targets)
+
   (* GCC extends a byte of the table by its sign as it adds it, shifted, to the
      address past the jump, so a case can lie before the jump: here the last
      entry, -8, goes back to the case at 0x10. The byte that SXTB extends is
