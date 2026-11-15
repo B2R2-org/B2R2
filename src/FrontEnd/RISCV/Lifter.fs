@@ -196,8 +196,12 @@ let translate (ins: Instruction) bld =
     feqdots ins bld
   | Op.FEQdotD ->
     feqdotd ins bld
+  | Op.CdotFLW
+  | Op.CdotFLWSP
   | Op.FLW ->
     flw ins bld
+  | Op.CdotFSW
+  | Op.CdotFSWSP
   | Op.FSW ->
     fsw ins bld
   | Op.FADDdotS ->

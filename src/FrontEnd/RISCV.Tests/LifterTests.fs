@@ -32,9 +32,10 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.RISCV
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
-/// Pins how the jumps lift, as the CFG recovery tells calls, returns and the
-/// jumps through tables apart by the kind of jump they leave by. The encodings
-/// are those of InstructionTests.
+/// Pins the lifting the CFG recovery leans on: it tells calls, returns and the
+/// jumps through tables apart by the kind of jump they leave by, and it lifts
+/// every instruction of a block it reaches. The jump encodings are those of
+/// InstructionTests.
 [<TestClass>]
 type LifterTests() =
   static let lift wordSize addr hex =
@@ -123,3 +124,23 @@ type LifterTests() =
         | SideEffect(Effect = e) -> Some e
         | _ -> None)
     CollectionAssert.AreEqual([| UndefinedInstruction |], effects)
+
+  (* RV32 alone has the compressed loads and stores of single floats, as RV64
+     spends their encodings on doublewords. They do what their full forms do,
+     so only the marks that hold the length of an instruction tell them
+     apart. *)
+  [<TestMethod>]
+  member _.``[RISCV32] a compressed float access lifts as its full form``() =
+    let bodyOf hex =
+      lift WordSize.Bit32 0x381b2UL hex
+      |> Array.filter (function
+        | ISMark _ | IEMark _ -> false
+        | _ -> true)
+      |> Array.map string
+    let pairs =
+      [ "1c62", "87270600" (* flw fa5, 0(a2) *)
+        "3267", "0727c100" (* flw fa4, 12(sp) *)
+        "9ce7", "27a4f700" (* fsw fa5, 8(a5) *)
+        "3ae6", "2726e100" (* fsw fa4, 12(sp) *) ]
+    for short, full in pairs do
+      CollectionAssert.AreEqual(bodyOf full, bodyOf short, short)
