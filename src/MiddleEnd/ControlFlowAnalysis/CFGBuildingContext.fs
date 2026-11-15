@@ -241,6 +241,16 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// the recovery narrows it down.
   member _.PointerWrites with get(): PointerWrites = pointerWrites.Value
 
+  /// Tells whether the recovery follows what functions write through the
+  /// pointers that they get: it summarizes what this function writes, and the
+  /// data flow of this function lets each call write the stack slots that its
+  /// callee writes. The rules of the architecture decide.
+  member internal _.TracksPointerWrites
+    with get() = cp.State.TracksCallClobbers
+     and set v =
+       cp.State.TracksCallClobbers <- v
+       uva.State.TracksCallClobbers <- v
+
   /// The user-defined per-function context.
   member _.UserContext with get(): 'FnCtx = userCtx
 

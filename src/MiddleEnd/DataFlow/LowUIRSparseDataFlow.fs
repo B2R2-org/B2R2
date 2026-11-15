@@ -525,6 +525,12 @@ type State<'Lattice when 'Lattice: equality>
 
   member internal _.ArgRegisters with get() = argRegisters.Value
 
+  /// Tells whether a call defines the stack slots that its callee may write
+  /// through the pointers that the call hands it, as the summary of the callee
+  /// tells. It holds unless a client turns it off, which keeps every slot
+  /// across every call.
+  member val TracksCallClobbers = true with get, set
+
   /// Maps an SSA variable to its corresponding variable point.
   member _.SSAVarToVp with get() = ssaVarToVp :> IReadOnlyDictionary<_, _>
 
@@ -1554,7 +1560,8 @@ let compute g (state: State<_>) =
   (* Stack pointer propagation lets us recognize stack slot reads that the
      first pass could not, so the memoized used variable kinds are stale. *)
   state.UsedVarKindsMemo.Clear()
-  updateCallClobbers g state
+  if state.TracksCallClobbers then updateCallClobbers g state
+  else ()
   calculateChains g state dom
   propagateDomain g state
   state.ClearPendingVertices()

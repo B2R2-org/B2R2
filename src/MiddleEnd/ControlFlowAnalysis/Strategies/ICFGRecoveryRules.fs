@@ -49,7 +49,8 @@ type internal TailCallJudgment =
 /// differ: where a call enters its callee, whether a jump calls a function as
 /// its tail, whether a call calls a function at all, whether an indirect call
 /// returns, which entries of a jump table are holes, where a jump table ends,
-/// and whether a function needs building again. Workers share the rules, so
+/// whether callers forget the stack slots that their callees write, and
+/// whether a function needs building again. Workers share the rules, so
 /// the rules keep no state; what a function has to remember lives in its
 /// context.
 type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
@@ -131,6 +132,14 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * JmpTableInfo
     * idx: int
     -> bool
+
+  /// Checks if the recovery follows what functions write through the pointers
+  /// that they get, as it builds the function of the given context, so that
+  /// callers forget the stack slots that their callees write there. Following
+  /// them costs a summary of every function, which the recovery computes one
+  /// function at a time as callers need them, so only the rules of an
+  /// architecture whose code needs it follow them.
+  abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
   /// Checks if the function that the given context has built needs building
   /// again, as its code refutes what the building took for granted. Before it

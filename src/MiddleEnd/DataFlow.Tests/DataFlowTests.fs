@@ -168,10 +168,9 @@ type DataFlowTests() =
     (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
     cp.State
 
-  /// Computes constant propagation on the code that loadCallWithSlotAddress
-  /// loads with the given callee, and returns what v0 and v1 hold once loaded.
-  let computeSlotsAfterCall callee =
-    let state = loadCallWithSlotAddress callee |> computeCallerAt0x400000
+  /// Reads what v0 and v1 hold once loaded in the given state of the code that
+  /// loadCallWithSlotAddress loads.
+  let readSlotsAfterCall (state: LowUIRSparseDataFlow.State<_>) =
     let valueAt addr r =
       let rid = FrontEnd.MIPS.Register.toRegID r
       let vp = { ProgramPoint = ProgramPoint(addr, 1); VarKind = Regular rid }
@@ -179,6 +178,13 @@ type DataFlowTests() =
     let v0 = valueAt 0x400020UL FrontEnd.MIPS.Register.R2
     let v1 = valueAt 0x400024UL FrontEnd.MIPS.Register.R3
     v0, v1
+
+  /// Computes constant propagation on the code that loadCallWithSlotAddress
+  /// loads with the given callee, and returns what v0 and v1 hold once loaded.
+  let computeSlotsAfterCall callee =
+    loadCallWithSlotAddress callee
+    |> computeCallerAt0x400000
+    |> readSlotsAfterCall
 
   /// Finds what the stack slot that the instruction at the given address reads
   /// holds as if no call wrote it, in the given state.
@@ -574,6 +580,22 @@ type DataFlowTests() =
       [ "03e00008" (* jr ra *)
         "00000000" (* nop *) ]
     let v0, v1 = computeSlotsAfterCall callee
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 1u 32<rt>, v0)
+    Assert.AreEqual<ConstantDomain.Lattice>(mkConst 2u 32<rt>, v1)
+
+  /// A data flow that tracks no call clobbers keeps every slot across a call,
+  /// even one whose callee writes through the address of the slot.
+  [<TestMethod>]
+  member _.``Constant Propagation can keep every slot across calls``() =
+    let callee =
+      [ "03e00008" (* jr ra *)
+        "a0800000" (* sb zero, 0(a0) *) ]
+    let brew = loadCallWithSlotAddress callee
+    let cfg = brew.Functions[0x400000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    cp.State.TracksCallClobbers <- false
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    let v0, v1 = readSlotsAfterCall cp.State
     Assert.AreEqual<ConstantDomain.Lattice>(mkConst 1u 32<rt>, v0)
     Assert.AreEqual<ConstantDomain.Lattice>(mkConst 2u 32<rt>, v1)
 

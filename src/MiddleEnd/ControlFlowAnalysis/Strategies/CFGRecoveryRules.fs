@@ -207,6 +207,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * idx: int
     -> bool
 
+  /// Checks if the recovery follows what functions write through the pointers
+  /// that they get, as it builds the function of the given context.
+  abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
   /// Checks if the function that the given context has built needs building
   /// again.
   abstract RequiresRebuild: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
@@ -253,6 +257,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// as a range check may admit fewer entries than a compiler emits.
   default _.EndsJumpTableBefore(_, _, _) = false
 
+  /// Follows none, which keeps every stack slot across every call.
+  default _.TracksPointerWrites _ = false
+
   /// Finds nothing in a built function that calls for building it again.
   default _.RequiresRebuild _ = false
 
@@ -287,6 +294,8 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
     member this.EndsJumpTableBefore(ctx, jmptbl, idx) =
       this.EndsJumpTableBefore(ctx, jmptbl, idx)
+
+    member this.TracksPointerWrites ctx = this.TracksPointerWrites ctx
 
     member this.RequiresRebuild ctx = this.RequiresRebuild ctx
 

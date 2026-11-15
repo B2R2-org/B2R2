@@ -225,7 +225,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
                options.UseTailcallHeuristic
                action
 
-    member _.OnCreate _ctx = ()
+    member _.OnCreate ctx =
+      ctx.TracksPointerWrites <- (rulesOf ctx).TracksPointerWrites ctx
 
     member _.OnFinish ctx = onFinish ctx this (rulesOf ctx) postAnalysis
 

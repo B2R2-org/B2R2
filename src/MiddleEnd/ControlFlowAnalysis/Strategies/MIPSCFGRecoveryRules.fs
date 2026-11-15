@@ -51,7 +51,9 @@ module private MIPSCFGRecoveryRules =
 /// the next one, whose offsets from gp read as entries too. A call through t9
 /// reaches what the GOT entry that the code loads into t9 holds, or the
 /// address that the code builds in t9 from two halves, and any other indirect
-/// call right before another function never returns.
+/// call right before another function never returns. As a range check ends a
+/// table, a call forgets the stack slots that its callee writes through the
+/// pointers that it gets, lest the check read what a slot held before.
 type internal MIPSCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -65,3 +67,5 @@ type internal MIPSCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   override _.EndsJumpTableBefore(_, jmptbl, idx) =
     let isPast = Option.exists (fun n -> idx >= n)
     isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries
+
+  override _.TracksPointerWrites _ = true

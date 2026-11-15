@@ -332,10 +332,14 @@ module private PointerWriteHelper =
 /// context keeps the safe default, which lets a function write anything,
 /// when this analysis does not run or when the function ends where the
 /// recovery cannot follow it. The analysis runs once the callers of the
-/// function need it, rather than every time the function ends.
+/// function need it, rather than every time the function ends, and not at all
+/// where the recovery follows no pointer writes, as no caller reads it there.
 type PointerWriteAnalysis() =
   interface ICFGAnalysis<unit -> unit> with
     member _.Unwrap env =
       fun () ->
         let ctx = env.Context
-        ctx.SetPointerWrites(lazy (PointerWriteHelper.compute ctx))
+        if ctx.TracksPointerWrites then
+          ctx.SetPointerWrites(lazy (PointerWriteHelper.compute ctx))
+        else
+          ()
