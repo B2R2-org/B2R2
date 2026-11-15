@@ -15,6 +15,12 @@ on:
 jobs:
   build:
 
+    # A branch of this repository is already checked by its push, so its pull
+    # request skips the run; a fork's pull request is the only run it gets.
+    if: >-
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name != github.repository
+
     runs-on: ubuntu-latest
 
     strategy:
