@@ -69,11 +69,23 @@ module RegisterInitialValueProvider =
         else
           (registers :> IRegisterInitialValueProvider).TryGetInitialValue rid
 
+  /// Gives the RISCV zero register zero, which it always holds: the lifter
+  /// keeps it from being written, so it holds its initial value throughout.
+  type private RISCVRegisterInitialValueProvider(hdl: BinHandle) =
+    let zero = RISCV.Register.toRegID RISCV.Register.X0
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = zero then
+          Some(BitVector.Zero(hdl.RegisterFactory.GetRegType rid))
+        else
+          None
+
   /// Creates the architecture-specific provider of initial values for a binary.
   let create (hdl: BinHandle): IRegisterInitialValueProvider =
     match hdl.RegisterFactory.ISA.Arch with
     | Architecture.Intel -> IntelRegisterInitialValueProvider(hdl)
     | Architecture.MIPS -> MIPSRegisterInitialValueProvider(hdl)
+    | Architecture.RISCV -> RISCVRegisterInitialValueProvider(hdl)
     | _ -> DefaultRegisterInitialValueProvider()
 
   /// Creates the architecture-specific provider of initial values for the

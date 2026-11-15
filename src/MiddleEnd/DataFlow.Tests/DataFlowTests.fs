@@ -735,6 +735,20 @@ type DataFlowTests() =
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
     Assert.AreEqual<ConstantDomain.Lattice option>(expected, slot)
 
+  /// RISCV reads zero from x0, whose initial value no instruction replaces.
+  [<TestMethod>]
+  member _.``Constant Propagation reads the RISCV zero register as zero``() =
+    (* c.li a0, 6 ; c.jr ra *)
+    let brew = Binaries.loadRISCVAt 0x10000UL "19458280"
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let a0 = FrontEnd.RISCV.Register.X10
+    let a0 = Regular(FrontEnd.RISCV.Register.toRegID a0)
+    let vp = { ProgramPoint = ProgramPoint(0x10000UL, 1); VarKind = a0 }
+    let six = mkConst 6u 64<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
