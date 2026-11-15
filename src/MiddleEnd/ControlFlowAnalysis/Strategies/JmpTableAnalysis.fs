@@ -1171,6 +1171,23 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         | Some bv -> ConstantDomain.Const bv
         | None -> c
 
+  /// Finds the target that an indirect jump computes before it clears the
+  /// lowest bit, as every JALR of RISCV does, given the variable that holds
+  /// the target. No instruction of RISCV starts at an odd address, so a code
+  /// address has the bit clear anyway, and the jump goes where the target
+  /// before the mask says.
+  let unmaskTarget (hdl: BinHandle) findDef exp =
+    match hdl.ISA, exp with
+    | RISCV, Var v ->
+      match findDef v with
+      | Some(Def(_, BinOp(BinOpType.AND, _, e, Num mask)))
+        when BitVector.Not mask = BitVector.One mask.Length ->
+        e
+      | _ ->
+        exp
+    | _ ->
+      exp
+
   let analyzeSymbolicallyWithIRCFG ctx state insAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
     let found =
@@ -1189,6 +1206,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         |> findConstBeyondCalls state
         |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
+      let exp = unmaskTarget ctx.BinHandle findDef exp
       findSymbPattern expandPhi findConst findDef fnAddr insAddr 0 exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
@@ -1223,6 +1241,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       let findConst = findConstFromSSACFG state
       let findDef = findDefFromSSACFG state |> findDefWithinSize
       let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
+      let exp = unmaskTarget ctx.BinHandle findDef exp
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
