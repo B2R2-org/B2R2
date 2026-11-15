@@ -445,6 +445,15 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
     | None ->
       []
 
+  /// Finds the block that the gap at the given address starts right past: the
+  /// one that takes up the address before the gap, delay slot and all, as
+  /// AnalyzeGap counts it.
+  member internal this.FindBlockBeforeGap(gapAddr) =
+    this.CFG.Vertices
+    |> Array.find (fun v ->
+      not v.VData.Internals.IsAbstract
+      && (coveredRange v).IsIncluding(gapAddr - 1UL))
+
 /// Represents a call edge from its callsite address to the callee's address.
 /// This is to uniquely identify call edges for abstracted vertices. We create
 /// an abstract vertex for each call instruction even though multiple call

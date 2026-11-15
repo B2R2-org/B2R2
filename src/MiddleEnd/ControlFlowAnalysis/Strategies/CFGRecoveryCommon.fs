@@ -1486,12 +1486,6 @@ module internal CFGRecoveryCommon =
 #endif
     target
 
-  let findVertexByAddr (ctx: CFGBuildingContext<_, _>) addr =
-    ctx.Vertices.Values
-    |> Seq.find (fun v ->
-      let bbl = v.VData.Internals
-      not bbl.IsAbstract && bbl.Range.IsIncluding(addr))
-
   let isNoReturnAbsVertex (v: IVertex<LowUIRBasicBlock>) =
     v.VData.Internals.IsAbstract &&
     v.VData.Internals.AbstractContent.ReturningStatus = NoRet
@@ -1504,8 +1498,7 @@ module internal CFGRecoveryCommon =
   let recoverNoReturnFallThroughEdge (ctx: CFGBuildingContext<_, _>) v =
     let g = ctx.CFG
     let addr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
-    let maybePredAddr = addr - 1UL
-    let maybePred = findVertexByAddr ctx maybePredAddr
+    let maybePred = ctx.FindBlockBeforeGap addr
     match Array.tryExactlyOne <| g.GetSuccs(maybePred) with
     | Some(succOfMaybePred) when isNoReturnAbsVertex succOfMaybePred ->
       g.AddEdge(succOfMaybePred, v, NoReturnFallThroughEdge)

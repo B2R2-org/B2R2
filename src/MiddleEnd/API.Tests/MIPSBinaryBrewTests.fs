@@ -160,7 +160,8 @@ type MIPSBinaryBrewTests() =
   (* A branch runs its delay slot as a part of its block, so the slot is no
      gap between blocks that code nothing else reaches may fill, though a
      block starts right past it: here past the slots at 0x400528, 0x40053c,
-     and 0x400544. *)
+     and 0x400544, and past the one at 0x40054c, where the gap that the rest
+     of the old main leaves starts. *)
   [<TestMethod>]
   member _.``A delay slot is no gap of a function with a table``() =
     let code =
@@ -178,7 +179,8 @@ type MIPSBinaryBrewTests() =
         "24020001" (* addiu v0, zero, 1 *) ]
     let rodata = "0040054000400548" (* .word 0x400540, 0x400548 *)
     let fns = recoverPatched mips32 code rodata
-    let expected = [| 0x400520UL; 0x40052cUL; 0x400540UL; 0x400548UL |]
+    let expected =
+      [| 0x400520UL; 0x40052cUL; 0x400540UL; 0x400548UL; 0x400550UL |]
     CollectionAssert.AreEqual(expected, blocksOf fns[0x400520UL])
 
   (* MIPS64 code checks a 32-bit index, then takes its low word with DEXT,
