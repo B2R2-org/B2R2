@@ -173,6 +173,25 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     let tryGetPhiOperand = tryGetPhiOperandFromSSACFG ssaCFG
     findJumpExpr stmExtractor tryGetPhiOperand ssaCFG v [ v ]
 
+  /// Checks if shifting a value of the given type to the left by l and then to
+  /// the right by r keeps some low bits of the value and scales them, which
+  /// takes a shift to the right by no more than the one to the left.
+  let isShiftBack rt (l: BitVector) (r: BitVector) =
+    let l = l.ToUInt64()
+    rt <= 64<rt> && l > 0UL && l < uint64 rt && r.ToUInt64() <= l
+
+  /// Rewrites (e << l) >> r, where r is no more than l, into what it amounts
+  /// to: the low bits of e that the shift to the left keeps, shifted to the
+  /// left by the difference, as GCC for RV64 takes the low word of an index
+  /// and scales it at once. The index then reads as one that a table scales.
+  let unshift rt e l r =
+    let mask = BitVector((1UL <<< (int rt - l)) - 1UL, rt)
+    let kept = BinOp(BinOpType.AND, rt, e, Num mask)
+    if l = r then
+      kept
+    else
+      BinOp(BinOpType.SHL, rt, kept, Num(BitVector(uint64 (l - r), rt)))
+
   let rec simplify e =
     match e with
     | Load(v, rt, e) ->
@@ -203,6 +222,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       Num(BitVector.Shr(v1, v2))
     | BinOp(BinOpType.SHL, _, Num v1, Num v2) ->
       Num(BitVector.Shl(v1, v2))
+    | BinOp(BinOpType.SHR, rt, BinOp(BinOpType.SHL, _, e, Num l), Num r)
+      when isShiftBack rt l r ->
+      unshift rt (simplify e) (l.ToInt32()) (r.ToInt32())
     | BinOp(op, rt, e1, e2) ->
       BinOp(op, rt, simplify e1, simplify e2)
     | UnOp(op, rt, e) ->

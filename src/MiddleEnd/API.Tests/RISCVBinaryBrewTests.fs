@@ -69,3 +69,25 @@ type RISCVBinaryBrewTests() =
     let fns = recoverPatched code rodata
     let entries = fns[0x650UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* GCC for RV64 takes the low word of an index and scales it at once, by
+     shifting it to the top of the register and back by two less. *)
+  [<TestMethod>]
+  member _.``A table is read through an index that shifts there and back``() =
+    let code =
+      [ "97070000" (* auipc a5, 0x0 *)
+        "93878711" (* addi a5, a5, 280 *)
+        "13170502" (* slli a4, a0, 32 *)
+        "1355e701" (* srli a0, a4, 30 *)
+        "3e95" (* c.add a0, a5 *)
+        "0841" (* c.lw a0, 0(a0) *)
+        "3e95" (* c.add a0, a5 *)
+        "0285" (* c.jr a0 *)
+        "0145" (* c.li a0, 0 *)
+        "8280" (* c.jr ra *)
+        "0545" (* c.li a0, 1 *)
+        "8280" (* c.jr ra *) ]
+    let rodata = "00ffffff04ffffff" (* .word 0x668 - 0x768, 0x66c - 0x768 *)
+    let fns = recoverPatched code rodata
+    let entries = fns[0x650UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
