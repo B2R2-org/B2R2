@@ -48,3 +48,12 @@ module internal RegisterHelper =
     | R.F28 | R.F29 | R.F30 | R.F31 -> 64<rt>
     | R.FCSR | R.FFLAGS | R.FRM -> 32<rt>
     | _ -> Terminator.impossible ()
+
+  /// Returns the registers that share bits with the given one, itself among
+  /// them: FCSR holds FFLAGS and FRM side by side, and no other register
+  /// shares a bit with another.
+  let getAliases = function
+    | R.FCSR -> [| R.FCSR; R.FFLAGS; R.FRM |]
+    | R.FFLAGS -> [| R.FFLAGS; R.FCSR |]
+    | R.FRM -> [| R.FRM; R.FCSR |]
+    | reg -> [| reg |]
