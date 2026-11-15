@@ -47,6 +47,16 @@ type RISCVBinaryBrewTests() =
     let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
 
+  /// Recovers the functions of the given RV64 code, which starts at address
+  /// zero with the entry of the binary. A raw image has no section to hold a
+  /// table, so a test on one reads its tables as ones of labels, which have to
+  /// point into their function, before the next one: the code starts by
+  /// calling a function that lies past its tables.
+  static let recoverCode (code: string list) =
+    let bytes = code |> String.concat "" |> ByteArray.ofHexString
+    let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
+    BinaryBrew(BinHandle.LoadRawImage(bytes, isa)).Functions
+
   (* Every JALR clears the lowest bit of its target, which the address of
      code has clear anyway, so a table is read through the jump as if it did
      not: here the table of GCC PIC code, whose entries count from the table
@@ -91,3 +101,57 @@ type RISCVBinaryBrewTests() =
     let fns = recoverPatched code rodata
     let entries = fns[0x650UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* A table that nothing bounds reads on into the next one, counting its
+     entries from its own base. Here the second entry of A, the first of B,
+     sends the jump of A right before the jump of B, ahead of the case of T
+     that dispatches B. The jump of B then reads A through the registers that
+     A left, against another base, and two jumps that count one table from
+     different bases do not share it, so the entry is wrong. *)
+  [<TestMethod>]
+  member _.``An entry into another dispatch is past its table``() =
+    let code =
+      [ "ef008006" (* jal ra, 0x68 *)
+        "31a8" (* c.j 0x20 *)
+        "0100" (* c.nop *)
+        "2c000000" (* 0x08, A: .word 0x34 - 0x08 *)
+        "54000000" (* 0x0c, B: .word 0x60 - 0x0c *)
+        "58000000" (* .word 0x64 - 0x0c *)
+        "34000000" (* 0x14, T: .word 0x48 - 0x14 *)
+        "38000000" (* .word 0x4c - 0x14 *)
+        "00000100" (* .word past the code *)
+        "17070000" (* 0x20: auipc a4, 0x0 *)
+        "130787fe" (* addi a4, a4, -24: A *)
+        "93172500" (* slli a5, a0, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "ba97" (* c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "17070000" (* 0x34: auipc a4, 0x0 *)
+        "130707fe" (* addi a4, a4, -32: T *)
+        "93972500" (* slli a5, a1, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "ba97" (* c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "0145" (* 0x48: c.li a0, 0 *)
+        "8280" (* c.jr ra *)
+        "17070000" (* 0x4c: auipc a4, 0x0 *)
+        "130707fc" (* addi a4, a4, -64: B *)
+        "93172600" (* slli a5, a2, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "ba97" (* 0x5c: c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "0545" (* 0x60: c.li a0, 1 *)
+        "8280" (* c.jr ra *)
+        "0945" (* 0x64: c.li a0, 2 *)
+        "8280" (* c.jr ra *)
+        "8280" (* 0x68: c.jr ra *) ]
+    let fns = recoverCode code
+    let tables =
+      fns[0UL].JumpTables
+      |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+      |> Array.sort
+    let expected = [| 0x08UL, 1; 0x0cUL, 2; 0x14UL, 2 |]
+    CollectionAssert.AreEqual(expected, tables)
