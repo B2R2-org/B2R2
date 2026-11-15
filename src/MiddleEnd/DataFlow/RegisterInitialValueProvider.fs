@@ -45,11 +45,44 @@ module RegisterInitialValueProvider =
     interface IRegisterInitialValueProvider with
       member _.TryGetInitialValue _ = None
 
+  /// Gives the MIPS zero register zero, which it always holds: the lifter
+  /// keeps it from being written, so it holds its initial value throughout.
+  type private MIPSRegisterInitialValueProvider(hdl: BinHandle) =
+    let zero = MIPS.Register.toRegID MIPS.Register.R0
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = zero then
+          Some(BitVector.Zero(hdl.RegisterFactory.GetRegType rid))
+        else
+          None
+
+  /// Gives t9 the address of the function on entry, which is where the MIPS
+  /// PIC calling convention has a caller put it, and where the function finds
+  /// gp from.
+  type private MIPSFunctionInitialValueProvider(hdl: BinHandle, entry: Addr) =
+    let registers = MIPSRegisterInitialValueProvider hdl
+    let t9 = MIPS.Register.toRegID MIPS.Register.R25
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = t9 then
+          Some(BitVector(entry, hdl.RegisterFactory.GetRegType rid))
+        else
+          (registers :> IRegisterInitialValueProvider).TryGetInitialValue rid
+
   /// Creates the architecture-specific provider of initial values for a binary.
   let create (hdl: BinHandle): IRegisterInitialValueProvider =
     match hdl.RegisterFactory.ISA.Arch with
     | Architecture.Intel -> IntelRegisterInitialValueProvider(hdl)
+    | Architecture.MIPS -> MIPSRegisterInitialValueProvider(hdl)
     | _ -> DefaultRegisterInitialValueProvider()
+
+  /// Creates the architecture-specific provider of initial values for the
+  /// function at the given entry, which may hold what the binary as a whole
+  /// does not tell.
+  let createForFunction (hdl: BinHandle) entry: IRegisterInitialValueProvider =
+    match hdl.RegisterFactory.ISA.Arch with
+    | Architecture.MIPS -> MIPSFunctionInitialValueProvider(hdl, entry)
+    | _ -> create hdl
 
   /// Returns the initial value of a regular register variable.
   let tryGetInitialVarValue (provider: IRegisterInitialValueProvider) =

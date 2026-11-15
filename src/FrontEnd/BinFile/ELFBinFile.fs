@@ -374,11 +374,32 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Seq.toArray
       |> ImmutableArray.ofArray
 
+  /// The local entries of the MIPS GOT, the first DT_MIPS_LOCAL_GOTNO words
+  /// from DT_PLTGOT. The loader relocates them, and nothing else writes them;
+  /// PIC code reads from them the addresses of the data it reaches.
+  let mipsLocalGOT =
+    lazy
+      let tryFindTag tag =
+        dynamicArray.Value
+        |> Array.tryFind (fun t -> t.DTag = tag)
+        |> Option.map _.DVal
+      let got = tryFindTag DTag.DT_PLTGOT
+      let count = tryFindTag DTag.DT_MIPS_LOCAL_GOTNO
+      match hdr.MachineType, got, count with
+      | MachineType.EM_MIPS, Some got, Some count when count > 0UL ->
+        let width = uint64 (WordSize.toByteWidth hdr.Class)
+        Some(AddrRange.create got (got + count * width - 1UL))
+      | _ ->
+        None
+
   /// Tells whether a slot keeps the value that the loader writes into it. This
   /// is the case only if the loader leaves the slot read-only: it is either in
   /// a segment that is not writable, or in the range that GNU_RELRO makes
   /// read-only once the relocation is done. Any other slot, e.g., a variable
-  /// in .data, can be overwritten by the program later.
+  /// in .data, can be overwritten by the program later. The local entries of
+  /// a MIPS GOT are the exception: their segment stays writable, as lazy
+  /// binding writes the global entries after them, but only the loader writes
+  /// the local ones.
   let isReadOnlyAfterLoading addr =
     let contains (ph: ProgramHeader) =
       ph.PHAddr <= addr && addr < ph.PHAddr + ph.PHMemSize
@@ -389,6 +410,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       contains ph && not (perm.HasFlag Permission.Writable)
     Array.exists isRelro phdrs.Value
     || Array.exists isReadOnlySegment loadables.Value
+    || mipsLocalGOT.Value |> Option.exists (fun got -> got.IsIncluding addr)
 
   let tryResolveRelocationValue relocAddr =
     match relocs.Value.TryFind relocAddr with

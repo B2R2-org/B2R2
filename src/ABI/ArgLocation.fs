@@ -94,3 +94,11 @@ module ArgLocation =
     match loc with
     | ArgLocation.Reg rid -> rid
     | _ -> invalidArg (nameof loc) "Not a single register."
+
+  /// Gets the registers that hold a value at the given location, the low one
+  /// of a pair first. A value on the stack takes none.
+  let toRegisters loc =
+    match loc with
+    | ArgLocation.Reg rid -> [ rid ]
+    | ArgLocation.RegPair(low, high) -> [ low; high ]
+    | ArgLocation.Stack _ -> []

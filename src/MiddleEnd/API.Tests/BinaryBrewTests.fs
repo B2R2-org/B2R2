@@ -942,11 +942,35 @@ type BinaryBrewTests() =
         { Status = ctx.NonReturningStatus
           Unwinding = ctx.UnwindingBytes
           Clobbered = Set.ofSeq ctx.ClobberedRegs
-          IsExternal = false })
+          IsExternal = false
+          PointerWrites = ctx.PointerWrites })
       |> Array.toList
     let actual = builders |> Array.map (fun b -> b.CalleeInfo) |> Array.toList
     Assert.AreNotEqual<int>(0, builders.Length)
     Assert.AreEqual<CalleeInfo list>(expected, actual)
+
+  /// Intel code keeps every stack slot across calls, so the recovery neither
+  /// summarizes what a function writes through the pointers it gets nor lets
+  /// a call write the slots whose addresses it hands on.
+  [<TestMethod>]
+  member _.``BinaryBrew follows no pointer writes of Intel code``() =
+    let bytes = readZippedBinary "elf_x64_iplt"
+    let brew = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "x64"))
+    let contexts =
+      brew.Builders.Values
+      |> Array.choose (function
+        | :? ICFGBuildable<DummyContext, DummyContext> as builder
+          when builder.BuilderState = Finished -> Some builder.Context
+        | _ -> None)
+    let tracking =
+      contexts
+      |> Array.filter (fun ctx ->
+        ctx.CP.State.TracksCallClobbers
+        || ctx.PointerWrites <> UnknownPointerWrites)
+      |> Array.map (fun ctx -> ctx.FunctionAddress)
+      |> Array.toList
+    Assert.AreNotEqual<int>(0, contexts.Length)
+    Assert.AreEqual<Addr list>([], tracking)
 
   [<TestMethod>]
   member _.``BinaryBrew records the callers of an external function``() =
@@ -977,6 +1001,7 @@ type BinaryBrewTests() =
         "IntraCallTable"
         "JumpTables"
         "NonReturningStatus"
+        "PointerWrites"
         "UnwindingBytes"
         "UserContext"
         "Vertices" ]

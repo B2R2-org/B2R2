@@ -195,6 +195,14 @@ type LifterTests() =
       "SUB does not signal Integer Overflow: " + text
     )
 
+  (* GCC traps with teq zero, zero where it proves a path wrong. A register
+     always equals itself, so the lift traps without a comparison, and nothing
+     leads on to the next instruction. *)
+  [<TestMethod>]
+  member _.``[MIPS32] TEQ of a register with itself always traps``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    "00000034" ++ [| AST.sideEffect (Interrupt 13) |] |> test isa
+
   [<TestMethod>]
   member _.``[MIPS64] DSUB traps on signed overflow``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)

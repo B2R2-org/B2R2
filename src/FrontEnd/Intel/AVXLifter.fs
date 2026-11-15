@@ -646,7 +646,7 @@ let vmovmskps ins bld =
         let b6 = (srcD >> (numI32 25 64<rt>) .& (numI32 0b1000000 64<rt>))
         let b7 = (srcD >> (numI32 56 64<rt>) .& (numI32 0b10000000 64<rt>))
         let bits = b7 .| b6 .| b5 .| b4 .| b3 .| b2 .| b1 .| b0
-        sized oprSz dst := bits
+        sized oprSz dst := fitSignMask dst bits
       }
     | _ ->
       raise InvalidOperandException

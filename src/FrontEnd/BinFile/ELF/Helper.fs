@@ -148,12 +148,55 @@ let private getAddrsFromSpecialSections shdrs =
     | Some sec -> Some sec.SecAddr
     | None -> None)
 
+/// Checks if the given file keeps MIPS procedure descriptor records whose
+/// addresses the linker has resolved, as an executable or a shared object
+/// does, unlike an object file.
+let private hasLinkedPDR (hdr: Header) =
+  hdr.MachineType = MachineType.EM_MIPS && hdr.ELFType <> ELFType.ET_REL
+
+/// Reads the first word of each 32-byte record in the given .pdr section,
+/// which holds the low 32 bits of the address of a function.
+let private readPDRAddrs toolBox (pdr: SectionHeader) =
+  let bytes = toolBox.Bytes
+  if pdr.SecOffset + pdr.SecSize > uint64 bytes.Length then
+    [||]
+  else
+    let start = int pdr.SecOffset
+    [| for ofs in start .. 32 .. start + int pdr.SecSize - 32 do
+         toolBox.Reader.ReadUInt32(bytes, ofs) |]
+
+/// Returns the address in the given code section whose low 32 bits are the
+/// given ones, if any. A 64-bit record keeps only the low 32 bits of the
+/// address, and the code it lies in tells the rest.
+let private tryRestorePDRAddr baseAddr (low: uint32) (sec: SectionHeader) =
+  let start = sec.SecAddr - baseAddr
+  let addr = (start &&& 0xffffffff00000000UL) ||| uint64 low
+  if start <= addr && addr < start + sec.SecSize then Some(addr + baseAddr)
+  else None
+
+/// Returns the function addresses that the MIPS procedure descriptor records
+/// in .pdr hold. The assembler writes a record for each function it
+/// assembles, which starts with the address of the function, and strip keeps
+/// the section, so it tells where the functions of a stripped binary start.
+let private getAddrsFromPDR toolBox shdrs =
+  match Array.tryFind (fun s -> s.SecName = Section.PDR) shdrs with
+  | Some pdr when hasLinkedPDR toolBox.Header ->
+    let codeSecs =
+      shdrs
+      |> Array.filter (fun s -> s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR)
+    readPDRAddrs toolBox pdr
+    |> Array.choose (fun low ->
+      Array.tryPick (tryRestorePDRAddr toolBox.BaseAddress low) codeSecs)
+  | _ ->
+    [||]
+
 let findExtraFnAddrs toolBox shdrs relocInfo =
   let fromArray = getAddrsFromFuncArray toolBox shdrs relocInfo
   [ fromArray Section.PreinitArray
     fromArray Section.InitArray
     fromArray Section.FiniArray
-    getAddrsFromSpecialSections shdrs ]
+    getAddrsFromSpecialSections shdrs
+    getAddrsFromPDR toolBox shdrs ]
   |> Array.concat
 
 let private computeInvalidRanges wordSize phdrs getNextStartAddr =

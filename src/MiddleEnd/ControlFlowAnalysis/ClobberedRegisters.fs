@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 
 /// Provides the registers that a callee is assumed to modify.
@@ -40,6 +41,7 @@ module internal ClobberedRegisters =
       Set.empty
     | _ ->
       let cc = hdl.Conventions.Calling
-      cc.CallerSavedRegisters
-      |> Set.filter (fun rid ->
-        rid <> cc.IntReturnRegister && rid <> cc.FloatReturnRegister)
+      let returns =
+        ArgLocation.toRegisters cc.IntReturnLocation
+        @ ArgLocation.toRegisters cc.FloatReturnLocation
+      cc.CallerSavedRegisters - Set.ofList returns

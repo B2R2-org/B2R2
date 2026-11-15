@@ -28,9 +28,11 @@ open B2R2
 open B2R2.BinIR
 
 /// Defines the address domain and its operations, in which the stack pointer
-/// propagation runs. It keeps the addresses on the stack, counted from where
-/// the stack pointer points on entry, apart from the constants that the stack
-/// pointer has no part in, such as the address of a global variable.
+/// propagation runs to name the memory that the code reads and writes. It
+/// keeps the addresses on the stack, counted from where the stack pointer
+/// points on entry, apart from the constants that the stack pointer has no
+/// part in. A constant that an instruction holds names a global variable,
+/// whereas one that a register holds only moves an address on the stack.
 [<RequireQualifiedAccess>]
 module AddressDomain =
 
@@ -40,11 +42,25 @@ module AddressDomain =
     /// known constant, i.e., the top of the lattice.
     | NotAConst
     /// Represents an address on the stack, as its offset from where the stack
-    /// pointer points on entry.
+    /// pointer points on entry, that the stack or frame pointer holds, or that
+    /// an instruction reaches from one with a constant it holds.
     | StackAddr of BitVector
-    /// Represents a constant that the stack pointer has no part in, e.g., the
+    /// Represents an address on the stack, as its offset from where the stack
+    /// pointer points on entry, that the code reaches with a constant that a
+    /// register holds, as it reaches a slot of a big frame beyond what an
+    /// instruction holds. The code forms such an address anew for each access,
+    /// so it names its slot even where a register holds it.
+    | FarStackAddr of BitVector
+    /// Represents a constant that an instruction holds, or a register on entry
+    /// as the binary fixes it, and the stack pointer has no part in, e.g., the
     /// address of a global variable.
     | Const of BitVector
+    /// Represents a constant that a register holds, which moves an address on
+    /// the stack along it, as the size of a big frame does, but names no
+    /// memory itself. A register that holds any other address may walk memory
+    /// in a loop, and a CFG that still lacks the way back shows only the first
+    /// pass, so the register looks constant while what it reads is not.
+    | Offset of BitVector
     /// Represents a value that is not known yet, i.e., the bottom of the
     /// lattice.
     | Undef
@@ -72,18 +88,61 @@ module AddressDomain =
         member _.Join(a, b) = join a b
         member _.Subsume(a, b) = subsume a b }
 
+  /// Turns the given lattice element into what the stack or frame pointer
+  /// holds once the code puts it there: an address on the stack however the
+  /// code reaches it, and a constant as one that names no memory.
+  let holdInStackPointer c =
+    match c with
+    | FarStackAddr off -> StackAddr off
+    | Const bv -> Offset bv
+    | _ -> c
+
+  /// Turns the given lattice element into what any other register holds once
+  /// the code puts it there: a constant as one that names no memory, and no
+  /// address on the stack that an instruction reaches. The code takes such an
+  /// address into a register to pass it on or to walk the stack with it, and
+  /// a CFG that still lacks the way back of a loop shows only the first pass
+  /// of a walk, so the register would look as if it held one slot.
+  let hold c =
+    match c with
+    | StackAddr _ -> NotAConst
+    | Const bv -> Offset bv
+    | _ -> c
+
+  /// Matches a constant of either kind.
+  let private (|Number|_|) c =
+    match c with
+    | Const bv | Offset bv -> Some bv
+    | _ -> None
+
+  /// Matches an address on the stack of either kind, giving its offset from
+  /// where the stack pointer points on entry.
+  let (|OnStack|_|) c =
+    match c with
+    | StackAddr off | FarStackAddr off -> Some off
+    | _ -> None
+
+  /// Combines the two lattice elements with the given operation if both are
+  /// constants. The result is one that a register holds if either is.
+  let private combine op c1 c2 =
+    match c1, c2 with
+    | Const bv1, Const bv2 -> Const(op (bv1, bv2))
+    | Number bv1, Number bv2 -> Offset(op (bv1, bv2))
+    | _ -> NotAConst
+
   /// Adds the two lattice elements. A constant moves an address on the stack
-  /// along it, whereas two addresses on the stack add up to nothing known.
+  /// along it, and takes it far if a register holds the constant, whereas two
+  /// addresses on the stack add up to nothing known.
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef ->
       Undef
     | StackAddr off, Const bv | Const bv, StackAddr off ->
       StackAddr(BitVector.Add(off, bv))
-    | Const bv1, Const bv2 ->
-      Const(BitVector.Add(bv1, bv2))
+    | OnStack off, Number bv | Number bv, OnStack off ->
+      FarStackAddr(BitVector.Add(off, bv))
     | _ ->
-      NotAConst
+      combine BitVector.Add c1 c2
 
   /// Subtracts the second lattice element from the first. Two addresses on the
   /// stack lie a constant apart.
@@ -91,9 +150,9 @@ module AddressDomain =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | StackAddr off, Const bv -> StackAddr(BitVector.Sub(off, bv))
-    | StackAddr off1, StackAddr off2 -> Const(BitVector.Sub(off1, off2))
-    | Const bv1, Const bv2 -> Const(BitVector.Sub(bv1, bv2))
-    | _ -> NotAConst
+    | OnStack off, Number bv -> FarStackAddr(BitVector.Sub(off, bv))
+    | OnStack off1, OnStack off2 -> Const(BitVector.Sub(off1, off2))
+    | _ -> combine BitVector.Sub c1 c2
 
   /// Checks if the given mask clears only low bits, as code aligns the stack
   /// pointer with one.
@@ -111,10 +170,24 @@ module AddressDomain =
       Undef
     | StackAddr off, Const m | Const m, StackAddr off when isAlignmentMask m ->
       StackAddr(BitVector.And(off, m))
-    | Const bv1, Const bv2 ->
-      Const(BitVector.And(bv1, bv2))
+    | OnStack off, Number m | Number m, OnStack off when isAlignmentMask m ->
+      FarStackAddr(BitVector.And(off, m))
     | _ ->
-      NotAConst
+      combine BitVector.And c1 c2
+
+  /// Computes the bitwise OR of the two lattice elements. Oring an address on
+  /// the stack with zero keeps it, as MIPS copies a register that way, and MIPS
+  /// builds a wide constant by oring its low half into its high one.
+  let ``or`` c1 c2 =
+    match c1, c2 with
+    | Undef, _ | _, Undef ->
+      Undef
+    | StackAddr off, Const z | Const z, StackAddr off when z.IsZero ->
+      StackAddr off
+    | OnStack off, Number z | Number z, OnStack off when z.IsZero ->
+      FarStackAddr off
+    | _ ->
+      combine BitVector.Or c1 c2
 
   /// Evaluates the given binary operator in this domain.
   let internal evalBinOp op c1 c2 =
@@ -122,4 +195,5 @@ module AddressDomain =
     | BinOpType.ADD -> add c1 c2
     | BinOpType.SUB -> sub c1 c2
     | BinOpType.AND -> ``and`` c1 c2
+    | BinOpType.OR -> ``or`` c1 c2
     | _ -> NotAConst

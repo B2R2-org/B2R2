@@ -613,6 +613,15 @@ module internal CFGRecoveryCommon =
     | ARM32Mode.ARM when kind = InterJmpKind.SwitchToARM -> ValueSome()
     | _ -> ValueNone
 
+  /// Resolves the indirect call that ends the given vertex, which calls the
+  /// target that e computes: from the relocation slot that e loads, or from
+  /// what the rules of the architecture find. Returns None when neither tells.
+  let tryResolveIndirectCall ctx cfgRec rules srcVertex e =
+    tryHandleRelocationBackedCall ctx cfgRec rules srcVertex false e
+    |> Option.orElseWith (fun () ->
+      (rules: ICFGRecoveryRules<_, _>).TryResolveIndirectCallee(ctx, srcVertex)
+      |> Option.map (handleDirectCall ctx cfgRec rules srcVertex))
+
   /// Builds a CFG starting from the given program points.
   let buildCFG ctx
                cfgRec
@@ -754,9 +763,7 @@ module internal CFGRecoveryCommon =
         | InterJmp(Target = e; Kind = ModeSwitchingCall _) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
-          let resolved =
-            tryHandleRelocationBackedCall ctx cfgRec rules srcVertex false e
-          match resolved with
+          match tryResolveIndirectCall ctx cfgRec rules srcVertex e with
           | Some r ->
             result <- r
           | None ->
@@ -849,7 +856,7 @@ module internal CFGRecoveryCommon =
     let callee = getAbsVertex ctx cfgRec callsite (Some calleeAddr) abs
     let edgeKind = if isTail then TailCallEdge else CallEdge
     connectEdge ctx cfgRec caller callee edgeKind
-    callee, callsiteAddr + uint64 callIns.Length
+    callee, ReturnAddress.ofCall callIns
 
   let connectRet ctx cfgRec (callee, fallthroughAddr) =
     scanBBLsAndConnect ctx cfgRec callee fallthroughAddr RetEdge |> ignore
@@ -917,7 +924,8 @@ module internal CFGRecoveryCommon =
         { Status = NotNoRet
           Unwinding = 0
           Clobbered = ClobberedRegisters.ofCallingConvention ctx.BinHandle
-          IsExternal = false }
+          IsExternal = false
+          PointerWrites = UnknownPointerWrites }
       cfgRec.Summarizer.Summarize(ctx, callee, selfInfo, lastIns)
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
@@ -995,7 +1003,8 @@ module internal CFGRecoveryCommon =
                     abs.UnwindingBytes,
                     abs.Rundown,
                     abs.IsExternal,
-                    status)
+                    status,
+                    abs.PointerWrites)
 
   /// Computes the summary of the callee of the given indirect call, which the
   /// rules decide when they tell, and the sret analysis otherwise.
@@ -1034,7 +1043,7 @@ module internal CFGRecoveryCommon =
     let absV = getAbsVertex ctx cfgRec callSite None abs
     for caller in ctx.CallerVertices[callsiteAddr] do
       connectEdge ctx cfgRec caller absV CallEdge
-    connectIndirectRet ctx cfgRec absV (callSiteAddr + uint64 callIns.Length)
+    connectIndirectRet ctx cfgRec absV (ReturnAddress.ofCall callIns)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec callIns.Address)
     |> toCFGResult
 
@@ -1278,10 +1287,16 @@ module internal CFGRecoveryCommon =
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge
       |> toCFGResult
 
-  let sendJmpTblRecoverySuccess ctx queue jmptbl idx =
+  /// Reads the target of the entry at the given index of the given table,
+  /// unless the rules of the architecture end the table before it.
+  let tryReadTableTarget ctx (rules: ICFGRecoveryRules<_, _>) jmptbl idx =
+    if rules.EndsJumpTableBefore(ctx, jmptbl, idx) then None
+    else JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx
+
+  let sendJmpTblRecoverySuccess ctx rules queue jmptbl idx =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let tblAddr = jmptbl.TableAddress
-    let nextTarget = JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl (idx + 1)
+    let nextTarget = tryReadTableTarget ctx rules jmptbl (idx + 1)
     let isFnPointerTbl = jmptbl.IsFunctionPointerTable
     let ch = ctx.JumpTableChannel
     let isExpanding =

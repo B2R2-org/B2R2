@@ -1,0 +1,556 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+*)
+
+namespace B2R2.MiddleEnd.Tests
+
+open Microsoft.VisualStudio.TestTools.UnitTesting
+open B2R2
+open B2R2.ABI
+open B2R2.FrontEnd
+open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
+
+/// Tests the recovery of MIPS binaries.
+[<TestClass>]
+type MIPSBinaryBrewTests() =
+  /// Recovers the functions of the given big-endian MIPS32 code, which starts
+  /// at address zero with the entry of the binary.
+  static let recoverCode (code: string list) =
+    let bytes = code |> String.concat "" |> ByteArray.ofHexString
+    BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "mips32")).Functions
+
+  /// Recovers the functions of the given fixture once main becomes the given
+  /// code and .rodata starts with the given bytes. The fixture gives its name,
+  /// its ISA, the offset of main in the file, and that of .rodata.
+  static let recoverPatched fixture code rodata =
+    let name, (isa: string), mainOffset, rodataOffset = fixture
+    let bytes = readZippedBinary name
+    let patch (offset: int) (hex: string) =
+      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+    patch mainOffset (String.concat "" code)
+    patch rodataOffset rodata
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA isa)).Functions
+
+  /// The fixture whose main is at 0x400520 with room for sixteen
+  /// instructions, and whose .rodata is at 0x4006f4 with room for eight bytes.
+  static let mips32 = "elf_mips32", "mips32", 0x520, 0x6f4
+
+  /// The fixture whose main is at 0x1200008b0 with room for twenty
+  /// instructions, and whose .rodata is at 0x120000ac8 with room for sixteen
+  /// bytes.
+  static let mips64 = "elf_mips64", "mips64", 0x8b0, 0xac8
+
+  /// Returns how many entries each jump table of main has, once main becomes
+  /// the given code and .rodata starts with the given bytes.
+  static let countEntriesInPatchedMain code rodata =
+    let fns = recoverPatched mips32 code rodata
+    fns[0x400520UL].JumpTables |> Array.map _.NumEntries
+
+  /// Returns how many entries each jump table of main has in elf_mips64, once
+  /// main becomes the given code and .rodata starts with the given bytes.
+  static let countEntriesInPatchedMain64 code rodata =
+    let fns = recoverPatched mips64 code rodata
+    fns[0x1200008b0UL].JumpTables |> Array.map _.NumEntries
+
+  /// Returns the addresses of the blocks of the function, in order.
+  static let blocksOf (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.map (fun v -> v.VData.Internals.BlockAddress)
+    |> Array.sort
+
+  (* The delay slot of a call runs before the callee does, so the callee
+     returns past it, to the instruction after the slot. *)
+  [<TestMethod>]
+  member _.``A call returns past its delay slot``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "24040001" (* addiu a0, zero, 1 *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x8UL |], blocksOf fns[0x0UL])
+
+  (* No code runs into a function from the code before it, so an indirect
+     call that returns to the entry of another function never returns: the
+     function at 0x18 ends with its call, right before the one at 0x20, and
+     the code after the call to it at 0x8 is out of reach. *)
+  [<TestMethod>]
+  member _.``An indirect call before a function never returns``() =
+    let fns =
+      recoverCode
+        [ "04110007" (* bal 0x20 *)
+          "00000000" (* nop *)
+          "04110003" (* bal 0x18 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "0320f809" (* jalr t9 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x8UL |], blocksOf fns[0x0UL])
+
+  (* A table may run up to other data whose address the code computes on its
+     own: here the code past the first case returns the address of the word
+     right past the table, which holds an address in main. No range check
+     bounds the table, and its section goes on, so nothing else ends it. *)
+  [<TestMethod>]
+  member _.``A table ends at data that the code addresses``() =
+    let code =
+      [ "3c010040" (* lui at, 0x40 *)
+        "00041080" (* sll v0, a0, 2 *)
+        "00220821" (* addu at, at, v0 *)
+        "8c2106f4" (* lw at, 0x6f4(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "3c020040" (* lui v0, 0x40 *)
+        "03e00008" (* jr ra *)
+        "244206f8" (* addiu v0, v0, 0x6f8 *) ]
+    let rodata = "0040053800400540" (* .word 0x400538, 0x400540 *)
+    CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain code rodata)
+
+  (* MIPS code checks the index of a table right before it jumps, and the
+     table ends where the check says, though the word past it reads as an
+     entry too. *)
+  [<TestMethod>]
+  member _.``A table ends at its range check``() =
+    let code =
+      [ "2c810001" (* sltiu at, a0, 1 *)
+        "10200008" (* beqz at, 0x400548 *)
+        "00041080" (* sll v0, a0, 2 *)
+        "3c010040" (* lui at, 0x40 *)
+        "00220821" (* addu at, at, v0 *)
+        "8c2106f4" (* lw at, 0x6f4(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "24020001" (* addiu v0, zero, 1 *) ]
+    let rodata = "0040054000400548" (* .word 0x400540, 0x400548 *)
+    CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain code rodata)
+
+  (* A branch runs its delay slot as a part of its block, so the slot is no
+     gap between blocks that code nothing else reaches may fill, though a
+     block starts right past it: here past the slots at 0x400528, 0x40053c,
+     and 0x400544. *)
+  [<TestMethod>]
+  member _.``A delay slot is no gap of a function with a table``() =
+    let code =
+      [ "2c810001" (* sltiu at, a0, 1 *)
+        "10200008" (* beqz at, 0x400548 *)
+        "00041080" (* sll v0, a0, 2 *)
+        "3c010040" (* lui at, 0x40 *)
+        "00220821" (* addu at, at, v0 *)
+        "8c2106f4" (* lw at, 0x6f4(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "24020001" (* addiu v0, zero, 1 *) ]
+    let rodata = "0040054000400548" (* .word 0x400540, 0x400548 *)
+    let fns = recoverPatched mips32 code rodata
+    let expected = [| 0x400520UL; 0x40052cUL; 0x400540UL; 0x400548UL |]
+    CollectionAssert.AreEqual(expected, blocksOf fns[0x400520UL])
+
+  (* MIPS64 code checks a 32-bit index, then takes its low word with DEXT,
+     which the IR masks, before it scales the index. *)
+  [<TestMethod>]
+  member _.``A table ends at the range check of a 32-bit index``() =
+    let code =
+      [ "2482ffff" (* addiu v0, a0, -1 *)
+        "2c430001" (* sltiu v1, v0, 1 *)
+        "1060000a" (* beqz v1, 0x1200008e4 *)
+        "3c011200" (* lui at, 0x1200 *)
+        "00010938" (* dsll at, at, 4 *)
+        "7c42f803" (* dext v0, v0, 0, 32 *)
+        "000210f8" (* dsll v0, v0, 3 *)
+        "0022082d" (* daddu at, at, v0 *)
+        "dc210ac8" (* ld at, 0xac8(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "64020000" (* daddiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "64020001" (* daddiu v0, zero, 1 *) ]
+    let rodata = "00000001200008dc00000001200008e4"
+    CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain64 code rodata)
+
+  (* MIPS64 code sign-extends a 32-bit index with SLL by zero, which the IR
+     keeps as a shift, before it checks and scales the index. *)
+  [<TestMethod>]
+  member _.``A table ends at the range check of a sign-extended index``() =
+    let code =
+      [ "2482ffff" (* addiu v0, a0, -1 *)
+        "00021000" (* sll v0, v0, 0 *)
+        "2c430001" (* sltiu v1, v0, 1 *)
+        "10600009" (* beqz v1, 0x1200008e4 *)
+        "3c011200" (* lui at, 0x1200 *)
+        "00010938" (* dsll at, at, 4 *)
+        "000210f8" (* dsll v0, v0, 3 *)
+        "0022082d" (* daddu at, at, v0 *)
+        "dc210ac8" (* ld at, 0xac8(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "64020000" (* daddiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "64020001" (* daddiu v0, zero, 1 *) ]
+    let rodata = "00000001200008dc00000001200008e4"
+    CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain64 code rodata)
+
+  (* A mask on the index bounds a table as a range check does, when the code
+     masks rather than checks it. *)
+  [<TestMethod>]
+  member _.``A table ends where a mask on its index says``() =
+    let code =
+      [ "30820000" (* andi v0, a0, 0 *)
+        "00021080" (* sll v0, v0, 2 *)
+        "3c010040" (* lui at, 0x40 *)
+        "00220821" (* addu at, at, v0 *)
+        "8c2106f4" (* lw at, 0x6f4(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "24020001" (* addiu v0, zero, 1 *) ]
+    let rodata = "0040053c00400544" (* .word 0x40053c, 0x400544 *)
+    CollectionAssert.AreEqual([| 1 |], countEntriesInPatchedMain code rodata)
+
+  (* PIC code reads the address of a table from the local GOT and adds each
+     entry to gp, which it reloads from the stack, as GCC builds a switch. *)
+  [<TestMethod>]
+  member _.``A table is read through the GOT``() =
+    let code =
+      [ "3c1c0043" (* lui gp, 0x43 *)
+        "279c8010" (* addiu gp, gp, -0x7ff0 *)
+        "27bdfff8" (* addiu sp, sp, -8 *)
+        "afbc0000" (* sw gp, 0(sp) *)
+        "8f828018" (* lw v0, -0x7fe8(gp) *)
+        "00042080" (* sll a0, a0, 2 *)
+        "00441021" (* addu v0, v0, a0 *)
+        "8c4201d4" (* lw v0, 0x1d4(v0) *)
+        "8fbc0000" (* lw gp, 0(sp) *)
+        "005c1021" (* addu v0, v0, gp *)
+        "00400008" (* jr v0 *)
+        "27bd0008" (* addiu sp, sp, 8 *)
+        "03e00008" (* jr ra *)
+        "24020000" (* addiu v0, zero, 0 *)
+        "03e00008" (* jr ra *)
+        "24020001" (* addiu v0, zero, 1 *) ]
+    let rodata = "fffd8540fffd8548" (* .word 0x400550 - gp, 0x400558 - gp *)
+    CollectionAssert.AreEqual([| 2 |], countEntriesInPatchedMain code rodata)
+
+  (* PIC code finds gp from t9, which holds the address of its function on
+     entry, so the constant that it adds to t9 is _gp, 0x428010 here, less
+     that address. That tells where a function starts that nothing calls, but
+     not where the constant would have t9 point past the code that adds it. *)
+  [<TestMethod>]
+  member _.``A function starts where its code finds gp from t9``() =
+    let code =
+      [ "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ae8" (* addiu v0, v0, 0x7ae8 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ad0" (* addiu v0, v0, 0x7ad0 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let addrs = (recoverPatched mips32 code "").Addresses |> Set.ofSeq
+    let found =
+      [| 0x400528UL; 0x40053cUL; 0x400540UL |]
+      |> Array.filter (fun addr -> Set.contains addr addrs)
+    CollectionAssert.AreEqual([| 0x400528UL |], found)
+
+  (* A callee may change t9, so the code that a call returns to never finds
+     gp from it: code that does right after a call starts a function, which
+     the call never returns to. *)
+  [<TestMethod>]
+  member _.``A function starts right after a call``() =
+    let code =
+      [ "0320f809" (* jalr t9 *)
+        "00002021" (* move a0, zero *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ae8" (* addiu v0, v0, 0x7ae8 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let addrs = (recoverPatched mips32 code "").Addresses |> Set.ofSeq
+    Assert.AreEqual<bool>(true, Set.contains 0x400528UL addrs)
+
+  (* A prologue may add t9 in the delay slot of a branch, which runs it
+     whether or not the branch is taken. A likely branch runs it only when
+     taken, so an add there tells nothing of where the function starts. *)
+  [<TestMethod>]
+  member _.``A function finds gp in the delay slot of a branch``() =
+    let code =
+      [ "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ae8" (* addiu v0, v0, 0x7ae8 *)
+        "10800001" (* beq a0, zero, 0x400538 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *)
+        "3c020002" (* lui v0, 0x2 *)
+        "24427ad0" (* addiu v0, v0, 0x7ad0 *)
+        "50800001" (* beql a0, zero, 0x400550 *)
+        "0059e021" (* addu gp, v0, t9 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let addrs = (recoverPatched mips32 code "").Addresses |> Set.ofSeq
+    let found =
+      [| 0x400528UL; 0x400540UL |]
+      |> Array.filter (fun addr -> Set.contains addr addrs)
+    CollectionAssert.AreEqual([| 0x400528UL |], found)
+
+  (* A call through t9 reaches what the GOT entry that the code loads into t9
+     holds: the stub of __libc_start_main here, which never returns, so main
+     ends with the call. gp points 0x7ff0 past the start of the GOT. *)
+  [<TestMethod>]
+  member _.``A call through the GOT reaches the import of its entry``() =
+    let code =
+      [ "3c1c0043" (* lui gp, 0x43 *)
+        "279c8010" (* addiu gp, gp, -0x7ff0 *)
+        "8f99802c" (* lw t9, -0x7fd4(gp) *)
+        "0320f809" (* jalr t9 *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let fns = recoverPatched mips32 code ""
+    CollectionAssert.AreEqual([| 0x400520UL |], blocksOf fns[0x400520UL])
+
+  (* Code that keeps gp in another register, as clang keeps it in s0, loads t9
+     through that register and copies it to gp in the delay slot of the call,
+     so the load reads the GOT entry that one through gp would. *)
+  [<TestMethod>]
+  member _.``A call reads the GOT through a register it copies to gp``() =
+    let code =
+      [ "3c100043" (* lui s0, 0x43 *)
+        "26108010" (* addiu s0, s0, -0x7ff0 *)
+        "8e19802c" (* lw t9, -0x7fd4(s0) *)
+        "0320f809" (* jalr t9 *)
+        "0200e025" (* move gp, s0 *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let fns = recoverPatched mips32 code ""
+    CollectionAssert.AreEqual([| 0x400520UL |], blocksOf fns[0x400520UL])
+
+  (* A local GOT entry holds a page, to which the code adds the low half of
+     the address of the function that it calls through t9. *)
+  [<TestMethod>]
+  member _.``A call through a local GOT page reaches its function``() =
+    let code =
+      [ "3c1c0043" (* lui gp, 0x43 *)
+        "279c8010" (* addiu gp, gp, -0x7ff0 *)
+        "8f998018" (* lw t9, -0x7fe8(gp) *)
+        "27390170" (* addiu t9, t9, 0x170 *)
+        "0320f809" (* jalr t9 *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "00000000" (* nop *) ]
+    let fns = recoverPatched mips32 code ""
+    let callee = fns[0x400520UL].Callees[LeafCallSite 0x400530UL]
+    Assert.AreEqual<CalleeKind>(RegularCallee 0x400690UL, callee)
+
+  (* A linker that fixes an executable in place turns the GOT load of a local
+     function into lui and addiu, so the code calls through t9 the address that
+     the two halves build. The function at 0x18 never returns, nor does the
+     call to it. *)
+  [<TestMethod>]
+  member _.``A call through t9 reaches what lui and addiu build``() =
+    let fns =
+      recoverCode
+        [ "3c190000" (* lui t9, 0x0 *)
+          "27390018" (* addiu t9, t9, 0x18 *)
+          "0320f809" (* jalr t9 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra, which no path reaches *)
+          "00000000" (* nop *)
+          "1000ffff" (* b 0x18 *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])
+
+  (* GCC traps with teq zero, zero where it proves a path wrong, as after a
+     store through a null pointer, and nothing runs after the trap. *)
+  [<TestMethod>]
+  member _.``Nothing runs after a teq of zero with zero``() =
+    let fns =
+      recoverCode
+        [ "a0000000" (* sb zero, 0(zero) *)
+          "00000034" (* teq zero, zero *)
+          "03e00008" (* jr ra, which no path reaches *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])
+
+  (* The error_tail of gnulib exits unless its status is zero. GCC keeps the
+     status in s0 across the calls before the test, copying it there by oring
+     it with the zero register, and branches to the return by comparing s0 with
+     the zero register. *)
+  [<TestMethod>]
+  member _.``A return that beqz branches to returns conditionally``() =
+    let fns =
+      recoverCode
+        [ "27bdffe0" (* addiu sp, sp, -0x20 *)
+          "afbf001c" (* sw ra, 0x1c(sp) *)
+          "afb00018" (* sw s0, 0x18(sp) *)
+          "0411000a" (* bal 0x38 *)
+          "00808025" (* move s0, a0 *)
+          "12000004" (* beqz s0, 0x28 *)
+          "00000000" (* nop *)
+          "04110008" (* bal 0x40 *)
+          "02002025" (* move a0, s0 *)
+          "00000000" (* nop, which no path reaches *)
+          "8fbf001c" (* lw ra, 0x1c(sp) *)
+          "8fb00018" (* lw s0, 0x18(sp) *)
+          "03e00008" (* jr ra *)
+          "27bd0020" (* addiu sp, sp, 0x20 *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "1000ffff" (* b 0x40 *)
+          "00000000" (* nop *) ]
+    let a0 = MIPS.Register.toRegID MIPS.Register.R4
+    let expected = ConditionalNoRet(ArgLocation.Reg a0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
+  (* MIPS sets a register to a constant by adding it to the zero register, so
+     the call at 0x0 passes one to the function at 0x10, which never returns
+     then, nor does the caller. *)
+  [<TestMethod>]
+  member _.``A call passing one to a conditional exit never returns``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "24040001" (* addiu a0, zero, 1 *)
+          "03e00008" (* jr ra, which no path reaches *)
+          "00000000" (* nop *)
+          "10800003" (* beqz a0, 0x20 *)
+          "00000000" (* nop *)
+          "04110003" (* bal 0x28 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "1000ffff" (* b 0x28 *)
+          "00000000" (* nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], blocksOf fns[0x0UL])
+
+  (* A function writes through the pointer in a0 the byte that it stores at
+     0(a0), and the word that the function it hands a0 on to stores at 4(a0),
+     both in delay slots, which the summary of a call to it tells. *)
+  [<TestMethod>]
+  member _.``A call tells what its callee writes through a pointer``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "27bdfff8" (* addiu sp, sp, -8 *)
+          "afbf0004" (* sw ra, 4(sp) *)
+          "04110004" (* bal 0x2c *)
+          "a0800000" (* sb zero, 0(a0) *)
+          "8fbf0004" (* lw ra, 4(sp) *)
+          "03e00008" (* jr ra *)
+          "27bd0008" (* addiu sp, sp, 8 *)
+          "03e00008" (* jr ra *)
+          "ac800004" (* sw zero, 4(a0) *) ]
+    let call =
+      fns[0x0UL].CFG.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    let a0 = MIPS.Register.toRegID MIPS.Register.R4
+    let expected = PointerWritesOf(Map [ a0, WrittenBytes(0, 8) ])
+    let writes = call.VData.Internals.AbstractContent.PointerWrites
+    Assert.AreEqual<PointerWrites>(expected, writes)
+
+  (* Nothing tells which registers a call to an unknown target takes, so it
+     writes through none of them as far as summaries go. The callee at 0x10
+     keeps a2 across such a call, though a2 still holds the pointer it gets
+     there, and writes two bytes through it afterward. *)
+  [<TestMethod>]
+  member _.``An indirect call writes through no pointer``() =
+    let fns =
+      recoverCode
+        [ "04110003" (* bal 0x10 *)
+          "00000000" (* nop *)
+          "03e00008" (* jr ra *)
+          "00000000" (* nop *)
+          "27bdffe0" (* addiu sp, sp, -0x20 *)
+          "afbf001c" (* sw ra, 0x1c(sp) *)
+          "afa60028" (* sw a2, 0x28(sp) *)
+          "8c990000" (* lw t9, 0(a0) *)
+          "0320f809" (* jalr t9 *)
+          "00a02021" (* move a0, a1 *)
+          "8fa30028" (* lw v1, 0x28(sp) *)
+          "a4620000" (* sh v0, 0(v1) *)
+          "8fbf001c" (* lw ra, 0x1c(sp) *)
+          "03e00008" (* jr ra *)
+          "27bd0020" (* addiu sp, sp, 0x20 *) ]
+    let call =
+      fns[0x0UL].CFG.FindVertexBy(fun v -> v.VData.Internals.IsAbstract)
+    let a2 = MIPS.Register.toRegID MIPS.Register.R6
+    let expected = PointerWritesOf(Map [ a2, WrittenBytes(0, 2) ])
+    let writes = call.VData.Internals.AbstractContent.PointerWrites
+    Assert.AreEqual<PointerWrites>(expected, writes)
+
+  (* A callee that indexes from a pointer to a slot may write any slot above
+     it, as far as the summary goes, which makes the table address that the
+     code spills there unknown once the call returns. The address that the
+     code spills before the call still serves for the table, whose entries
+     confirm it. *)
+  [<TestMethod>]
+  member _.``A table address spilled across a call stays``() =
+    let code =
+      [ "67bdffe0" (* daddiu sp, sp, -0x20 *)
+        "3c011200" (* lui at, 0x1200 *)
+        "00010938" (* dsll at, at, 4 *)
+        "64210ac8" (* daddiu at, at, 0xac8 *)
+        "ffa10010" (* sd at, 0x10(sp) *)
+        "0411000b" (* bal 0x1200008f4 *)
+        "67a40008" (* daddiu a0, sp, 8 *)
+        "2c410002" (* sltiu at, v0, 2 *)
+        "10200006" (* beqz at, 0x1200008ec *)
+        "000210f8" (* dsll v0, v0, 3 *)
+        "dfa10010" (* ld at, 0x10(sp) *)
+        "0022082d" (* daddu at, at, v0 *)
+        "dc210000" (* ld at, 0(at) *)
+        "00200008" (* jr at *)
+        "00000000" (* nop *)
+        "03e00008" (* jr ra *)
+        "67bd0020" (* daddiu sp, sp, 0x20 *)
+        "0085602d" (* daddu t0, a0, a1 *)
+        "03e00008" (* jr ra *)
+        "a1800000" (* sb zero, 0(t0) *) ]
+    let rodata = "00000001200008ec00000001200008ec"
+    CollectionAssert.AreEqual([| 2 |], countEntriesInPatchedMain64 code rodata)

@@ -60,10 +60,12 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     | _ ->
       (e, AST.undef (Expr.typeOf e) "ret") :: acc
 
+  /// Collects the definitions of the registers that hold a floating-point
+  /// return value, both halves of a double that takes two registers.
   let floatReturnValueDef (hdl: BinHandle) =
-    hdl.Conventions.Calling.FloatReturnRegister
-    |> hdl.RegisterFactory.GetRegVar
-    |> returnValueDefs []
+    ArgLocation.toRegisters hdl.Conventions.Calling.FloatReturnLocation
+    |> List.map hdl.RegisterFactory.GetRegVar
+    |> List.fold returnValueDefs []
     |> List.toArray
 
   /// Makes the definitions that invalidate the given registers, which are the
@@ -187,7 +189,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
   /// Simply over-approximates the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
   default _.Summarize(ctx, callee, calleeInfo, callInstruction) =
-    let returnAddress = callInstruction.Address + uint64 callInstruction.Length
+    let returnAddress = ReturnAddress.ofCall callInstruction
     let stmts = (* For abstraction, we check which var can be defined. *)
       computeLiveDefs ctx.BinHandle callee calleeInfo
       |> Array.map (fun (dst, src) -> AST.put dst src)
@@ -202,10 +204,11 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
                       calleeInfo.Unwinding,
                       this.Summarize(ctx, callee, calleeInfo, ins),
                       calleeInfo.IsExternal,
-                      calleeInfo.Status)
+                      calleeInfo.Status,
+                      calleeInfo.PointerWrites)
 
     member _.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes) =
-      let returnAddress = callIns.Address + uint64 callIns.Length
+      let returnAddress = ReturnAddress.ofCall callIns
       let wordSize = hdl.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
       let fallThrough = AST.num <| BitVector(returnAddress, regType)
@@ -214,6 +217,14 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
         stackPointerDef hdl unwindingBytes
         |> Array.map (fun (dst, src) -> AST.put dst src)
       let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
-      FunctionSummary(0UL, unwindingBytes, ssaRundown, false, NotNoRet)
+      (* Nothing tells which registers the callee takes, so it writes through
+         none, rather than through every one that happens to hold a pointer
+         as the call starts. *)
+      FunctionSummary(0UL,
+                      unwindingBytes,
+                      ssaRundown,
+                      false,
+                      NotNoRet,
+                      PointerWritesOf Map.empty)
 
     member this.ComputeUnwindingAmount ctx = this.ComputeUnwindingAmount ctx
