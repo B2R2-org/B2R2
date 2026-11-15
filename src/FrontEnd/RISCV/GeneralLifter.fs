@@ -220,6 +220,7 @@ let jal ins bld =
     let r = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     rd := r
     AST.interjmp jumpTarget (jumpKind ins)
+    return NoEndMark
   }
 
 let jalr ins bld =
@@ -231,6 +232,7 @@ let jalr ins bld =
     target := jumpTarget
     rd := r
     AST.interjmp actualTarget (jumpKind ins)
+    return NoEndMark
   }
 
 let beq ins bld =
@@ -239,6 +241,7 @@ let beq ins bld =
     let cond = rs1 == rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
+    return NoEndMark
   }
 
 let bne ins bld =
@@ -247,6 +250,7 @@ let bne ins bld =
     let cond = rs1 != rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
+    return NoEndMark
   }
 
 let blt ins bld =
@@ -255,6 +259,7 @@ let blt ins bld =
     let cond = rs1 ?< rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
+    return NoEndMark
   }
 
 let bge ins bld =
@@ -263,6 +268,7 @@ let bge ins bld =
     let cond = rs1 ?>= rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
+    return NoEndMark
   }
 
 let bltu ins bld =
@@ -271,6 +277,7 @@ let bltu ins bld =
     let cond = rs1 .< rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
+    return NoEndMark
   }
 
 let bgeu ins bld =
@@ -279,6 +286,7 @@ let bgeu ins bld =
     let cond = rs1 .>= rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
+    return NoEndMark
   }
 
 let load ins bld =

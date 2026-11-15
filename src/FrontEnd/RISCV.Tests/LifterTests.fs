@@ -101,6 +101,20 @@ type LifterTests() =
       let kind = kindOf WordSize.Bit64 0x5268UL hex
       Assert.AreEqual<InterJmpKind>(InterJmpKind.Base, kind, hex)
 
+  (* The CFG recovery reads the last statement of a block for the jump that
+     ends it, so a jump ends its instruction with no mark after it. *)
+  [<TestMethod>]
+  member _.``[RISCV64] a jump is the last statement of its instruction``() =
+    let jumps =
+      [ "eff03fea" (* jal ra, 0x4e10 *)
+        "8287" (* c.jr a5 *)
+        "639bd700" (* bne a5, a3, 0x510a *)
+        "11c1" (* c.beqz a0, 0x4f7e *) ]
+    for hex in jumps do
+      match Array.last (lift WordSize.Bit64 0x4f6eUL hex) with
+      | InterJmp _ | InterCJmp _ -> ()
+      | stmt -> Assert.Fail $"{hex} ends with {stmt}"
+
   [<TestMethod>]
   member _.``[RISCV64] the illegal halfword lifts as an undefined one``() =
     let effects =
