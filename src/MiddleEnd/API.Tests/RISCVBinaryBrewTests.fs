@@ -155,3 +155,61 @@ type RISCVBinaryBrewTests() =
       |> Array.sort
     let expected = [| 0x08UL, 1; 0x0cUL, 2; 0x14UL, 2 |]
     CollectionAssert.AreEqual(expected, tables)
+
+  (* Here the third entry of A, the first of B, sends the jump of A to the
+     load of B, which reads through a register that A never sets, so along
+     that way the jump of B reads no table. The last entry of T, which the
+     recovery reaches after that one, leads to the dispatch of B, and the phis
+     that join the two ways hide the table of B from the jump. Read along each
+     way on its own, the jump reads B, which then ends A. *)
+  [<TestMethod>]
+  member _.``A jump reads its table along the way through its dispatch``() =
+    let code =
+      [ "ef008007" (* jal ra, 0x78 *)
+        "25a0" (* c.j 0x2c *)
+        "0100" (* c.nop *)
+        "38000000" (* 0x08, A: .word 0x40 - 0x08 *)
+        "4c000000" (* .word 0x54 - 0x08 *)
+        "62000000" (* 0x10, B: .word 0x72 - 0x10 *)
+        "64000000" (* .word 0x74 - 0x10 *)
+        "40000000" (* 0x18, T: .word 0x58 - 0x18 *)
+        "40000000" (* .word 0x58 - 0x18 *)
+        "40000000" (* .word 0x58 - 0x18 *)
+        "44000000" (* .word 0x5c - 0x18 *)
+        "00000100" (* .word past the code *)
+        "17070000" (* 0x2c: auipc a4, 0x0 *)
+        "1307c7fd" (* addi a4, a4, -36: A *)
+        "93172500" (* slli a5, a0, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "ba97" (* c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "17070000" (* 0x40: auipc a4, 0x0 *)
+        "130787fd" (* addi a4, a4, -40: T *)
+        "93972500" (* slli a5, a1, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "ba97" (* c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "0d45" (* 0x54: c.li a0, 3 *)
+        "8280" (* c.jr ra *)
+        "0145" (* 0x58: c.li a0, 0 *)
+        "8280" (* c.jr ra *)
+        "17070000" (* 0x5c: auipc a4, 0x0 *)
+        "130747fb" (* addi a4, a4, -76: B *)
+        "13182600" (* slli a6, a2, 2 *)
+        "3a98" (* c.add a6, a4 *)
+        "83270800" (* 0x6a: lw a5, 0(a6) *)
+        "ba97" (* c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "8280" (* 0x72: c.jr ra *)
+        "0945" (* 0x74: c.li a0, 2 *)
+        "8280" (* c.jr ra *)
+        "8280" (* 0x78: c.jr ra *) ]
+    let fns = recoverCode code
+    let tables =
+      fns[0UL].JumpTables
+      |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+      |> Array.sort
+    let expected = [| 0x08UL, 2; 0x10UL, 2; 0x18UL, 4 |]
+    CollectionAssert.AreEqual(expected, tables)

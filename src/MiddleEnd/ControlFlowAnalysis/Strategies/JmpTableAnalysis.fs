@@ -1210,6 +1210,74 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       exp
 
+  /// Checks if the given vertex holds the definition of the given variable.
+  let isDefinedIn (state: LowUIRSparseDataFlow.State<_>) v var =
+    match state.SSAVarToVp.TryGetValue var with
+    | true, vp ->
+      match state.StmtOfBBLs.TryGetValue vp.ProgramPoint with
+      | true, (_, owner) -> owner = v
+      | false, _ -> false
+    | false, _ ->
+      false
+
+  /// Finds the definition of the given variable as findDef finds it, if p
+  /// holds the definition, where a phi defines the variable as the operand
+  /// that the phi takes along the edge from pred.
+  let findDefAlong state findDef p pred var =
+    if isDefinedIn state p var then
+      match findDef var with
+      | Some(Phi _) ->
+        state.TryGetSSAPhiOperand(var, pred, p)
+        |> Option.map (fun operand -> Def(var, Var operand))
+      | def ->
+        def
+    else
+      None
+
+  /// Rewrites the given expression into what it reads along the edge from pred
+  /// into p, expanding what p defines, as each phi of p takes the operand from
+  /// that edge. An operand comes from outside p, unless pred is p itself.
+  let rewriteAlong state findConst findDef p pred exp =
+    let findDef = findDefAlong state findDef p pred
+    symbExpandExhaustively (fun _ _ _ e -> e) findConst findDef exp
+
+  /// Finds the one table that the indirect jump ending v reads along the edges
+  /// into the vertex where its instruction starts, analyzing what rewrite
+  /// gives for each edge from another vertex. An entry past the end of another
+  /// table can lead into the middle of the code that dispatches the jump,
+  /// where the registers hold what the other jump left, and the phis that join
+  /// that way with the one through the dispatch hide the table that the latter
+  /// reads. A way that reads no table tells nothing, while ways that read
+  /// different tables share the jump between switches, which one table cannot
+  /// describe.
+  let tryFindAlongEachEdge (g: IDiGraph<_, _>) v rewrite analyze =
+    let start = findInstructionStart g v
+    match g.GetPreds start with
+    | preds when preds.Length > 1 ->
+      let found =
+        preds
+        |> Array.filter (fun pred -> pred <> start)
+        |> Array.choose (fun pred ->
+          rewrite start pred |> analyze |> Result.toOption)
+      match Array.distinctBy fst found with
+      | [| found |] -> Some found
+      | _ -> None
+    | _ ->
+      None
+
+  /// Analyzes the given expression, the target of the indirect jump ending v,
+  /// with the given function, or else, if that finds no table, what the
+  /// expression reads along each edge into the jump, as rewrite gives it.
+  let analyzeOrAlongEachEdge g v rewrite analyze exp =
+    match analyze exp with
+    | Error _ as error ->
+      let rewrite p pred = rewrite p pred exp
+      match tryFindAlongEachEdge g v rewrite analyze with
+      | Some found -> Ok found
+      | None -> error
+    | found ->
+      found
+
   let analyzeSymbolicallyWithIRCFG ctx state insAddr =
     let cfg = (ctx: CFGBuildingContext<_, _>).CFG
     let found =
@@ -1229,7 +1297,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
-      findSymbPattern expandPhi findConst findDef fnAddr insAddr 0 exp
+      let analyze = findSymbPattern expandPhi findConst findDef fnAddr insAddr 0
+      let rewrite = rewriteAlong state findConst findDef
+      analyzeOrAlongEachEdge cfg v rewrite analyze exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e
