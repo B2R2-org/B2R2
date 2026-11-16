@@ -211,6 +211,12 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// that they get, as it builds the function of the given context.
   abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
+  /// Checks if the code of the function that the given context builds folds a
+  /// negative offset of the index of a jump table into the displacement of the
+  /// load that reads an entry.
+  abstract FoldsIndexOffsetIntoLoad:
+    CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
   /// Checks if the function that the given context has built needs building
   /// again.
   abstract RequiresRebuild: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
@@ -260,6 +266,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Follows none, which keeps every stack slot across every call.
   default _.TracksPointerWrites _ = false
 
+  /// Folds none, so a table starts where the load reads the entry of index
+  /// zero.
+  default _.FoldsIndexOffsetIntoLoad _ = false
+
   /// Finds nothing in a built function that calls for building it again.
   default _.RequiresRebuild _ = false
 
@@ -296,6 +306,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       this.EndsJumpTableBefore(ctx, jmptbl, idx)
 
     member this.TracksPointerWrites ctx = this.TracksPointerWrites ctx
+
+    member this.FoldsIndexOffsetIntoLoad ctx =
+      this.FoldsIndexOffsetIntoLoad ctx
 
     member this.RequiresRebuild ctx = this.RequiresRebuild ctx
 

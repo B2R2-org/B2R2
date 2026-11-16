@@ -213,3 +213,49 @@ type RISCVBinaryBrewTests() =
       |> Array.sort
     let expected = [| 0x08UL, 2; 0x10UL, 2; 0x18UL, 4 |]
     CollectionAssert.AreEqual(expected, tables)
+
+  (* Clang folds the smallest value of a switch into the displacement of the
+     load, which reads below the base by the entries of the values that the
+     switch never takes. Here the jump of Q reads its first entry for one, so
+     Q starts at its base, while the word below the base is the last entry of
+     P. *)
+  [<TestMethod>]
+  member _.``A table starts at the base that its load reads below``() =
+    let code =
+      [ "ef006005" (* jal ra, 0x56 *)
+        "21a8" (* c.j 0x1c *)
+        "0100" (* c.nop *)
+        "30000000" (* 0x08, P: .word 0x30 *)
+        "34000000" (* .word 0x34 *)
+        "4e000000" (* 0x10, Q: .word 0x4e *)
+        "52000000" (* .word 0x52 *)
+        "00000100" (* .word past the code *)
+        "11ce" (* 0x1c: c.beqz a2, 0x38 *)
+        "17070000" (* auipc a4, 0x0 *)
+        "1307a7fe" (* addi a4, a4, -22: P *)
+        "93172500" (* slli a5, a0, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "8287" (* c.jr a5 *)
+        "0145" (* 0x30: c.li a0, 0 *)
+        "8280" (* c.jr ra *)
+        "0545" (* 0x34: c.li a0, 1 *)
+        "8280" (* c.jr ra *)
+        "17070000" (* 0x38: auipc a4, 0x0 *)
+        "130787fd" (* addi a4, a4, -40: Q *)
+        "93f7f50f" (* andi a5, a1, 255 *)
+        "8a07" (* c.slli a5, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "83a7c7ff" (* lw a5, -4(a5) *)
+        "8287" (* c.jr a5 *)
+        "0945" (* 0x4e: c.li a0, 2 *)
+        "8280" (* c.jr ra *)
+        "0d45" (* 0x52: c.li a0, 3 *)
+        "8280" (* c.jr ra *)
+        "8280" (* 0x56: c.jr ra *) ]
+    let fns = recoverCode code
+    let tables =
+      fns[0UL].JumpTables
+      |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+      |> Array.sort
+    CollectionAssert.AreEqual([| 0x08UL, 2; 0x10UL, 2 |], tables)

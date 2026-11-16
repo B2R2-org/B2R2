@@ -730,23 +730,28 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// This is a practical limit for the depth of symbolic expansion.
   let [<Literal>] MaxDepth = 10
 
-  let rec findSymbPattern expandPhi findConst findDef fnAddr insAddr depth exp =
+  /// Finds the jump table that the given target of the indirect jump at insAddr
+  /// reads, expanding the target one step at a time until detect finds one in
+  /// what fold makes of the step.
+  let findSymbPattern expandPhi findConst findDef fold fnAddr insAddr exp =
+    let rec find depth exp =
 #if CFGDEBUG
-    dbglog ManagerTid "JumpTable"
-    <| $"{insAddr:x} ({depth}): {PrettyPrinter.ToString(ssaExpr = exp)}"
+      dbglog ManagerTid "JumpTable"
+      <| $"{insAddr:x} ({depth}): {PrettyPrinter.ToString(ssaExpr = exp)}"
 #endif
-    match detect expandPhi findConst findDef insAddr exp with
-    | Ok(info, origin) ->
+      match detect expandPhi findConst findDef insAddr (fold exp) with
+      | Ok(info, origin) ->
 #if CFGDEBUG
-      dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
+        dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
 #endif
-      Ok(info, origin)
-    | Error _ ->
-      if depth < MaxDepth then
-        let e = symbExpand expandPhi findConst findDef true exp |> simplify
-        findSymbPattern expandPhi findConst findDef fnAddr insAddr (depth + 1) e
-      else
-        Error ErrorCase.ItemNotFound
+        Ok(info, origin)
+      | Error _ ->
+        if depth < MaxDepth then
+          let e = symbExpand expandPhi findConst findDef true exp |> simplify
+          find (depth + 1) e
+        else
+          Error ErrorCase.ItemNotFound
+    find 0 exp
 
   let findConstFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.TryGetAbsValueOfSSAVar v
@@ -1210,6 +1215,64 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       exp
 
+  /// Matches the sum of a base and an index that a shift scales, giving the
+  /// base, the index, the shift, and the type of the scaled index.
+  let (|BaseAndShiftedIndex|_|) = function
+    | BinOp(BinOpType.ADD, _, b, BinOp(BinOpType.SHL, rt, i, Num n))
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.SHL, rt, i, Num n), b) ->
+      Some(b, i, n, rt)
+    | _ ->
+      None
+
+  /// Checks if the given base folds to an address with any of its low twelve
+  /// bits set, which the code builds in full, as AUIPC or LUI and ADDI do,
+  /// rather than the high part of one, as LUI does alone, leaving the low part
+  /// to the displacement of the load.
+  let isFullAddress findConst findDef b =
+    match constantFold findConst findDef b with
+    | Num a -> a.ToUInt64() &&& 0xfffUL <> 0UL
+    | _ -> false
+
+  /// Moves a negative displacement that the given address of an entry adds
+  /// past a base and a scaled index into the index, as an offset of whole
+  /// entries, so that b + (i << n) + d reads b + ((i + d / 2^n) << n), and the
+  /// table starts at the base, if the code builds the base in full.
+  let foldIndexOffset findConst findDef addr =
+    match addr with
+    | BinOp(BinOpType.ADD, rt, BaseAndShiftedIndex(b, i, n, st), Num d)
+    | BinOp(BinOpType.ADD, rt, Num d, BaseAndShiftedIndex(b, i, n, st)) ->
+      let size = 1L <<< n.ToInt32()
+      let disp = toSigned d
+      if disp < 0L && disp % size = 0L && isFullAddress findConst findDef b then
+        let i = BinOp(BinOpType.ADD, st, i, Num(BitVector(disp / size, st)))
+        BinOp(BinOpType.ADD, rt, b, BinOp(BinOpType.SHL, st, i, Num n))
+      else
+        addr
+    | _ ->
+      addr
+
+  /// Moves the displacement of each load in the given expression, outside the
+  /// address of another load, into its index, as foldIndexOffset does.
+  let rec foldIndexOffsets findConst findDef e =
+    match e with
+    | Load(v, rt, addr) ->
+      Load(v, rt, foldIndexOffset findConst findDef addr)
+    | BinOp(op, rt, e1, e2) ->
+      let fold = foldIndexOffsets findConst findDef
+      BinOp(op, rt, fold e1, fold e2)
+    | Cast(kind, rt, e) ->
+      Cast(kind, rt, foldIndexOffsets findConst findDef e)
+    | _ ->
+      e
+
+  /// Returns how detect reads the target of an indirect jump in the function of
+  /// the given context: with the displacement of each load moved into its
+  /// index, as foldIndexOffsets does, if the code there folds offsets of
+  /// indices into displacements, or else as it is.
+  let foldOf (ctx: CFGBuildingContext<_, _>) findConst findDef =
+    if ctx.FoldsIndexOffsetIntoLoad then foldIndexOffsets findConst findDef
+    else id
+
   /// Checks if the given vertex holds the definition of the given variable.
   let isDefinedIn (state: LowUIRSparseDataFlow.State<_>) v var =
     match state.SSAVarToVp.TryGetValue var with
@@ -1297,7 +1360,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         |> findConstAlongBranch cfg state v findDef
       let fnAddr = ctx.FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
-      let analyze = findSymbPattern expandPhi findConst findDef fnAddr insAddr 0
+      let fold = foldOf ctx findConst findDef
+      let analyze =
+        findSymbPattern expandPhi findConst findDef fold fnAddr insAddr
       let rewrite = rewriteAlong state findConst findDef
       analyzeOrAlongEachEdge cfg v rewrite analyze exp
       |> Result.map (guardOrigin findDef guards domGuards)
@@ -1334,7 +1399,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       let findDef = findDefFromSSACFG state |> findDefWithinSize
       let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
-      findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
+      let fold = foldOf ctx findConst findDef
+      let expandPhi = expandPhiFromSSACFG
+      findSymbPattern expandPhi findConst findDef fold fnAddr insAddr exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e

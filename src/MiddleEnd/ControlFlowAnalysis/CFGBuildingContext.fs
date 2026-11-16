@@ -86,6 +86,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable pointerWrites = lazy UnknownPointerWrites
 
+  let mutable foldsIndexOffsetIntoLoad = false
+
   let mutable managerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null = null
 
   let mutable jumpTableChannel: IJumpTableChannel | null = null
@@ -250,6 +252,14 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
      and set v =
        cp.State.TracksCallClobbers <- v
        uva.State.TracksCallClobbers <- v
+
+  /// Tells whether the load of a jump table entry in this function may fold a
+  /// negative offset of the index into its displacement, so that the table
+  /// starts at the base that the load adds the displacement to. The rules of
+  /// the architecture decide.
+  member internal _.FoldsIndexOffsetIntoLoad
+    with get() = foldsIndexOffsetIntoLoad
+     and set v = foldsIndexOffsetIntoLoad <- v
 
   /// The user-defined per-function context.
   member _.UserContext with get(): 'FnCtx = userCtx

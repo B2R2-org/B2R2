@@ -141,6 +141,15 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   /// architecture whose code needs it follow them.
   abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
+  /// Checks if the code of the function that the given context builds folds a
+  /// negative offset of the index of a jump table into the displacement of the
+  /// load that reads an entry, as a compiler folds the smallest value of a
+  /// switch, so that the table starts at the base that the load adds the
+  /// displacement to. Elsewhere, a negative displacement may lead from a base
+  /// that is no table, as x86 PIC code reads a table at one from the GOT.
+  abstract FoldsIndexOffsetIntoLoad:
+    CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
   /// Checks if the function that the given context has built needs building
   /// again, as its code refutes what the building took for granted. Before it
   /// tells so, it notes in the context what the next building is to take
