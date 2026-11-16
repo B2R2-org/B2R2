@@ -25,12 +25,36 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open B2R2.MiddleEnd.ControlFlowAnalysis
+
+[<AutoOpen>]
+module private RISCVCFGRecoveryRules =
+  /// Checks if the given address lies within an instruction of a block that
+  /// the function of the given context has built, past the start of the
+  /// instruction.
+  let splitsInstruction (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract && bbl.Range.IsIncluding addr
+      && bbl.LiftedInstructions
+         |> Array.forall (fun lifted -> lifted.Original.Address <> addr))
+
 /// Represents the rules of the CFG recovery for RISCV: the rules of every
-/// architecture, except that the load of a jump table entry may fold a
-/// negative offset of the index into its displacement, as Clang folds the
-/// smallest value of a switch into the displacement of LW past the base of the
-/// table, which AUIPC or LUI and ADDI build in full.
+/// architecture, except that a jump table ends before an entry that sends its
+/// jump into the middle of an instruction of the function, and that the load
+/// of a jump table entry may fold a negative offset of the index into its
+/// displacement. With RVC, the words past a table, read as its entries, often
+/// send the jump into the upper half of an instruction, which reads as another
+/// one, such as a C.JAL that would start a function within the one of the
+/// table. Clang folds the smallest value of a switch into the displacement of
+/// LW past the base of the table, which AUIPC or LUI and ADDI build in full.
 type internal RISCVCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
+
+  override _.EndsJumpTableBefore(ctx, jmptbl, idx) =
+    match JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx with
+    | Some target -> splitsInstruction ctx target
+    | None -> false
 
   override _.FoldsIndexOffsetIntoLoad _ = true

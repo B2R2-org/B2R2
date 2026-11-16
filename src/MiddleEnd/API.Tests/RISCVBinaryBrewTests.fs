@@ -57,6 +57,13 @@ type RISCVBinaryBrewTests() =
     let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     BinaryBrew(BinHandle.LoadRawImage(bytes, isa)).Functions
 
+  /// Recovers the functions of the given RV32 code as recoverCode does those
+  /// of RV64 code.
+  static let recoverRV32Code (code: string list) =
+    let bytes = code |> String.concat "" |> ByteArray.ofHexString
+    let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit32)
+    BinaryBrew(BinHandle.LoadRawImage(bytes, isa)).Functions
+
   (* Every JALR clears the lowest bit of its target, which the address of
      code has clear anyway, so a table is read through the jump as if it did
      not: here the table of GCC PIC code, whose entries count from the table
@@ -318,3 +325,49 @@ type RISCVBinaryBrewTests() =
       |> Array.map (fun t -> t.TableAddress, t.NumEntries)
       |> Array.sort
     CollectionAssert.AreEqual([| 0x08UL, 2; 0x10UL, 2 |], tables)
+
+  (* The word past the table, read as its sixth entry, sends the jump into the
+     upper half of the ADDI of the first case, where RVC reads a C.JAL to the
+     return of the fourth case. Taking it for a call would start a function
+     there, before the fifth case, which no code calls. *)
+  [<TestMethod>]
+  member _.``An entry into the middle of an instruction is past its table``() =
+    let code =
+      [ "ef004006" (* jal ra, 0x64 *)
+        "05a0" (* c.j 0x24 *)
+        "0100" (* c.nop *)
+        "30000000" (* 0x08, A: .word 0x38 - 0x08 *)
+        "3a000000" (* .word 0x42 - 0x08 *)
+        "44000000" (* .word 0x4c - 0x08 *)
+        "4e000000" (* .word 0x56 - 0x08 *)
+        "58000000" (* .word 0x60 - 0x08 *)
+        "36000000" (* .word 0x3e - 0x08 *)
+        "00000100" (* .word past the code *)
+        "17070000" (* 0x24: auipc a4, 0x0 *)
+        "130747fe" (* addi a4, a4, -28: A *)
+        "93172500" (* slli a5, a0, 2 *)
+        "ba97" (* c.add a5, a4 *)
+        "9c43" (* c.lw a5, 0(a5) *)
+        "ba97" (* c.add a5, a4 *)
+        "8287" (* c.jr a5 *)
+        "17050000" (* 0x38: auipc a0, 0x0 *)
+        "13050520" (* addi a0, a0, 512; 0x3e: c.jal 0x5e *)
+        "8280" (* c.jr ra *)
+        "17050000" (* 0x42: auipc a0, 0x0 *)
+        "13058500" (* addi a0, a0, 8 *)
+        "8280" (* c.jr ra *)
+        "17050000" (* 0x4c: auipc a0, 0x0 *)
+        "13050501" (* addi a0, a0, 16 *)
+        "8280" (* c.jr ra *)
+        "17050000" (* 0x56: auipc a0, 0x0 *)
+        "13058501" (* addi a0, a0, 24 *)
+        "8280" (* 0x5e: c.jr ra *)
+        "1145" (* 0x60: c.li a0, 4 *)
+        "8280" (* c.jr ra *)
+        "8280" (* 0x64: c.jr ra *) ]
+    let fns = recoverRV32Code code
+    let tables =
+      fns[0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+    CollectionAssert.AreEqual([| 0x08UL, 5 |], tables)
+    let fnAddrs = fns.Addresses |> Seq.sort |> Seq.toArray
+    CollectionAssert.AreEqual([| 0UL; 0x64UL |], fnAddrs)
