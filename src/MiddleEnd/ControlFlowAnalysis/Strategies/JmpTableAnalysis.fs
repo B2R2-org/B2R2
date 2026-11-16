@@ -1656,3 +1656,11 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       match tryFindIndexOrigin (prepareAnalysis ctx) jmptbl with
       | Some o -> o.StartsAt(int64 addr)
       | None -> false
+
+    member _.SharesIndex(ctx, jmptbl, other) =
+      let originOf = tryFindIndexOrigin (prepareAnalysis ctx)
+      match originOf jmptbl, originOf other with
+      | Some o, Some otherOrigin ->
+        o.Root = otherOrigin.Root && o.ZeroAddr = otherOrigin.ZeroAddr
+      | _ ->
+        false

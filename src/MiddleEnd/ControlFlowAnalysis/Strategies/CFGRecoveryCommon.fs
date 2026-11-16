@@ -1064,35 +1064,67 @@ module internal CFGRecoveryCommon =
     queue.Push(EndTblRec(jmptbl, idx))
     MoveOn
 
+  /// Checks if the given tables are one: they start at the same address, with
+  /// entries of the same size that count from the same base.
+  let isSameTable (jmptbl: JmpTableInfo) (other: JmpTableInfo) =
+    jmptbl.TableAddress = other.TableAddress
+    && jmptbl.EntrySize = other.EntrySize && jmptbl.JumpBase = other.JumpBase
+
   /// Checks if the given table starts within the other table at tblAddr, no
   /// later than the end of its entry at idx, while the two tables belong to
-  /// different indirect branches. A table that starts where the other one
-  /// does, with entries of the same size that count from the same base, is
-  /// that table itself, which the two branches share, as the copies of a
-  /// computed goto do. Counting from another base, it is the other table read
-  /// through what its own branch left in the registers, as when the entry sends
-  /// the branch into the middle of the code that dispatches another switch.
+  /// different indirect branches. A table that is the other one itself is one
+  /// that the two branches share, as the copies of a computed goto do.
+  /// Counting from another base, it is the other table read through what its
+  /// own branch left in the registers, as when the entry sends the branch into
+  /// the middle of the code that dispatches another switch.
   let startsByEntryOf (ctx: CFGBuildingContext<_, _>) jmptbl (tblAddr, idx) =
     match ctx.JumpTables.TryGetValue tblAddr with
     | true, other when other.InsAddr <> (jmptbl: JmpTableInfo).InsAddr ->
       let entryEnd = tblAddr + uint64 ((idx + 1) * other.EntrySize)
-      let isSameTable =
-        jmptbl.TableAddress = tblAddr && jmptbl.EntrySize = other.EntrySize
-        && jmptbl.JumpBase = other.JumpBase
       tblAddr <= jmptbl.TableAddress && jmptbl.TableAddress < entryEnd
-      && not isSameTable
+      && not (isSameTable jmptbl other)
+    | _ ->
+      false
+
+  /// Checks if the entry at idx of the given table leads into the given
+  /// vertex, at its start or past it.
+  let leadsInto (ctx: CFGBuildingContext<_, _>) v jmptbl idx =
+    let range = (v: IVertex<LowUIRBasicBlock>).VData.Internals.Range
+    match JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx with
+    | Some target -> range.IsIncluding target
+    | None -> false
+
+  /// Checks if the indirect branch of the given table, which ends the given
+  /// vertex, reads again the entry at idx of the other table at tblAddr, which
+  /// leads into the vertex: the branch reads the other table itself with the
+  /// index of the other branch, which still selects that entry, so through it
+  /// the branch only jumps back into its own vertex. No case starts there, as
+  /// when the entry, read past the end of its table, sends its branch into the
+  /// middle of the code that dispatches another switch, where the registers
+  /// still hold what that branch read.
+  let rereadsEntry ctx analysis v jmptbl (tblAddr, idx) =
+    match (ctx: CFGBuildingContext<_, _>).JumpTables.TryGetValue tblAddr with
+    | true, other when other.InsAddr <> (jmptbl: JmpTableInfo).InsAddr ->
+      isSameTable jmptbl other && leadsInto ctx v other idx
+      && (analysis: IJmpTableAnalyzable<_, _>).SharesIndex(ctx, jmptbl, other)
     | _ ->
       false
 
   /// Finds the entry of another table through which the indirect branch of the
   /// given table was first reached, if the given table starts within that table
-  /// no later than the end of the entry. Ending that table before the given one
-  /// would drop the very entry that led to it, so the entry is what is wrong.
-  let tryFindSelfDefeatingEntry (ctx: CFGBuildingContext<_, _>) jmptbl =
+  /// no later than the end of the entry, or if the branch reads the entry
+  /// again. Ending that table before the given one would drop the very entry
+  /// that led to it, so the entry is what is wrong.
+  let tryFindSelfDefeatingEntry ctx analysis jmptbl =
     let insAddr = (jmptbl: JmpTableInfo).InsAddr
-    tryGetCallerVertex ctx (LeafCallSite insAddr)
-    |> Option.bind (fun v -> v.VData.DominatingJumpTableEntry)
-    |> Option.filter (startsByEntryOf ctx jmptbl)
+    match tryGetCallerVertex ctx (LeafCallSite insAddr) with
+    | Some v ->
+      v.VData.DominatingJumpTableEntry
+      |> Option.filter (fun entry ->
+        startsByEntryOf ctx jmptbl entry
+        || rereadsEntry ctx analysis v jmptbl entry)
+    | None ->
+      None
 
   /// Tells the manager that the given entry is bogus, and reloads the function
   /// if the manager has cut its table short of the entry.
@@ -1159,7 +1191,7 @@ module internal CFGRecoveryCommon =
       dbglog ctx.ThreadID "JumpTable"
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
-      match tryFindSelfDefeatingEntry ctx jmptbl with
+      match tryFindSelfDefeatingEntry ctx analysis jmptbl with
       | Some entry -> blameEntry ctx entry
       | None -> notifyRecovery ctx jmptblAnalysis queue jmptbl true
     | Error _ ->
