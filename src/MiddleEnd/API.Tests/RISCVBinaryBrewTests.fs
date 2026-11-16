@@ -33,16 +33,16 @@ open B2R2.MiddleEnd
 /// Tests the recovery of RISCV binaries.
 [<TestClass>]
 type RISCVBinaryBrewTests() =
-  /// Recovers the functions of elf_riscv64 once _start, at 0x650 with room
-  /// for thirty-four bytes before load_gp, becomes the given code, and
-  /// .rodata, at 0x768 with room for eight bytes before a string, starts with
-  /// the given bytes. A table grows past its first entry only within a
-  /// function that another follows, which main, the last one, is not.
-  static let recoverPatched (code: string list) (rodata: string) =
+  /// Recovers the functions of elf_riscv64 once the function at the given
+  /// address becomes the given code, and .rodata, at 0x768 with room for eight
+  /// bytes before a string, starts with the given bytes. _start, at 0x650, has
+  /// room for thirty-four bytes before load_gp, and main, at 0x734, the last
+  /// function of .text, for fifty-two bytes before .rodata.
+  static let recoverPatched (fnAddr: int) (code: string list) rodata =
     let bytes = readZippedBinary "elf_riscv64"
     let patch (offset: int) (hex: string) =
       (ByteArray.ofHexString hex).CopyTo(bytes, offset)
-    patch 0x650 (String.concat "" code)
+    patch fnAddr (String.concat "" code)
     patch 0x768 rodata
     let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
@@ -83,7 +83,7 @@ type RISCVBinaryBrewTests() =
         "0545" (* c.li a0, 1 *)
         "8280" (* c.jr ra *) ]
     let rodata = "fafefffffefeffff" (* .word 0x662 - 0x768, 0x666 - 0x768 *)
-    let fns = recoverPatched code rodata
+    let fns = recoverPatched 0x650 code rodata
     let entries = fns[0x650UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
 
@@ -105,8 +105,32 @@ type RISCVBinaryBrewTests() =
         "0545" (* c.li a0, 1 *)
         "8280" (* c.jr ra *) ]
     let rodata = "00ffffff04ffffff" (* .word 0x668 - 0x768, 0x66c - 0x768 *)
-    let fns = recoverPatched code rodata
+    let fns = recoverPatched 0x650 code rodata
     let entries = fns[0x650UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* No function that the binary tells of follows main, so the section that
+     holds main bounds it, and its table grows up to there, as GCC leaves
+     atexit, which has no frame to tell of it, past printf_parse at the end of
+     .text. The word after the two entries of the table is a string, which
+     sends the jump past the section. *)
+  [<TestMethod>]
+  member _.``A table grows within the last function of a section``() =
+    let code =
+      [ "97070000" (* auipc a5, 0x0 *)
+        "93874703" (* addi a5, a5, 52 *)
+        "0a05" (* c.slli a0, 0x2 *)
+        "3e95" (* c.add a0, a5 *)
+        "0841" (* c.lw a0, 0(a0) *)
+        "3e95" (* c.add a0, a5 *)
+        "0285" (* c.jr a0 *)
+        "0145" (* c.li a0, 0 *)
+        "8280" (* c.jr ra *)
+        "0545" (* c.li a0, 1 *)
+        "8280" (* c.jr ra *) ]
+    let rodata = "deffffffe2ffffff" (* .word 0x746 - 0x768, 0x74a - 0x768 *)
+    let fns = recoverPatched 0x734 code rodata
+    let entries = fns[0x734UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
 
   (* A table that nothing bounds reads on into the next one, counting its
