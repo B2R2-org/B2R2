@@ -1273,6 +1273,11 @@ module internal AnalysisCore = begin
       let varKind = VarKind.ofIRExpr dst
       let currConst =
         match varKind with
+        | Regular _ when src = dst ->
+          (* A register that the code puts onto itself keeps what it holds,
+             as the zero register of RISCV does at every jump that links
+             nothing, where the lifter puts it onto itself. *)
+          state.EvaluateAddressExpr(pp, src) |> Some
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
           state.EvaluateAddressExpr(pp, src)
           |> AddressDomain.holdInStackPointer

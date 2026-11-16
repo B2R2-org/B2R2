@@ -749,6 +749,31 @@ type DataFlowTests() =
     let six = mkConst 6u 64<rt>
     Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
 
+  /// RISCV puts x0 onto itself at every jump that links nothing, which leaves
+  /// what x0 holds as it is, so x0 is still zero where such a jump meets the
+  /// way around it.
+  [<TestMethod>]
+  member _.``Address domain keeps the RISCV zero register past a jump``() =
+    let brew =
+      [ "19c1" (* c.beqz a0, 0x10006 *)
+        "8545" (* c.li a1, 1 *)
+        "11a0" (* c.j 0x10008 *)
+        "8945" (* c.li a1, 2 *)
+        "91c1" (* 0x10008: c.beqz a1, 0x1000c *)
+        "0145" (* c.li a0, 0 *)
+        "8280" (* c.jr ra *) ]
+      |> String.concat ""
+      |> Binaries.loadRISCVAt 0x10000UL
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    let state = cp.State
+    let x0 = FrontEnd.RISCV.Register.toRegID FrontEnd.RISCV.Register.X0
+    let x0Var = brew.BinHandle.RegisterFactory.GetRegVar x0
+    let addr = state.EvaluateAddressExpr(ProgramPoint(0x10008UL, 1), x0Var)
+    let zero = AddressDomain.Const(BitVector.Zero 64<rt>)
+    Assert.AreEqual<AddressDomain.Lattice>(zero, addr)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
