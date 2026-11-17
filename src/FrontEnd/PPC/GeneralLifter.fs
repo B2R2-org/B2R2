@@ -1140,10 +1140,12 @@ let mfxer ins bld =
     dst := widened bld xer
   }
 
+/// Copies rS to rA. mr is or rA,rS,rS, whose result is rS itself, and the
+/// analyses that follow a value through copies have to read it as one.
 let mr ins bld =
   lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
-    dst := src .| src
+    dst := src
   }
 
 let mtctr ins bld =

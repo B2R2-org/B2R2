@@ -336,3 +336,28 @@ type PPCBinaryBrewTests() =
             "48000000" (* 0x14: b 0x14 *) ]
       let expected = ConditionalNoRet(ArgLocation.Reg r3)
       Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
+  (* gnulib's verror keeps the status in r31 across its calls, moving it there
+     with mr and back to r3 for the error_tail that it jumps to, which then
+     exits as the status of verror tells. *)
+  [<TestMethod>]
+  member _.``A status that mr passes on decides the return``() =
+    let r3 = PPC.Register.toRegID PPC.Register.R3
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let fns =
+        recoverCode wordSize
+          [ "4800001d" (* bl 0x1c *)
+            "48000009" (* bl 0xc *)
+            "7fe00008" (* trap *)
+            "7c7f1b78" (* 0x0c: mr r31,r3 *)
+            "38600005" (* li r3,5 *)
+            "7fe3fb78" (* mr r3,r31 *)
+            "48000004" (* b 0x1c *)
+            "2c030000" (* 0x1c: cmpwi r3,0 *)
+            "4182000c" (* beq 0x2c *)
+            "4800000d" (* bl 0x30 *)
+            "60000000" (* nop, which no path reaches *)
+            "4e800020" (* 0x2c: blr *)
+            "48000000" (* 0x30: b 0x30 *) ]
+      let expected = ConditionalNoRet(ArgLocation.Reg r3)
+      Assert.AreEqual<NonReturningStatus>(expected, fns[0xcUL].NoRet)
