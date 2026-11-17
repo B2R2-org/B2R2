@@ -68,11 +68,12 @@ let adde ins updateCond ovCond (bld: ILowUIRBuilder) =
     if updateCond then setCR0Reg bld dst else ()
   }
 
+/// addi adds to rA, which names a register other than r0: the field that
+/// names r0 makes the instruction li, which adds to zero.
 let addi ins (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (dst, src1, simm) = transThreeOprs ins bld
-    let cond = src1 == AST.num0 bld.RegType
-    dst := (AST.ite cond simm (src1 .+ simm))
+    dst := src1 .+ simm
   }
 
 let addic ins updateCond (bld: ILowUIRBuilder) =
@@ -94,12 +95,11 @@ let shiftedImm (bld: ILowUIRBuilder) signed simm =
   elif signed then AST.sext bld.RegType hi
   else AST.zext bld.RegType hi
 
+/// addis adds to rA as addi does, and lis is the form that adds to zero.
 let addis ins (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (dst, src1, simm) = transThreeOprs ins bld
-    let cond = src1 == AST.num0 bld.RegType
-    let simm = shiftedImm bld true simm
-    dst := (AST.ite cond simm (src1 .+ simm))
+    dst := src1 .+ shiftedImm bld true simm
   }
 
 let addme ins updateCond ovCond (bld: ILowUIRBuilder) =

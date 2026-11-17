@@ -25321,6 +25321,24 @@ type LifterTests() =
       expect next (after IAR) $"beqlr {eq}"
 
   /// <summary>
+  /// addi and addis add to the register that rA names: rA = 0 makes them li
+  /// and lis, which add to zero, so no value of rA is tested against zero.
+  /// GCC builds the base of a table so, by lis r30 and addi r30,r30.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ADDI and ADDIS add to the register they name``() =
+    (* addi r30,r30,9544; addis r10,r2,-5 *)
+    for hex in [ "3bde2548"; "3d42fffb" ] do
+      match lifted ppc32 hex with
+      | [| ISMark _
+           Put(Src = BinOp(Op = BinOpType.ADD; Left = Var _; Right = Num _))
+           IEMark _ |] -> ()
+      | stmts -> Assert.Fail $"{hex} lifts to {stmts}"
+    for given, r30 in [ 0x10020000UL, 0x10022548UL; 0UL, 0x2548UL ] do
+      expect r30 (run ppc32 "3bde2548" [ R30, given ] R30) "addi"
+    expect 0x7e00UL (run ppc64 "3d42fffb" [ R2, 0x57e00UL ] R10) "addis"
+
+  /// <summary>
   /// divwe puts the low word of rA above a word of zeros and divides that by
   /// the low word of rB as signed integers, the high words of a 64-bit
   /// register taking no part; the quotient fills a 64-bit register by sign
