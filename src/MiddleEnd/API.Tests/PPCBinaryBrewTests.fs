@@ -279,3 +279,40 @@ type PPCBinaryBrewTests() =
   [<TestMethod>]
   member _.``A table is read through a TOC pointer reloaded many times``() =
     CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 (tocTableOfTwo 3u))
+
+  (* GCC ends a function that it optimizes for size with a jump to a routine
+     that restores the registers it saved and returns for it, past other
+     functions, where nothing else tells that a function starts. The routine
+     of each register runs into that of the next one, up to that of r31,
+     which starts by loading the return address. *)
+  [<TestMethod>]
+  member _.``A jump to a routine that restores registers calls it``() =
+    let code32 =
+      [ "2c030000" (* cmpwi r3,0 *)
+        "83cbfff8" (* 0x1c: lwz r30,-8(r11): _restgpr_30_x *)
+        "800b0004" (* 0x20: lwz r0,4(r11): _restgpr_31_x *)
+        "83ebfffc" (* lwz r31,-4(r11) *)
+        "7c0803a6" (* mtlr r0 *)
+        "7d615b78" (* mr r1,r11 *)
+        "4e800020" (* blr *) ]
+    let code64 =
+      [ "2c230000" (* cmpdi r3,0 *)
+        "ebc1fff0" (* 0x1c: ld r30,-16(r1): _restgpr0_30 *)
+        "e8010010" (* 0x20: ld r0,16(r1): _restgpr0_31 *)
+        "ebe1fff8" (* ld r31,-8(r1) *)
+        "7c0803a6" (* mtlr r0 *)
+        "4e800020" (* blr *) ]
+    for wordSize, code in [ WordSize.Bit32, code32; WordSize.Bit64, code64 ] do
+      let fns =
+        recoverCode wordSize
+          [ "48000015" (* bl 0x14 *)
+            code[0]
+            "4d820020" (* beqlr *)
+            "48000010" (* 0x0c: b 0x1c *)
+            "60000000" (* nop *)
+            "38600001" (* 0x14: li r3,1 *)
+            "4e800020" (* blr *)
+            yield! List.tail code ]
+      let callee = fns[0UL].Callees[LeafCallSite 0xcUL]
+      Assert.AreEqual<CalleeKind>(RegularCallee 0x1cUL, callee)
+      Assert.AreEqual<Addr>(0x20UL, fns[0x20UL].EntryPoint)
