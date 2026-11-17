@@ -155,93 +155,98 @@ let andisdot ins bld =
     setCR0Reg bld dst
   }
 
+/// b, ba, bl and bla, which go to the target they name, the call forms
+/// leaving the address of the next instruction in LR.
 let b ins (bld: ILowUIRBuilder) lk =
   lift bld ins {
-    let addr = transOneOpr ins bld
-    let lr = regVar bld Register.LR
-    if lk then
-      lr := numU64 (ins.Address + 4UL) bld.RegType
-      AST.interjmp addr InterJmpKind.IsCall
-    else
-      AST.interjmp addr InterJmpKind.Base
+    if lk then append bld { regVar bld Register.LR := nextAddrOf ins bld }
+    else ()
+    AST.interjmp (directTargetOf ins bld) (jumpKindOf ins)
+    return NoEndMark
   }
 
-let bc ins (bld: ILowUIRBuilder) aa lk =
+/// Counts CTR down where BO asks for it, which comes before the branch tests
+/// CTR.
+let private countDown (bld: ILowUIRBuilder) bo =
+  let ctr = regVar bld Register.CTR
+  if bo &&& 4u = 0u then append bld { ctr := ctr .- AST.num1 bld.RegType }
+  else ()
+
+/// The condition that BO takes a branch on, once CTR is counted down: BO_0
+/// clear tests the CR bit against BO_1, and BO_2 clear tests CTR against zero,
+/// which BO_3 takes the branch at rather than off. There is none where BO
+/// skips both tests, as the branch then always goes.
+let private branchCondition (bld: ILowUIRBuilder) bo cr =
+  let ctr = regVar bld Register.CTR
+  let zero = AST.num0 bld.RegType
+  let ctrTest = if bo &&& 2u = 0u then ctr != zero else ctr == zero
+  let crTest = if bo &&& 8u = 0u then AST.not cr else cr
+  match bo &&& 0x10u = 0u, bo &&& 4u = 0u with
+  | true, true -> Some(ctrTest .& crTest)
+  | true, false -> Some crTest
+  | false, true -> Some ctrTest
+  | false, false -> None
+
+/// bc, bca, bcl and bcla, which go to the target they name where BO lets them,
+/// and on to the next instruction otherwise. The forms that link leave the
+/// address of the next instruction in LR whether they go or not.
+let bc ins (bld: ILowUIRBuilder) lk =
   lift bld ins {
-    let struct (bo, cr, addr) = transBranchThreeOprs ins bld
-    let rt = bld.RegType
-    let lr = regVar bld Register.LR
-    let ctr = regVar bld Register.CTR
-    let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
-    let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
-    let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
-    let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
-    let ctrOk = tmpVar bld 1<rt>
-    let condOk = tmpVar bld 1<rt>
-    let cia = numU64 ins.Address rt
-    let nia = numU64 (ins.Address + 4UL) rt
-    let temp = tmpVar bld rt
-    if lk then append bld { lr := nia } else ()
-    ctr :=
-            if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 rt)
-    ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3)
-    condOk := bo0 .| (cr <+> AST.not bo1)
-    if aa then append bld { temp := AST.ite (ctrOk .& condOk) addr nia }
-    else append bld { temp := AST.ite (ctrOk .& condOk) (cia .+ addr) nia }
-    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
-    AST.interjmp temp kind
+    let struct (bo, cr, _) = transBranchThreeOprs ins bld
+    let target = directTargetOf ins bld
+    let next = nextAddrOf ins bld
+    countDown bld bo
+    if lk then append bld { regVar bld Register.LR := next } else ()
+    match branchCondition bld bo cr with
+    | None ->
+      AST.interjmp target (jumpKindOf ins)
+      return NoEndMark
+    | Some cond when lk ->
+      jumpIf bld cond target InterJmpKind.IsCall
+    | Some cond ->
+      AST.intercjmp cond target next
+      return NoEndMark
   }
 
 /// The low two bits an indirect branch clears out of LR or CTR before jumping.
 let private branchTargetMask (bld: ILowUIRBuilder) =
   AST.not (numI32 3 bld.RegType)
 
-/// bclr/bclrl, which go to LR with its low two bits cleared where BO says the
-/// counter and the CR bit allow it. bclrl reads LR before it writes the next
-/// instruction's address there, which it does whether it branches or not.
-let bclr ins (bld: ILowUIRBuilder) lk =
+/// Goes to the address in LR, CTR or TAR with its low two bits cleared where
+/// BO lets it, and on to the next instruction otherwise. A branch that links
+/// calls, and it reads the register before it leaves the address of the next
+/// instruction in LR, which it does whether it goes or not; one to LR that
+/// does not link returns.
+let private branchToRegister (ins: Instruction) bld reg bo cr =
   lift bld ins {
-    let struct (bo, cr) = transBranchTwoOprs ins bld
-    let rt = bld.RegType
-    let lr = regVar bld Register.LR
-    let ctr = regVar bld Register.CTR
-    let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
-    let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
-    let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
-    let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
-    let ctrOk = tmpVar bld 1<rt>
-    let condOk = tmpVar bld 1<rt>
-    let nia = numU64 (ins.Address + 4UL) rt
-    let temp = tmpVar bld rt
-    ctr :=
-            if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 rt)
-    ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3)
-    condOk := bo0 .| (cr <+> AST.not bo1)
-    temp := AST.ite (ctrOk .& condOk) (lr .& branchTargetMask bld) nia
-    if lk then append bld { lr := nia } else ()
-    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.IsRet
-    AST.interjmp temp kind
+    let links = (ins :> IInstruction).IsCall
+    let target = tmpVar bld bld.RegType
+    countDown bld bo
+    target := regVar bld reg .& branchTargetMask bld
+    if links then append bld { regVar bld Register.LR := nextAddrOf ins bld }
+    else ()
+    let kind =
+      if links then InterJmpKind.IsCall
+      elif reg = Register.LR then InterJmpKind.IsRet
+      else InterJmpKind.Base
+    match branchCondition bld bo cr with
+    | Some cond ->
+      jumpIf bld cond target kind
+    | None ->
+      AST.interjmp target kind
+      return NoEndMark
   }
 
-/// bcctr/bcctrl, which go to CTR with its low two bits cleared where the CR
-/// bit BO names allows it; bcctrl, like bclrl, links either way.
-let bcctr ins (bld: ILowUIRBuilder) lk =
-  lift bld ins {
-    let struct (bo, cr) = transBranchTwoOprs ins bld
-    let rt = bld.RegType
-    let lr = regVar bld Register.LR
-    let ctr = regVar bld Register.CTR
-    let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
-    let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
-    let condOk = tmpVar bld 1<rt>
-    let nia = numU64 (ins.Address + 4UL) rt
-    let temp = tmpVar bld rt
-    condOk := bo0 .| (cr <+> AST.not bo1)
-    temp := AST.ite condOk (ctr .& branchTargetMask bld) nia
-    if lk then append bld { lr := nia } else ()
-    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
-    AST.interjmp temp kind
-  }
+/// bclr and bclrl, which go to LR.
+let bclr ins bld =
+  let struct (bo, cr) = transBranchTwoOprs ins bld
+  branchToRegister ins bld Register.LR bo cr
+
+/// bcctr and bcctrl, which go to CTR. They test the CR bit alone: a BO that
+/// counts CTR down makes an invalid form of them.
+let bcctr ins bld =
+  let struct (bo, cr) = transBranchTwoOprs ins bld
+  branchToRegister ins bld Register.CTR (bo ||| 4u) cr
 
 /// Records the outcome of a comparison in a CR field. cmpOp gives the "less
 /// than" and "greater than" tests, which differ between the signed and the
@@ -2560,35 +2565,17 @@ let divdeu ins updateCond ovCond bld =
   divideExtended ins updateCond ovCond bld 64<rt> false
 
 /// <summary>
-/// bctar/bctarl, which go to TAR with its low two bits cleared where the
-/// counter and a CR bit say so, testing them as bc does -- CTR is counted down
-/// unless BO2 says not to, which bcctr may not do. bctarl leaves the address
-/// of the next instruction in LR whether the branch is taken or not.
+/// bctar/bctarl, which go to TAR, testing CTR and a CR bit as bc does -- CTR
+/// is counted down unless BO2 says not to, which bcctr may not do.
 /// </summary>
-let bctar (ins: Instruction) (bld: ILowUIRBuilder) lk =
-  lift bld ins {
-    let struct (bo, bi) =
-      match ins.Operands with
-      | TwoOperands(OprImm bo, OprBI bi)
-      | ThreeOperands(OprImm bo, OprBI bi, _) -> struct (uint32 bo, bi)
-      | _ -> raise InvalidOperandException
-    let rt = bld.RegType
-    let ctr = regVar bld Register.CTR
-    let cr = getCRbitRegister bi |> regVar bld
-    let boBit n = numU32 ((bo >>> (4 - n)) &&& 1u) 1<rt>
-    let taken = tmpVar bld 1<rt>
-    let target = tmpVar bld rt
-    let nia = numU64 (ins.Address + 4UL) rt
-    if bo &&& 4u = 0u then append bld { ctr := ctr .- AST.num1 rt } else ()
-    let ctrOk = boBit 2 .| ((ctr != AST.num0 rt) <+> boBit 3)
-    let condOk = boBit 0 .| (cr <+> AST.not (boBit 1))
-    let tar = regVar bld Register.TAR .& branchTargetMask bld
-    taken := ctrOk .& condOk
-    target := AST.ite taken tar nia
-    if lk then append bld { regVar bld Register.LR := nia } else ()
-    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
-    AST.interjmp target kind
-  }
+let bctar (ins: Instruction) (bld: ILowUIRBuilder) =
+  let struct (bo, bi) =
+    match ins.Operands with
+    | TwoOperands(OprImm bo, OprBI bi)
+    | ThreeOperands(OprImm bo, OprBI bi, _) -> struct (uint32 bo, bi)
+    | _ -> raise InvalidOperandException
+  let cr = getCRbitRegister bi |> regVar bld
+  branchToRegister ins bld Register.TAR bo cr
 
 /// <summary>
 /// rfebb S, which sets BESCR[GE], its most significant bit, to S and goes to

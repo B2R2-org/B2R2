@@ -306,32 +306,14 @@ let compareHalfword (ins: Instruction) (bld: ILowUIRBuilder) signed =
     so := AST.xthi 1<rt> (regVar bld Register.XER)
   }
 
-/// The address a branch with a displacement goes to: the address of the
-/// instruction plus the displacement, which the operand holds sign-extended to
-/// the width of a register, and which wraps at that width.
-let private branchTarget (ins: Instruction) (bld: ILowUIRBuilder) =
-  match ins.Operands with
-  | OneOperand(OprAddr disp)
-  | ThreeOperands(_, _, OprAddr disp) ->
-    numU64 (ins.Address + disp) bld.RegType
-  | _ ->
-    raise InvalidOperandException
-
-/// The address of the instruction after one, which a branch that links puts in
-/// LR and a branch that does not take goes on to.
-let private nextAddress (ins: Instruction) (bld: ILowUIRBuilder) =
-  numU64 (ins.Address + uint64 ins.Length) bld.RegType
-
 /// A branch to the address a displacement names, which writes the address of
 /// the instruction after it into LR when it links.
 let branch (ins: Instruction) (bld: ILowUIRBuilder) link =
   lift bld ins {
-    let target = branchTarget ins bld
-    if link then
-      regVar bld Register.LR := nextAddress ins bld
-      AST.interjmp target InterJmpKind.IsCall
-    else
-      AST.interjmp target InterJmpKind.Base
+    if link then append bld { regVar bld Register.LR := nextAddrOf ins bld }
+    else ()
+    AST.interjmp (directTargetOf ins bld) (jumpKindOf ins)
+    return NoEndMark
   }
 
 /// se_bc: a branch to the address a displacement names when the bit of CR0 the
@@ -343,10 +325,9 @@ let branchOnBit (ins: Instruction) (bld: ILowUIRBuilder) =
     | _ -> raise InvalidOperandException
   lift bld ins {
     let bit = regVar bld (OperandHelper.getCRbitRegister bi)
-    let target = branchTarget ins bld
-    let next = tmpVar bld bld.RegType
-    next := AST.ite (bit == numU64 bo 1<rt>) target (nextAddress ins bld)
-    AST.interjmp next InterJmpKind.Base
+    let target = directTargetOf ins bld
+    AST.intercjmp (bit == numU64 bo 1<rt>) target (nextAddrOf ins bld)
+    return NoEndMark
   }
 
 /// e_bc and e_bcl: a branch to the address a displacement names that is decided
@@ -364,16 +345,18 @@ let branchConditional (ins: Instruction) (bld: ILowUIRBuilder) link =
     let rt = bld.RegType
     let ctr = regVar bld Register.CTR
     let bit = regVar bld (OperandHelper.getCRbitRegister bi)
-    let target = branchTarget ins bld
-    let next = nextAddress ins bld
-    let dest = tmpVar bld rt
+    let target = directTargetOf ins bld
+    let next = nextAddrOf ins bld
     if link then regVar bld Register.LR := next else ()
     if bo >= 2UL then ctr := ctr .- AST.num1 rt else ()
     let zero = AST.num0 rt
     let counterTest = if bo = 2UL then ctr != zero else ctr == zero
     let test = if bo >= 2UL then counterTest else bit == numU64 bo 1<rt>
-    dest := AST.ite test target next
-    AST.interjmp dest (if link then InterJmpKind.IsCall else InterJmpKind.Base)
+    if link then
+      jumpIf bld test target InterJmpKind.IsCall
+    else
+      AST.intercjmp test target next
+      return NoEndMark
   }
 
 /// e_addi and e_addi.: RT = RA + a number, which records CR0 where the
@@ -523,4 +506,5 @@ let branchToRegister (ins: Instruction) (bld: ILowUIRBuilder) reg link =
       AST.interjmp target InterJmpKind.IsRet
     else
       AST.interjmp target InterJmpKind.Base
+    return NoEndMark
   }

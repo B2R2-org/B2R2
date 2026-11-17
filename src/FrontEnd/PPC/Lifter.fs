@@ -102,30 +102,18 @@ let translate (ins: Instruction) bld =
     andidot ins bld
   | Op.ANDISdot ->
     andisdot ins bld
-  | Op.B ->
+  | Op.B | Op.BA ->
     b ins bld false
-  | Op.BA ->
-    b ins bld false
-  | Op.BL ->
+  | Op.BL | Op.BLA ->
     b ins bld true
-  | Op.BLA ->
-    b ins bld true
-  | Op.BC ->
-    bc ins bld false false
-  | Op.BCA ->
-    bc ins bld true false
-  | Op.BCL ->
-    bc ins bld false true
-  | Op.BCLA ->
-    bc ins bld true true
-  | Op.BCCTR ->
-    bcctr ins bld false
-  | Op.BCCTRL ->
-    bcctr ins bld true
-  | Op.BCLR ->
-    bclr ins bld false
-  | Op.BCLRL ->
-    bclr ins bld true
+  | Op.BC | Op.BCA ->
+    bc ins bld false
+  | Op.BCL | Op.BCLA ->
+    bc ins bld true
+  | Op.BCCTR | Op.BCCTRL ->
+    bcctr ins bld
+  | Op.BCLR | Op.BCLRL ->
+    bclr ins bld
   | Op.CMPI | Op.CMPL | Op.CMPLI ->
     raise InvalidOperandException (* invaild *)
   | Op.CMP ->
@@ -2587,10 +2575,8 @@ let translate (ins: Instruction) bld =
     addg6s ins bld
   | Op.ADDPCIS ->
     addpcis ins bld
-  | Op.BCTAR ->
-    bctar ins bld false
-  | Op.BCTARL ->
-    bctar ins bld true
+  | Op.BCTAR | Op.BCTARL ->
+    bctar ins bld
   | Op.CBCDTD ->
     cbcdtd ins bld
   | Op.CDTBCD ->
