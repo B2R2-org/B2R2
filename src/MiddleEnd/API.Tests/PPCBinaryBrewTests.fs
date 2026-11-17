@@ -86,6 +86,49 @@ type PPCBinaryBrewTests() =
     writeWord bytes (phdr 1 + 20) 0x170u (* p_memsz *)
     writeWord bytes (phdr 1 + 24) 7u (* PF_R|PF_W|PF_X *)
 
+  /// Returns the code of get in elf_ppc64_so, at 0x7b4, as a function that
+  /// first calls the stub at 0x640 the given number of times, up to three,
+  /// reloading r2 from its frame after each call as the ABI has it, and then
+  /// jumps through a table of two entries at 0x7fc, right after the jump,
+  /// whose address it takes from r2, the TOC pointer, 0x27f00.
+  static let tocTableOfTwo calls =
+    let call target =
+      [ $"{0x48000001u ||| (target &&& 0x3fffffcu):x8}" (* bl 0x640 *)
+        "e8410028" (* ld r2,40(r1) *) ]
+    [ "7c0802a6" (* mflr r0 *)
+      "f8010010" (* std r0,16(r1) *)
+      "f821ff81" (* stdu r1,-128(r1) *)
+      for i in 0u .. 2u do
+        if i < calls then yield! call (0x640u - 0x7c0u - 8u * i)
+        else yield! [ "60000000"; "60000000" ] (* nop; nop *)
+      "28030001" (* 0x7d8: cmplwi r3,1 *)
+      "41810034" (* bgt 0x810 *)
+      "3d42fffe" (* addis r10,r2,-2 *)
+      "394a88fc" (* addi r10,r10,-30468: 0x7fc *)
+      "78631788" (* rldic r3,r3,2,30 *)
+      "7c6a1aaa" (* lwax r3,r10,r3 *)
+      "7d435214" (* add r10,r3,r10 *)
+      "7d4903a6" (* mtctr r10 *)
+      "4e800420" (* bctr *)
+      "00000008" (* 0x7fc: .long 0x804 - 0x7fc *)
+      "00000010" (* .long 0x80c - 0x7fc *)
+      "38600000" (* 0x804: li r3,0 *)
+      "48000008" (* b 0x810 *)
+      "38600001" (* 0x80c: li r3,1 *)
+      "38210080" (* 0x810: addi r1,r1,128 *)
+      "e8010010" (* ld r0,16(r1) *)
+      "7c0803a6" (* mtlr r0 *)
+      "4e800020" (* blr *) ]
+
+  /// Returns how many entries each jump table of get in elf_ppc64_so has, once
+  /// get becomes the given code.
+  static let countEntriesInGet64 (code: string list) =
+    let bytes = readZippedBinary "elf_ppc64_so"
+    (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x7b4)
+    let isa = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let fns = BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
+    fns[0x7b4UL].JumpTables |> Array.map _.NumEntries
+
   /// Returns the code of a function that jumps through a table of two entries
   /// right after its jump, which counts the entries from itself as GCC does,
   /// once the given instructions turn the index in r3 into the offset of its
@@ -218,3 +261,9 @@ type PPCBinaryBrewTests() =
     let fns = recoverPatchedSO patch
     let entries = fns[0x4d4UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* 64-bit code finds data through r2, which holds the TOC pointer on entry
+     to every function, 0x8000 bytes past the start of .got. *)
+  [<TestMethod>]
+  member _.``A table is read through the TOC pointer``() =
+    CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 (tocTableOfTwo 0u))
