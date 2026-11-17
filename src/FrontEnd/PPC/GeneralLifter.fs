@@ -248,9 +248,10 @@ let bcctr ins bld =
   let struct (bo, cr) = transBranchTwoOprs ins bld
   branchToRegister ins bld Register.CTR (bo ||| 4u) cr
 
-/// Records the outcome of a comparison in a CR field. cmpOp gives the "less
-/// than" and "greater than" tests, which differ between the signed and the
-/// unsigned forms; equality is whatever neither of those is.
+/// Records the outcome of a comparison in a CR field. ltOp and gtOp give the
+/// "less than" and "greater than" tests, which differ between the signed and
+/// the unsigned forms. Equality is the same in both, and a test of a value
+/// against zero reads it as one.
 let private compare ins bld ltOp gtOp narrow =
   lift bld ins {
     let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins bld
@@ -261,7 +262,7 @@ let private compare ins bld ltOp gtOp narrow =
     let xer = regVar bld Register.XER
     crf0 := cond1
     crf1 := cond2
-    crf2 := AST.ite cond1 AST.b0 (AST.not cond2)
+    crf2 := ra == rb
     crf3 := AST.xthi 1<rt> xer
   }
 

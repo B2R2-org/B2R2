@@ -26,9 +26,11 @@ namespace B2R2.MiddleEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Tests the recovery of PowerPC binaries.
 [<TestClass>]
@@ -316,3 +318,21 @@ type PPCBinaryBrewTests() =
       let callee = fns[0UL].Callees[LeafCallSite 0xcUL]
       Assert.AreEqual<CalleeKind>(RegularCallee 0x1cUL, callee)
       Assert.AreEqual<Addr>(0x20UL, fns[0x20UL].EntryPoint)
+
+  (* gnulib's error_tail exits unless its status is zero, which it tests with
+     cmpwi before it returns. The comparison sets the EQ bit of CR0 when the
+     two are equal, which a test of the status against zero has to tell. *)
+  [<TestMethod>]
+  member _.``A return that beq leads to returns conditionally``() =
+    let r3 = PPC.Register.toRegID PPC.Register.R3
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let fns =
+        recoverCode wordSize
+          [ "2c030000" (* cmpwi r3,0 *)
+            "4182000c" (* beq 0x10 *)
+            "4800000d" (* bl 0x14 *)
+            "60000000" (* nop, which no path reaches *)
+            "4e800020" (* 0x10: blr *)
+            "48000000" (* 0x14: b 0x14 *) ]
+      let expected = ConditionalNoRet(ArgLocation.Reg r3)
+      Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
