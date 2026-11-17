@@ -207,6 +207,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * idx: int
     -> bool
 
+  /// Checks if a call in the function of the given context forgets the stack
+  /// slots that its callee may write through the pointers that it gets.
+  abstract ForgetsWrittenSlots: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
   /// Checks if the recovery follows what functions write through the pointers
   /// that they get, as it builds the function of the given context.
   abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
@@ -263,7 +267,12 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// as a range check may admit fewer entries than a compiler emits.
   default _.EndsJumpTableBefore(_, _, _) = false
 
-  /// Follows none, which keeps every stack slot across every call.
+  /// Forgets them where the recovery follows pointer writes, as the summaries
+  /// serve only callers that forget what their callees write, and keeps every
+  /// stack slot across every call elsewhere.
+  default this.ForgetsWrittenSlots ctx = this.TracksPointerWrites ctx
+
+  /// Follows none.
   default _.TracksPointerWrites _ = false
 
   /// Folds none, so a table starts where the load reads the entry of index
@@ -304,6 +313,8 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
     member this.EndsJumpTableBefore(ctx, jmptbl, idx) =
       this.EndsJumpTableBefore(ctx, jmptbl, idx)
+
+    member this.ForgetsWrittenSlots ctx = this.ForgetsWrittenSlots ctx
 
     member this.TracksPointerWrites ctx = this.TracksPointerWrites ctx
 

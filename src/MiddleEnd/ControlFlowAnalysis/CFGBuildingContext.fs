@@ -86,6 +86,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let mutable pointerWrites = lazy UnknownPointerWrites
 
+  let mutable tracksPointerWrites = false
+
   let mutable foldsIndexOffsetIntoLoad = false
 
   let mutable managerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null = null
@@ -243,15 +245,22 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// the recovery narrows it down.
   member _.PointerWrites with get(): PointerWrites = pointerWrites.Value
 
-  /// Tells whether the recovery follows what functions write through the
-  /// pointers that they get: it summarizes what this function writes, and the
-  /// data flow of this function lets each call write the stack slots that its
-  /// callee writes. The rules of the architecture decide.
-  member internal _.TracksPointerWrites
+  /// Tells whether the data flow of this function lets each call write the
+  /// stack slots that its callee may write through the pointers that it gets,
+  /// as the summary of the callee tells. The rules of the architecture decide.
+  member internal _.ForgetsWrittenSlots
     with get() = cp.State.TracksCallClobbers
      and set v =
        cp.State.TracksCallClobbers <- v
        uva.State.TracksCallClobbers <- v
+
+  /// Tells whether the recovery summarizes what this function writes through
+  /// the pointers that it gets, for the callers that forget the stack slots
+  /// that it writes. The summary lets it write anything otherwise. The rules
+  /// of the architecture decide.
+  member internal _.TracksPointerWrites
+    with get() = tracksPointerWrites
+     and set v = tracksPointerWrites <- v
 
   /// Tells whether the load of a jump table entry in this function may fold a
   /// negative offset of the index into its displacement, so that the table

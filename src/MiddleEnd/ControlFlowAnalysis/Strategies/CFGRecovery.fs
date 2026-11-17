@@ -230,6 +230,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
     member _.OnCreate ctx =
       let rules = rulesOf ctx
+      ctx.ForgetsWrittenSlots <- rules.ForgetsWrittenSlots ctx
       ctx.TracksPointerWrites <- rules.TracksPointerWrites ctx
       ctx.FoldsIndexOffsetIntoLoad <- rules.FoldsIndexOffsetIntoLoad ctx
 

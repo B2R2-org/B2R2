@@ -772,7 +772,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       let ctx = env.Context
       fun (r: SSACFGWithDominance) ->
         let uva = UntouchedValueAnalysis(ctx.BinHandle, ctx.CFG.Vertices)
-        uva.State.TracksCallClobbers <- ctx.TracksPointerWrites
+        uva.State.TracksCallClobbers <- ctx.ForgetsWrittenSlots
         let state = getLazyIRState ctx.CFG uva
         let tryGetCallerLoc = connectArgumentsInSSACFG ctx r.Graph r.Dominance
         match analyze ctx uva state tryGetCallerLoc with

@@ -42,13 +42,16 @@ module private RISCVCFGRecoveryRules =
 
 /// Represents the rules of the CFG recovery for RISCV: the rules of every
 /// architecture, except that a jump table ends before an entry that sends its
-/// jump into the middle of an instruction of the function, and that the load
-/// of a jump table entry may fold a negative offset of the index into its
-/// displacement. With RVC, the words past a table, read as its entries, often
-/// send the jump into the upper half of an instruction, which reads as another
-/// one, such as a C.JAL that would start a function within the one of the
-/// table. Clang folds the smallest value of a switch into the displacement of
-/// LW past the base of the table, which AUIPC or LUI and ADDI build in full.
+/// jump into the middle of an instruction of the function, that the load of a
+/// jump table entry may fold a negative offset of the index into its
+/// displacement, and that a call forgets the stack slots that its callee may
+/// write. With RVC, the words past a table, read as its entries, often send the
+/// jump into the upper half of an instruction, which reads as another one,
+/// such as a C.JAL that would start a function within the one of the table.
+/// Clang folds the smallest value of a switch into the displacement of LW past
+/// the base of the table, which AUIPC or LUI and ADDI build in full. GAS reads
+/// the index of a switch from an object that a callee fills, whose range check
+/// would otherwise admit entries past the table, where another table starts.
 type internal RISCVCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -58,3 +61,5 @@ type internal RISCVCFGRecoveryRules<'FnCtx, 'GlCtx>() =
     | None -> false
 
   override _.FoldsIndexOffsetIntoLoad _ = true
+
+  override _.ForgetsWrittenSlots _ = true
