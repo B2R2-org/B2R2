@@ -28,6 +28,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Tests the recovery of PowerPC binaries.
 [<TestClass>]
@@ -47,6 +48,43 @@ type PPCBinaryBrewTests() =
   static let countEntries wordSize code =
     let fns = recoverCode wordSize code
     fns[0UL].JumpTables |> Array.map _.NumEntries
+
+  /// Writes the big-endian word at the given offset.
+  static let writeWord (bytes: byte[]) offset (v: uint32) =
+    for i in 0 .. 3 do bytes[offset + i] <- byte (v >>> (24 - 8 * i))
+
+  /// Reads the big-endian word at the given offset.
+  static let readWord (bytes: byte[]) offset =
+    Array.sub bytes offset 4
+    |> Array.fold (fun v b -> (v <<< 8) ||| uint32 b) 0u
+
+  /// Recovers the functions of elf_ppc32_so once the given patch has changed
+  /// its bytes, which has get, at 0x4d4, room for 28 instructions.
+  static let recoverPatchedSO patch =
+    let bytes = readZippedBinary "elf_ppc32_so"
+    patch bytes
+    let isa = ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
+
+  /// Makes get the given code.
+  static let patchGet (code: string list) (bytes: byte[]) =
+    (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x4d4)
+
+  /// Makes the PLT of elf_ppc32_so the classic one, which the dynamic linker
+  /// writes: .plt, section 17, turns NOBITS and executable, the relocations of
+  /// .rela.plt, section 6, fill three entries two words apart from 0x20048,
+  /// and the data segment, the second, takes them in, executable, past the
+  /// bytes that the file holds of it.
+  static let patchClassicPLT (bytes: byte[]) =
+    let shdr idx = int (readWord bytes 0x20) + idx * 40
+    let phdr idx = int (readWord bytes 0x1c) + idx * 32
+    writeWord bytes (shdr 17 + 4) 8u (* SHT_NOBITS *)
+    writeWord bytes (shdr 17 + 8) 7u (* SHF_WRITE|SHF_ALLOC|SHF_EXECINSTR *)
+    let relocs = int (readWord bytes (shdr 6 + 16))
+    for i in 0 .. 2 do
+      writeWord bytes (relocs + 12 * i) (0x20048u + 8u * uint32 i)
+    writeWord bytes (phdr 1 + 20) 0x170u (* p_memsz *)
+    writeWord bytes (phdr 1 + 24) 7u (* PF_R|PF_W|PF_X *)
 
   /// Returns the code of a function that jumps through a table of two entries
   /// right after its jump, which counts the entries from itself as GCC does,
@@ -101,3 +139,17 @@ type PPCBinaryBrewTests() =
         [ "78631788" (* rldic r3,r3,2,30 *)
           "7c691aaa" (* lwax r3,r9,r3 *) ]
     CollectionAssert.AreEqual([| 2 |], countEntries WordSize.Bit64 code)
+
+  (* The file holds no bytes of the classic PLT, which the dynamic linker
+     writes, so a jump into it calls the import as its tail with no code there
+     to read. *)
+  [<TestMethod>]
+  member _.``A jump into a PLT that the file lacks calls an import``() =
+    let code =
+      [ "2c030000" (* cmpwi r3,0 *)
+        "4d820020" (* beqlr *)
+        "4801fb6c" (* b 0x20048 <ext@plt> *) ]
+    let fns = recoverPatchedSO (fun bytes -> patchClassicPLT bytes
+                                             patchGet code bytes)
+    let callee = fns[0x4d4UL].Callees[LeafCallSite 0x4dcUL]
+    Assert.AreEqual<CalleeKind>(RegularCallee 0x20048UL, callee)
