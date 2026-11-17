@@ -730,25 +730,27 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// This is a practical limit for the depth of symbolic expansion.
   let [<Literal>] MaxDepth = 10
 
-  /// Finds the definition of the given variable past the copies of other
-  /// variables that lead to it: the definition of the last variable that has
-  /// one other than a copy, or else the last copy.
-  let rec findDefPastCopies findDef v =
-    match findDef v with
-    | Some(Def(_, Var src)) as copy ->
-      match findDefPastCopies findDef src with
-      | Some(Def _) as def -> def
-      | _ -> copy
-    | def ->
-      def
+  /// Finds the definition of the given variable, except that r2 holds the TOC
+  /// pointer that it holds on entry wherever the code defines it. 64-bit
+  /// PowerPC code only saves r2 to its frame and reloads it from there around
+  /// calls, or loads the TOC of a callee right before an indirect call, past
+  /// which it reloads its own.
+  let findTOCOrDef findDef (v: Variable) =
+    match v.Kind with
+    | RegVar(_, rid, _)
+      when rid = PPC.Register.toRegID PPC.Register.R2 && v.Identifier <> 0 ->
+      Some(Def(v, Var { v with Identifier = 0 }))
+    | _ ->
+      findDef v
 
   /// Returns how the expansion of a jump target in the function of the given
-  /// context finds definitions. 64-bit PowerPC code saves r2, the TOC pointer,
-  /// to its frame and reloads it after every call, so the value goes through
-  /// two copies per call, and none of them costs a step of the expansion.
+  /// context finds definitions: as findTOCOrDef does in 64-bit PowerPC code,
+  /// which reloads r2 from its frame after a call. alloca may have moved the
+  /// stack pointer there by a size that only the run tells, and then no
+  /// definition that the data flow finds tells that r2 holds the TOC again.
   let findDefToExpand (ctx: CFGBuildingContext<_, _>) findDef =
     match ctx.BinHandle.ISA with
-    | PPC64 -> findDefPastCopies findDef
+    | PPC64 -> findTOCOrDef findDef
     | _ -> findDef
 
   /// Finds the jump table that the given target of the indirect jump at insAddr

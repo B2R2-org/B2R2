@@ -276,11 +276,23 @@ type PPCBinaryBrewTests() =
   member _.``A table is read through the TOC pointer reloaded after a call``() =
     CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 (tocTableOfTwo 1u))
 
-  (* r2 goes through the frame at every call, a copy each way, which costs the
-     expansion of the jump target no step. *)
+  (* r2 goes through the frame at every call, a copy each way, and holds the
+     TOC pointer past however many calls. *)
   [<TestMethod>]
   member _.``A table is read through a TOC pointer reloaded many times``() =
     CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 (tocTableOfTwo 3u))
+
+  (* alloca moves r1 by a size that is known only as the code runs, so the
+     slot from which a call past it reloads r2 lies nowhere that the frame
+     tells. r2 holds the TOC pointer all the same. *)
+  [<TestMethod>]
+  member _.``A table is read through r2 reloaded past an alloca``() =
+    let alloca =
+      [ "7d2400d0" (* neg r9,r4 *)
+        "7c21496a" (* stdux r1,r1,r9 *) ]
+    let code = tocTableOfTwo 2u
+    let code = List.take 3 code @ alloca @ List.skip 5 code
+    CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 code)
 
   (* GCC ends a function that it optimizes for size with a jump to a routine
      that restores the registers it saved and returns for it, past other
