@@ -653,6 +653,12 @@ type RegisterFactory(isa: ISA) =
       | "cr7_1" -> cr71
       | "cr7_2" -> cr72
       | "cr7_3" -> cr73
+      | "fpscr" -> fpscr
+      | "xer" -> xer
+      | "lr" -> lr
+      | "ctr" -> ctr
+      | "pvr" -> pvr
+      | "res" -> res
       | "iar" -> iar
       | "exmonaddr" -> exMonAddr
       | "exmonval" -> exMonVal
@@ -884,7 +890,7 @@ type RegisterFactory(isa: ISA) =
          cr22
          cr23
          cr30
-         cr32
+         cr31
          cr32
          cr33
          cr40
@@ -903,6 +909,15 @@ type RegisterFactory(isa: ISA) =
          cr71
          cr72
          cr73
+         fpscr
+         xer
+         lr
+         ctr
+         pvr
+         res
+         iar
+         exMonAddr
+         exMonVal
          v0a
          v0b
          v1a
@@ -1087,6 +1102,7 @@ type RegisterFactory(isa: ISA) =
     member _.GetRegisterID expr =
       match expr with
       | Var(RegisterID = id) -> id
+      | PCVar _ -> Register.toRegID IAR
       | _ -> raise InvalidRegisterException
 
     member _.GetRegisterID name = Register.ofString name |> Register.toRegID
@@ -1100,21 +1116,16 @@ type RegisterFactory(isa: ISA) =
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
+    (* A field of the condition register is the four bits it holds, which the
+       lifter reads one by one, and an accumulator is the four vector-scalar
+       registers it takes in: neither has a variable of its own. *)
     member this.GetRegType rid =
-      let first = Register.toRegID Register.TAR
-      let last = Register.toRegID Register.TFIAR
-      let state = rid >= first && rid <= last
-      if rid = Register.toRegID Register.FPSCRH || state then
-        (this :> IRegisterFactory).GetRegVar rid |> Expr.typeOf
-      elif rid = Register.toRegID Register.ACC then
-        64<rt>
-      elif rid >= Register.toRegID Register.R0H
-           && rid <= Register.toRegID Register.SPEFSCR then
-        32<rt>
-      elif rid < 0x40<RegisterID.T> then
-        WordSize.toRegType isa.WordSize
-      else
-        4<rt>
+      match Register.ofRegID rid with
+      | Register.CR0 | Register.CR1 | Register.CR2 | Register.CR3
+      | Register.CR4 | Register.CR5 | Register.CR6 | Register.CR7 -> 4<rt>
+      | Register.ACC0 | Register.ACC1 | Register.ACC2 | Register.ACC3
+      | Register.ACC4 | Register.ACC5 | Register.ACC6 | Register.ACC7 -> 512<rt>
+      | _ -> (this :> IRegisterFactory).GetRegVar rid |> Expr.typeOf
 
     member this.IsProgramCounter regid =
       (this :> IRegisterFactory).ProgramCounter = regid

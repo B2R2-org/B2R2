@@ -209,6 +209,19 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some entry when entry.TrampolineAddress = Some addr -> Ok entry.Name
           | _ -> Error e }
 
+  let opd = lazy tryFindOPD hdr shdrs.Value
+
+  /// Turns the address of the descriptor of a function, which a symbol of a
+  /// function and the entry point name under ELFv1 of 64-bit PowerPC, into
+  /// the address of its code.
+  let toCodeAddr addr =
+    match opd.Value with
+    | Some sec when sec.SecAddr <= addr && addr < sec.SecAddr + sec.SecSize ->
+      tryReadOPDEntry toolBox relocs.Value sec addr
+      |> Option.defaultValue addr
+    | _ ->
+      addr
+
   let functionAddrs =
     lazy
       let staticFuncs =
@@ -221,6 +234,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
               else () |]
       let extraFuncs = findExtraFnAddrs toolBox shdrs.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
+      |> Array.map toCodeAddr
       |> Array.distinct
       |> Array.sort
       |> ImmutableArray.ofArray
@@ -433,6 +447,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | Ok({ RelKind = RelocationKind(MachineType.EM_X86_64, kind)
            RelAddend = target })
       when kind = uint64 RelocationX64.R_X86_64_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
+    | Ok({ RelKind = RelocationKind(MachineType.EM_PPC, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationPPC32.R_PPC_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
+    | Ok({ RelKind = RelocationKind(MachineType.EM_PPC64, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationPPC64.R_PPC64_RELATIVE && target <> 0UL ->
       Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
     | _ ->
       Error ErrorCase.ItemNotFound
@@ -754,7 +776,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.OS with get() = OSABI.toOS toolBox.Header.OSABI
 
-    member _.EntryPoint with get() = Some hdr.EntryPoint
+    member _.EntryPoint with get() = Some(toCodeAddr hdr.EntryPoint)
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 

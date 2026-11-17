@@ -87,11 +87,22 @@ type BBLFactory(hdl: BinHandle,
 #endif
       Error e
 
+  /// Checks if the given address is an entry of the linkage table that the
+  /// file holds no bytes of, as the PLT of 32-bit PowerPC, which the dynamic
+  /// linker writes. A jump there calls the import as its tail, and the CFG
+  /// recovery needs no block there to tell so.
+  let isUnbackedImport addr =
+    match hdl.File.ImportTable with
+    | Some imports when imports.IsInImportTable addr ->
+      not (hdl.File.IsAddrMappedToFile addr)
+    | _ ->
+      false
+
   /// Parses from the given address and returns reachable addresses. If there
   /// exists a BBL at the given address, then this simply returns an empty
   /// array. When parsing fails, this function can return an error result.
   let tryParse blocks addr =
-    if interLeaders.Contains addr then Ok [||]
+    if interLeaders.Contains addr || isUnbackedImport addr then Ok [||]
     else parseBlock blocks [] 0 addr addr null
 
   /// Collects every block reachable from the given addresses, and answers

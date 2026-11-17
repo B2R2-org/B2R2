@@ -40,6 +40,9 @@ type private InvalidDWExpr = DWExpression.InvalidDWInstructionExpException
 /// Represents the RISCV registers under a shorter name.
 type private RISCVReg = B2R2.FrontEnd.RISCV.Register
 
+/// Represents the PowerPC registers under a shorter name.
+type private PPCReg = B2R2.FrontEnd.PPC.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -89,12 +92,17 @@ type DWARFTests() =
             CFA = RegPlusOffset(rsp, 8) }
       Augmentations = [] }
 
+  /// Interprets the given call frame instructions as those of an FDE of the
+  /// given CIE in a binary of the given ISA, and returns the last row they
+  /// produce.
+  static let unwindWith isa cie (bytes: byte[]) =
+    let instrs = ReadOnlyMemory bytes
+    (FDE.parseCallFrameInstrs cie isa regFactory instrs 0UL).Value
+    |> List.last
+
   /// Interprets the given call frame instructions as those of an x64 FDE, and
   /// returns the last row they produce.
-  static let unwind (bytes: byte[]) =
-    let instrs = ReadOnlyMemory bytes
-    (FDE.parseCallFrameInstrs x64CIE isa regFactory instrs 0UL).Value
-    |> List.last
+  static let unwind bytes = unwindWith isa x64CIE bytes
 
   /// Asserts that the CFA of the given row is rsp plus n.
   static let assertCFA n (row: UnwindingEntry) =
@@ -107,6 +115,12 @@ type DWARFTests() =
     FDE.startsMidFrame (ReadOnlySpan bytes)
 
   let [<Literal>] DWCFANop = 0x00uy
+
+  let [<Literal>] DWCFAAdvanceLoc1 = 0x02uy
+
+  let [<Literal>] DWCFAAdvanceLoc2 = 0x03uy
+
+  let [<Literal>] DWCFAAdvanceLoc4 = 0x04uy
 
   let [<Literal>] DWCFAOffsetExtended = 0x05uy
 
@@ -227,6 +241,32 @@ type DWARFTests() =
     Assert.AreEqual<UnwindingAction option>(Some(Offset -16L), saved)
 
   [<TestMethod>]
+  member _.``[DWARF] advance of any size counts code units``() =
+    (* Where instructions are four bytes long, as on AArch64 and PowerPC, a
+       delta of three moves a row three instructions on, whichever operand
+       carries it. *)
+    let cie = { x64CIE with CodeAlignmentFactor = 4UL }
+    for bytes in
+      [ [| DWCFAAdvanceLoc ||| 3uy |]
+        [| DWCFAAdvanceLoc1; 3uy |]
+        [| DWCFAAdvanceLoc2; 3uy; 0uy |]
+        [| DWCFAAdvanceLoc4; 3uy; 0uy; 0uy; 0uy |] ] do
+      let row = unwindWith isa cie bytes
+      Assert.AreEqual<Addr>(12UL, row.Location, $"{bytes[0]}")
+
+  [<TestMethod>]
+  member _.``[DWARF] advance reads an unsigned delta in the file order``() =
+    (* A big-endian PowerPC binary puts the most significant byte of a delta
+       first, and a delta with its top bit set moves a row on all the same. *)
+    let ppc = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let cie = { x64CIE with CodeAlignmentFactor = 4UL }
+    for bytes, delta in
+      [ [| DWCFAAdvanceLoc2; 0x80uy; 0x01uy |], 0x8001UL
+        [| DWCFAAdvanceLoc4; 0x80uy; 0uy; 0uy; 0x01uy |], 0x80000001UL ] do
+      let row = unwindWith ppc cie bytes
+      Assert.AreEqual<Addr>(delta * 4UL, row.Location, $"{bytes[0]}")
+
+  [<TestMethod>]
   member _.``[DWARF] FDE that first advances starts at an entry``() =
     (* push rbp: the CFA moves only once the push has executed. *)
     let bytes = [| DWCFAAdvanceLoc ||| 1uy; DWCFADefCFAOffset; 0x10uy |]
@@ -273,3 +313,19 @@ type DWARFTests() =
       let isa = ISA(Architecture.RISCV, Endian.Little, wordSize)
       Assert.AreEqual<RegisterID>(sp, DWRegister.toRegID isa 2uy)
       Assert.AreEqual<RegisterID>(f1, DWRegister.toRegID isa 33uy)
+
+  [<TestMethod>]
+  member _.``[DWARF] PPC registers are numbered alike at both widths``() =
+    (* GCC and LLVM number LR 65 and the fields of CR from 68 in .eh_frame,
+       and the vector registers from 77, where clang saves v31 as 108. *)
+    let rid reg = B2R2.FrontEnd.PPC.Register.toRegID reg
+    let numbers =
+      [ 1uy, PPCReg.R1
+        63uy, PPCReg.F31
+        65uy, PPCReg.LR
+        70uy, PPCReg.CR2
+        108uy, PPCReg.V31A ]
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.PPC, Endian.Big, wordSize)
+      for n, reg in numbers do
+        Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")

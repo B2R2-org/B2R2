@@ -19,6 +19,7 @@
     <Compile Include="AArch64BinaryBrewTests.fs" />
     <Compile Include="MIPSBinaryBrewTests.fs" />
     <Compile Include="RISCVBinaryBrewTests.fs" />
+    <Compile Include="PPCBinaryBrewTests.fs" />
     <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
 

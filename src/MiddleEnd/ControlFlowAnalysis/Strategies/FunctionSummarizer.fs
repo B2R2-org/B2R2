@@ -133,6 +133,29 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     | _ ->
       [||]
 
+  /// Finds how far into the frame of a caller 64-bit PowerPC code keeps its
+  /// TOC pointer: 40 bytes under ELFv1, whose functions have descriptors in
+  /// .opd, and 24 under ELFv2.
+  let tocSaveOffset (hdl: BinHandle) =
+    match BinFile.BinFileOps.tryFindSectionByName hdl.File ".opd" with
+    | Ok _ -> 40UL
+    | Error _ -> 24UL
+
+  /// Makes the store that saves the TOC pointer of 64-bit PowerPC code in the
+  /// frame of the caller, as the stub that a direct call to another module
+  /// goes through does, which is where the caller reloads r2 from after such
+  /// a call. An indirect call loads the TOC of its callee into r2, so the
+  /// caller saves its own before the call, with no stub.
+  let tocSaveDefs (hdl: BinHandle) =
+    match hdl.ISA with
+    | PPC64 ->
+      let reg r = hdl.RegisterFactory.GetRegVar(PPC.Register.toRegID r)
+      let offset = AST.num (BitVector(tocSaveOffset hdl, 64<rt>))
+      let slot = AST.binop BinOpType.ADD (reg PPC.Register.R1) offset
+      [| AST.store hdl.ISA.Endian slot (reg PPC.Register.R2) |]
+    | _ ->
+      [||]
+
   let computeLiveDefs hdl callee calleeInfo =
     let unwindingAmount, clobbered = calleeInfo.Unwinding, calleeInfo.Clobbered
     if calleeInfo.IsExternal then
@@ -196,7 +219,9 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     let regType = ctx.BinHandle.ISA.WordSize |> WordSize.toRegType
     let fallThrough = AST.num <| BitVector(returnAddress, regType)
     let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
-    Array.append stmts [| jmpToFallThrough |]
+    [| yield! stmts
+       yield! tocSaveDefs ctx.BinHandle
+       jmpToFallThrough |]
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
     member this.Summarize(ctx, callee, calleeInfo, ins) =

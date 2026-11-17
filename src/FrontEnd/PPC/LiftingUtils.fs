@@ -476,3 +476,35 @@ let sideEffects (ins: Instruction) bld name =
   lift bld ins {
     AST.sideEffect name
   }
+
+/// The address of the instruction after a branch, which a branch that links
+/// leaves in LR and one that does not go goes on to.
+let nextAddrOf (ins: Instruction) (bld: ILowUIRBuilder) =
+  numU64 (ins.Address + uint64 ins.Length) bld.RegType
+
+/// The target that a branch names, as the instruction resolves it.
+let directTargetOf (ins: Instruction) (bld: ILowUIRBuilder) =
+  match (ins :> IInstruction).DirectBranchTarget() with
+  | true, target -> numU64 target bld.RegType
+  | false, _ -> raise InvalidOperandException
+
+/// The kind of the jump that a branch makes to the target it names: bcl
+/// 20,31,$+4 links only to read the PC, which calls nothing.
+let jumpKindOf (ins: Instruction) =
+  if (ins :> IInstruction).IsCall then InterJmpKind.IsCall
+  else InterJmpKind.Base
+
+/// Jumps to the target where the condition holds and goes on to the next
+/// instruction where it does not. A jump out of the instruction that decides
+/// between two targets has no kind, and the CFG follows it only to numbers, so
+/// a branch that calls, returns or reads its target from a register goes from
+/// within the instruction instead.
+let jumpIf bld cond target kind =
+  let lblTaken = label bld "Taken"
+  let lblNotTaken = label bld "NotTaken"
+  append bld {
+    AST.cjmp cond (AST.jmpDest lblTaken) (AST.jmpDest lblNotTaken)
+    AST.lmark lblTaken
+    AST.interjmp target kind
+    AST.lmark lblNotTaken
+  }

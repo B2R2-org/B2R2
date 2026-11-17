@@ -730,10 +730,34 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// This is a practical limit for the depth of symbolic expansion.
   let [<Literal>] MaxDepth = 10
 
+  /// Finds the definition of the given variable, except that r2 holds the TOC
+  /// pointer that it holds on entry wherever the code defines it. 64-bit
+  /// PowerPC code only saves r2 to its frame and reloads it from there around
+  /// calls, or loads the TOC of a callee right before an indirect call, past
+  /// which it reloads its own.
+  let findTOCOrDef findDef (v: Variable) =
+    match v.Kind with
+    | RegVar(_, rid, _)
+      when rid = PPC.Register.toRegID PPC.Register.R2 && v.Identifier <> 0 ->
+      Some(Def(v, Var { v with Identifier = 0 }))
+    | _ ->
+      findDef v
+
+  /// Returns how the expansion of a jump target in the function of the given
+  /// context finds definitions: as findTOCOrDef does in 64-bit PowerPC code,
+  /// which reloads r2 from its frame after a call. alloca may have moved the
+  /// stack pointer there by a size that only the run tells, and then no
+  /// definition that the data flow finds tells that r2 holds the TOC again.
+  let findDefToExpand (ctx: CFGBuildingContext<_, _>) findDef =
+    match ctx.BinHandle.ISA with
+    | PPC64 -> findTOCOrDef findDef
+    | _ -> findDef
+
   /// Finds the jump table that the given target of the indirect jump at insAddr
   /// reads, expanding the target one step at a time until detect finds one in
   /// what fold makes of the step.
-  let findSymbPattern expandPhi findConst findDef fold fnAddr insAddr exp =
+  let findSymbPattern expandPhi findConst findDef fold ctx insAddr exp =
+    let findDefOfStep = findDefToExpand ctx findDef
     let rec find depth exp =
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable"
@@ -742,12 +766,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       match detect expandPhi findConst findDef insAddr (fold exp) with
       | Ok(info, origin) ->
 #if CFGDEBUG
-        dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
+        dbglog ManagerTid "JumpTable" $"detected @ {ctx.FunctionAddress:x}"
 #endif
         Ok(info, origin)
       | Error _ ->
         if depth < MaxDepth then
-          let e = symbExpand expandPhi findConst findDef true exp |> simplify
+          let e =
+            symbExpand expandPhi findConst findDefOfStep true exp |> simplify
           find (depth + 1) e
         else
           Error ErrorCase.ItemNotFound
@@ -1198,17 +1223,27 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         | Some bv -> ConstantDomain.Const bv
         | None -> c
 
-  /// Finds the target that an indirect jump computes before it clears the
-  /// lowest bit, as every JALR of RISCV does, given the variable that holds
-  /// the target. No instruction of RISCV starts at an odd address, so a code
-  /// address has the bit clear anyway, and the jump goes where the target
+  /// Checks if the mask clears the low bits that an indirect jump clears off
+  /// its target: every JALR of RISCV clears the lowest one, and a branch of
+  /// PowerPC to a register the lowest two, or the lowest one in VLE.
+  let isJumpMask (hdl: BinHandle) (mask: BitVector) =
+    let cleared = (BitVector.Not mask).ToUInt64()
+    match hdl.ISA with
+    | RISCV -> cleared = 1UL
+    | PPC -> cleared = 1UL || cleared = 3UL
+    | _ -> false
+
+  /// Finds the target that an indirect jump computes before it clears the low
+  /// bits of it that the architecture clears, given the variable that holds
+  /// the target. No instruction starts at an address with those bits set, so
+  /// a code address has them clear anyway, and the jump goes where the target
   /// before the mask says.
   let unmaskTarget (hdl: BinHandle) findDef exp =
-    match hdl.ISA, exp with
-    | RISCV, Var v ->
+    match exp with
+    | Var v ->
       match findDef v with
       | Some(Def(_, BinOp(BinOpType.AND, _, e, Num mask)))
-        when BitVector.Not mask = BitVector.One mask.Length ->
+        when isJumpMask hdl mask ->
         e
       | _ ->
         exp
@@ -1358,11 +1393,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         findConstOrLoaded ctx.BinHandle fromCP
         |> findConstBeyondCalls state
         |> findConstAlongBranch cfg state v findDef
-      let fnAddr = ctx.FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
       let fold = foldOf ctx findConst findDef
       let analyze =
-        findSymbPattern expandPhi findConst findDef fold fnAddr insAddr
+        findSymbPattern expandPhi findConst findDef fold ctx insAddr
       let rewrite = rewriteAlong state findConst findDef
       analyzeOrAlongEachEdge cfg v rewrite analyze exp
       |> Result.map (guardOrigin findDef guards domGuards)
@@ -1397,11 +1431,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromSSACFG state
       let findDef = findDefFromSSACFG state |> findDefWithinSize
-      let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
       let fold = foldOf ctx findConst findDef
       let expandPhi = expandPhiFromSSACFG
-      findSymbPattern expandPhi findConst findDef fold fnAddr insAddr exp
+      findSymbPattern expandPhi findConst findDef fold ctx insAddr exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e

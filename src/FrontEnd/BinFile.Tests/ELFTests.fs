@@ -429,6 +429,26 @@ type ELFTests() =
     stripBigEndian bytes
     ELFBinFile(fileName, bytes, None, None)
 
+  /// Writes the big-endian 32-bit unsigned integer at the given offset.
+  static let writeBigEndian32 (bytes: byte[]) offset (v: uint32) =
+    for i in 0 .. 3 do bytes[offset + i] <- byte (v >>> (24 - 8 * i))
+
+  /// Parses elf_ppc32_so with its PLT made the classic one: .plt, section 17,
+  /// executable and NOBITS, with room for a 72-byte header and three entries
+  /// of two words and a word each, which the three relocations of .rela.plt,
+  /// section 6, fill two words apart past the header.
+  static let parseClassicPLTPPC32 () =
+    let bytes = ZIPReader.readBytes ELFBinary "elf_ppc32_so.zip" "elf_ppc32_so"
+    let shdr idx = int (readBigEndian bytes 0x20 4) + idx * 40
+    let plt, relaPLT = shdr 17, shdr 6
+    writeBigEndian32 bytes (plt + 4) 8u (* SHT_NOBITS *)
+    writeBigEndian32 bytes (plt + 8) 7u (* SHF_WRITE|SHF_ALLOC|SHF_EXECINSTR *)
+    writeBigEndian32 bytes (plt + 20) 0x6cu (* sh_size *)
+    let relocs = int (readBigEndian bytes (relaPLT + 16) 4)
+    for i in 0 .. 2 do
+      writeBigEndian32 bytes (relocs + 12 * i) (0x20048u + 8u * uint32 i)
+    ELFBinFile("elf_ppc32_so", bytes, None, None)
+
   /// Returns the first symbol of the first dynamic symbol table.
   static let firstDynamicSymbol (file: ELFBinFile) =
     file.Symbols.DynamicSymbols[0]
@@ -1828,6 +1848,47 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1ff08UL)
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fff0UL)
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20000UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 functions start where their descriptors say test``() =
+    (* Under ELFv1, a symbol of a function names its descriptor in .opd, whose
+       first doubleword is the address of its code: get is at 0x7b4. *)
+    let addrs = (ppc64SoFile :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, addrs.Contains 0x7b4UL)
+    Assert.AreEqual<bool>(false, addrs.Contains 0x1fee8UL)
+    (* So does the entry point, which the loader reads the descriptor of. *)
+    let bytes = ZIPReader.readBytes ELFBinary "elf_ppc64_so.zip" "elf_ppc64_so"
+    let entry = System.BitConverter.GetBytes 0x1fee8UL |> Array.rev
+    Array.blit entry 0 bytes 0x18 8 (* e_entry *)
+    let file = ELFBinFile("elf_ppc64_so", bytes, None, None) :> IBinFile
+    Assert.AreEqual(Some 0x7b4UL, file.EntryPoint)
+
+  [<TestMethod>]
+  member _.``[ELF] PowerPC resolved relocation value test``() =
+    (* .got2 of ppc32 and the RELATIVE slots of ppc64 lie in the range that
+       GNU_RELRO protects, but a variable in .data can be overwritten. *)
+    let ppc32 = (ppc32SoFile :> IBinFile).Relocations.Value
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x20010UL))
+                          (ppc32.TryResolveRelocationValue 0x1ff20UL)
+    assertRelocationValue (Error ErrorCase.ItemNotFound)
+                          (ppc32.TryResolveRelocationValue 0x2000cUL)
+    let ppc64 = (ppc64SoFile :> IBinFile).Relocations.Value
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x1fed0UL))
+                          (ppc64.TryResolveRelocationValue 0x1fca8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc32 classic PLT entries test``() =
+    (* The entries are two words apart, however wide the section is, as the
+       table that follows them takes a word per entry. *)
+    let expected =
+      [ "ext", Some 0x20048UL
+        "__cxa_finalize", Some 0x20050UL
+        "__gmon_start__", Some 0x20058UL ]
+    let entries =
+      getLinkageTableEntries (parseClassicPLTPPC32 ())
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
 
   [<TestMethod>]
   member _.``[ELF] ppc64 resolves RELATIVE and ADDR64 test``() =

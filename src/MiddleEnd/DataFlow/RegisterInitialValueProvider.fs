@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
 /// Provides the initial values of registers for a data-flow analysis.
@@ -80,12 +81,34 @@ module RegisterInitialValueProvider =
         else
           None
 
+  /// Gives r2 the TOC pointer of 64-bit PowerPC code, which every function of
+  /// the binary finds there on entry, as its callers keep it there.
+  type private PPC64RegisterInitialValueProvider(toc: Addr) =
+    let r2 = PPC.Register.toRegID PPC.Register.R2
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = r2 then Some(BitVector(toc, 64<rt>)) else None
+
+  /// Finds the TOC pointer of a 64-bit PowerPC binary, which the ABI puts
+  /// 0x8000 bytes past the start of .got, so that a load with a signed offset
+  /// of 16 bits reaches 64 KiB of the TOC.
+  let private tryFindTOC (hdl: BinHandle) =
+    match BinFileOps.tryFindSectionByName hdl.File ".got" with
+    | Ok got -> Some(got.Address + 0x8000UL)
+    | Error _ -> None
+
+  let private createForPPC (hdl: BinHandle): IRegisterInitialValueProvider =
+    match hdl.ISA.WordSize, tryFindTOC hdl with
+    | WordSize.Bit64, Some toc -> PPC64RegisterInitialValueProvider(toc)
+    | _ -> DefaultRegisterInitialValueProvider()
+
   /// Creates the architecture-specific provider of initial values for a binary.
   let create (hdl: BinHandle): IRegisterInitialValueProvider =
     match hdl.RegisterFactory.ISA.Arch with
     | Architecture.Intel -> IntelRegisterInitialValueProvider(hdl)
     | Architecture.MIPS -> MIPSRegisterInitialValueProvider(hdl)
     | Architecture.RISCV -> RISCVRegisterInitialValueProvider(hdl)
+    | Architecture.PPC -> createForPPC hdl
     | _ -> DefaultRegisterInitialValueProvider()
 
   /// Creates the architecture-specific provider of initial values for the

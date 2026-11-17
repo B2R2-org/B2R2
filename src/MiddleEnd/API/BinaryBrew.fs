@@ -144,6 +144,8 @@ type BinaryBrew =
       ARM32FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | MIPS ->
       MIPSFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
+    | PPC ->
+      PPCFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | _ ->
       FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 

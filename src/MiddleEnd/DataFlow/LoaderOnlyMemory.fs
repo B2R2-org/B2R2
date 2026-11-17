@@ -53,15 +53,43 @@ let tryRead (hdl: BinHandle) addr rt =
   | _ ->
     None
 
-/// Checks if the given address lies in the GOT, which code reads through the
-/// GOT pointer of its function, as MIPS code reads through gp, rather than
-/// through a pointer that walks memory.
+/// Checks if the given address lies in a GOT, which code reads through the
+/// GOT pointer of its function, as MIPS code reads the GOT through gp and
+/// 32-bit PowerPC PIC reads .got2 through r30, rather than through a pointer
+/// that walks memory.
 let isInGOT (file: IBinFile) addr =
   match BinFileOps.tryFindSectionNameByAddr file addr with
-  | Ok name -> name = ".got"
+  | Ok name -> name = ".got" || name = ".got2"
   | Error _ -> false
 
 /// Reads the value of the given type that the binary holds at the given
-/// address, as tryRead does, only if the address lies in the GOT.
+/// address, as tryRead does, only if the address lies in a GOT. A slot that
+/// the loader rebases holds the address that the binary itself determines for
+/// it, as a slot of .got2 that points to a table does.
 let tryReadGOT (hdl: BinHandle) addr rt =
-  if isInGOT hdl.File addr then tryRead hdl addr rt else None
+  let file = hdl.File
+  if not (isInGOT file addr) then
+    None
+  else
+    match BinFileOps.tryResolveRelocationValue file addr with
+    | Ok(BinRelocationValue.Rebased target)
+      when rt = WordSize.toRegType file.ISA.WordSize ->
+      Some(BitVector(u64 = target, bitLen = rt))
+    | _ ->
+      tryRead hdl addr rt
+
+/// Checks if the given address lies in a section of code.
+let private isInCode (file: IBinFile) addr =
+  match BinFileOps.tryFindSectionByAddr file addr with
+  | Ok sec -> sec.Kind = CodeSection
+  | Error _ -> false
+
+/// Reads the value of the given type that code reads through a register that
+/// holds the given address: a slot of a GOT, or a word of code on PowerPC,
+/// which has no load relative to the PC. 32-bit PIC there reads the offset of
+/// .got2 that lies next to its function through the address that bcl
+/// 20,31,$+4 leaves in LR.
+let tryReadThroughRegister (hdl: BinHandle) addr rt =
+  match tryReadGOT hdl addr rt with
+  | None when hdl.ISA.IsPPC && isInCode hdl.File addr -> tryRead hdl addr rt
+  | value -> value

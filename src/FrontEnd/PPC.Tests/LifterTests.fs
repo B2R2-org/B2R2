@@ -332,16 +332,20 @@ type LifterTests() =
   /// The eight bytes of memory a sequence left at an address.
   let doubleword left at = valueAt left at 8
 
-  /// What each register holds after one word at an address ran, the jump out
-  /// of the instruction that ends it having been turned into a write of its
-  /// target to IAR, which is then read like any other register.
+  /// What each register holds after one word at an address ran, IAR holding
+  /// where control went: the target of the jump out of the instruction that
+  /// ends the run, or the next instruction where the run reaches the end of
+  /// the instruction instead.
   let jump isa hex addr given =
-    let toIAR = function
-      | InterJmp(Target = t) ->
-        AST.put (AST.var (Expr.typeOf t) (Register.toRegID IAR) "IAR") t
+    let rt = Expr.typeOf (var isa IAR)
+    let iar = AST.var rt (Register.toRegID IAR) "IAR"
+    let fallThrough = function
+      | IEMark(Length = len) ->
+        let next = BitVector(u64 = addr + uint64 len, bitLen = rt)
+        AST.put iar (AST.num next)
       | stmt ->
         stmt
-    let stmts = liftedAt isa hex addr |> Array.map toIAR
+    let stmts = liftedAt isa hex addr |> Array.map fallThrough
     let read = IRRunner.run stmts (inputsOf isa given)
     fun r -> (read (var isa r)).ToUInt64()
 
@@ -686,6 +690,33 @@ type LifterTests() =
         ppc64le, "548307c0", 0xdeadbeeff0000001UL, 0xf000000180000001UL ] do
       let after = run isa hex [ R4, rs ]
       expect result (after R3) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// A rotation whose mask clears the bits that the rotation brings around
+  /// from the top, as slwi, sldi and rldic do, is a shift to the left, and one
+  /// whose mask keeps those bits alone, as srwi and srdi do, is a shift to the
+  /// right, which is how they lift; only a rotation that keeps bits of both,
+  /// as rotldi does, lifts as one. GCC scales the index of a table so.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] RLWINM and RLDIC shift where their masks let them``() =
+    let isOr = function
+      | BinOp(Op = BinOpType.OR) -> true
+      | _ -> false
+    (* slwi r3,r3,2; srwi r3,r4,8; sldi r3,r3,2; rldic r3,r3,2,30;
+       srdi r3,r4,63; clrldi r3,r3,32; rotldi r9,r30,1 *)
+    for isa, hex, (src, value), dst, result, rotates in
+      [ ppc32, "5463103a", (R3, 0xc0000001UL), R3, 0x4UL, false
+        ppc64, "5463103a", (R3, 0xdeadbeefc0000001UL), R3, 0x4UL, false
+        ppc32, "5483c23e", (R4, 0x12345678UL), R3, 0x123456UL, false
+        ppc64, "78631764", (R3, 0xc000000000000001UL), R3, 0x4UL, false
+        ppc64, "78631788", (R3, 0xffffffff80000001UL), R3, 0x200000004UL, false
+        ppc64, "78830fe0", (R4, 0x8000000000000000UL), R3, 0x1UL, false
+        ppc64, "78630020", (R3, 0xdeadbeef12345678UL), R3, 0x12345678UL, false
+        ppc64, "7bc90800", (R30, 0x8000000000000001UL), R9, 0x3UL, true ] do
+      let case = $"{hex} {nameOf isa}"
+      expect result (run isa hex [ src, value ] dst) case
+      Assert.AreEqual<bool>(rotates, liftedHas isa hex isOr, case)
 
   /// <summary>
   /// lwz rD, D(rA) loads the word at rA + D, in the byte order the processor
@@ -25253,6 +25284,88 @@ type LifterTests() =
         expect nia (after LR) case
 
   /// <summary>
+  /// A branch on a condition jumps out of the instruction to one of two
+  /// numbers, the target it names and the next instruction, which are what a
+  /// CFG follows; bdnz counts CTR down before it tests it. The jump ends the
+  /// instruction. The branches come from a gcc -O2 build of ls.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BC jumps to its target or to the next instruction``() =
+    (* beq 0x436c; bdnz 0x7b68 *)
+    for addr, hex, target in
+      [ 0x4300UL, "4182006c", 0x436cUL
+        0x7b80UL, "4200ffe8", 0x7b68UL ] do
+      match Array.last (liftedAt ppc32 hex addr) with
+      | InterCJmp(TrueTarget = Num(Value = t); FalseTarget = Num(Value = f)) ->
+        expect target (t.ToUInt64()) hex
+        expect (addr + 4UL) (f.ToUInt64()) hex
+      | stmt ->
+        Assert.Fail $"{hex} ends with {stmt}"
+    let after = jump ppc32 "4200ffe8" 0x7b80UL [ CTR, 1UL ]
+    expect 0x7b84UL (after IAR) "bdnz"
+    expect 0UL (after CTR) "bdnz"
+
+  /// <summary>
+  /// A branch that always goes ends its instruction with a jump whose kind
+  /// tells a call, a return and a plain jump apart. bcl 20,31,$+4 links only
+  /// to read the PC, which the ISA keeps off the link stack, as it calls
+  /// nothing.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] A branch ends its instruction with its kind of jump``() =
+    for hex, kind in
+      [ "48000028", BinIR.InterJmpKind.Base (* b *)
+        "4800f3ad", BinIR.InterJmpKind.IsCall (* bl *)
+        "429f0005", BinIR.InterJmpKind.Base (* bcl 20,31,$+4 *)
+        "4e800020", BinIR.InterJmpKind.IsRet (* blr *)
+        "4e800420", BinIR.InterJmpKind.Base (* bctr *)
+        "4e800421", BinIR.InterJmpKind.IsCall (* bctrl *) ] do
+      match Array.last (liftedAt ppc32 hex 0x41f0UL) with
+      | InterJmp(Kind = k) ->
+        Assert.AreEqual<BinIR.InterJmpKind>(kind, k, hex)
+      | stmt ->
+        Assert.Fail $"{hex} ends with {stmt}"
+    let after = jump ppc32 "429f0005" 0x41f0UL []
+    expect 0x41f4UL (after IAR) "bcl"
+    expect 0x41f4UL (after LR) "bcl"
+
+  /// <summary>
+  /// A conditional return returns from within the instruction, and goes on to
+  /// the next instruction where it does not return: a jump out of the
+  /// instruction to one of two targets has no kind to tell a return by.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BEQLR returns or goes on to the next instruction``() =
+    let stmts = liftedAt ppc32 "4d820020" 0xfc08UL (* beqlr *)
+    let kinds =
+      stmts
+      |> Array.choose (function
+        | InterJmp(Kind = k) -> Some k
+        | _ -> None)
+    CollectionAssert.AreEqual([| BinIR.InterJmpKind.IsRet |], kinds)
+    for eq, next in [ 1UL, 0x4000UL; 0UL, 0xfc0cUL ] do
+      let after = jump ppc32 "4d820020" 0xfc08UL [ LR, 0x4000UL; CR0_2, eq ]
+      expect next (after IAR) $"beqlr {eq}"
+
+  /// <summary>
+  /// addi and addis add to the register that rA names: rA = 0 makes them li
+  /// and lis, which add to zero, so no value of rA is tested against zero.
+  /// GCC builds the base of a table so, by lis r30 and addi r30,r30.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ADDI and ADDIS add to the register they name``() =
+    (* addi r30,r30,9544; addis r10,r2,-5 *)
+    for hex in [ "3bde2548"; "3d42fffb" ] do
+      match lifted ppc32 hex with
+      | [| ISMark _
+           Put(Src = BinOp(Op = BinOpType.ADD; Left = Var _; Right = Num _))
+           IEMark _ |] -> ()
+      | stmts -> Assert.Fail $"{hex} lifts to {stmts}"
+    for given, r30 in [ 0x10020000UL, 0x10022548UL; 0UL, 0x2548UL ] do
+      expect r30 (run ppc32 "3bde2548" [ R30, given ] R30) "addi"
+    expect 0x7e00UL (run ppc64 "3d42fffb" [ R2, 0x57e00UL ] R10) "addis"
+
+  /// <summary>
   /// divwe puts the low word of rA above a word of zeros and divides that by
   /// the low word of rB as signed integers, the high words of a 64-bit
   /// register taking no part; the quotient fills a 64-bit register by sign
@@ -30078,16 +30191,27 @@ type VLELifterTests() =
 
   /// Where a branch goes: the registers after everything it does before it
   /// goes, the address it goes to, and the kind of jump it makes. Its jump out
-  /// of the instruction is turned into a call that records the target.
+  /// of the instruction is turned into a call that records the target, and
+  /// so is the end of the instruction, which goes on to the next one, so the
+  /// first call records where the branch went. A jump to one of two targets
+  /// has no kind, which it records as a plain jump.
   let taken isa addr hex given =
     let kinds = ResizeArray()
+    let jumpTo t =
+      let rt = Expr.typeOf t
+      AST.put (AST.tmpvar rt 900) (AST.app "JUMP" [ t ] rt)
     let stmts =
       liftedAt isa addr hex
       |> Array.map (function
         | InterJmp(Target = t; Kind = k) ->
           kinds.Add k
-          let rt = Expr.typeOf t
-          AST.put (AST.tmpvar rt 900) (AST.app "JUMP" [ t ] rt)
+          jumpTo t
+        | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
+          kinds.Add BinIR.InterJmpKind.Base
+          jumpTo (AST.ite c t f)
+        | IEMark(Length = len) ->
+          let rt = Expr.typeOf (var isa IAR)
+          jumpTo (AST.num (BitVector(u64 = addr + uint64 len, bitLen = rt)))
         | stmt ->
           stmt)
     let answer _ args = Some(List.head args)
