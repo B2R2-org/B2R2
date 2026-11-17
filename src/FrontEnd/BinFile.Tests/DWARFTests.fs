@@ -92,12 +92,16 @@ type DWARFTests() =
             CFA = RegPlusOffset(rsp, 8) }
       Augmentations = [] }
 
+  /// Interprets the given call frame instructions as those of an FDE of the
+  /// given CIE, and returns the last row they produce.
+  static let unwindWith cie (bytes: byte[]) =
+    let instrs = ReadOnlyMemory bytes
+    (FDE.parseCallFrameInstrs cie isa regFactory instrs 0UL).Value
+    |> List.last
+
   /// Interprets the given call frame instructions as those of an x64 FDE, and
   /// returns the last row they produce.
-  static let unwind (bytes: byte[]) =
-    let instrs = ReadOnlyMemory bytes
-    (FDE.parseCallFrameInstrs x64CIE isa regFactory instrs 0UL).Value
-    |> List.last
+  static let unwind bytes = unwindWith x64CIE bytes
 
   /// Asserts that the CFA of the given row is rsp plus n.
   static let assertCFA n (row: UnwindingEntry) =
@@ -110,6 +114,12 @@ type DWARFTests() =
     FDE.startsMidFrame (ReadOnlySpan bytes)
 
   let [<Literal>] DWCFANop = 0x00uy
+
+  let [<Literal>] DWCFAAdvanceLoc1 = 0x02uy
+
+  let [<Literal>] DWCFAAdvanceLoc2 = 0x03uy
+
+  let [<Literal>] DWCFAAdvanceLoc4 = 0x04uy
 
   let [<Literal>] DWCFAOffsetExtended = 0x05uy
 
@@ -228,6 +238,20 @@ type DWARFTests() =
     let rbx = NormalReg(DWRegister.toRegID isa 3uy)
     let saved = Map.tryFind rbx row.Rule
     Assert.AreEqual<UnwindingAction option>(Some(Offset -16L), saved)
+
+  [<TestMethod>]
+  member _.``[DWARF] advance of any size counts code units``() =
+    (* Where instructions are four bytes long, as on AArch64 and PowerPC, a
+       delta of three moves a row three instructions on, whichever operand
+       carries it. *)
+    let cie = { x64CIE with CodeAlignmentFactor = 4UL }
+    for bytes in
+      [ [| DWCFAAdvanceLoc ||| 3uy |]
+        [| DWCFAAdvanceLoc1; 3uy |]
+        [| DWCFAAdvanceLoc2; 3uy; 0uy |]
+        [| DWCFAAdvanceLoc4; 3uy; 0uy; 0uy; 0uy |] ] do
+      let row = unwindWith cie bytes
+      Assert.AreEqual<Addr>(12UL, row.Location, $"{bytes[0]}")
 
   [<TestMethod>]
   member _.``[DWARF] FDE that first advances starts at an entry``() =
