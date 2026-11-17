@@ -34,6 +34,23 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
   let initialValueProvider =
     defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
 
+  /// Returns what the given variable holds on entry. A slot of the frame of
+  /// the function, below where the stack pointer points on entry, holds
+  /// nothing that the function reads, as the function writes the slot before
+  /// it reads it. A way on which nothing writes the slot then never reaches a
+  /// read of it, as the way past a call that never returns, which the CFG
+  /// cannot tell, and the slot holds what the other ways write. A callee may
+  /// write the slot too, through a pointer to it, which counts as a write only
+  /// where the data flow tracks what calls clobber.
+  let getBaseCase (state: LowUIRSparseDataFlow.State<_>) = function
+    | StackLocal offset when offset < 0 && state.TracksCallClobbers ->
+      ConstantDomain.Undef
+    | varKind ->
+      match RegisterInitialValueProvider.tryGetInitialVarValue
+              initialValueProvider varKind with
+      | Some bv -> ConstantDomain.Const bv
+      | None -> ConstantDomain.NotAConst
+
   /// Checks if no definition in the function reaches the given use of the
   /// given variable, which then holds what it held on entry.
   let readsEntryValue (state: LowUIRSparseDataFlow.State<_>) pp vk =
@@ -133,11 +150,7 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<ConstantDomain.Lattice> with
-        member _.GetBaseCase varKind =
-          match RegisterInitialValueProvider.tryGetInitialVarValue
-                  initialValueProvider varKind with
-          | Some bv -> ConstantDomain.Const bv
-          | None -> ConstantDomain.NotAConst
+        member _.GetBaseCase varKind = getBaseCase state varKind
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =

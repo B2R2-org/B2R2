@@ -774,6 +774,30 @@ type DataFlowTests() =
     let zero = AddressDomain.Const(BitVector.Zero 64<rt>)
     Assert.AreEqual<AddressDomain.Lattice>(zero, addr)
 
+  /// A function writes a slot of its own before it reads the slot, so a way on
+  /// which nothing writes the slot is one on which the function never reads
+  /// it, as the way past a call that the CFG cannot tell never returns. The
+  /// slot holds what the other ways write.
+  [<TestMethod>]
+  member _.``Constant Propagation reads no slot along a way that skips it``() =
+    let brew =
+      [ "0111" (* c.addi sp, -32 *)
+        "19c1" (* c.beqz a0, 0x10008 *)
+        "9d45" (* c.li a1, 7 *)
+        "2ee4" (* c.sdsp a1, 8(sp) *)
+        "2265" (* 0x10008: c.ldsp a0, 8(sp) *)
+        "0561" (* c.addi sp, 32 *)
+        "8280" (* c.jr ra *) ]
+      |> String.concat ""
+      |> Binaries.loadRISCVAt 0x10000UL
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let a0 = FrontEnd.RISCV.Register.toRegID FrontEnd.RISCV.Register.X10
+    let vp = { ProgramPoint = ProgramPoint(0x10008UL, 1); VarKind = Regular a0 }
+    let seven = mkConst 7u 64<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(seven, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
