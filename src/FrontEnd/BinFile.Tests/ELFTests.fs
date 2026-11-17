@@ -429,6 +429,26 @@ type ELFTests() =
     stripBigEndian bytes
     ELFBinFile(fileName, bytes, None, None)
 
+  /// Writes the big-endian 32-bit unsigned integer at the given offset.
+  static let writeBigEndian32 (bytes: byte[]) offset (v: uint32) =
+    for i in 0 .. 3 do bytes[offset + i] <- byte (v >>> (24 - 8 * i))
+
+  /// Parses elf_ppc32_so with its PLT made the classic one: .plt, section 17,
+  /// executable and NOBITS, with room for a 72-byte header and three entries
+  /// of two words and a word each, which the three relocations of .rela.plt,
+  /// section 6, fill two words apart past the header.
+  static let parseClassicPLTPPC32 () =
+    let bytes = ZIPReader.readBytes ELFBinary "elf_ppc32_so.zip" "elf_ppc32_so"
+    let shdr idx = int (readBigEndian bytes 0x20 4) + idx * 40
+    let plt, relaPLT = shdr 17, shdr 6
+    writeBigEndian32 bytes (plt + 4) 8u (* SHT_NOBITS *)
+    writeBigEndian32 bytes (plt + 8) 7u (* SHF_WRITE|SHF_ALLOC|SHF_EXECINSTR *)
+    writeBigEndian32 bytes (plt + 20) 0x6cu (* sh_size *)
+    let relocs = int (readBigEndian bytes (relaPLT + 16) 4)
+    for i in 0 .. 2 do
+      writeBigEndian32 bytes (relocs + 12 * i) (0x20048u + 8u * uint32 i)
+    ELFBinFile("elf_ppc32_so", bytes, None, None)
+
   /// Returns the first symbol of the first dynamic symbol table.
   static let firstDynamicSymbol (file: ELFBinFile) =
     file.Symbols.DynamicSymbols[0]
@@ -1828,6 +1848,20 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1ff08UL)
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x1fff0UL)
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20000UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc32 classic PLT entries test``() =
+    (* The entries are two words apart, however wide the section is, as the
+       table that follows them takes a word per entry. *)
+    let expected =
+      [ "ext", Some 0x20048UL
+        "__cxa_finalize", Some 0x20050UL
+        "__gmon_start__", Some 0x20058UL ]
+    let entries =
+      getLinkageTableEntries (parseClassicPLTPPC32 ())
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
 
   [<TestMethod>]
   member _.``[ELF] ppc64 resolves RELATIVE and ADDR64 test``() =

@@ -938,19 +938,31 @@ type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
       | Some glinkAddr -> readPLTWithGLink toolBox glinkAddr
       | None -> NoOverlapIntervalMap.empty
 
+  let addBSSEntry map (reloc: RelocationEntry) =
+    let addr = reloc.RelOffset
+    let entry = makePLTEntry symbs addr addr reloc
+    NoOverlapIntervalMap.add (AddrRange.create addr (addr + 7UL)) entry map
+
+  /// Reads the PLT of the classic format, which code calls into. The file has
+  /// no bytes of it, as the dynamic linker writes each entry, two words that
+  /// branch to the function, past the 72 bytes it keeps for itself, and a
+  /// table of a word per entry follows the entries. The relocation that
+  /// fills an entry names it.
+  let parseBSSPLT () =
+    let rKind = RelocationKind.Create RelocationPPC32.R_PPC_JMP_SLOT
+    relocInfo.Entries
+    |> Seq.filter (fun r -> r.RelKind = rKind)
+    |> Seq.fold addBSSEntry NoOverlapIntervalMap.empty
+
   interface IPLTParsable with
     member _.ParseEntry(_, _, _, _, _, _) = Terminator.impossible ()
 
-    member _.ParseSection(toolBox, sec, map) =
-      let rKind = RelocationKind.Create RelocationPPC32.R_PPC_JMP_SLOT
-      let p = GeneralParser(shdrs, relocInfo, symbs, 0x48UL, rKind)
-      (p :> IPLTParsable).ParseSection(toolBox, sec, map)
+    member _.ParseSection(_, _, _) = Terminator.impossible ()
 
-    member this.Parse toolBox =
+    member _.Parse toolBox =
       match Array.tryFind (fun s -> s.SecName = Section.PLT) shdrs with
       | Some sec when sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR ->
-        (* The given binary uses the classic format. *)
-        parseSections this toolBox NoOverlapIntervalMap.empty [ sec ]
+        parseBSSPLT ()
       | _ ->
         parseWithGLink toolBox
 
