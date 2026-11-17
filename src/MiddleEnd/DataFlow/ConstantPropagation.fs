@@ -87,7 +87,8 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
   /// Loads a value of the given type from the given address, which the address
   /// domain does not know, as a register that holds no stack address gives
   /// it, e.g., gp in MIPS code: what the binary holds there if the address is
-  /// a constant in the GOT where only the loader writes. A register that
+  /// a constant in a GOT where only the loader writes, or in the code of
+  /// PowerPC, which reads its code through registers alone. A register that
   /// holds any other address may walk memory in a loop, and a CFG that still
   /// lacks the way back shows only the first pass, so the register looks
   /// constant while what it reads is not. An address that is not known yet
@@ -96,7 +97,7 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
   /// of an address that reads one: that no one knows it.
   let loadThroughRegister rt = function
     | ConstantDomain.Const addr ->
-      LoaderOnlyMemory.tryReadGOT hdl (addr.ToUInt64()) rt
+      LoaderOnlyMemory.tryReadThroughRegister hdl (addr.ToUInt64()) rt
       |> Option.map ConstantDomain.Const
       |> Option.defaultValue ConstantDomain.NotAConst
     | c ->

@@ -153,3 +153,40 @@ type PPCBinaryBrewTests() =
                                              patchGet code bytes)
     let callee = fns[0x4d4UL].Callees[LeafCallSite 0x4dcUL]
     Assert.AreEqual<CalleeKind>(RegularCallee 0x20048UL, callee)
+
+  (* 32-bit PIC reads the offset of .got2 that lies right before the code that
+     reads it, through the address that bcl 20,31,$+4 leaves in LR, and then
+     the address of a table from a slot of .got2, which the loader rebases.
+     The relocation of the slot at 0x1ff20 here points to the table, which
+     lies right after the jump. *)
+  [<TestMethod>]
+  member _.``A table is read through the slot of .got2 that holds it``() =
+    let code =
+      [ "48000008" (* b 0x4dc *)
+        "00027a20" (* 0x4d8: .long 0x27f04 - 0x4e4 *)
+        "7d8802a6" (* mflr r12 *)
+        "429f0005" (* bcl 20,31,0x4e4 *)
+        "7fc802a6" (* 0x4e4: mflr r30 *)
+        "7d8803a6" (* mtlr r12 *)
+        "801efff4" (* lwz r0,-12(r30) *)
+        "7fc0f214" (* add r30,r0,r30 *)
+        "28030001" (* cmplwi r3,1 *)
+        "41810030" (* bgt 0x528 *)
+        "813e801c" (* lwz r9,-32740(r30) *)
+        "5463103a" (* slwi r3,r3,2 *)
+        "7c69182e" (* lwzx r3,r9,r3 *)
+        "7d234a14" (* add r9,r3,r9 *)
+        "7d2903a6" (* mtctr r9 *)
+        "4e800420" (* bctr *)
+        "00000008" (* 0x514: .long 0x51c - 0x514 *)
+        "00000010" (* .long 0x524 - 0x514 *)
+        "38600000" (* 0x51c: li r3,0 *)
+        "4e800020" (* blr *)
+        "38600001" (* 0x524: li r3,1 *)
+        "4e800020" (* blr *) ]
+    let patch bytes =
+      writeWord bytes (0x268 + 6 * 12 + 8) 0x514u (* r_addend of 0x1ff20 *)
+      patchGet code bytes
+    let fns = recoverPatchedSO patch
+    let entries = fns[0x4d4UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
