@@ -434,6 +434,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
            RelAddend = target })
       when kind = uint64 RelocationX64.R_X86_64_RELATIVE && target <> 0UL ->
       Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
+    | Ok({ RelKind = RelocationKind(MachineType.EM_PPC, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationPPC32.R_PPC_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
+    | Ok({ RelKind = RelocationKind(MachineType.EM_PPC64, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationPPC64.R_PPC64_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
     | _ ->
       Error ErrorCase.ItemNotFound
 

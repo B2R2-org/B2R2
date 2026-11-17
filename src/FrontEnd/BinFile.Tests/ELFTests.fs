@@ -1850,6 +1850,19 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20000UL)
 
   [<TestMethod>]
+  member _.``[ELF] PowerPC resolved relocation value test``() =
+    (* .got2 of ppc32 and the RELATIVE slots of ppc64 lie in the range that
+       GNU_RELRO protects, but a variable in .data can be overwritten. *)
+    let ppc32 = (ppc32SoFile :> IBinFile).Relocations.Value
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x20010UL))
+                          (ppc32.TryResolveRelocationValue 0x1ff20UL)
+    assertRelocationValue (Error ErrorCase.ItemNotFound)
+                          (ppc32.TryResolveRelocationValue 0x2000cUL)
+    let ppc64 = (ppc64SoFile :> IBinFile).Relocations.Value
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x1fed0UL))
+                          (ppc64.TryResolveRelocationValue 0x1fca8UL)
+
+  [<TestMethod>]
   member _.``[ELF] ppc32 classic PLT entries test``() =
     (* The entries are two words apart, however wide the section is, as the
        table that follows them takes a word per entry. *)
