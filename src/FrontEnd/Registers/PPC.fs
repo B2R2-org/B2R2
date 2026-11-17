@@ -640,6 +640,11 @@ module Register =
     | "cr7_1" -> Register.CR7_1
     | "cr7_2" -> Register.CR7_2
     | "cr7_3" -> Register.CR7_3
+    | "fpscr" -> Register.FPSCR
+    | "xer" -> Register.XER
+    | "lr" -> Register.LR
+    | "ctr" -> Register.CTR
+    | "pvr" -> Register.PVR
     | "res" -> Register.RES
     | "iar" -> Register.IAR
     | "exmonaddr" -> Register.ExMonAddr
@@ -913,6 +918,11 @@ module Register =
     | Register.CR7_1 -> "cr7_1"
     | Register.CR7_2 -> "cr7_2"
     | Register.CR7_3 -> "cr7_3"
+    | Register.FPSCR -> "fpscr"
+    | Register.XER -> "xer"
+    | Register.LR -> "lr"
+    | Register.CTR -> "ctr"
+    | Register.PVR -> "pvr"
     | Register.RES -> "res"
     | Register.IAR -> "iar"
     | Register.ExMonAddr -> "exmonaddr"
