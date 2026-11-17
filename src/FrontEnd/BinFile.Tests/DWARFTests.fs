@@ -40,6 +40,9 @@ type private InvalidDWExpr = DWExpression.InvalidDWInstructionExpException
 /// Represents the RISCV registers under a shorter name.
 type private RISCVReg = B2R2.FrontEnd.RISCV.Register
 
+/// Represents the PowerPC registers under a shorter name.
+type private PPCReg = B2R2.FrontEnd.PPC.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -273,3 +276,19 @@ type DWARFTests() =
       let isa = ISA(Architecture.RISCV, Endian.Little, wordSize)
       Assert.AreEqual<RegisterID>(sp, DWRegister.toRegID isa 2uy)
       Assert.AreEqual<RegisterID>(f1, DWRegister.toRegID isa 33uy)
+
+  [<TestMethod>]
+  member _.``[DWARF] PPC registers are numbered alike at both widths``() =
+    (* GCC and LLVM number LR 65 and the fields of CR from 68 in .eh_frame,
+       and the vector registers from 77, where clang saves v31 as 108. *)
+    let rid reg = B2R2.FrontEnd.PPC.Register.toRegID reg
+    let numbers =
+      [ 1uy, PPCReg.R1
+        63uy, PPCReg.F31
+        65uy, PPCReg.LR
+        70uy, PPCReg.CR2
+        108uy, PPCReg.V31A ]
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.PPC, Endian.Big, wordSize)
+      for n, reg in numbers do
+        Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")

@@ -150,8 +150,25 @@ let private toMIPSRegister (n: byte) =
 let private toRISCVRegister (n: byte) =
   RISCV.Register.toRegID (EnumOfValue(int n))
 
-let private toPPC32Register (n: byte) =
-  PPC.Register.toRegID (EnumOfValue(int n))
+/// Gives the PowerPC register the given number of places past the first one.
+let private ppcRegisterPast (first: PPC.Register) places =
+  PPC.Register.toRegID (EnumOfValue(int first + places))
+
+/// Maps the numbers that GCC and LLVM give PowerPC registers in .eh_frame,
+/// at either width: r0 to r31 and then f0 to f31, as the enumeration lays them
+/// out, LR at 65, CTR at 66, the fields of CR from 68, XER at 76, and then
+/// the vector registers, each held by its high half here, VRSAVE and VSCR.
+let private toPPCRegister (n: byte) =
+  match int n with
+  | n when n < 64 -> ppcRegisterPast PPC.Register.R0 n
+  | 65 -> PPC.Register.toRegID PPC.Register.LR
+  | 66 -> PPC.Register.toRegID PPC.Register.CTR
+  | n when n >= 68 && n <= 75 -> ppcRegisterPast PPC.Register.CR0 (n - 68)
+  | 76 -> PPC.Register.toRegID PPC.Register.XER
+  | n when n >= 77 && n <= 108 -> ppcRegisterPast PPC.Register.V0A (2 * n - 154)
+  | 109 -> PPC.Register.toRegID PPC.Register.VRSAVE
+  | 110 -> PPC.Register.toRegID PPC.Register.VSCR
+  | _ -> Terminator.futureFeature ()
 
 let private toSH4Register (n: byte) = SH4.Register.toRegID (EnumOfValue(int n))
 
@@ -162,7 +179,7 @@ let toRegID isa regnum =
   | AArch64 -> toAArch64Register regnum
   | MIPS -> toMIPSRegister regnum
   | RISCV -> toRISCVRegister regnum
-  | PPC32 -> toPPC32Register regnum
+  | PPC -> toPPCRegister regnum
   | SH4 -> toSH4Register regnum
   | _ -> Terminator.futureFeature ()
 
