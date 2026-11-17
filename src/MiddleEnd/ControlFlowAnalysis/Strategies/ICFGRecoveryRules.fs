@@ -81,6 +81,14 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   /// its own code shows that no function starts there.
   abstract RefutesEntry: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
+  /// Checks if what the function of the given context reads as a call to the
+  /// given callee refutes itself: no function starts at the callee, so no
+  /// instruction that calls it starts where the call reads.
+  abstract RefutesCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * callee: Addr
+    -> bool
+
   /// Checks if the conditional jump at jmpAddr calls the function at target as
   /// its tail.
   abstract IsCondTailCall:

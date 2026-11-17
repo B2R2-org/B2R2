@@ -359,6 +359,12 @@ module internal CFGRecoveryCommon =
     | _ ->
       ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr)
 
+  /// Checks if the given action calls the given callee where the rules refute
+  /// that any call leads.
+  let refutesCall ctx (rules: ICFGRecoveryRules<_, _>) calleeAddr = function
+    | MakeCall _ -> rules.RefutesCallee(ctx, calleeAddr)
+    | _ -> false
+
   let handleResolvedCall ctx cfgRec callerPPoint callsite calleeAddr action =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let actionQueue = ctx.ActionQueue
@@ -399,7 +405,8 @@ module internal CFGRecoveryCommon =
       addCallerVertex ctx callsite srcVertex
       pushAction ctx <| MakeIndCall(callsite)
       MoveOn
-    elif isExecutableAddr ctx calleeAddr then
+    elif isExecutableAddr ctx calleeAddr
+         && not (refutesCall ctx rules calleeAddr action) then
       handleResolvedCall ctx cfgRec srcBBL.PPoint callsite calleeAddr action
     else
       FailStop ErrorCase.FailedToRecoverCFG

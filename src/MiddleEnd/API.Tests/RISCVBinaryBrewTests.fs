@@ -395,3 +395,33 @@ type RISCVBinaryBrewTests() =
     CollectionAssert.AreEqual([| 0x08UL, 5 |], tables)
     let fnAddrs = fns.Addresses |> Seq.sort |> Seq.toArray
     CollectionAssert.AreEqual([| 0UL; 0x64UL |], fnAddrs)
+
+  (* The word past the table, read as its third entry, sends the jump to a
+     call into the frame of _start, past where its FDE starts, so no function
+     starts there and no call leads there. Such a call is what RVC reads in
+     the upper half of an instruction that the recovery has yet to reach, as a
+     table read past its end leads into it before the code that holds it. *)
+  [<TestMethod>]
+  member _.``An entry that calls into a frame is past its table``() =
+    let code =
+      [ "97070000" (* auipc a5, 0x0 *)
+        "93874703" (* addi a5, a5, 52 *)
+        "0a05" (* c.slli a0, 0x2 *)
+        "3e95" (* c.add a0, a5 *)
+        "0841" (* c.lw a0, 0(a0) *)
+        "3e95" (* c.add a0, a5 *)
+        "0285" (* c.jr a0 *)
+        "0145" (* c.li a0, 0 *)
+        "8280" (* c.jr ra *)
+        "0545" (* c.li a0, 1 *)
+        "8280" (* c.jr ra *)
+        "eff03ff1" (* 0x74e: jal ra, 0x660 *)
+        "8280" (* c.jr ra *) ]
+    let rodata =
+      [ "deffffff" (* .word 0x746 - 0x768 *)
+        "e2ffffff" (* .word 0x74a - 0x768 *)
+        "e6ffffff" (* .word 0x74e - 0x768 *) ]
+    let fns = recoverPatched 0x734 code (String.concat "" rodata)
+    let entries = fns[0x734UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+    CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x660UL)
