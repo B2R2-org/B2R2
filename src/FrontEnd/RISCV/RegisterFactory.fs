@@ -719,7 +719,10 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases _rid = Terminator.futureFeature ()
+    member _.GetRegisterIDAliases rid =
+      Register.ofRegID rid
+      |> RegisterHelper.getAliases
+      |> Array.map Register.toRegID
 
     member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
@@ -733,6 +736,6 @@ type RegisterFactory(isa: ISA) =
 
     member _.IsProgramCounter rid = Register.toRegID Register.PC = rid
 
-    member _.IsStackPointer rid = Register.toRegID Register.X30 = rid
+    member _.IsStackPointer rid = Register.toRegID Register.X2 = rid
 
-    member _.IsFramePointer rid = Register.toRegID Register.X29 = rid
+    member _.IsFramePointer rid = Register.toRegID Register.X8 = rid

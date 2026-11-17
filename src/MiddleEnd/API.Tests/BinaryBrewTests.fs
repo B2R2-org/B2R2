@@ -972,6 +972,32 @@ type BinaryBrewTests() =
     Assert.AreNotEqual<int>(0, contexts.Length)
     Assert.AreEqual<Addr list>([], tracking)
 
+  /// GAS hands the address of an object on its stack to a callee that fills
+  /// it, and reads the index of a switch from the object, whose range check
+  /// would read what the object held before the call. A call of RISCV code
+  /// forgets the slots that its callee may write, without a summary of what
+  /// each function writes, which costs more than the slots that it spares.
+  [<TestMethod>]
+  member _.``BinaryBrew forgets slots past RISCV calls without summaries``() =
+    let bytes = readZippedBinary "elf_riscv64"
+    let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
+    let brew = BinaryBrew(BinHandle.LoadFileBytes(bytes, isa))
+    let contexts =
+      brew.Builders.Values
+      |> Array.choose (function
+        | :? ICFGBuildable<DummyContext, DummyContext> as builder
+          when builder.BuilderState = Finished -> Some builder.Context
+        | _ -> None)
+    let missing =
+      contexts
+      |> Array.filter (fun ctx ->
+        not ctx.CP.State.TracksCallClobbers
+        || ctx.PointerWrites <> UnknownPointerWrites)
+      |> Array.map (fun ctx -> ctx.FunctionAddress)
+      |> Array.toList
+    Assert.AreNotEqual<int>(0, contexts.Length)
+    Assert.AreEqual<Addr list>([], missing)
+
   [<TestMethod>]
   member _.``BinaryBrew records the callers of an external function``() =
     let fns = recoverFunctions "elf_x64_noplt"

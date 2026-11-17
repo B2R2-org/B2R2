@@ -171,16 +171,17 @@ let private isNamedOn wordSize (opcode: Opcode) =
 /// <summary>
 /// Every mnemonic the given XLEN has, paired with the opcode it names.
 ///
-/// The one compressed instruction named here is the one that does nothing at
-/// all, which has no full-width counterpart: what the disassembler writes for
-/// it is a name the full-width instruction set does not have.
+/// The two compressed instructions named here are the one that does nothing
+/// at all and the illegal one, which have no full-width counterparts: what the
+/// disassembler writes for them are names the full-width instruction set does
+/// not have.
 /// </summary>
 let opcodesFor wordSize =
   Enum.GetValues typeof<Opcode>
   |> Seq.cast<Opcode>
   |> Seq.filter (isNamedOn wordSize)
   |> Seq.map (fun opcode -> nameOf opcode, opcode)
-  |> Seq.append [ "nop", Opcode.CdotNOP ]
+  |> Seq.append [ "nop", Opcode.CdotNOP; "unimp", Opcode.CdotUNIMP ]
   |> Seq.distinctBy fst
   |> Map.ofSeq
 

@@ -81,6 +81,14 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
   /// its own code shows that no function starts there.
   abstract RefutesEntry: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
+  /// Checks if what the function of the given context reads as a call to the
+  /// given callee refutes itself: no function starts at the callee, so no
+  /// instruction that calls it starts where the call reads.
+  abstract RefutesCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * callee: Addr
+    -> bool
+
   /// Checks if the conditional jump at jmpAddr calls the function at target as
   /// its tail.
   abstract IsCondTailCall:
@@ -133,13 +141,29 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * idx: int
     -> bool
 
+  /// Checks if a call in the function of the given context forgets the stack
+  /// slots that its callee may write through the pointers that it gets, lest
+  /// the function read what a slot held before the call. Without a summary of
+  /// what the callee writes, the callee may write any slot from where a pointer
+  /// points up to the first slot above that saves a register.
+  abstract ForgetsWrittenSlots: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
   /// Checks if the recovery follows what functions write through the pointers
   /// that they get, as it builds the function of the given context, so that
-  /// callers forget the stack slots that their callees write there. Following
-  /// them costs a summary of every function, which the recovery computes one
-  /// function at a time as callers need them, so only the rules of an
-  /// architecture whose code needs it follow them.
+  /// callers forget only the stack slots that their callees write there.
+  /// Following them costs a summary of every function, which the recovery
+  /// computes one function at a time as callers need them, so only the rules
+  /// of an architecture whose code needs it follow them.
   abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
+  /// Checks if the code of the function that the given context builds folds a
+  /// negative offset of the index of a jump table into the displacement of the
+  /// load that reads an entry, as a compiler folds the smallest value of a
+  /// switch, so that the table starts at the base that the load adds the
+  /// displacement to. Elsewhere, a negative displacement may lead from a base
+  /// that is no table, as x86 PIC code reads a table at one from the GOT.
+  abstract FoldsIndexOffsetIntoLoad:
+    CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
   /// Checks if the function that the given context has built needs building
   /// again, as its code refutes what the building took for granted. Before it

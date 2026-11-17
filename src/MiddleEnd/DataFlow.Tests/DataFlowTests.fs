@@ -735,6 +735,69 @@ type DataFlowTests() =
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, loaded)
     Assert.AreEqual<ConstantDomain.Lattice option>(expected, slot)
 
+  /// RISCV reads zero from x0, whose initial value no instruction replaces.
+  [<TestMethod>]
+  member _.``Constant Propagation reads the RISCV zero register as zero``() =
+    (* c.li a0, 6 ; c.jr ra *)
+    let brew = Binaries.loadRISCVAt 0x10000UL "19458280"
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let a0 = FrontEnd.RISCV.Register.X10
+    let a0 = Regular(FrontEnd.RISCV.Register.toRegID a0)
+    let vp = { ProgramPoint = ProgramPoint(0x10000UL, 1); VarKind = a0 }
+    let six = mkConst 6u 64<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
+
+  /// RISCV puts x0 onto itself at every jump that links nothing, which leaves
+  /// what x0 holds as it is, so x0 is still zero where such a jump meets the
+  /// way around it.
+  [<TestMethod>]
+  member _.``Address domain keeps the RISCV zero register past a jump``() =
+    let brew =
+      [ "19c1" (* c.beqz a0, 0x10006 *)
+        "8545" (* c.li a1, 1 *)
+        "11a0" (* c.j 0x10008 *)
+        "8945" (* c.li a1, 2 *)
+        "91c1" (* 0x10008: c.beqz a1, 0x1000c *)
+        "0145" (* c.li a0, 0 *)
+        "8280" (* c.jr ra *) ]
+      |> String.concat ""
+      |> Binaries.loadRISCVAt 0x10000UL
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    let state = cp.State
+    let x0 = FrontEnd.RISCV.Register.toRegID FrontEnd.RISCV.Register.X0
+    let x0Var = brew.BinHandle.RegisterFactory.GetRegVar x0
+    let addr = state.EvaluateAddressExpr(ProgramPoint(0x10008UL, 1), x0Var)
+    let zero = AddressDomain.Const(BitVector.Zero 64<rt>)
+    Assert.AreEqual<AddressDomain.Lattice>(zero, addr)
+
+  /// A function writes a slot of its own before it reads the slot, so a way on
+  /// which nothing writes the slot is one on which the function never reads
+  /// it, as the way past a call that the CFG cannot tell never returns. The
+  /// slot holds what the other ways write.
+  [<TestMethod>]
+  member _.``Constant Propagation reads no slot along a way that skips it``() =
+    let brew =
+      [ "0111" (* c.addi sp, -32 *)
+        "19c1" (* c.beqz a0, 0x10008 *)
+        "9d45" (* c.li a1, 7 *)
+        "2ee4" (* c.sdsp a1, 8(sp) *)
+        "2265" (* 0x10008: c.ldsp a0, 8(sp) *)
+        "0561" (* c.addi sp, 32 *)
+        "8280" (* c.jr ra *) ]
+      |> String.concat ""
+      |> Binaries.loadRISCVAt 0x10000UL
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let a0 = FrontEnd.RISCV.Register.toRegID FrontEnd.RISCV.Register.X10
+    let vp = { ProgramPoint = ProgramPoint(0x10008UL, 1); VarKind = Regular a0 }
+    let seven = mkConst 7u 64<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(seven, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2

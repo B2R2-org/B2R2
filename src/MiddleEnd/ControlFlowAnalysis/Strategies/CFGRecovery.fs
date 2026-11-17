@@ -181,6 +181,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
   let mipsRules = MIPSCFGRecoveryRules<'FnCtx, 'GlCtx>()
 
+  let riscvRules = RISCVCFGRecoveryRules<'FnCtx, 'GlCtx>()
+
   /// Returns the rules for the architecture of the binary that the given
   /// context builds a function of. The binary tells, rather than the ISA that
   /// the strategy may be made with, as a strategy made without one serves a
@@ -190,6 +192,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     | Intel -> intelRules :> ICFGRecoveryRules<_, _>
     | ARM32 -> arm32Rules :> ICFGRecoveryRules<_, _>
     | MIPS -> mipsRules :> ICFGRecoveryRules<_, _>
+    | RISCV -> riscvRules :> ICFGRecoveryRules<_, _>
     | _ -> defaultRules :> ICFGRecoveryRules<_, _>
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
@@ -226,7 +229,10 @@ type CFGRecovery<'FnCtx, 'GlCtx
                action
 
     member _.OnCreate ctx =
-      ctx.TracksPointerWrites <- (rulesOf ctx).TracksPointerWrites ctx
+      let rules = rulesOf ctx
+      ctx.ForgetsWrittenSlots <- rules.ForgetsWrittenSlots ctx
+      ctx.TracksPointerWrites <- rules.TracksPointerWrites ctx
+      ctx.FoldsIndexOffsetIntoLoad <- rules.FoldsIndexOffsetIntoLoad ctx
 
     member _.OnFinish ctx = onFinish ctx this (rulesOf ctx) postAnalysis
 

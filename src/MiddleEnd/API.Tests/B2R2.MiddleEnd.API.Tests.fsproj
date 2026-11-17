@@ -18,6 +18,7 @@
     <Compile Include="ARMBinaryBrewTests.fs" />
     <Compile Include="AArch64BinaryBrewTests.fs" />
     <Compile Include="MIPSBinaryBrewTests.fs" />
+    <Compile Include="RISCVBinaryBrewTests.fs" />
     <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
 

@@ -164,6 +164,14 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// its own code shows that no function starts there.
   abstract RefutesEntry: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
+  /// Checks if what the function of the given context reads as a call to the
+  /// given callee refutes itself: no function starts at the callee, so no
+  /// instruction that calls it starts where the call reads.
+  abstract RefutesCallee:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * callee: Addr
+    -> bool
+
   /// Checks if the conditional jump at jmpAddr calls the function at target as
   /// its tail.
   abstract IsCondTailCall:
@@ -207,9 +215,19 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * idx: int
     -> bool
 
+  /// Checks if a call in the function of the given context forgets the stack
+  /// slots that its callee may write through the pointers that it gets.
+  abstract ForgetsWrittenSlots: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
   /// Checks if the recovery follows what functions write through the pointers
   /// that they get, as it builds the function of the given context.
   abstract TracksPointerWrites: CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
+
+  /// Checks if the code of the function that the given context builds folds a
+  /// negative offset of the index of a jump table into the displacement of the
+  /// load that reads an entry.
+  abstract FoldsIndexOffsetIntoLoad:
+    CFGBuildingContext<'FnCtx, 'GlCtx> -> bool
 
   /// Checks if the function that the given context has built needs building
   /// again.
@@ -234,6 +252,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Refutes no guess on what the guessed function itself shows.
   default _.RefutesEntry _ = false
 
+  /// Refutes no call.
+  default _.RefutesCallee(_, _) = false
+
   /// Checks if the jump leaves for the entry of another function with its own
   /// frame torn down.
   default _.IsCondTailCall(ctx, jmpAddr, target) =
@@ -257,8 +278,17 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// as a range check may admit fewer entries than a compiler emits.
   default _.EndsJumpTableBefore(_, _, _) = false
 
-  /// Follows none, which keeps every stack slot across every call.
+  /// Forgets them where the recovery follows pointer writes, as the summaries
+  /// serve only callers that forget what their callees write, and keeps every
+  /// stack slot across every call elsewhere.
+  default this.ForgetsWrittenSlots ctx = this.TracksPointerWrites ctx
+
+  /// Follows none.
   default _.TracksPointerWrites _ = false
+
+  /// Folds none, so a table starts where the load reads the entry of index
+  /// zero.
+  default _.FoldsIndexOffsetIntoLoad _ = false
 
   /// Finds nothing in a built function that calls for building it again.
   default _.RequiresRebuild _ = false
@@ -276,6 +306,8 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       this.RefutesTailCall(ctx, callee)
 
     member this.RefutesEntry ctx = this.RefutesEntry ctx
+
+    member this.RefutesCallee(ctx, callee) = this.RefutesCallee(ctx, callee)
 
     member this.IsCondTailCall(ctx, jmpAddr, target) =
       this.IsCondTailCall(ctx, jmpAddr, target)
@@ -295,7 +327,12 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     member this.EndsJumpTableBefore(ctx, jmptbl, idx) =
       this.EndsJumpTableBefore(ctx, jmptbl, idx)
 
+    member this.ForgetsWrittenSlots ctx = this.ForgetsWrittenSlots ctx
+
     member this.TracksPointerWrites ctx = this.TracksPointerWrites ctx
+
+    member this.FoldsIndexOffsetIntoLoad ctx =
+      this.FoldsIndexOffsetIntoLoad ctx
 
     member this.RequiresRebuild ctx = this.RequiresRebuild ctx
 

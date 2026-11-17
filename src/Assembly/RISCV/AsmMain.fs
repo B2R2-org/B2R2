@@ -55,12 +55,15 @@ let buildEncoderTable wordSize =
 /// <summary>
 /// How many bytes an instruction takes.
 ///
-/// Every instruction this assembler writes is a word wide but one: the
-/// instruction that does nothing, which the full-width instruction set has no
-/// name of its own for, so what is written for it is the compressed form that
-/// does have one.
+/// Every instruction this assembler writes is a word wide but two: the
+/// instruction that does nothing and the illegal one, which the full-width
+/// instruction set has no names of their own for, so what is written for them
+/// are the compressed forms that do have them.
 /// </summary>
-let private lengthOf ins = if ins.Opcode = Op.CdotNOP then 2 else 4
+let private lengthOf ins =
+  match ins.Opcode with
+  | Op.CdotNOP | Op.CdotUNIMP -> 2
+  | _ -> 4
 
 /// Where each instruction of a source sits, and after the last of them the
 /// place just past it, which is where a label written below everything marks.

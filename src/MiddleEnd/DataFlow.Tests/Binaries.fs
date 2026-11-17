@@ -51,6 +51,14 @@ let loadMIPSAt baseAddr (hex: string) =
   let hdl = BinHandle.LoadRawImage(code, ISA "mips32", baseAddr, OS.Linux)
   BinaryBrew hdl
 
+/// Loads the given little-endian RV64 code at the given address, written as
+/// the hex of its bytes.
+let loadRISCVAt baseAddr (hex: string) =
+  let code = ByteArray.ofHexString hex
+  let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
+  let hdl = BinHandle.LoadRawImage(code, isa, baseAddr, OS.Linux)
+  BinaryBrew hdl
+
 /// The directory of the ELF fixtures, which live next to the BinFile tests.
 let private elfDir =
   AppDomain.CurrentDomain.BaseDirectory

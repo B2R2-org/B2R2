@@ -45,3 +45,12 @@ type IJmpTableAnalyzable<'FnCtx, 'GlCtx> =
      * jmptbl: JmpTableInfo
      * addr: Addr
     -> bool
+
+  /// Checks if the indirect branches of the given tables select the same entry
+  /// whatever value the variable that indexes them holds: the same variable
+  /// indexes both, and selects the same entry when it is zero.
+  abstract SharesIndex:
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * jmptbl: JmpTableInfo
+     * other: JmpTableInfo
+    -> bool

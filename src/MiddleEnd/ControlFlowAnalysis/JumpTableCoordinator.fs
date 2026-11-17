@@ -239,6 +239,15 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
     | _ ->
       false
 
+  /// Checks if the given target lies past the given function, within the
+  /// section that holds the function, which ends the function when no other
+  /// is known to follow it.
+  let isWithinSectionOf fnAddr target =
+    let file = builders[fnAddr].Context.BinHandle.File
+    match BinFileOps.tryFindSectionByAddr file fnAddr with
+    | Ok sec -> fnAddr < target && target < sec.Address + sec.Size
+    | Error _ -> false
+
   let isExpandable fnAddr tblAddr nextJumpTarget isFPTab =
     match builders[fnAddr].NextFunctionAddress with
     | Some nextFnAddr ->
@@ -250,7 +259,7 @@ type JumpTableCoordinator<'FnCtx, 'GlCtx>
       || (fnAddr < nextJumpTarget && nextJumpTarget <= nextFnAddr)
       || isWithinFragment fnAddr tblAddr nextJumpTarget
     | None ->
-      false
+      isWithinSectionOf fnAddr nextJumpTarget
 
   let confirm fnAddr tblAddr idx nextJumpTarget isFPTab =
 #if CFGDEBUG

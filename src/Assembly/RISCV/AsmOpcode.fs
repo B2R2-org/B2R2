@@ -290,8 +290,9 @@ let private fenceForm ins =
 /// The fence that keeps every access in the order it was written is written
 /// under a name of its own rather than as the two names it would otherwise
 /// take, and so is the one that reaches the instructions rather than the data.
-/// The instruction that does nothing has no full-width form the disassembler
-/// writes under that name, so what is encoded for it is the compressed one.
+/// The instruction that does nothing and the illegal one have no full-width
+/// forms the disassembler writes under their names, so what is encoded for
+/// them are the compressed ones.
 /// </summary>
 let systemEncoders () =
   [ Op.FENCE, fenceForm
@@ -300,6 +301,7 @@ let systemEncoders () =
     Op.ECALL, wordForm (iType OpSystem 0u 0u 0u 0u)
     Op.EBREAK, wordForm (iType OpSystem 0u 0u 0u 1u)
     Op.CdotNOP, wordForm 1u
+    Op.CdotUNIMP, wordForm 0u
     Op.CSRRW, csrRegForm 1u
     Op.CSRRS, csrRegForm 2u
     Op.CSRRC, csrRegForm 3u

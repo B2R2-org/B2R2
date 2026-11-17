@@ -528,7 +528,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Tells whether a call defines the stack slots that its callee may write
   /// through the pointers that the call hands it, as the summary of the callee
   /// tells. It holds unless a client turns it off, which keeps every slot
-  /// across every call.
+  /// across every call. A slot that a callee writes then has no definition in
+  /// the function, so it holds whatever it held on entry.
   member val TracksCallClobbers = true with get, set
 
   /// Maps an SSA variable to its corresponding variable point.
@@ -711,7 +712,9 @@ and IScheme<'Lattice when 'Lattice: equality> =
   /// Returns the abstract value of a variable that the function never defines,
   /// i.e. one that comes in from the outside. Such a variable never receives a
   /// definition that would raise a bottom, so this must be a sound
-  /// over-approximation.
+  /// over-approximation, unless the function never reads the variable before
+  /// it defines it, as a slot of its own frame, where a bottom lets the way
+  /// that never defines it give way to the others.
   abstract GetBaseCase: VarKind -> 'Lattice
 
 [<AutoOpen>]
@@ -1273,6 +1276,11 @@ module internal AnalysisCore = begin
       let varKind = VarKind.ofIRExpr dst
       let currConst =
         match varKind with
+        | Regular _ when src = dst ->
+          (* A register that the code puts onto itself keeps what it holds,
+             as the zero register of RISCV does at every jump that links
+             nothing, where the lifter puts it onto itself. *)
+          state.EvaluateAddressExpr(pp, src) |> Some
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
           state.EvaluateAddressExpr(pp, src)
           |> AddressDomain.holdInStackPointer

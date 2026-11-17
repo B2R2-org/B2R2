@@ -691,6 +691,9 @@ let parseCdotNOPADDI bin wordSize =
 
 let parseQuadrant0 bin wordSize =
   match Bits.extract bin 15u 13u with
+  (* Compilers pad code with the illegal halfword where control never comes,
+     such as after a call that never returns. *)
+  | 0b000u when bin = 0u -> struct (Op.CdotUNIMP, NoOperand)
   | 0b000u -> parseCdotADDI4SPN bin
   | 0b001u
   | 0b010u
