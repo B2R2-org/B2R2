@@ -190,13 +190,52 @@ let private getAddrsFromPDR toolBox shdrs =
   | _ ->
     [||]
 
+/// Returns the .opd section of the given file, if it calls its functions
+/// through the descriptors there, as 64-bit PowerPC code under ELFv1 does.
+let tryFindOPD (hdr: Header) shdrs =
+  if hdr.MachineType = MachineType.EM_PPC64 then
+    Array.tryFind (fun s -> s.SecName = Section.OPD) shdrs
+  else
+    None
+
+/// Reads the address of the code of the function whose descriptor lies at the
+/// given address of the given .opd section: the first doubleword of the
+/// descriptor holds it, or its relocation computes it where the file holds
+/// zero there.
+let tryReadOPDEntry toolBox relocInfo (opd: SectionHeader) addr =
+  if addr < opd.SecAddr || addr + 8UL > opd.SecAddr + opd.SecSize then
+    None
+  else
+    let ofs = int (opd.SecOffset + addr - opd.SecAddr)
+    match toolBox.Reader.ReadUInt64(toolBox.Bytes, ofs) with
+    | 0UL -> computeRelocationValue toolBox relocInfo addr |> Result.toOption
+    | entry -> Some(entry + toolBox.BaseAddress)
+
+/// Returns the function addresses that the descriptors in .opd hold, three
+/// doublewords each, the first of which is the address of the code.
+let private getAddrsFromOPD toolBox shdrs relocInfo =
+  match tryFindOPD toolBox.Header shdrs with
+  | Some opd ->
+    let isCode addr =
+      shdrs
+      |> Array.exists (fun s ->
+        s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
+        && s.SecAddr <= addr && addr < s.SecAddr + s.SecSize)
+    [| for addr in opd.SecAddr .. 24UL .. opd.SecAddr + opd.SecSize - 1UL do
+         match tryReadOPDEntry toolBox relocInfo opd addr with
+         | Some entry when isCode entry -> entry
+         | _ -> () |]
+  | None ->
+    [||]
+
 let findExtraFnAddrs toolBox shdrs relocInfo =
   let fromArray = getAddrsFromFuncArray toolBox shdrs relocInfo
   [ fromArray Section.PreinitArray
     fromArray Section.InitArray
     fromArray Section.FiniArray
     getAddrsFromSpecialSections shdrs
-    getAddrsFromPDR toolBox shdrs ]
+    getAddrsFromPDR toolBox shdrs
+    getAddrsFromOPD toolBox shdrs relocInfo ]
   |> Array.concat
 
 let private computeInvalidRanges wordSize phdrs getNextStartAddr =

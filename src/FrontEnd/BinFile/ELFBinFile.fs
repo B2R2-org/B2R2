@@ -209,6 +209,19 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some entry when entry.TrampolineAddress = Some addr -> Ok entry.Name
           | _ -> Error e }
 
+  let opd = lazy tryFindOPD hdr shdrs.Value
+
+  /// Turns the address of the descriptor of a function, which a symbol of a
+  /// function and the entry point name under ELFv1 of 64-bit PowerPC, into
+  /// the address of its code.
+  let toCodeAddr addr =
+    match opd.Value with
+    | Some sec when sec.SecAddr <= addr && addr < sec.SecAddr + sec.SecSize ->
+      tryReadOPDEntry toolBox relocs.Value sec addr
+      |> Option.defaultValue addr
+    | _ ->
+      addr
+
   let functionAddrs =
     lazy
       let staticFuncs =
@@ -221,6 +234,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
               else () |]
       let extraFuncs = findExtraFnAddrs toolBox shdrs.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
+      |> Array.map toCodeAddr
       |> Array.distinct
       |> Array.sort
       |> ImmutableArray.ofArray
@@ -762,7 +776,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.OS with get() = OSABI.toOS toolBox.Header.OSABI
 
-    member _.EntryPoint with get() = Some hdr.EntryPoint
+    member _.EntryPoint with get() = Some(toCodeAddr hdr.EntryPoint)
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 

@@ -1850,6 +1850,20 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryComputeRelocationValue 0x20000UL)
 
   [<TestMethod>]
+  member _.``[ELF] ppc64 functions start where their descriptors say test``() =
+    (* Under ELFv1, a symbol of a function names its descriptor in .opd, whose
+       first doubleword is the address of its code: get is at 0x7b4. *)
+    let addrs = (ppc64SoFile :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, addrs.Contains 0x7b4UL)
+    Assert.AreEqual<bool>(false, addrs.Contains 0x1fee8UL)
+    (* So does the entry point, which the loader reads the descriptor of. *)
+    let bytes = ZIPReader.readBytes ELFBinary "elf_ppc64_so.zip" "elf_ppc64_so"
+    let entry = System.BitConverter.GetBytes 0x1fee8UL |> Array.rev
+    Array.blit entry 0 bytes 0x18 8 (* e_entry *)
+    let file = ELFBinFile("elf_ppc64_so", bytes, None, None) :> IBinFile
+    Assert.AreEqual(Some 0x7b4UL, file.EntryPoint)
+
+  [<TestMethod>]
   member _.``[ELF] PowerPC resolved relocation value test``() =
     (* .got2 of ppc32 and the RELATIVE slots of ppc64 lie in the range that
        GNU_RELRO protects, but a variable in .data can be overwritten. *)
