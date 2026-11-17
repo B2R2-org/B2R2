@@ -154,6 +154,34 @@ type PPCBinaryBrewTests() =
     let callee = fns[0x4d4UL].Callees[LeafCallSite 0x4dcUL]
     Assert.AreEqual<CalleeKind>(RegularCallee 0x20048UL, callee)
 
+  (* GCC lays the tables of a function next to each other, so the words past
+     a table read as more of its entries, counted from its own base, which
+     send its jump into the code of the function all the same. The range
+     check right before the jump says where the table ends. *)
+  [<TestMethod>]
+  member _.``A table ends where its range check says``() =
+    let code =
+      [ "28030001" (* cmplwi r3,1 *)
+        "41810034" (* bgt 0x50c *)
+        "3d200000" (* lis r9,0 *)
+        "392904f8" (* addi r9,r9,0x4f8 *)
+        "5463103a" (* slwi r3,r3,2 *)
+        "7c69182e" (* lwzx r3,r9,r3 *)
+        "7d234a14" (* add r9,r3,r9 *)
+        "7d2903a6" (* mtctr r9 *)
+        "4e800420" (* bctr *)
+        "00000010" (* 0x4f8: .long 0x508 - 0x4f8 *)
+        "00000018" (* .long 0x510 - 0x4f8 *)
+        "00000010" (* 0x500: an entry of the next table, 0x508 if read here *)
+        "7fff0000" (* 0x504: no entry *)
+        "38600000" (* 0x508: li r3,0 *)
+        "4e800020" (* blr *)
+        "38600001" (* 0x510: li r3,1 *)
+        "4e800020" (* blr *) ]
+    let fns = recoverPatchedSO (patchGet code)
+    let entries = fns[0x4d4UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+
   (* 32-bit PIC reads the offset of .got2 that lies right before the code that
      reads it, through the address that bcl 20,31,$+4 leaves in LR, and then
      the address of a table from a slot of .got2, which the loader rebases.
