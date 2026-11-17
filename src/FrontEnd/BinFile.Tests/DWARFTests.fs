@@ -93,15 +93,16 @@ type DWARFTests() =
       Augmentations = [] }
 
   /// Interprets the given call frame instructions as those of an FDE of the
-  /// given CIE, and returns the last row they produce.
-  static let unwindWith cie (bytes: byte[]) =
+  /// given CIE in a binary of the given ISA, and returns the last row they
+  /// produce.
+  static let unwindWith isa cie (bytes: byte[]) =
     let instrs = ReadOnlyMemory bytes
     (FDE.parseCallFrameInstrs cie isa regFactory instrs 0UL).Value
     |> List.last
 
   /// Interprets the given call frame instructions as those of an x64 FDE, and
   /// returns the last row they produce.
-  static let unwind bytes = unwindWith x64CIE bytes
+  static let unwind bytes = unwindWith isa x64CIE bytes
 
   /// Asserts that the CFA of the given row is rsp plus n.
   static let assertCFA n (row: UnwindingEntry) =
@@ -250,8 +251,20 @@ type DWARFTests() =
         [| DWCFAAdvanceLoc1; 3uy |]
         [| DWCFAAdvanceLoc2; 3uy; 0uy |]
         [| DWCFAAdvanceLoc4; 3uy; 0uy; 0uy; 0uy |] ] do
-      let row = unwindWith cie bytes
+      let row = unwindWith isa cie bytes
       Assert.AreEqual<Addr>(12UL, row.Location, $"{bytes[0]}")
+
+  [<TestMethod>]
+  member _.``[DWARF] advance reads an unsigned delta in the file order``() =
+    (* A big-endian PowerPC binary puts the most significant byte of a delta
+       first, and a delta with its top bit set moves a row on all the same. *)
+    let ppc = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let cie = { x64CIE with CodeAlignmentFactor = 4UL }
+    for bytes, delta in
+      [ [| DWCFAAdvanceLoc2; 0x80uy; 0x01uy |], 0x8001UL
+        [| DWCFAAdvanceLoc4; 0x80uy; 0uy; 0uy; 0x01uy |], 0x80000001UL ] do
+      let row = unwindWith ppc cie bytes
+      Assert.AreEqual<Addr>(delta * 4UL, row.Location, $"{bytes[0]}")
 
   [<TestMethod>]
   member _.``[DWARF] FDE that first advances starts at an entry``() =

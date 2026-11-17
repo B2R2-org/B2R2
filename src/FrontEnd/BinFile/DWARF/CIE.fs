@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.DWARF
 
 open System
-open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -300,13 +299,15 @@ module internal CIE =
         let acc = ent :: acc
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i' loc'
       | CFAInstruction.DW_CFA_advance_loc2 ->
-        let loc' = loc + uint64 (MemoryMarshal.Read<int16>(span.Slice(i))) * cf
+        let delta = (BinReader.Init isa.Endian).ReadUInt16(span, i)
+        let loc' = loc + uint64 delta * cf
         let i' = i + 2
         let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }
         let acc = ent :: acc
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i' loc'
       | CFAInstruction.DW_CFA_advance_loc4 ->
-        let loc' = loc + uint64 (MemoryMarshal.Read<int32>(span.Slice(i))) * cf
+        let delta = (BinReader.Init isa.Endian).ReadUInt32(span, i)
+        let loc' = loc + uint64 delta * cf
         let i' = i + 4
         let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }
         let acc = ent :: acc
