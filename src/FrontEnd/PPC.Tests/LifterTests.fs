@@ -692,6 +692,33 @@ type LifterTests() =
       expect result (after R3) $"{hex} {nameOf isa}"
 
   /// <summary>
+  /// A rotation whose mask clears the bits that the rotation brings around
+  /// from the top, as slwi, sldi and rldic do, is a shift to the left, and one
+  /// whose mask keeps those bits alone, as srwi and srdi do, is a shift to the
+  /// right, which is how they lift; only a rotation that keeps bits of both,
+  /// as rotldi does, lifts as one. GCC scales the index of a table so.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] RLWINM and RLDIC shift where their masks let them``() =
+    let isOr = function
+      | BinOp(Op = BinOpType.OR) -> true
+      | _ -> false
+    (* slwi r3,r3,2; srwi r3,r4,8; sldi r3,r3,2; rldic r3,r3,2,30;
+       srdi r3,r4,63; clrldi r3,r3,32; rotldi r9,r30,1 *)
+    for isa, hex, (src, value), dst, result, rotates in
+      [ ppc32, "5463103a", (R3, 0xc0000001UL), R3, 0x4UL, false
+        ppc64, "5463103a", (R3, 0xdeadbeefc0000001UL), R3, 0x4UL, false
+        ppc32, "5483c23e", (R4, 0x12345678UL), R3, 0x123456UL, false
+        ppc64, "78631764", (R3, 0xc000000000000001UL), R3, 0x4UL, false
+        ppc64, "78631788", (R3, 0xffffffff80000001UL), R3, 0x200000004UL, false
+        ppc64, "78830fe0", (R4, 0x8000000000000000UL), R3, 0x1UL, false
+        ppc64, "78630020", (R3, 0xdeadbeef12345678UL), R3, 0x12345678UL, false
+        ppc64, "7bc90800", (R30, 0x8000000000000001UL), R9, 0x3UL, true ] do
+      let case = $"{hex} {nameOf isa}"
+      expect result (run isa hex [ src, value ] dst) case
+      Assert.AreEqual<bool>(rotates, liftedHas isa hex isOr, case)
+
+  /// <summary>
   /// lwz rD, D(rA) loads the word at rA + D, in the byte order the processor
   /// runs in, and zero-extends it into rD.
   /// </summary>

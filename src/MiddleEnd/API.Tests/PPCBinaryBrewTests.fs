@@ -80,3 +80,24 @@ type PPCBinaryBrewTests() =
         [ "1c630004" (* mulli r3,r3,4 *)
           "7c69182e" (* lwzx r3,r9,r3 *) ]
     CollectionAssert.AreEqual([| 2 |], countEntries WordSize.Bit32 code)
+
+  (* slwi rotates the index and masks off the bits that the rotation brings
+     around, which leaves the index shifted. *)
+  [<TestMethod>]
+  member _.``A table is read through an index that rotates a word``() =
+    let code =
+      tableOfTwo
+        [ "5463103a" (* slwi r3,r3,2 *)
+          "7c69182e" (* lwzx r3,r9,r3 *) ]
+    CollectionAssert.AreEqual([| 2 |], countEntries WordSize.Bit32 code)
+
+  (* GCC for PPC64 scales the low word of an index with rldic, which rotates
+     the doubleword and masks off the high word along with what the rotation
+     brings around, and loads the entry with its sign. *)
+  [<TestMethod>]
+  member _.``A table is read through an index that rotates a doubleword``() =
+    let code =
+      tableOfTwo
+        [ "78631788" (* rldic r3,r3,2,30 *)
+          "7c691aaa" (* lwax r3,r9,r3 *) ]
+    CollectionAssert.AreEqual([| 2 |], countEntries WordSize.Bit64 code)

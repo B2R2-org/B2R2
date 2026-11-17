@@ -1385,11 +1385,55 @@ let private rotatedWord (bld: ILowUIRBuilder) rs n =
 let private wordMask (bld: ILowUIRBuilder) mb me =
   if bld.RegType = 64<rt> then getWordMaskIn64 mb me else getExtMask mb me
 
+let private valueOf e =
+  match e with
+  | Num(Value = v) -> v.ToUInt64()
+  | _ -> raise InvalidExprException
+
+/// Rotates x, as wide as the given number of bits, left by n bits and keeps
+/// the bits of the given mask, as a shift where the mask lets it be one: where
+/// the mask clears the bits that the rotation brings around from the top, as
+/// slwi, sldi and clrlsldi do, the rotation shifts x left, after the mask
+/// clears the bits of x that the result does not keep; and where the mask
+/// keeps those bits alone, as srwi and srdi do, it shifts x right. None where
+/// the mask keeps bits of both, which only a rotation gives.
+let private tryShiftUnderMask (x: Expr) width n (mask: uint64) =
+  let rt = RegType.fromBitWidth width
+  let ones = System.UInt64.MaxValue >>> (64 - width)
+  let around = (1UL <<< n) - 1UL
+  if n = 0 then
+    Some(if mask = ones then x else x .& numU64 mask rt)
+  elif (mask &&& around) = 0UL then
+    let kept = mask >>> n
+    let x = if kept = (ones >>> n) then x else x .& numU64 kept rt
+    Some(x << numI32 n rt)
+  elif (mask &&& ~~~around) = 0UL then
+    let shifted = x >> numI32 (width - n) rt
+    Some(if mask = around then shifted else shifted .& numU64 mask rt)
+  else
+    None
+
+/// Gives what rlwinm puts into rA as a shift of the low word of rS where the
+/// mask lets it be one. A mask that wraps round on a 64-bit processor keeps
+/// the rotated word in the high half, which no shift of a word does.
+let private tryShiftWord (bld: ILowUIRBuilder) rs sh mb me =
+  if bld.RegType = 64<rt> && valueOf mb > valueOf me then
+    None
+  else
+    let mask = valueOf (getExtMask mb me)
+    tryShiftUnderMask (AST.xtlo 32<rt> rs) 32 (int (valueOf sh)) mask
+    |> Option.map (fun e ->
+      if bld.RegType = 64<rt> then AST.zext 64<rt> e else e)
+
 let rlwinm ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-    let rol = rotatedWord bld rs (AST.xtlo 32<rt> sh)
-    ra := rol .& wordMask bld mb me
+    match tryShiftWord bld rs sh mb me with
+    | Some shifted ->
+      ra := shifted
+    | None ->
+      let rol = rotatedWord bld rs (AST.xtlo 32<rt> sh)
+      ra := rol .& wordMask bld mb me
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1425,21 +1469,30 @@ let rotlw ins (bld: ILowUIRBuilder) =
 
 (* The rotate-doubleword forms take a six-bit shift and a six-bit mask bound,
    and the mask is a constant of the immediate forms. *)
+/// Puts into rA the doubleword of rS rotated left by sh under the mask, as a
+/// shift where the mask lets it be one.
+let private rotateDoubleword bld ra rs sh mask =
+  match tryShiftUnderMask rs 64 (int (valueOf sh)) (valueOf mask) with
+  | Some shifted ->
+    append bld { ra := shifted }
+  | None ->
+    let rol = tmpVar bld 64<rt>
+    append bld {
+      rol := rotateLeft64 rs sh
+      ra := rol .& mask
+    }
+
 let rldicl ins updateCond bld =
   lift bld ins {
     let struct (ra, rs, sh, mb) = transFourOprs ins bld
-    let rol = tmpVar bld 64<rt>
-    rol := rotateLeft64 rs sh
-    ra := rol .& getExtMask64 mb (numI32 63 64<rt>)
+    rotateDoubleword bld ra rs sh (getExtMask64 mb (numI32 63 64<rt>))
     if updateCond then setCR0Reg bld ra else ()
   }
 
 let rldicr ins updateCond bld =
   lift bld ins {
     let struct (ra, rs, sh, me) = transFourOprs ins bld
-    let rol = tmpVar bld 64<rt>
-    rol := rotateLeft64 rs sh
-    ra := rol .& getExtMask64 (AST.num0 64<rt>) me
+    rotateDoubleword bld ra rs sh (getExtMask64 (AST.num0 64<rt>) me)
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1452,9 +1505,7 @@ let private maskEndOfShift sh =
 let rldic ins updateCond bld =
   lift bld ins {
     let struct (ra, rs, sh, mb) = transFourOprs ins bld
-    let rol = tmpVar bld 64<rt>
-    rol := rotateLeft64 rs sh
-    ra := rol .& getExtMask64 mb (maskEndOfShift sh)
+    rotateDoubleword bld ra rs sh (getExtMask64 mb (maskEndOfShift sh))
     if updateCond then setCR0Reg bld ra else ()
   }
 
