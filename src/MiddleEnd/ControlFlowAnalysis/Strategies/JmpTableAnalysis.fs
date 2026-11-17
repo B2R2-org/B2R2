@@ -730,10 +730,32 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// This is a practical limit for the depth of symbolic expansion.
   let [<Literal>] MaxDepth = 10
 
+  /// Finds the definition of the given variable past the copies of other
+  /// variables that lead to it: the definition of the last variable that has
+  /// one other than a copy, or else the last copy.
+  let rec findDefPastCopies findDef v =
+    match findDef v with
+    | Some(Def(_, Var src)) as copy ->
+      match findDefPastCopies findDef src with
+      | Some(Def _) as def -> def
+      | _ -> copy
+    | def ->
+      def
+
+  /// Returns how the expansion of a jump target in the function of the given
+  /// context finds definitions. 64-bit PowerPC code saves r2, the TOC pointer,
+  /// to its frame and reloads it after every call, so the value goes through
+  /// two copies per call, and none of them costs a step of the expansion.
+  let findDefToExpand (ctx: CFGBuildingContext<_, _>) findDef =
+    match ctx.BinHandle.ISA with
+    | PPC64 -> findDefPastCopies findDef
+    | _ -> findDef
+
   /// Finds the jump table that the given target of the indirect jump at insAddr
   /// reads, expanding the target one step at a time until detect finds one in
   /// what fold makes of the step.
-  let findSymbPattern expandPhi findConst findDef fold fnAddr insAddr exp =
+  let findSymbPattern expandPhi findConst findDef fold ctx insAddr exp =
+    let findDefOfStep = findDefToExpand ctx findDef
     let rec find depth exp =
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable"
@@ -742,12 +764,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       match detect expandPhi findConst findDef insAddr (fold exp) with
       | Ok(info, origin) ->
 #if CFGDEBUG
-        dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
+        dbglog ManagerTid "JumpTable" $"detected @ {ctx.FunctionAddress:x}"
 #endif
         Ok(info, origin)
       | Error _ ->
         if depth < MaxDepth then
-          let e = symbExpand expandPhi findConst findDef true exp |> simplify
+          let e =
+            symbExpand expandPhi findConst findDefOfStep true exp |> simplify
           find (depth + 1) e
         else
           Error ErrorCase.ItemNotFound
@@ -1368,11 +1391,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         findConstOrLoaded ctx.BinHandle fromCP
         |> findConstBeyondCalls state
         |> findConstAlongBranch cfg state v findDef
-      let fnAddr = ctx.FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
       let fold = foldOf ctx findConst findDef
       let analyze =
-        findSymbPattern expandPhi findConst findDef fold fnAddr insAddr
+        findSymbPattern expandPhi findConst findDef fold ctx insAddr
       let rewrite = rewriteAlong state findConst findDef
       analyzeOrAlongEachEdge cfg v rewrite analyze exp
       |> Result.map (guardOrigin findDef guards domGuards)
@@ -1407,11 +1429,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Ok(exp, guards, domGuards) ->
       let findConst = findConstFromSSACFG state
       let findDef = findDefFromSSACFG state |> findDefWithinSize
-      let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
       let exp = unmaskTarget ctx.BinHandle findDef exp
       let fold = foldOf ctx findConst findDef
       let expandPhi = expandPhiFromSSACFG
-      findSymbPattern expandPhi findConst findDef fold fnAddr insAddr exp
+      findSymbPattern expandPhi findConst findDef fold ctx insAddr exp
       |> Result.map (guardOrigin findDef guards domGuards)
     | Error e ->
       Error e

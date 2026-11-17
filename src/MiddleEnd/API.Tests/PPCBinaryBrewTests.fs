@@ -273,3 +273,9 @@ type PPCBinaryBrewTests() =
   [<TestMethod>]
   member _.``A table is read through the TOC pointer reloaded after a call``() =
     CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 (tocTableOfTwo 1u))
+
+  (* r2 goes through the frame at every call, a copy each way, which costs the
+     expansion of the jump target no step. *)
+  [<TestMethod>]
+  member _.``A table is read through a TOC pointer reloaded many times``() =
+    CollectionAssert.AreEqual([| 2 |], countEntriesInGet64 (tocTableOfTwo 3u))
