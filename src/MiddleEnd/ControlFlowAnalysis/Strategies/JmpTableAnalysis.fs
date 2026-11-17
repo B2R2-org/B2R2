@@ -1198,17 +1198,27 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         | Some bv -> ConstantDomain.Const bv
         | None -> c
 
-  /// Finds the target that an indirect jump computes before it clears the
-  /// lowest bit, as every JALR of RISCV does, given the variable that holds
-  /// the target. No instruction of RISCV starts at an odd address, so a code
-  /// address has the bit clear anyway, and the jump goes where the target
+  /// Checks if the mask clears the low bits that an indirect jump clears off
+  /// its target: every JALR of RISCV clears the lowest one, and a branch of
+  /// PowerPC to a register the lowest two, or the lowest one in VLE.
+  let isJumpMask (hdl: BinHandle) (mask: BitVector) =
+    let cleared = (BitVector.Not mask).ToUInt64()
+    match hdl.ISA with
+    | RISCV -> cleared = 1UL
+    | PPC -> cleared = 1UL || cleared = 3UL
+    | _ -> false
+
+  /// Finds the target that an indirect jump computes before it clears the low
+  /// bits of it that the architecture clears, given the variable that holds
+  /// the target. No instruction starts at an address with those bits set, so
+  /// a code address has them clear anyway, and the jump goes where the target
   /// before the mask says.
   let unmaskTarget (hdl: BinHandle) findDef exp =
-    match hdl.ISA, exp with
-    | RISCV, Var v ->
+    match exp with
+    | Var v ->
       match findDef v with
       | Some(Def(_, BinOp(BinOpType.AND, _, e, Num mask)))
-        when BitVector.Not mask = BitVector.One mask.Length ->
+        when isJumpMask hdl mask ->
         e
       | _ ->
         exp
