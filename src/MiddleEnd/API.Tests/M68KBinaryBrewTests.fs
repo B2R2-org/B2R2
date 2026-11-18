@@ -99,6 +99,22 @@ type M68KBinaryBrewTests() =
         "4e75" (* 0x26: rts *) ]
     CollectionAssert.AreEqual([| 2 |], countEntries code)
 
+  (* GCC loads the address of a function that it calls more than once into an
+     address register, through which a call takes two bytes rather than the
+     six that JSR to an absolute address takes. *)
+  [<TestMethod>]
+  member _.``A call through a register reaches the function it holds``() =
+    let code =
+      [ "45f90000000c" (* lea 0xc,a2 *)
+        "4e92" (* jsr (a2) *)
+        "4e92" (* jsr (a2) *)
+        "4e75" (* rts *)
+        "4e75" (* 0xc: rts *) ]
+    let fns = recoverCode code
+    let callee = fns[0UL].Callees[LeafCallSite 0x6UL]
+    Assert.AreEqual<CalleeKind>(RegularCallee 0xcUL, callee)
+    Assert.AreEqual<bool>(true, Seq.contains 0xcUL fns.Addresses)
+
   (* f jumps to x before anything tells that x is a function, so its building
      leaves out the code there as lying past h, which main has called. g,
      which main calls next, calls x and so makes it a function, after which f
