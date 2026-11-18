@@ -76,6 +76,14 @@ module private M68KCFGRecoveryRules =
     | _ ->
       None
 
+  /// Checks if the given address lies within a block that the function of the
+  /// given context has built.
+  let isInBuiltBlock (ctx: CFGBuildingContext<_, _>) addr =
+    ctx.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract && bbl.Range.IsIncluding addr)
+
   /// Checks if the entry at the given index of the given table sends the jump
   /// to an odd address, where no instruction of m68k starts.
   let leadsToOddAddress (ctx: CFGBuildingContext<_, _>) jmptbl idx =
@@ -92,9 +100,10 @@ module private M68KCFGRecoveryRules =
 /// address of a function that it calls more than once into an address
 /// register, through which a call takes two bytes rather than six, and that a
 /// jump table ends before an entry that sends the jump to an odd address,
-/// where no instruction starts. GCC puts a table right after its jump and the
-/// code of the cases right after the table, and a switch over every value of
-/// an enum has no range check to end it.
+/// where no instruction starts, or that lies in a block of its function. GCC
+/// puts a table right after its jump and the code of the cases right after
+/// the table, and a switch over every value of an enum has no range check to
+/// end it.
 type internal M68KCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -102,7 +111,9 @@ type internal M68KCFGRecoveryRules<'FnCtx, 'GlCtx>() =
     tryFindPutCallee ctx caller
 
   override _.EndsJumpTableBefore(ctx, jmptbl, idx) =
+    let size = uint64 jmptbl.EntrySize
     leadsToOddAddress ctx jmptbl idx
+    || isInBuiltBlock ctx (jmptbl.TableAddress + uint64 idx * size)
 
   override this.FindFunctionsToRebuild builders =
     findFunctionsMissingTailCalls this builders
