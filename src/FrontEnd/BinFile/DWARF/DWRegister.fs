@@ -186,6 +186,33 @@ let private toM68KRegister (n: byte) =
   | 24 -> M68K.Register.toRegID M68K.Register.PC
   | _ -> Terminator.futureFeature ()
 
+/// Gives the S390 register the given number of places past the first one.
+let private s390RegisterPast (first: S390.Register) places =
+  S390.Register.toRegID (EnumOfValue(int first + places))
+
+/// Gives the floating-point register of S390 that the given one of the 16
+/// numbers from 16 names: the even halves of each group of eight come first.
+let private s390FPRAt i =
+  let j = i &&& 7
+  let k = if j < 4 then 2 * j else 2 * (j - 4) + 1
+  s390RegisterPast S390.Register.FPR0 ((i &&& 8) + k)
+
+/// Maps the numbers that the S390 ELF ABI gives the registers in .eh_frame,
+/// at either width: r0 to r15, then the floating-point registers in pairs of
+/// an even and an odd half, f0, f2, f4, f6, f1, f3, f5, f7 and the same from
+/// f8, then the control registers from 32, the access registers from 48, the
+/// PSW mask and its address at 64 and 65, and v16 to v31 from 68.
+let private toS390Register (n: byte) =
+  match int n with
+  | n when n < 16 -> S390.Register.toRegID (EnumOfValue n)
+  | n when n < 32 -> s390FPRAt (n - 16)
+  | n when n < 48 -> s390RegisterPast S390.Register.CR0 (n - 32)
+  | n when n < 64 -> s390RegisterPast S390.Register.AR0 (n - 48)
+  | 64 -> S390.Register.toRegID S390.Register.PSW
+  | 65 -> S390.Register.toRegID S390.Register.PC
+  | n when n >= 68 && n <= 83 -> s390RegisterPast S390.Register.VR16 (n - 68)
+  | _ -> Terminator.futureFeature ()
+
 let toRegID isa regnum =
   match isa with
   | X86 -> toIntelx86Register regnum
@@ -196,6 +223,7 @@ let toRegID isa regnum =
   | PPC -> toPPCRegister regnum
   | SH4 -> toSH4Register regnum
   | M68K -> toM68KRegister regnum
+  | S390 -> toS390Register regnum
   | _ -> Terminator.futureFeature ()
 
 let toRegisterExpr isa (regFactory: IRegisterFactory) regnum =
