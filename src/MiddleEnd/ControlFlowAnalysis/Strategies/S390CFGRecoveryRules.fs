@@ -63,11 +63,19 @@ module private S390CFGRecoveryRules =
 
 /// Represents the rules of the CFG recovery for S390: the rules of every
 /// architecture, except that an indirect jump returns where it goes to the
-/// address that the caller left in R14. S390 has no return instruction, and
-/// GCC reloads the saved R14 into another register to return through, while
-/// both GCC and clang jump through a table by way of R14.
+/// address that the caller left in R14, and that a jump table ends where the
+/// range check before its indirect jump says, or where a mask on its index
+/// does. S390 has no return instruction, and GCC reloads the saved R14 into
+/// another register to return through, while both GCC and clang jump through a
+/// table by way of R14. Both lay the tables of a function next to each other,
+/// so the entries of the next table read as more of the first, and clang
+/// without PIC fills them with addresses that all lie in the function.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.ReturnsThroughLink(ctx, v: IVertex<LowUIRBasicBlock>) =
     jumpsToLink ctx v
+
+  override _.EndsJumpTableBefore(_, jmptbl, idx) =
+    let isPast = Option.exists (fun n -> idx >= n)
+    isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries
