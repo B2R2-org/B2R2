@@ -115,6 +115,27 @@ type M68KBinaryBrewTests() =
     Assert.AreEqual<CalleeKind>(RegularCallee 0xcUL, callee)
     Assert.AreEqual<bool>(true, Seq.contains 0xcUL fns.Addresses)
 
+  (* A switch over every value of an enum has no range check, and the code of
+     its first case follows the table, whose first word reads as an entry that
+     sends the jump to an odd address, where no instruction starts. *)
+  [<TestMethod>]
+  member _.``A table ends before an entry that points to an odd address``() =
+    let code =
+      [ "6100005e" (* bsr.w 0x60 *)
+        "303b0a06" (* move.w (6,pc,d0.l*2),d0 *)
+        "4efb0002" (* jmp (2,pc,d0.w) *)
+        "0004" (* 0xc: .word 0x10 - 0xc *)
+        "000a" (* .word 0x16 - 0xc *)
+        "00410001" (* 0x10: ori.w #1,d1 *)
+        "4e75" (* rts *)
+        "7002" (* 0x16: moveq #2,d0 *)
+        "4e75" (* rts *)
+        String.replicate 25 "4e71" (* 0x1a: nop *)
+        "004e7500" (* 0x4c: data that reads as rts at 0x4d *)
+        String.replicate 8 "4e71" (* 0x50: nop *)
+        "4e75" (* 0x60: rts *) ]
+    CollectionAssert.AreEqual([| 2 |], countEntries code)
+
   (* f jumps to x before anything tells that x is a function, so its building
      leaves out the code there as lying past h, which main has called. g,
      which main calls next, calls x and so makes it a function, after which f

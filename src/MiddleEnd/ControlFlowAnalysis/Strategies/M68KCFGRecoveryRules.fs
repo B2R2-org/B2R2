@@ -76,19 +76,33 @@ module private M68KCFGRecoveryRules =
     | _ ->
       None
 
+  /// Checks if the entry at the given index of the given table sends the jump
+  /// to an odd address, where no instruction of m68k starts.
+  let leadsToOddAddress (ctx: CFGBuildingContext<_, _>) jmptbl idx =
+    match JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx with
+    | Some target -> target % 2UL = 1UL
+    | None -> false
+
 /// Represents the rules of the CFG recovery for m68k: the rules of every
 /// architecture, except that a function that jumps to another one before the
 /// recovery has found that one is built again to call it as its tail, as GCC
 /// emits no call frame information for C code that would tell every function
-/// up front, and that an indirect call reaches the function whose address the
+/// up front, that an indirect call reaches the function whose address the
 /// code puts into the register that the call goes through, as GCC loads the
 /// address of a function that it calls more than once into an address
-/// register, through which a call takes two bytes rather than six.
+/// register, through which a call takes two bytes rather than six, and that a
+/// jump table ends before an entry that sends the jump to an odd address,
+/// where no instruction starts. GCC puts a table right after its jump and the
+/// code of the cases right after the table, and a switch over every value of
+/// an enum has no range check to end it.
 type internal M68KCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.TryResolveIndirectCallee(ctx, caller) =
     tryFindPutCallee ctx caller
+
+  override _.EndsJumpTableBefore(ctx, jmptbl, idx) =
+    leadsToOddAddress ctx jmptbl idx
 
   override this.FindFunctionsToRebuild builders =
     findFunctionsMissingTailCalls this builders
