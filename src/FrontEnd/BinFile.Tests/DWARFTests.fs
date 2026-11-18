@@ -43,6 +43,9 @@ type private RISCVReg = B2R2.FrontEnd.RISCV.Register
 /// Represents the PowerPC registers under a shorter name.
 type private PPCReg = B2R2.FrontEnd.PPC.Register
 
+/// Represents the m68k registers under a shorter name.
+type private M68KReg = B2R2.FrontEnd.M68K.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -329,3 +332,20 @@ type DWARFTests() =
       let isa = ISA(Architecture.PPC, Endian.Big, wordSize)
       for n, reg in numbers do
         Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")
+
+  [<TestMethod>]
+  member _.``[DWARF] m68k registers are numbered as GCC numbers them``() =
+    (* The CIE of GCC for m68k defines the CFA as r15 (sp) plus 4 and keeps
+       the return address in column 24, which the PC takes. *)
+    let rid reg = B2R2.FrontEnd.M68K.Register.toRegID reg
+    let numbers =
+      [ 0uy, M68KReg.D0
+        7uy, M68KReg.D7
+        8uy, M68KReg.A0
+        15uy, M68KReg.A7
+        16uy, M68KReg.FP0
+        23uy, M68KReg.FP7
+        24uy, M68KReg.PC ]
+    let isa = ISA Architecture.M68K
+    for n, reg in numbers do
+      Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")

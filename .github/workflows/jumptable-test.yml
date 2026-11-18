@@ -19,7 +19,7 @@ env:
   # One tag pins all three pieces -- the binaries, the ground truth and the
   # checksums -- so upgrading the dataset is a reviewable commit here instead
   # of a silent shift in what the check measures.
-  DATASET_TAG: v0.8
+  DATASET_TAG: v0.9
 
 jobs:
   score:
@@ -59,6 +59,7 @@ jobs:
         - ppc32-clang
         - ppc64-gcc
         - ppc64-clang
+        - m68k-gcc
 
     steps:
     - uses: actions/checkout@v5

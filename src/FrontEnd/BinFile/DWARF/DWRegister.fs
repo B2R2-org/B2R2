@@ -172,6 +172,20 @@ let private toPPCRegister (n: byte) =
 
 let private toSH4Register (n: byte) = SH4.Register.toRegID (EnumOfValue(int n))
 
+/// Gives the m68k register the given number of places past the first one.
+let private m68kRegisterPast (first: M68K.Register) places =
+  M68K.Register.toRegID (EnumOfValue(int first + places))
+
+/// Maps the numbers that GCC gives m68k registers in .eh_frame: d0 to d7 and
+/// then a0 to a7, as the enumeration lays them out, fp0 to fp7 from 16, and
+/// the column of the return address at 24, which is the PC it goes back to.
+let private toM68KRegister (n: byte) =
+  match int n with
+  | n when n < 16 -> M68K.Register.toRegID (EnumOfValue n)
+  | n when n < 24 -> m68kRegisterPast M68K.Register.FP0 (n - 16)
+  | 24 -> M68K.Register.toRegID M68K.Register.PC
+  | _ -> Terminator.futureFeature ()
+
 let toRegID isa regnum =
   match isa with
   | X86 -> toIntelx86Register regnum
@@ -181,6 +195,7 @@ let toRegID isa regnum =
   | RISCV -> toRISCVRegister regnum
   | PPC -> toPPCRegister regnum
   | SH4 -> toSH4Register regnum
+  | M68K -> toM68KRegister regnum
   | _ -> Terminator.futureFeature ()
 
 let toRegisterExpr isa (regFactory: IRegisterFactory) regnum =

@@ -406,6 +406,31 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       | _ ->
         None
 
+  /// The GOT of m68k, which holds the slots of the PLT too.
+  let m68kGOT =
+    lazy
+      match hdr.MachineType with
+      | MachineType.EM_68K ->
+        shdrs.Value
+        |> Array.tryFind (fun sec -> sec.SecName = ".got" && sec.SecSize > 0UL)
+        |> Option.map (fun sec ->
+          AddrRange.create sec.SecAddr (sec.SecAddr + sec.SecSize - 1UL))
+      | _ ->
+        None
+
+  /// Checks if the given address is a slot of the m68k GOT that lazy binding
+  /// leaves alone, i.e., one that no JMP_SLOT relocation names.
+  let isM68KLoaderOnlyGOTSlot addr =
+    match m68kGOT.Value with
+    | Some got when got.IsIncluding addr ->
+      match relocs.Value.TryFind addr with
+      | Ok({ RelKind = RelocationKind(_, kind) }) ->
+        kind <> uint64 RelocationM68K.R_68K_JMP_SLOT
+      | Error _ ->
+        true
+    | _ ->
+      false
+
   /// Tells whether a slot keeps the value that the loader writes into it. This
   /// is the case only if the loader leaves the slot read-only: it is either in
   /// a segment that is not writable, or in the range that GNU_RELRO makes
@@ -413,7 +438,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// in .data, can be overwritten by the program later. The local entries of
   /// a MIPS GOT are the exception: their segment stays writable, as lazy
   /// binding writes the global entries after them, but only the loader writes
-  /// the local ones.
+  /// the local ones. The same goes for an m68k GOT, which holds the slots of
+  /// the PLT that lazy binding writes, so GNU_RELRO stops short of it, while
+  /// only the loader writes its other slots.
   let isReadOnlyAfterLoading addr =
     let contains (ph: ProgramHeader) =
       ph.PHAddr <= addr && addr < ph.PHAddr + ph.PHMemSize
@@ -425,6 +452,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     Array.exists isRelro phdrs.Value
     || Array.exists isReadOnlySegment loadables.Value
     || mipsLocalGOT.Value |> Option.exists (fun got -> got.IsIncluding addr)
+    || isM68KLoaderOnlyGOTSlot addr
 
   let tryResolveRelocationValue relocAddr =
     match relocs.Value.TryFind relocAddr with
@@ -455,6 +483,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | Ok({ RelKind = RelocationKind(MachineType.EM_PPC64, kind)
            RelAddend = target })
       when kind = uint64 RelocationPPC64.R_PPC64_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
+    | Ok({ RelKind = RelocationKind(MachineType.EM_68K, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationM68K.R_68K_RELATIVE && target <> 0UL ->
       Ok(BinRelocationValue.Rebased(toolBox.BaseAddress + target))
     | _ ->
       Error ErrorCase.ItemNotFound

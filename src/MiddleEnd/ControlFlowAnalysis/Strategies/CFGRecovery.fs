@@ -185,6 +185,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
   let ppcRules = PPCCFGRecoveryRules<'FnCtx, 'GlCtx>()
 
+  let m68kRules = M68KCFGRecoveryRules<'FnCtx, 'GlCtx>()
+
   /// Returns the rules for the architecture of the binary that the given
   /// context builds a function of. The binary tells, rather than the ISA that
   /// the strategy may be made with, as a strategy made without one serves a
@@ -196,6 +198,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     | MIPS -> mipsRules :> ICFGRecoveryRules<_, _>
     | RISCV -> riscvRules :> ICFGRecoveryRules<_, _>
     | PPC -> ppcRules :> ICFGRecoveryRules<_, _>
+    | M68K -> m68kRules :> ICFGRecoveryRules<_, _>
     | _ -> defaultRules :> ICFGRecoveryRules<_, _>
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with

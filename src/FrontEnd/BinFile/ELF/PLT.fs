@@ -254,18 +254,21 @@ type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
     | Some rsec -> createGeneralPLTDescriptor rsec sec
     | None -> UnknownPLT
 
+  (* The entries end where the last of them does, whatever padding the section
+     holds past it, so that the last entry covers no more than its own stub. *)
+  let findEntriesEnd sec desc =
+    let entriesEnd = desc.ExtraOffset + uint64 relocs.Length * desc.EntrySize
+    min (sec.SecAddr + sec.SecSize) entriesEnd
+
   interface IPLTParsable with
     member _.ParseEntry(addr, idx, _sec, desc, _rdr, _span) =
-      let nextEntryAddr =
-        if relocs.Length > (idx + 1) then addr + desc.EntrySize
-        else UInt64.MaxValue (* No more entries to parse. *)
       { EntryRelocAddr = relocs[idx].RelOffset
-        NextEntryAddr = nextEntryAddr }
+        NextEntryAddr = addr + desc.EntrySize }
 
     member this.ParseSection(toolBox, sec, map) =
       match findGeneralPLTType sec with
       | PLT desc ->
-        let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
+        let sAddr, eAddr = desc.ExtraOffset, findEntriesEnd sec desc
         let bytes = toolBox.Bytes
         let reader = toolBox.Reader
         let span = ReadOnlySpan(bytes, int sec.SecOffset, int sec.SecSize)

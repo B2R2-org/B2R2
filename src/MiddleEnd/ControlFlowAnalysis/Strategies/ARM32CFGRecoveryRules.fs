@@ -316,39 +316,6 @@ module private ARM32CFGRecoveryRules =
       |> Array.filter isBeforeLiteral
       |> Array.map (fun ins -> ins.Address)
 
-  /// Checks if the building followed the jump that ends the given vertex
-  /// within its function, rather than took it for a tail call.
-  let isFollowedWithin (ctx: CFGBuildingContext<_, _>) v =
-    ctx.CFG.GetSuccEdges v |> Array.exists (fun e -> e.Label = InterJmpEdge)
-
-  /// Checks if the building left out the code at the given address, as it
-  /// lies past where the next function starts.
-  let isLeftOut (ctx: CFGBuildingContext<_, _>) addr =
-    ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
-
-  /// Checks if the given vertex ends with a jump to where a function of the
-  /// given entries starts, which the building did not take for a tail call as
-  /// none started there yet: it followed the jump within its function, or left
-  /// out the code there as lying past where the next function starts.
-  let jumpsToEntryUncalled entries ctx (v: IVertex<LowUIRBasicBlock>) =
-    match v.VData.Internals.Terminator with
-    | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
-      let target = n.ToUInt64()
-      let callee = toCalleeAddr ctx target
-      callee <> ctx.FunctionAddress
-      && (entries: HashSet<Addr>).Contains callee
-      && (isFollowedWithin ctx v || isLeftOut ctx target)
-    | _ ->
-      false
-
-  /// Checks if the function that the given builder has built jumps to a
-  /// function of the given entries without calling it as its tail.
-  let missesTailCall entries (builder: ICFGBuildable<_, _>) =
-    let ctx = builder.Context
-    ctx.CFG.Vertices
-    |> Array.exists (fun v ->
-      not v.VData.Internals.IsAbstract && jumpsToEntryUncalled entries ctx v)
-
 /// Represents the rules of the CFG recovery for 32-bit ARM. Besides the rules
 /// of every architecture, a call that switches Thumb code to ARM enters a PLT
 /// entry past the Thumb stub that starts it, while a call right before a
@@ -404,22 +371,5 @@ type internal ARM32CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       ctx.CallsBeforeLiterals.UnionWith calls
       true
 
-  /// Finds the functions that jump to another function without calling it as
-  /// their tail, as they jumped there before any call told that a function
-  /// starts there: they took its code for their own, or left it out as lying
-  /// past the next function. Built again, they call it as their tail.
-  override _.FindFunctionsToRebuild builders =
-    let entries =
-      builders
-      |> Array.filter (fun builder -> builder.BuilderState <> Invalid)
-      |> Array.map (fun builder -> builder.EntryPoint)
-      |> HashSet
-    let isToRebuild (builder: IFunctionBuilder) =
-      match builder with
-      | :? ICFGBuildable<'FnCtx, 'GlCtx> as built ->
-        built.BuilderState = Finished && missesTailCall entries built
-      | _ ->
-        false
-    builders
-    |> Array.filter isToRebuild
-    |> Array.map (fun builder -> builder.EntryPoint)
+  override this.FindFunctionsToRebuild builders =
+    findFunctionsMissingTailCalls this builders

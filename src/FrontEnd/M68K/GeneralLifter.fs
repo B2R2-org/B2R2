@@ -1008,19 +1008,31 @@ let private jumpTarget bld ins =
   | LMem addr -> addr
   | _ -> raise InvalidOperandException
 
+/// Returns where a JMP or a JSR goes: the address itself where the instruction
+/// alone tells it, which is how the CFG recovery reads a direct branch, and
+/// otherwise a temporary holding it, computed before a JSR moves the stack
+/// pointer that the address may count from.
+let private jumpTargetOf bld (ins: Instruction) =
+  match (ins :> IInstruction).DirectBranchTarget() with
+  | true, target ->
+    numU32 (uint32 target) 32<rt>
+  | false, _ ->
+    let t = tmpVar bld 32<rt>
+    append bld { t := jumpTarget bld ins }
+    t
+
 /// Lifts a JMP.
 let jmp (ins: Instruction) bld =
   lift bld ins {
-    AST.interjmp (jumpTarget bld ins) InterJmpKind.Base
+    AST.interjmp (jumpTargetOf bld ins) InterJmpKind.Base
     return NoEndMark
   }
 
 /// Lifts a JSR, which leaves the address it came from on the stack.
 let jsr (ins: Instruction) bld =
   lift bld ins {
-    let target = tmpVar bld 32<rt>
+    let target = jumpTargetOf bld ins
     let ret = tmpVar bld 32<rt>
-    target := jumpTarget bld ins
     ret := fallThrough ins
     push bld ret
     AST.interjmp target InterJmpKind.IsCall
