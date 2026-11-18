@@ -28,6 +28,8 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Tests the recovery of m68k binaries.
 [<TestClass>]
@@ -40,6 +42,15 @@ type M68KBinaryBrewTests() =
   static let recoverCode (code: string list) =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA Architecture.M68K)).Functions
+
+  /// Returns the kinds of the edges that leave the block that ends with the
+  /// instruction at the given address.
+  static let edgeKindsFrom (fn: Function) insAddr =
+    let v =
+      fn.CFG.FindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.LastInstruction.Address = insAddr)
+    fn.CFG.GetSuccEdges v |> Array.map _.Label
 
   /// Returns how many entries each jump table of the entry function has.
   static let countEntries code =
@@ -87,3 +98,28 @@ type M68KBinaryBrewTests() =
         "4e75" (* 0x24: rts *)
         "4e75" (* 0x26: rts *) ]
     CollectionAssert.AreEqual([| 2 |], countEntries code)
+
+  (* f jumps to x before anything tells that x is a function, so its building
+     leaves out the code there as lying past h, which main has called. g,
+     which main calls next, calls x and so makes it a function, after which f
+     is built again to call x as its tail. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump to a function that a later call proves calls it``() =
+    let fns =
+      recoverCode
+        [ "61000016" (* main: bsr.w h *)
+          "61000008" (* bsr.w f *)
+          "61000010" (* bsr.w g *)
+          "4e75" (* rts *)
+          "4a80" (* 0xe: f: tst.l d0 *)
+          "6704" (* beq.s 0x16 *)
+          "6000000c" (* bra.w x *)
+          "4e75" (* 0x16: rts *)
+          "4e75" (* 0x18: h: rts *)
+          "61000004" (* 0x1a: g: bsr.w x *)
+          "4e75" (* rts *)
+          "5280" (* 0x20: x: addq.l #1,d0 *)
+          "4e75" (* rts *) ]
+    let kinds = edgeKindsFrom fns[0xeUL] 0x12UL
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
