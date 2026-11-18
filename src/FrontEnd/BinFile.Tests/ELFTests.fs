@@ -1325,6 +1325,24 @@ type ELFTests() =
     Assert.AreEqual<bool>(false, isLoaderOnly mips64File 0x120020068UL)
 
   [<TestMethod>]
+  member _.``[ELF] m68k GOT read-only after loading test``() =
+    (* An m68k GOT holds the slots of the PLT too, which lazy binding writes
+       as the program runs, so GNU_RELRO stops short of it. Only the loader
+       writes the slots that no JMP_SLOT relocation names, as one that GCC
+       loads the address of a table from. A variable in .data stays
+       writable. *)
+    let file = m68kSoFile
+    Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x401cUL)
+    Assert.AreEqual<bool>(true, file.IsReadOnlyAfterLoading 0x4018UL)
+    Assert.AreEqual<bool>(false, file.IsReadOnlyAfterLoading 0x400cUL)
+    Assert.AreEqual<bool>(false, file.IsReadOnlyAfterLoading 0x4040UL)
+    let relocs = (file :> IBinFile).Relocations.Value
+    assertRelocationValue (Ok(BinRelocationValue.Rebased 0x404cUL))
+                          (relocs.TryResolveRelocationValue 0x401cUL)
+    assertRelocationValue (Error ErrorCase.ItemNotFound)
+                          (relocs.TryResolveRelocationValue 0x4040UL)
+
+  [<TestMethod>]
   member _.``[ELF] MIPS .pdr function addresses test``() =
     (* The assembler writes a .pdr record for each function, which starts with
        the address of the function, and strip keeps the section, so the
