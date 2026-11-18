@@ -349,3 +349,30 @@ type M68KBinaryBrewTests() =
         "4e75" (* 0x16: rts *) ]
     let entries = Seq.toArray (recoverCode code).Addresses
     CollectionAssert.DoesNotContain(entries, 0x16UL)
+
+  (* get becomes a switch whose range check admits two entries, while the code
+     right past its table, which nothing runs to, reads as an entry that sends
+     the jump to that code itself. A table in a section ends where the range
+     check says. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A table ends where its range check says``() =
+    let code =
+      [ "0c8000000001" (* 0x49c: cmpi.l #1,d0 *)
+        "6200001a" (* bhi.w 0x4be *)
+        "303b0a06" (* move.w (6,pc,d0.l*2),d0 *)
+        "4efb0002" (* jmp (2,pc,d0.w) *)
+        "0008" (* 0x4ae: .word 0x4b6 - 0x4ae *)
+        "000c" (* .word 0x4ba - 0x4ae *)
+        "00040001" (* 0x4b2: ori.b #1,d4 *)
+        "7000" (* 0x4b6: moveq #0,d0 *)
+        "4e75" (* rts *)
+        "7001" (* 0x4ba: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "4e75" (* 0x4be: rts *) ]
+    let bytes = readZippedBinary "elf_m68k_so"
+    (code |> String.concat "" |> ByteArray.ofHexString).CopyTo(bytes, 0x49c)
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA Architecture.M68K)
+    let fns = (BinaryBrew hdl).Functions
+    let counts = fns[0x49cUL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], counts)
