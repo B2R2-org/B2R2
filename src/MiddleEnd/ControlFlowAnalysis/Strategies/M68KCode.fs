@@ -217,3 +217,46 @@ module internal M68KCode =
           || hasAbove lu addr endsFlow)
     | Error _ ->
       false
+
+  /// Tells whether the indexed operand adds no more than a displacement to the
+  /// PC, as one of the full extension format may.
+  let private isPlainPCDisp (indexed: IndexedMem) =
+    indexed.Base = Some Register.PC
+    && indexed.Index.IsNone
+    && indexed.OuterDisp.IsNone
+
+  /// Returns the address that the memory operand of the instruction names as a
+  /// displacement from the PC, if it does.
+  let private tryPCRelative (ins: Instruction) mem =
+    match mem with
+    | Disp(disp, Register.PC) ->
+      Some(ins.TargetOf(int32 disp))
+    | Indexed indexed when isPlainPCDisp indexed ->
+      Some(ins.TargetOf(indexed.BaseDisp))
+    | _ ->
+      None
+
+  /// Returns the address that the operand of a LEA or a PEA names, which it
+  /// takes as it is rather than reads: one that the PC gives, or, given that
+  /// the binary stays where it is linked, one that it names absolutely.
+  let private tryEffectiveAddress isFixedBase (ins: Instruction) opr =
+    match opr with
+    | OpMem mem -> tryPCRelative ins mem
+    | OpAddr addr when isFixedBase -> Some addr
+    | _ -> None
+
+  /// Returns the address that the instruction takes as a constant, if any: the
+  /// effective address that a LEA or a PEA computes, or, given that the binary
+  /// stays where it is linked, a long immediate that it moves or compares, as
+  /// code does that stores or passes a function pointer. Code that the loader
+  /// may place anywhere holds no address as an immediate.
+  let tryTakenAddress isFixedBase (ins: Instruction) =
+    match ins.Opcode, ins.Operands with
+    | Opcode.PEA, OneOperand opr | Opcode.LEA, TwoOperands(opr, _) ->
+      tryEffectiveAddress isFixedBase ins opr
+    | Opcode.MOVEQ, _ ->
+      None
+    | _, TwoOperands(OpImm imm, _) when isFixedBase ->
+      if ins.Size = OperandSize.Long then Some(uint64 (uint32 imm)) else None
+    | _ ->
+      None

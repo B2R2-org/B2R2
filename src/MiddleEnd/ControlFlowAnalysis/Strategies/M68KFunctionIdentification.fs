@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -38,7 +39,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// number does that happens to look like a code address, so it starts one
 /// only where the code shows a function starting, as M68KCode tells, which
 /// the code alone tells, so that the recovery knows every such function
-/// before it starts, as it bounds a table by the next function.
+/// before it starts, as it bounds a table by the next function. The same goes
+/// for an address that recovered code takes as a constant, as code does that
+/// passes a callback or stores a function pointer, which the identification
+/// finds in what the recovery builds.
 type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -63,12 +67,21 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     && s.Size > 0UL
 
   /// Lists the address ranges of the sections that hold code that a function
-  /// may start in.
+  /// may start in, or of the executable segments of a file without sections,
+  /// such as a raw image.
   let codeRanges =
-    BinFileOps.getSections file
-    |> Seq.filter isCodeSection
-    |> Seq.map (fun s -> AddrRange.create s.Address (s.Address + s.Size - 1UL))
-    |> Seq.toArray
+    let rangeOf (addr: Addr) size = AddrRange.create addr (addr + size - 1UL)
+    let sections = BinFileOps.getSections file
+    if sections.IsEmpty then
+      BinFileOps.getSegments file
+      |> Seq.filter (fun s -> s.Permission.HasFlag Permission.Executable)
+      |> Seq.map (fun s -> rangeOf s.Address s.Size)
+      |> Seq.toArray
+    else
+      sections
+      |> Seq.filter isCodeSection
+      |> Seq.map (fun s -> rangeOf s.Address s.Size)
+      |> Seq.toArray
 
   /// Tells whether the value names code of this binary that a function may
   /// start at: an even address, as every instruction of m68k starts at one,
@@ -162,16 +175,45 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Seq.map (fun s -> s.Address)
     |> Set.ofSeq
 
+  let lu = hdl.NewLiftingUnit()
+
+  /// What the code at each address shows of a function starting there, as
+  /// telling it takes decoding, while rounds of identification ask again.
+  let entryEvidence = Dictionary<Addr, bool>()
+
+  /// Tells whether the code at the address shows a function starting there.
+  let showsEntry addr =
+    match entryEvidence.TryGetValue addr with
+    | true, shows ->
+      shows
+    | false, _ ->
+      let shows = M68KCode.showsEntry lu (sectionStarts.Contains addr) addr
+      entryEvidence[addr] <- shows
+      shows
+
   /// Returns the code addresses in data at which the code shows a function
   /// starting.
   let findLikelyEntries () =
-    let lu = hdl.NewLiftingUnit()
-    dataPointers ()
-    |> Array.distinct
-    |> Array.filter (fun addr ->
-      M68KCode.showsEntry lu (sectionStarts.Contains addr) addr)
+    dataPointers () |> Array.distinct |> Array.filter showsEntry
 
-  interface IFunctionIdentifiable with
+  /// Returns the addresses that the code that the recovery has built for the
+  /// function takes as constants.
+  let addressesTakenBy (fn: Function) =
+    let isFixedBase = not file.IsBaseRelative
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.collect (fun v -> v.VData.Internals.Instructions)
+    |> Array.choose (fun ins ->
+      M68KCode.tryTakenAddress isFixedBase (ins :?> M68K.Instruction))
+
+  interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
       |> Array.distinct
+
+    member _.IdentifyMore recovered =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> Array.collect addressesTakenBy
+      |> Array.distinct
+      |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)

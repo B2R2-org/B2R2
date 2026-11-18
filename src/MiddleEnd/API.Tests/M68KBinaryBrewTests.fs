@@ -264,3 +264,38 @@ type M68KBinaryBrewTests() =
     let code = 0x494, "4efb00026002" (* jmp (2,pc,d0.w); .word 0x6002 *)
     let entries = findEntriesInSo (code :: relocatedPointerTo 0x498u)
     CollectionAssert.DoesNotContain(entries, 0x498UL)
+
+  (* main passes f to g, as qsort takes its comparison, by pushing the address
+     of f that it computes from the PC, and nothing calls f. *)
+  [<TestMethod>]
+  member _.``Code that passes the address of code passes a function``() =
+    let code =
+      [ "487a000a" (* pea (0xa,pc) *)
+        "61000008" (* bsr.w g *)
+        "588f" (* addq.l #4,sp *)
+        "4e75" (* rts *)
+        "4e75" (* 0xc: f: rts *)
+        "4e75" (* 0xe: g: rts *) ]
+    CollectionAssert.Contains(Seq.toArray (recoverCode code).Addresses, 0xcUL)
+
+  (* Code that stays where it is linked pushes the address of f as it is. *)
+  [<TestMethod>]
+  member _.``Fixed-base code that pushes the address of code passes one``() =
+    let code =
+      [ "2f3c0000000e" (* move.l #0xe,-(sp) *)
+        "61000008" (* bsr.w g *)
+        "588f" (* addq.l #4,sp *)
+        "4e75" (* rts *)
+        "4e75" (* 0xe: f: rts *)
+        "4e75" (* 0x10: g: rts *) ]
+    CollectionAssert.Contains(Seq.toArray (recoverCode code).Addresses, 0xeUL)
+
+  (* frame_dummy pushes a number that names register_tm_clones this time, but
+     the loader may place the library anywhere, so its code holds no address
+     as an immediate. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``An immediate of relocated code names no function``() =
+    let code = 0x494, "2f3c000004084e75" (* move.l #0x408,-(sp); rts *)
+    let entries = findEntriesInSo [ code ]
+    CollectionAssert.DoesNotContain(entries, 0x408UL)
