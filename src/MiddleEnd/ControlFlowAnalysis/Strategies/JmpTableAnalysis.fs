@@ -192,6 +192,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     else
       BinOp(BinOpType.SHL, rt, kept, Num(BitVector(uint64 (l - r), rt)))
 
+  /// Checks if the given expression masks off the low bits of the given
+  /// width, as the IR keeps the rest of a register that an instruction writes
+  /// the low part of.
+  let masksOffLow (rt: RegType) = function
+    | BinOp(BinOpType.AND, _, _, Num m) ->
+      rt < 64<rt> && (m.ToUInt64() &&& ((1UL <<< int rt) - 1UL)) = 0UL
+    | _ ->
+      false
+
   let rec simplify e =
     match e with
     | Load(v, rt, e) ->
@@ -249,6 +258,12 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       RoundCtrl(simplify mode, rt, simplify body)
     | Extract(Cast(CastKind.ZeroExt, _, e), rt, 0) when Expr.typeOf e = rt ->
       e
+    (* A write to the low part of a register keeps the rest of it, which the
+       IR puts as the rest masked off and the part beside it, as m68k moves a
+       word into a data register. The low part reads back as what it got. *)
+    | Extract(BinOp(BinOpType.OR, _, hi, Cast(CastKind.ZeroExt, _, e)), rt, 0)
+      when Expr.typeOf e = rt && masksOffLow rt hi ->
+      simplify e
     | Extract(Cast(CastKind.SignExt, _, e), rt, 0) when Expr.typeOf e = rt ->
       e
     (* A register that the code reloads from the stack reads back as all the
