@@ -1343,6 +1343,16 @@ type ELFTests() =
                           (relocs.TryResolveRelocationValue 0x4040UL)
 
   [<TestMethod>]
+  member _.``[ELF] m68k last PLT entry ends with its stub test``() =
+    (* The PLT of this library holds three stubs of twenty bytes past its
+       header, the last of which ends right where .text starts, with the code
+       of the library. *)
+    let imports = (m68kSoFile :> IBinFile).ImportTable.Value
+    Assert.AreEqual<bool>(true, imports.IsInImportTable 0x3d3UL)
+    Assert.AreEqual<bool>(false, imports.IsInImportTable 0x3d4UL)
+    Assert.AreEqual<bool>(false, imports.IsInImportTable 0x4000UL)
+
+  [<TestMethod>]
   member _.``[ELF] MIPS .pdr function addresses test``() =
     (* The assembler writes a .pdr record for each function, which starts with
        the address of the function, and strip keeps the section, so the
