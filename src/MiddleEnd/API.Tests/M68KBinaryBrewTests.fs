@@ -57,6 +57,28 @@ type M68KBinaryBrewTests() =
     let fns = recoverCode code
     fns[0UL].JumpTables |> Array.map _.NumEntries
 
+  /// Returns where the functions that the recovery finds in the shared object
+  /// of m68k start, once each of the given hex strings is written at its
+  /// offset. Its symbol table is hidden, so that only its dynamic symbols and
+  /// its data tell of functions, and frame_dummy returns right away, so that
+  /// nothing leads to register_tm_clones, at 0x408.
+  static let findEntriesInSo (patches: (int * string) list) =
+    let bytes = readZippedBinary "elf_m68k_so"
+    let patch (offset: int, hex: string) =
+      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+    patch (0x28e4, "00000000") (* the type of .symtab: SHT_NULL *)
+    patch (0x494, "4e754e714e71") (* frame_dummy: rts; nop; nop *)
+    List.iter patch patches
+    let hdl = BinHandle.LoadFileBytes(bytes, ISA Architecture.M68K)
+    Seq.toArray (BinaryBrew hdl).Functions.Addresses
+
+  /// Returns the patches that make the first word of .data.rel.ro, which a
+  /// relocation sets, point to the given address: the addend of the
+  /// relocation and the word itself.
+  static let relocatedPointerTo (addr: uint32) =
+    let hex = addr.ToString("x8")
+    [ 0x2a4, hex; 0x1f30, hex ]
+
   (* GCC loads an entry of a table right after its jump with move.w, which
      fills the low word of a data register and keeps the rest, and the jump
      reads that low word back. *)
@@ -179,3 +201,66 @@ type M68KBinaryBrewTests() =
           "4e75" (* rts *) ]
     let kinds = edgeKindsFrom fns[0xeUL] 0x12UL
     CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
+  (* Only a relocated word of .data.rel.ro leads to register_tm_clones, which
+     saves a5 first. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A relocated pointer to code saving registers is a function``() =
+    let entries = findEntriesInSo (relocatedPointerTo 0x408u)
+    CollectionAssert.Contains(entries, 0x408UL)
+
+  (* The pointer names the code past the return of frame_dummy, which returns
+     one with no frame, where no code runs into it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A relocated pointer to code below a return is a function``() =
+    let code = 0x494, "4e7570014e75" (* rts; moveq #1,d0; rts *)
+    let entries = findEntriesInSo (code :: relocatedPointerTo 0x496u)
+    CollectionAssert.Contains(entries, 0x496UL)
+
+  (* The code past the return of frame_dummy copies d0 this time, which holds
+     nothing as a function starts, as every argument comes on the stack. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code reading what code above left is no function``() =
+    let code = 0x494, "4e7522004e75" (* rts; move.l d0,d1; rts *)
+    let entries = findEntriesInSo (code :: relocatedPointerTo 0x496u)
+    CollectionAssert.DoesNotContain(entries, 0x496UL)
+
+  (* The pointer names where register_tm_clones restores d2, which the code
+     above runs into, with no frame set up. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code that code above runs into is no function``() =
+    let entries = findEntriesInSo (relocatedPointerTo 0x44au)
+    CollectionAssert.DoesNotContain(entries, 0x44aUL)
+
+  (* As an executable that stays where it is linked, the binary relocates
+     nothing, and .data.rel.ro holds the address of register_tm_clones as it
+     is, right past .fini_array, which holds that of __do_global_dtors_aux. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A code address next to other pointers is a pointer``() =
+    let entries = findEntriesInSo [ 0x10, "0002"; 0x1f30, "00000408" ]
+    CollectionAssert.Contains(entries, 0x408UL)
+
+  (* .data holds the address of register_tm_clones this time, among small
+     numbers and data addresses, as a number that happens to look like a code
+     address sits. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A lone code address in fixed-base data is no pointer``() =
+    let entries = findEntriesInSo [ 0x10, "0002"; 0x2044, "00000408" ]
+    CollectionAssert.DoesNotContain(entries, 0x408UL)
+
+  (* frame_dummy jumps through a table right past it this time, which the
+     pointer names, as PIE code loads the address of such a table from the
+     GOT, where a relocation sets it. The first entry of the table reads as a
+     branch below a jump. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to a table right past its jump is no function``() =
+    let code = 0x494, "4efb00026002" (* jmp (2,pc,d0.w); .word 0x6002 *)
+    let entries = findEntriesInSo (code :: relocatedPointerTo 0x498u)
+    CollectionAssert.DoesNotContain(entries, 0x498UL)

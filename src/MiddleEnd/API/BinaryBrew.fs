@@ -146,6 +146,8 @@ type BinaryBrew =
       MIPSFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | PPC ->
       PPCFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
+    | M68K ->
+      M68KFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | _ ->
       FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
