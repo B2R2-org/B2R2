@@ -1186,11 +1186,12 @@ module internal CFGRecoveryCommon =
     | Overlapping _ ->
       MoveOn
 
-  /// Recovers the indirect branch at the given address. A branch whose analysis
-  /// fails is read again once nothing else is left to do, as the data flow of
-  /// the CFG built so far may lack the paths that give its index its values,
-  /// such as those past a call that the function waits to learn returns.
-  let recoverIndirectBranches ctx jmptblAnalysis queue insAddr =
+  /// Recovers the jump table that the indirect branch at the given address
+  /// jumps through. A branch whose analysis fails is read again once nothing
+  /// else is left to do, as the data flow of the CFG built so far may lack the
+  /// paths that give its index its values, such as those past a call that the
+  /// function waits to learn returns.
+  let recoverJumpTable ctx jmptblAnalysis queue insAddr =
     let analysis: IJmpTableAnalyzable<_, _> = jmptblAnalysis
     match analysis.Identify(ctx, insAddr) with
     | Ok(jmptbl) ->
@@ -1208,11 +1209,23 @@ module internal CFGRecoveryCommon =
       pushAction ctx <| RetryIndEdges(insAddr, ctx.CFG.EdgeCount)
       MoveOn (* We ignore this indirect branch for now. *)
 
+  /// Recovers the indirect branch at the given address, unless it returns to
+  /// the caller through the link that the caller left, which leads nowhere
+  /// within the function.
+  let recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr =
+    let rules: ICFGRecoveryRules<_, _> = rules
+    match tryGetCallerVertex ctx (LeafCallSite insAddr) with
+    | Some v when rules.ReturnsThroughLink(ctx, v) ->
+      ctx.LinkReturns.Add insAddr |> ignore
+      MoveOn
+    | _ ->
+      recoverJumpTable ctx jmptblAnalysis queue insAddr
+
   /// Recovers the indirect branch at the given address again if the CFG has
   /// gained edges since its analysis failed with the given number of them.
-  let retryIndirectBranches ctx jmptblAnalysis queue insAddr numEdges =
+  let retryIndirectBranches ctx rules jmptblAnalysis queue insAddr numEdges =
     if (ctx: CFGBuildingContext<_, _>).CFG.EdgeCount > numEdges then
-      recoverIndirectBranches ctx jmptblAnalysis queue insAddr
+      recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr
     else
       MoveOn
 
@@ -1394,7 +1407,7 @@ module internal CFGRecoveryCommon =
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else
-        v.VData.Internals.LastInstruction.IsRET)
+        ctx.Returns v.VData.Internals)
     |> Option.isSome
 
   /// Checks if a block of the function runs on into the given entry, where an

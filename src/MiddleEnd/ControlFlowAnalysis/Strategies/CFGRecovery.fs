@@ -88,13 +88,13 @@ module private CFGRecovery =
       dbglog ctx.ThreadID (nameof MakeIndEdges)
       <| $"{insAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-      recoverIndirectBranches ctx jmptblAnalysis queue insAddr
+      recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr
     | RetryIndEdges(insAddr, numEdges) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof RetryIndEdges)
       <| $"{insAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
-      retryIndirectBranches ctx jmptblAnalysis queue insAddr numEdges
+      retryIndirectBranches ctx rules jmptblAnalysis queue insAddr numEdges
     | WaitForCallee calleeAddr ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof WaitForCallee)
@@ -187,6 +187,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
   let m68kRules = M68KCFGRecoveryRules<'FnCtx, 'GlCtx>()
 
+  let s390Rules = S390CFGRecoveryRules<'FnCtx, 'GlCtx>()
+
   /// Returns the rules for the architecture of the binary that the given
   /// context builds a function of. The binary tells, rather than the ISA that
   /// the strategy may be made with, as a strategy made without one serves a
@@ -199,6 +201,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     | RISCV -> riscvRules :> ICFGRecoveryRules<_, _>
     | PPC -> ppcRules :> ICFGRecoveryRules<_, _>
     | M68K -> m68kRules :> ICFGRecoveryRules<_, _>
+    | S390 -> s390Rules :> ICFGRecoveryRules<_, _>
     | _ -> defaultRules :> ICFGRecoveryRules<_, _>
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with

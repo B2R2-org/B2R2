@@ -201,6 +201,13 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * IVertex<LowUIRBasicBlock>
     -> (NonReturningStatus * int) option
 
+  /// Checks if the indirect jump that ends the given vertex returns to the
+  /// caller through its link register.
+  abstract ReturnsThroughLink:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> bool
+
   /// Checks if the entries of a jump table that point to the given target are
   /// holes, which lead to no code.
   abstract IsJumpTableHole:
@@ -270,6 +277,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   default _.TryJudgeIndirectReturn(ctx, caller) =
     tryJudgeReturnByCFA ctx caller.VData.Internals.LastInstruction
 
+  /// Takes no indirect jump for a return, as a return instruction tells one.
+  default _.ReturnsThroughLink(_, _) = false
+
   /// Takes no target for a hole, leaving the padding at the end of a function
   /// to the recovery itself.
   default _.IsJumpTableHole(_, _) = false
@@ -320,6 +330,8 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
 
     member this.TryJudgeIndirectReturn(ctx, caller) =
       this.TryJudgeIndirectReturn(ctx, caller)
+
+    member this.ReturnsThroughLink(ctx, v) = this.ReturnsThroughLink(ctx, v)
 
     member this.IsJumpTableHole(ctx, target) =
       this.IsJumpTableHole(ctx, target)

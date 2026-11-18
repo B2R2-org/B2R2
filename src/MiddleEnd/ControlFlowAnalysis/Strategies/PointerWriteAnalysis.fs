@@ -233,7 +233,7 @@ module private PointerWriteHelper =
       not blk.IsAbstract
       && not (ctx.GapAnalysisVertices.Contains blk.PPoint)
       && blk.LastInstruction.IsIndirectBranch
-      && not blk.LastInstruction.IsRET)
+      && not (ctx.Returns blk))
 
   /// Gets the registers in which the calling convention passes arguments.
   let getArgRegisters (hdl: BinHandle) =

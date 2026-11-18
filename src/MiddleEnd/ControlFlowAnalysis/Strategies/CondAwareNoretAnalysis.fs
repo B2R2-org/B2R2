@@ -521,7 +521,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let judgeExit ctx dom tryGetCallerLoc judgeReturn (v: IVertex<_>) =
     let vData = v.VData :> ILowUIRBasicBlock
     if not vData.IsAbstract then
-      if vData.LastInstruction.IsRET then
+      if (ctx: CFGBuildingContext<_, _>).Returns vData then
         if hasUndecidableReturnTarget ctx v then
           NoRet
         else
