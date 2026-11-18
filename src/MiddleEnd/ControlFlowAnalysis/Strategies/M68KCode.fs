@@ -264,3 +264,53 @@ module internal M68KCode =
       if ins.Size = OperandSize.Long then Some(uint64 (uint32 imm)) else None
     | _ ->
       None
+
+  /// Tells whether the operand reads an argument that the caller pushed, right
+  /// above the return address.
+  let private isArgument opr =
+    match opr with
+    | OpMem(Disp(disp, Register.A7)) -> disp >= 4s && disp <= 16s
+    | _ -> false
+
+  /// Tells whether the instruction reads an argument of its function.
+  let private readsArgument (ins: Instruction) =
+    match ins.Operands with
+    | OneOperand a -> isArgument a
+    | TwoOperands(a, b) -> isArgument a || isArgument b
+    | _ -> false
+
+  /// Tells whether a function starts at the address, right below the given
+  /// instruction with which a recovered function ends, or a nop that pads it.
+  /// A return, a trap or a nop ends the code above, while a jump may jump over
+  /// a label of its own, so the code past a jump has to set up a frame or read
+  /// an argument first. The code past a call or a table jump starts nothing,
+  /// as the call may return and the table lies right past its jump.
+  let startsPastCode (lu: LiftingUnit) (above: Instruction) (addr: Addr) =
+    match lu.TryParseInstruction(addr) with
+    | Ok ins ->
+      let ins = ins :?> Instruction
+      let i = above :> IInstruction
+      if isTableJump above then false
+      elif i.IsRET || i.IsExit || i.IsNop then true
+      elif endsFlow above then setsUpFrame ins || readsArgument ins
+      else false
+    | Error _ ->
+      false
+
+  /// Tells whether the code from the address up to the given end jumps or
+  /// branches to an address from lo up to hi, reading one instruction after
+  /// another and skipping a halfword that decodes as none, as code that the
+  /// recovery has yet to build may still go there.
+  let jumpsInto (lu: LiftingUnit) (addr: Addr) codeEnd lo hi =
+    let mutable cur = addr
+    let mutable found = false
+    while not found && cur < codeEnd do
+      match lu.TryParseInstruction(cur) with
+      | Ok ins ->
+        match ins.DirectBranchTarget() with
+        | true, t when not ins.IsCall && lo <= t && t <= hi -> found <- true
+        | _ -> ()
+        cur <- cur + uint64 ins.Length
+      | Error _ ->
+        cur <- cur + 2UL
+    found

@@ -48,7 +48,8 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// passes a callback or stores a function pointer, and for where a recovered
 /// function jumps past the next function or before its own entry, as it calls
 /// another as its tail, which the identification finds in what the recovery
-/// builds.
+/// builds, along with where code resumes past a recovered function, as GCC
+/// keeps each function in one piece, one after another.
 type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -286,6 +287,79 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Array.collect (fun (_, jumps) -> Array.map snd jumps)
     |> Array.filter (fun t -> not (AddrRangeUnion.containsAddr t home))
 
+  /// Returns what the code that the recovery has built for the functions
+  /// covers.
+  let coverOf (fns: Function[]) =
+    fns
+    |> Array.collect (fun fn ->
+      fn.CFG.Vertices
+      |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+      |> Array.map (fun v -> v.VData.Internals.Range))
+    |> AddrRangeUnion.ofArray
+
+  /// Skips the nops that pad the code from the address on, returning where
+  /// code resumes.
+  let rec skipNops (addr: Addr) =
+    match lu.TryParseInstruction(addr) with
+    | Ok ins when ins.IsNop -> skipNops (addr + uint64 ins.Length)
+    | _ -> addr
+
+  /// Finds where the code that the function has built before the given next
+  /// entry ends, along with the instruction that it ends with, if the function
+  /// has built any there.
+  let tryFindCodeEnd (fn: Function, next) =
+    let isOwn (v: IVertex<LowUIRBasicBlock>) =
+      let blk = v.VData.Internals
+      not blk.IsAbstract
+      && fn.EntryPoint <= blk.Range.Min
+      && blk.Range.Min < next
+    match fn.CFG.Vertices |> Array.filter isOwn with
+    | [||] ->
+      None
+    | own ->
+      let last = own |> Array.maxBy (fun v -> v.VData.Internals.Range.Max)
+      let blk = last.VData.Internals
+      let above = blk.LastInstruction :?> M68K.Instruction
+      Some(fn, blk.Range.Max + 1UL, above, next)
+
+  /// Returns the instruction right above where code resumes past the nops from
+  /// the given end on, given the instruction that the code ends with: the nop
+  /// that pads the code up to a long word, as GCC aligns a function so, or
+  /// else that instruction, as a nop elsewhere stands for a label.
+  let findAbove start codeEnd (last: M68K.Instruction) =
+    if start > codeEnd && start % 4UL = 0UL then
+      match lu.TryParseInstruction(start - 2UL) with
+      | Ok nop -> nop :?> M68K.Instruction
+      | Error _ -> last
+    else
+      last
+
+  /// Finds where the function that follows the given one starts, if one does
+  /// where code resumes past the code that the given one has built, past the
+  /// nops that pad it, before the next entry, in code that no function covers:
+  /// the code there has to show a function starting right below the code that
+  /// the given one ends with, and no code of the given one may branch to where
+  /// the code resumes, as the recovery may have yet to build what branches
+  /// there, such as code past a call that it takes never to return.
+  let tryFindStartPast covered (fn: Function, codeEnd, last, next) =
+    let start = skipNops codeEnd
+    let above = findAbove start codeEnd last
+    let isStart =
+      start < next
+      && not (AddrRangeUnion.containsAddr start covered)
+      && M68KCode.startsPastCode lu above start
+      && not (M68KCode.jumpsInto lu fn.EntryPoint start codeEnd start)
+    if isStart then Some start else None
+
+  /// Finds where the functions that follow the given ones start, which covers
+  /// functions that nothing calls or points to, such as dead code that a
+  /// linker keeps.
+  let findNextStarts internals =
+    let covered = coverOf internals
+    withNextEntries internals
+    |> Array.choose tryFindCodeEnd
+    |> Array.choose (tryFindStartPast covered)
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
@@ -294,6 +368,8 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     member _.IdentifyMore recovered =
       let internals = recovered |> Array.filter (fun fn -> not fn.IsExternal)
       let taken = Array.collect addressesTakenBy internals
-      Array.append taken (findTailCallTargets internals)
+      let led =
+        Array.append taken (findTailCallTargets internals)
+        |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)
+      Array.append led (findNextStarts internals |> Array.filter isCodePointer)
       |> Array.distinct
-      |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)

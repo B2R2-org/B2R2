@@ -219,12 +219,12 @@ type M68KBinaryBrewTests() =
     let entries = findEntriesInSo (code :: relocatedPointerTo 0x496u)
     CollectionAssert.Contains(entries, 0x496UL)
 
-  (* The code past the return of frame_dummy copies d0 this time, which holds
-     nothing as a function starts, as every argument comes on the stack. *)
+  (* frame_dummy jumps over code that copies d0 this time, which holds nothing
+     as a function starts, as every argument comes on the stack. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``A pointer to code reading what code above left is no function``() =
-    let code = 0x494, "4e7522004e75" (* rts; move.l d0,d1; rts *)
+    let code = 0x494, "600222004e75" (* bra.s 0x498; move.l d0,d1; rts *)
     let entries = findEntriesInSo (code :: relocatedPointerTo 0x496u)
     CollectionAssert.DoesNotContain(entries, 0x496UL)
 
@@ -256,12 +256,16 @@ type M68KBinaryBrewTests() =
 
   (* .data.rel.ro holds the address of register_tm_clones next to a data
      address, with .init_array and .fini_array cleared, as a number that
-     happens to look like a code address sits among constants. *)
+     happens to look like a code address sits among constants. The code above
+     runs into register_tm_clones, which no code past a function starts. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``A lone code address among constants is no pointer``() =
     let patches =
-      [ 0x10, "0002"; 0x1f28, "0000000000000000"; 0x1f34, "00000408" ]
+      [ 0x10, "0002"
+        0x1f28, "0000000000000000"
+        0x1f34, "00000408"
+        0x406, "4e71" (* deregister_tm_clones: nop *) ]
     let entries = findEntriesInSo patches
     CollectionAssert.DoesNotContain(entries, 0x408UL)
 
@@ -303,12 +307,12 @@ type M68KBinaryBrewTests() =
 
   (* frame_dummy pushes a number that names register_tm_clones this time, but
      the loader may place the library anywhere, so its code holds no address
-     as an immediate. *)
+     as an immediate. The code above runs into register_tm_clones. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``An immediate of relocated code names no function``() =
     let code = 0x494, "2f3c000004084e75" (* move.l #0x408,-(sp); rts *)
-    let entries = findEntriesInSo [ code ]
+    let entries = findEntriesInSo [ code; 0x406, "4e71" ]
     CollectionAssert.DoesNotContain(entries, 0x408UL)
 
   (* f jumps to x past g, which main calls, while nothing calls x: a jump past
@@ -421,3 +425,109 @@ type M68KBinaryBrewTests() =
         "4e75" (* rts *) ]
     let entries = Seq.toArray (recoverCode code).Addresses
     CollectionAssert.DoesNotContain(entries, 0x12UL)
+
+  (* x lies right past the return of f, and nothing refers to it, as a
+     function that a linker keeps though nothing uses it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function starts where code resumes past another``() =
+    let code =
+      [ "6104" (* main: bsr.s f *)
+        "4e75" (* rts *)
+        "4e71" (* nop *)
+        "7001" (* 0x6: f: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "7002" (* 0xa: x: moveq #2,d0 *)
+        "4e75" (* rts *) ]
+    CollectionAssert.Contains(Seq.toArray (recoverCode code).Addresses, 0xaUL)
+
+  (* f ends with a jump back into itself, past which the code sets up no
+     frame and reads no argument, as a label that f jumps over may start. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a jump that sets up nothing starts no function``() =
+    let code =
+      [ "6104" (* main: bsr.s f *)
+        "4e75" (* rts *)
+        "4e71" (* nop *)
+        "4a80" (* 0x6: f: tst.l d0 *)
+        "6702" (* beq.s 0xc *)
+        "4e75" (* rts *)
+        "7001" (* 0xc: moveq #1,d0 *)
+        "60fa" (* bra.s 0xa *)
+        "7002" (* 0x10: moveq #2,d0 *)
+        "4e75" (* rts *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0x10UL)
+
+  (* f ends with a call to g, which never returns, and the code past the call
+     belongs to f as much as to any other function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a call that never returns starts no function``() =
+    let code =
+      [ "6104" (* main: bsr.s f *)
+        "4e75" (* rts *)
+        "4e71" (* nop *)
+        "6104" (* 0x6: f: bsr.s g *)
+        "7001" (* 0x8: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "60fe" (* 0xc: g: bra.s g *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0x8UL)
+
+  (* f ends with a call to g, which never returns, past which a nop pads the
+     code up to no long word, so that it stands for a label of f, and the code
+     past it belongs to f all the same. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a call and a nop starts no function``() =
+    let code =
+      [ "6104" (* main: bsr.s f *)
+        "4e75" (* rts *)
+        "4e71" (* nop *)
+        "6106" (* 0x6: f: bsr.s g *)
+        "4e71" (* nop *)
+        "7001" (* 0xa: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "60fe" (* 0xe: g: bra.s g *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0xaUL)
+
+  (* f returns at its end, below which lies code that f branches to from
+     past a call to g, which never returns, so that the recovery builds no
+     branch there. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that its function branches to starts no function``() =
+    let code =
+      [ "6104" (* main: bsr.s f *)
+        "4e75" (* rts *)
+        "4e71" (* nop *)
+        "4a80" (* 0x6: f: tst.l d0 *)
+        "6704" (* beq.s 0xe *)
+        "610a" (* bsr.s g *)
+        "6004" (* 0xc: bra.s 0x12 *)
+        "7000" (* 0xe: moveq #0,d0 *)
+        "4e75" (* rts *)
+        "7001" (* 0x12: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "60fe" (* 0x16: g: bra.s g *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0x12UL)
+
+  (* f ends with a call to g, which never returns, past which nops pad the
+     code up to a long word, where x starts, as GCC aligns a function. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function starts at the long word past a call and nops``() =
+    let code =
+      [ "6104" (* main: bsr.s f *)
+        "4e75" (* rts *)
+        "4e71" (* nop *)
+        "6108" (* 0x6: f: bsr.s g *)
+        "4e714e71" (* nop; nop *)
+        "7001" (* 0xc: x: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "60fe" (* 0x10: g: bra.s g *) ]
+    CollectionAssert.Contains(Seq.toArray (recoverCode code).Addresses, 0xcUL)
