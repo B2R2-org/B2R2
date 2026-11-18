@@ -145,6 +145,7 @@ let branchOnCount ins bld =
     t := high d .- AST.num1 WSize
     high d := t
     AST.intercjmp (t != AST.num0 WSize) target next
+    return NoEndMark
   }
 
 /// LOAD HIGH ON CONDITION, whose mask names the condition codes it acts on.

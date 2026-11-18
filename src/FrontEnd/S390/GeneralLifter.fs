@@ -807,7 +807,9 @@ let private linkValue bld (ins: Instruction) =
   else numG (int64 next)
 
 /// A branch a condition-code mask decides, whose target the instruction names
-/// relative to itself.
+/// relative to itself. GCC plants a branch into its own second halfword, which
+/// holds no valid opcode, where __builtin_trap is, so that branch runs into an
+/// undefined instruction rather than on to any code.
 let branchRelative ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
@@ -815,11 +817,30 @@ let branchRelative ins bld =
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
     if isNever m then
       ()
+    elif (ins :> IInstruction).IsExit then
+      AST.sideEffect UndefinedInstruction
     elif isAlways m then
       AST.interjmp target InterJmpKind.Base
+      return NoEndMark
     else
       let next = fallThrough bld ins
       AST.intercjmp (condOfMask bld m) target next
+      return NoEndMark
+  }
+
+/// Jumps to the target where the condition holds and goes on to the next
+/// instruction where it does not. A jump out of the instruction that decides
+/// between two targets has no kind, and the CFG follows it only to numbers, so
+/// a branch that returns, or that reads its target from a register or from
+/// storage, goes from within the instruction instead.
+let private jumpIf bld cond target kind =
+  let lblTaken = label bld "Taken"
+  let lblNotTaken = label bld "NotTaken"
+  append bld {
+    AST.cjmp cond (AST.jmpDest lblTaken) (AST.jmpDest lblNotTaken)
+    AST.lmark lblTaken
+    AST.interjmp target kind
+    AST.lmark lblNotTaken
   }
 
 /// A branch a mask decides, whose target is the address its base, index, and
@@ -834,15 +855,16 @@ let branchOnCondition ins bld =
       let target = transMem bld o2
       if isAlways m then
         AST.interjmp target InterJmpKind.Base
+        return NoEndMark
       else
-        let next = fallThrough bld ins
-        AST.intercjmp (condOfMask bld m) target next
+        jumpIf bld (condOfMask bld m) target InterJmpKind.Base
   }
 
 /// A branch a mask decides, to the address a register holds. A second operand
 /// of R0 names no register and so never branches, which is how the assembler
-/// spells a no-operation; a mask that takes every code and a second operand of
-/// the link register is how a function returns.
+/// spells a no-operation. The jump does not say whether it returns: a function
+/// returns through whatever register it reloaded the value of R14 into, and
+/// code jumps through R14 for other ends as well, such as through a table.
 let branchOnConditionReg ins bld =
   lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
@@ -852,13 +874,11 @@ let branchOnConditionReg ins bld =
       ()
     else
       let target = maskAddr bld (reg bld r2)
-      let kind =
-        if r2 = Register.R14 then InterJmpKind.IsRet else InterJmpKind.Base
       if isAlways m then
-        AST.interjmp target kind
+        AST.interjmp target InterJmpKind.Base
+        return NoEndMark
       else
-        let next = fallThrough bld ins
-        AST.intercjmp (condOfMask bld m) target next
+        jumpIf bld (condOfMask bld m) target InterJmpKind.Base
   }
 
 /// BRANCH AND SAVE, in the relative form the compiler uses for every call: the
@@ -870,6 +890,7 @@ let branchAndSaveRel ins bld =
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
     d := linkValue bld ins
     AST.interjmp target InterJmpKind.IsCall
+    return NoEndMark
   }
 
 /// BRANCH AND SAVE to the address the second operand names.
@@ -881,6 +902,7 @@ let branchAndSave ins bld =
     t := transMem bld o2
     d := linkValue bld ins
     AST.interjmp t InterJmpKind.IsCall
+    return NoEndMark
   }
 
 /// BRANCH AND SAVE to the address a register holds. As with a branch on
@@ -897,6 +919,7 @@ let branchAndSaveReg ins bld =
       t := maskAddr bld (reg bld r2)
       d := linkValue bld ins
       AST.interjmp t InterJmpKind.IsCall
+      return NoEndMark
   }
 
 /// BRANCH ON COUNT, relative: the first operand counts down and control goes
@@ -910,6 +933,7 @@ let branchOnCountRel ins bld rt =
     t := srcReg rt d .- AST.num1 rt
     dst rt d := t
     AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins)
+    return NoEndMark
   }
 
 /// BRANCH ON COUNT, to the address the second operand names.
@@ -922,7 +946,7 @@ let branchOnCount ins bld rt =
     target := transMem bld o2
     t := srcReg rt d .- AST.num1 rt
     dst rt d := t
-    AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins)
+    jumpIf bld (t != AST.num0 rt) target InterJmpKind.Base
   }
 
 /// BRANCH ON COUNT to a register's address, which counts down whether or not
@@ -941,7 +965,7 @@ let branchOnCountReg ins bld rt =
       target := maskAddr bld (reg bld r2)
       t := srcReg rt d .- AST.num1 rt
       dst rt d := t
-      AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins)
+      jumpIf bld (t != AST.num0 rt) target InterJmpKind.Base
   }
 
 /// BRANCH ON INDEX: the first operand takes an increment from the third, and
@@ -961,6 +985,7 @@ let branchOnIndexRel ins bld rt high =
     dst rt d := t
     let cond = if high then t ?> limit else t ?<= limit
     AST.intercjmp cond target (fallThrough bld ins)
+    return NoEndMark
   }
 
 /// BRANCH ON INDEX to the address the second operand names.
@@ -978,7 +1003,7 @@ let branchOnIndex ins bld rt high =
     t := srcReg rt d .+ srcReg rt (reg bld r3)
     dst rt d := t
     let cond = if high then t ?> limit else t ?<= limit
-    AST.intercjmp cond target (fallThrough bld ins)
+    jumpIf bld cond target InterJmpKind.Base
   }
 
 /// The condition a compare-and-branch mask names, taken straight from the
@@ -1011,9 +1036,11 @@ let compareAndBranchRel ins bld rt signed =
         | _ -> numI64 (oprImm o2) rt
       if m &&& 0xeus = 0xeus then
         AST.interjmp target InterJmpKind.Base
+        return NoEndMark
       else
         let cond = cmpCond m signed a b
         AST.intercjmp cond target (fallThrough bld ins)
+        return NoEndMark
   }
 
 /// COMPARE AND BRANCH to the address the last operand names.
@@ -1032,9 +1059,9 @@ let compareAndBranch ins bld rt signed =
         | _ -> numI64 (oprImm o2) rt
       if m &&& 0xeus = 0xeus then
         AST.interjmp target InterJmpKind.Base
+        return NoEndMark
       else
-        let cond = cmpCond m signed a b
-        AST.intercjmp cond target (fallThrough bld ins)
+        jumpIf bld (cmpCond m signed a b) target InterJmpKind.Base
   }
 
 /// COMPARE AND TRAP, which a compiler plants where a check must not be allowed
@@ -2293,9 +2320,9 @@ let branchIndirect ins bld =
       target := loadMem GRSize (transMem bld o2)
       if isAlways m then
         AST.interjmp target InterJmpKind.Base
+        return NoEndMark
       else
-        let next = numG (int64 (codeAddr bld (nextAddr ins)))
-        AST.intercjmp (condOfMask bld m) target next
+        jumpIf bld (condOfMask bld m) target InterJmpKind.Base
   }
 
 /// MOVE PAGE, which copies a whole 4096-byte page.
