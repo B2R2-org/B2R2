@@ -102,29 +102,32 @@ module internal M68KCode =
     | _ -> []
 
   /// Tells whether the instruction only writes the register that it names as
-  /// where its result goes, rather than reading it as well, as a move does.
-  let private writesOnly (ins: Instruction) =
+  /// where its result goes, rather than reading it as well, as a move does,
+  /// or a clear past the first instruction. A clear that comes first counts as
+  /// reading its register, as code in the middle of a function clears one
+  /// right past a jump much as a function starts to, and a function that does
+  /// starts with what it returns, which the code above would leave.
+  let private writesOnly (ins: Instruction) isFirst =
     match ins.Opcode with
     | Opcode.MOVE | Opcode.MOVEA | Opcode.MOVEQ | Opcode.LEA -> true
+    | Opcode.CLR -> not isFirst
     | _ -> false
 
   /// Returns the registers that the operand where the result of the
   /// instruction goes reads: those that address it, and the register that it
   /// names unless the instruction only writes it.
-  let private readsOfDest ins opr =
+  let private readsOfDest ins isFirst opr =
     match opr with
-    | OpReg _ when writesOnly ins -> []
+    | OpReg _ when writesOnly ins isFirst -> []
     | _ -> regsOf opr
 
-  /// Returns the registers that the instruction reads. Even one that clears a
-  /// register counts as reading it, as code in the middle of a function clears
-  /// one right past a jump much as a function starts to, and a function that
-  /// does starts with what it returns, which the code above would leave.
-  let private readsOf (ins: Instruction) =
+  /// Returns the registers that the instruction reads, given whether it comes
+  /// first.
+  let private readsOf (ins: Instruction) isFirst =
     match ins.Operands with
     | NoOperand -> []
-    | OneOperand opr -> regsOf opr
-    | TwoOperands(src, dst) -> regsOf src @ readsOfDest ins dst
+    | OneOperand opr -> readsOfDest ins isFirst opr
+    | TwoOperands(src, dst) -> regsOf src @ readsOfDest ins isFirst dst
     | ThreeOperands(a, b, c) -> regsOf a @ regsOf b @ regsOf c
     | FourOperands(a, b, c, d) -> regsOf a @ regsOf b @ regsOf c @ regsOf d
 
@@ -138,13 +141,13 @@ module internal M68KCode =
     | _ -> []
 
   /// Returns the registers that the instruction reads and those that it
-  /// writes, leaving out what it saves for its caller: the registers that it
-  /// pushes, or the frame pointer that it links.
-  let private effectOf (ins: Instruction) =
+  /// writes, given whether it comes first, leaving out what it saves for its
+  /// caller: the registers that it pushes, or the frame pointer that it links.
+  let private effectOf (ins: Instruction) isFirst =
     match ins.Opcode, ins.Operands with
     | _ when saves ins -> [], []
     | Opcode.LINK, TwoOperands(OpReg reg, _) -> [], [ reg ]
-    | _ -> readsOf ins, writesOf ins
+    | _ -> readsOf ins isFirst, writesOf ins
 
   /// Tells whether the register holds what code computes with: a data or an
   /// address register other than the stack pointer.
@@ -165,7 +168,8 @@ module internal M68KCode =
     else
       match lu.TryParseInstruction(addr: Addr) with
       | Ok ins ->
-        let reads, writes = effectOf (ins :?> Instruction)
+        let isFirst = count = MaxLeadLength
+        let reads, writes = effectOf (ins :?> Instruction) isFirst
         let isLeftover reg = isGeneral reg && not (Set.contains reg written)
         if List.exists isLeftover reads then
           true

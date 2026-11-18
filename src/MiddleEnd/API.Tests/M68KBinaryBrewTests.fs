@@ -376,3 +376,37 @@ type M68KBinaryBrewTests() =
     let fns = (BinaryBrew hdl).Functions
     let counts = fns[0x49cUL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], counts)
+
+  (* x, which f calls as its tail, reads its argument and then clears d0,
+     which writes it, as a function does that builds what it returns. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function may clear a register after it starts``() =
+    let code =
+      [ "61000008" (* main: bsr.w f *)
+        "6100000a" (* bsr.w g *)
+        "4e75" (* rts *)
+        "60000006" (* 0xa: f: bra.w x *)
+        "4e71" (* nop *)
+        "4e75" (* 0x10: g: rts *)
+        "322f0006" (* 0x12: x: move.w (6,sp),d1 *)
+        "4280" (* clr.l d0 *)
+        "4e75" (* rts *) ]
+    CollectionAssert.Contains(Seq.toArray (recoverCode code).Addresses, 0x12UL)
+
+  (* x clears d3 first this time, as code in the middle of a function does
+     right past a jump, so nothing tells x from such code. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that clears a register first shows no function start``() =
+    let code =
+      [ "61000008" (* main: bsr.w f *)
+        "6100000a" (* bsr.w g *)
+        "4e75" (* rts *)
+        "60000006" (* 0xa: f: bra.w x *)
+        "4e71" (* nop *)
+        "4e75" (* 0x10: g: rts *)
+        "4283" (* 0x12: x: clr.l d3 *)
+        "4e75" (* rts *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0x12UL)
