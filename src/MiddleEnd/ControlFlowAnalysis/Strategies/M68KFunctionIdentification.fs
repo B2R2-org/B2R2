@@ -100,17 +100,21 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     && codeRanges |> Array.exists (fun r -> r.IsIncluding v)
     && not (BinFileOps.isInImportTable file v)
 
-  /// Names the sections that hold nothing but pointers.
+  /// Names the sections whose every word that names code is a pointer: those
+  /// that hold nothing but pointers, and .data, whose variables code sets as
+  /// it runs, where a number seldom looks like a code address, while a lone
+  /// function pointer is a variable such as a hook.
   let pointerSectionNames =
-    set [ ".fini_array"
+    set [ ".data"
+          ".fini_array"
           ".got"
           ".init_array"
           ".preinit_array" ]
 
-  /// Names the sections that hold pointers among other data.
+  /// Names the sections that hold pointers among constants, some of which
+  /// look like code addresses.
   let dataSectionNames =
-    set [ ".data"
-          ".data.rel.ro"
+    set [ ".data.rel.ro"
           ".rodata" ]
 
   /// Returns the words of the section that name code, each with where it
@@ -138,7 +142,7 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     || (idx + 1 < slots.Length && slots[idx + 1] - slot <= NeighborDistance)
 
   /// Returns the code addresses that the words naming code hold: every one in
-  /// a section of nothing but pointers, and in a section of other data only
+  /// a section of pointers or variables, and in a section of constants only
   /// one that another word naming code lies near, as a number that happens to
   /// look like a code address sits among numbers.
   let keepPointers (words: (string * Addr * uint64)[]) =

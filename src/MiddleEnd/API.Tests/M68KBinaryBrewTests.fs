@@ -246,12 +246,23 @@ type M68KBinaryBrewTests() =
     CollectionAssert.Contains(entries, 0x408UL)
 
   (* .data holds the address of register_tm_clones this time, among small
-     numbers and data addresses, as a number that happens to look like a code
-     address sits. *)
+     numbers and data addresses, as a variable holds a function pointer, such
+     as a hook, which code sets as it runs. *)
   [<TestMethod>]
   [<Timeout(10000)>]
-  member _.``A lone code address in fixed-base data is no pointer``() =
+  member _.``A lone code address in fixed-base .data is a pointer``() =
     let entries = findEntriesInSo [ 0x10, "0002"; 0x2044, "00000408" ]
+    CollectionAssert.Contains(entries, 0x408UL)
+
+  (* .data.rel.ro holds the address of register_tm_clones next to a data
+     address, with .init_array and .fini_array cleared, as a number that
+     happens to look like a code address sits among constants. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A lone code address among constants is no pointer``() =
+    let patches =
+      [ 0x10, "0002"; 0x1f28, "0000000000000000"; 0x1f34, "00000408" ]
+    let entries = findEntriesInSo patches
     CollectionAssert.DoesNotContain(entries, 0x408UL)
 
   (* frame_dummy jumps through a table right past it this time, which the
