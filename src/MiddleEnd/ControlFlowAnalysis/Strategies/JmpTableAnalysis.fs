@@ -688,6 +688,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       memExpr
 
+  /// Rewrites the address of a halfword entry whose index the code doubles by
+  /// adding it to itself, as GCC for m68k does before a load that scales the
+  /// index by one, so that the index is scaled as isJmpTable expects.
+  let scaleDoubledHalfIndex findConst findDef t memExpr =
+    if t = 16<rt> then scaleNarrowIndex findConst findDef t memExpr
+    else memExpr
+
   let rec detect expandPhi findConst findDef iAddr = function
     | EvenTarget e ->
       detect expandPhi findConst findDef iAddr e
@@ -695,6 +702,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
     | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
     | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, memExpr)), Num b) ->
+      let memExpr = scaleDoubledHalfIndex findConst findDef t memExpr
       if isJmpTable expandPhi findConst findDef t memExpr then
         extractTblInfo findConst findDef iAddr (Num b) memExpr t false
       elif isSingleEntryJmpTable memExpr then

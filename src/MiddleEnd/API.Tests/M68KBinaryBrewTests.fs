@@ -66,3 +66,24 @@ type M68KBinaryBrewTests() =
         "4e75" (* 0x22: rts *)
         "4e75" (* 0x24: rts *) ]
     CollectionAssert.AreEqual([| 2 |], countEntries code)
+
+  (* GCC doubles an index by adding it to itself and loads the entry with a
+     scale of one. *)
+  [<TestMethod>]
+  member _.``A table is read through an index that the code doubles``() =
+    let code =
+      [ "61000024" (* bsr.w 0x26 *)
+        "0c8000000001" (* cmpi.l #1,d0 *)
+        "62000018" (* bhi.w 0x24 *)
+        "d080" (* add.l d0,d0 *)
+        "303b0806" (* move.w (6,pc,d0.l),d0 *)
+        "4efb0002" (* jmp (2,pc,d0.w) *)
+        "0004" (* 0x18: .word 0x1c - 0x18 *)
+        "0008" (* .word 0x20 - 0x18 *)
+        "7000" (* 0x1c: moveq #0,d0 *)
+        "4e75" (* rts *)
+        "7001" (* 0x20: moveq #1,d0 *)
+        "4e75" (* rts *)
+        "4e75" (* 0x24: rts *)
+        "4e75" (* 0x26: rts *) ]
+    CollectionAssert.AreEqual([| 2 |], countEntries code)
