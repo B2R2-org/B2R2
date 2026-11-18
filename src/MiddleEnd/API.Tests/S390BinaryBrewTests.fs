@@ -77,3 +77,22 @@ type S390BinaryBrewTests() =
           "07f4" (* 0x22: br %r4 *)
           "a7f40000" (* 0x24: j 0x24 *) ]
     Assert.AreEqual<NonReturningStatus>(NotNoRet, fns[0x0UL].NoRet)
+
+  (* gnulib's error_tail tests its status with LTGR, which sets the condition
+     code to zero where the status is, and JE takes that code. *)
+  [<TestMethod>]
+  member _.``A status that the condition code tests decides the return``() =
+    let fns =
+      recoverCode
+        [ "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+          "a7fbff60" (* aghi %r15,-160 *)
+          "b9020022" (* ltgr %r2,%r2 *)
+          "a7840005" (* 0x0e: je 0x18 *)
+          "c0e50000000a" (* 0x12: brasl %r14,0x26 *)
+          "e340f1100004" (* 0x18: lg %r4,272(%r15) *)
+          "ebeff1100004" (* lmg %r14,%r15,272(%r15) *)
+          "07f4" (* 0x24: br %r4 *)
+          "a7f40000" (* 0x26: j 0x26 *) ]
+    let r2 = S390.Register.toRegID S390.Register.R2
+    let expected = ConditionalNoRet(ArgLocation.Reg r2)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
