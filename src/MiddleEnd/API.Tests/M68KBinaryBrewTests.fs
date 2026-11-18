@@ -299,3 +299,53 @@ type M68KBinaryBrewTests() =
     let code = 0x494, "2f3c000004084e75" (* move.l #0x408,-(sp); rts *)
     let entries = findEntriesInSo [ code ]
     CollectionAssert.DoesNotContain(entries, 0x408UL)
+
+  (* f jumps to x past g, which main calls, while nothing calls x: a jump past
+     the next function leaves for another one, as GCC keeps each function in
+     one piece, so f calls x as its tail. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump past the next function calls a function as its tail``() =
+    let fns =
+      recoverCode
+        [ "61000008" (* main: bsr.w f *)
+          "6100000a" (* bsr.w g *)
+          "4e75" (* rts *)
+          "60000006" (* 0xa: f: bra.w x *)
+          "4e71" (* nop *)
+          "4e75" (* 0x10: g: rts *)
+          "4e75" (* 0x12: x: rts *) ]
+    let kinds = edgeKindsFrom fns[0xaUL] 0xaUL
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
+  (* f jumps over code that it never runs to a return of its own, which lies
+     below a return as a function does, but within f. *)
+  [<TestMethod>]
+  member _.``A jump within its function reaches no function``() =
+    let code =
+      [ "61000008" (* main: bsr.w f *)
+        "6100000a" (* bsr.w g *)
+        "4e75" (* rts *)
+        "6002" (* 0xa: f: bra.s 0xe *)
+        "4e75" (* rts *)
+        "4e75" (* 0xe: rts *)
+        "4e75" (* 0x10: g: rts *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0xeUL)
+
+  (* f jumps past g into the middle of h, which main calls, to a return below
+     a nop: code that a function covers starts no other. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump into a built function calls no function``() =
+    let code =
+      [ "6100000c" (* main: bsr.w f *)
+        "6100000c" (* bsr.w g *)
+        "6100000a" (* bsr.w h *)
+        "4e75" (* rts *)
+        "60000006" (* 0xe: f: bra.w 0x16 *)
+        "4e75" (* 0x12: g: rts *)
+        "4e71" (* 0x14: h: nop *)
+        "4e75" (* 0x16: rts *) ]
+    let entries = Seq.toArray (recoverCode code).Addresses
+    CollectionAssert.DoesNotContain(entries, 0x16UL)

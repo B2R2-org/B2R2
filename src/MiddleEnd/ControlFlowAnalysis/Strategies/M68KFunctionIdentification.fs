@@ -26,8 +26,12 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
 open B2R2
+open B2R2.BinIR
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents the function identification for m68k. It takes what the binary
@@ -41,8 +45,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// the code alone tells, so that the recovery knows every such function
 /// before it starts, as it bounds a table by the next function. The same goes
 /// for an address that recovered code takes as a constant, as code does that
-/// passes a callback or stores a function pointer, which the identification
-/// finds in what the recovery builds.
+/// passes a callback or stores a function pointer, and for where a recovered
+/// function jumps past the next function or before its own entry, as it calls
+/// another as its tail, which the identification finds in what the recovery
+/// builds.
 type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -206,14 +212,84 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Array.choose (fun ins ->
       M68KCode.tryTakenAddress isFixedBase (ins :?> M68K.Instruction))
 
+  /// Pairs each of the given functions, in the order of their entries, with
+  /// the entry of the next one.
+  let withNextEntries (fns: Function[]) =
+    let sorted = fns |> Array.sortBy (fun fn -> fn.EntryPoint)
+    sorted
+    |> Array.mapi (fun i fn ->
+      if i + 1 < sorted.Length then fn, sorted[i + 1].EntryPoint
+      else fn, System.UInt64.MaxValue)
+
+  /// Returns where the direct jump that ends the vertex goes, if it ends with
+  /// one.
+  let tryDirectJumpTarget (v: IVertex<LowUIRBasicBlock>) =
+    match v.VData.Internals.Terminator with
+    | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
+      Some(n.ToUInt64())
+    | _ ->
+      None
+
+  /// Finds the direct jumps of the function that leave the span from its entry
+  /// up to the given next entry, from within the span, each as the vertex
+  /// that it ends and where it goes. Only a jump to another function leaves,
+  /// as GCC keeps each function of m68k in one piece, while code that the
+  /// function has taken in past the span, as a call that never returns may
+  /// run it into the next function, tells nothing.
+  let findLeavingJumps (fn: Function, next) =
+    let isWithin addr = fn.EntryPoint <= addr && addr < next
+    fn.CFG.Vertices
+    |> Array.filter (fun v ->
+      let blk = v.VData.Internals
+      not blk.IsAbstract && isWithin blk.LastInstruction.Address)
+    |> Array.choose (fun v ->
+      match tryDirectJumpTarget v with
+      | Some target when not (isWithin target) -> Some(v, target)
+      | _ -> None)
+
+  /// Collects what the blocks cover that the function reaches from its roots
+  /// without leaving it through the given vertices, as it takes in the code
+  /// of a function that it jumps to before the recovery knows of that one.
+  let collectHomeRanges (fn: Function) (exits: HashSet<_>) =
+    let cfg = fn.CFG
+    let visited = HashSet<IVertex<LowUIRBasicBlock>>()
+    let work = Queue<IVertex<LowUIRBasicBlock>>(cfg.Roots)
+    let ranges = List<AddrRange>()
+    while work.Count > 0 do
+      let v = work.Dequeue()
+      let blk = v.VData.Internals
+      if visited.Add v then
+        if blk.IsAbstract then () else ranges.Add blk.Range
+        if exits.Contains v then ()
+        else for succ in cfg.GetSuccs v do work.Enqueue succ
+      else
+        ()
+    ranges.ToArray()
+
+  /// Returns where jumps leave the given functions for code that none of them
+  /// covers but through such jumps, as a jump into the middle of a function
+  /// that the recovery has built calls no function.
+  let findTailCallTargets internals =
+    let leaving =
+      withNextEntries internals
+      |> Array.map (fun (fn, next) -> fn, findLeavingJumps (fn, next))
+    let home =
+      leaving
+      |> Array.collect (fun (fn, jumps) ->
+        collectHomeRanges fn (HashSet(Array.map fst jumps)))
+      |> AddrRangeUnion.ofArray
+    leaving
+    |> Array.collect (fun (_, jumps) -> Array.map snd jumps)
+    |> Array.filter (fun t -> not (AddrRangeUnion.containsAddr t home))
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
       |> Array.distinct
 
     member _.IdentifyMore recovered =
-      recovered
-      |> Array.filter (fun fn -> not fn.IsExternal)
-      |> Array.collect addressesTakenBy
+      let internals = recovered |> Array.filter (fun fn -> not fn.IsExternal)
+      let taken = Array.collect addressesTakenBy internals
+      Array.append taken (findTailCallTargets internals)
       |> Array.distinct
       |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)
