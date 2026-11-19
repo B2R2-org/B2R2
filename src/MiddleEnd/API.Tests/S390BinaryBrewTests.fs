@@ -183,6 +183,30 @@ type S390BinaryBrewTests() =
     let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
 
+  (* The mask that takes a field of a value as the index scales it as well,
+     as ESA/390 code adds (x >> 20) & 12 to a table of words, so it lets the
+     index select four entries, while the next table follows right after. *)
+  [<TestMethod>]
+  member _.``A mask that scales the index ends a table``() =
+    let fns =
+      recoverPatchedMain
+        [ "eb120004000c" (* srlg %r1,%r2,4 *)
+          "a7390018" (* lghi %r3,24 *)
+          "b9800013" (* ngr %r1,%r3 *)
+          "c03000000009" (* larl %r3,0x830 *)
+          "e31130000004" (* lg %r1,0(%r1,%r3) *)
+          "47f13000" (* b 0(%r1,%r3) *)
+          "0707" (* nopr %r7 *)
+          "0000000000000028" (* 0x830: .quad 0x858 - 0x830 *)
+          "000000000000002e" (* .quad 0x85e - 0x830 *)
+          "0000000000000028" (* .quad 0x858 - 0x830 *)
+          "000000000000002e" (* .quad 0x85e - 0x830 *)
+          "0000000000000028" (* an entry of the next table, 0x858 here *)
+          "a729000007fe" (* 0x858: lghi %r2,0; br %r14 *)
+          "a729000107fe" (* 0x85e: lghi %r2,1; br %r14 *) ]
+    let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 4 |], entries)
+
   (* The first entry sends the jump below main, to the return of
      __do_global_dtors_aux, where no switch of main lays a case, as clang
      indexes a table of callbacks that way to call one as its tail. *)

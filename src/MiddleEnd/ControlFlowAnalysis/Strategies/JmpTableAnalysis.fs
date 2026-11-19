@@ -49,7 +49,9 @@ type private IndexOrigin =
     ZeroAddr: int64
     /// The index itself, whose value is the number of the entry it selects.
     Index: Expr
-    /// The largest value that the root can hold, if a constant mask bounds it.
+    /// The largest value that the root can hold, if a constant mask bounds it,
+    /// or the value with which the index selects the last entry that a mask on
+    /// the index lets it select, if that is smaller.
     MaxRoot: uint64 option
     /// Tells whether the range check of the branch lets the index select the
     /// entry at the given address.
@@ -502,11 +504,16 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let isLowWordMask (m: BitVector) =
     m.Length = 64<rt> && m.ToUInt64() = 0xffffffffUL
 
+  /// Checks if the given mask keeps a run of the low bits of a value and
+  /// nothing else.
+  let isLowBitsMask (m: uint64) =
+    m <> 0UL && m &&& (m + 1UL) = 0UL
+
   /// Decomposes an index into the variable it derives from, the bits it shifts
   /// that variable to the right by, and the constant it adds after the shift,
   /// looking through copies, extensions, masks that keep the low word, shifts
-  /// to the left by zero, as SLL of MIPS64 sign-extends a word with, a shift
-  /// to the right of the variable itself, and constant additions, but not
+  /// to the left by zero, as SLL of MIPS64 sign-extends a word with, shifts to
+  /// the right of the variable itself, and constant additions, but not
   /// through an extension of a variable that carries no width and that no
   /// definition computes, so that the variable holding the extension becomes
   /// the root instead. A range check may bound the variable before the shift,
@@ -537,7 +544,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       decomposeIndex findDef e
     | BinOp(BinOpType.SHR, _, e, Num n) ->
       match decomposeIndex findDef e with
-      | Some(v, 0, 0L) -> Some(v, int (n.ToUInt64()), 0L)
+      | Some(v, shift, 0L) -> Some(v, shift + int (n.ToUInt64()), 0L)
       | _ -> None
     | _ ->
       None
@@ -559,19 +566,44 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | _ ->
       None
 
+  /// Splits a mask that keeps the low bits of the given index off it, as code
+  /// does that takes a field of a value as the index, giving the index under
+  /// the mask and the largest value that the mask lets the index take. A mask
+  /// that keeps the low word takes the index as a word instead.
+  let peelIndexMask = function
+    | BinOp(BinOpType.AND, _, e, Num m)
+    | BinOp(BinOpType.AND, _, Num m, e)
+      when isLowBitsMask (m.ToUInt64()) && not (isLowWordMask m) ->
+      e, Some(m.ToUInt64())
+    | idx ->
+      idx, None
+
+  /// Finds the largest value of the given root that its index needs, as a
+  /// constant mask on the root tells, or the given mask on the index, shifted
+  /// to the left by the bits that the index shifts the root to the right by.
+  let tryFindMaxRoot findDef root shift indexMask =
+    let fromIndex = indexMask |> Option.map (fun m -> m <<< shift)
+    match tryFindMask findDef (Var root), fromIndex with
+    | Some m1, Some m2 -> Some(min m1 m2)
+    | Some m, None | None, Some m -> Some m
+    | None, None -> None
+
   /// Finds how the index of the given table selects its entries, leaving the
-  /// range check of the indirect branch to be found later.
+  /// range check of the indirect branch to be found later. A mask on the index
+  /// bounds it only where the index adds no constant before the mask.
   let findIndexOrigin findDef (jmptbl: JmpTableInfo) tblExpr =
     match tryExtractIndexExpr tblExpr with
     | Some idx ->
-      decomposeIndex findDef idx
+      let unmasked, mask = peelIndexMask idx
+      decomposeIndex findDef unmasked
+      |> Option.filter (fun (_, _, offset) -> mask.IsNone || offset = 0L)
       |> Option.map (fun (root, shift, offset) ->
         let size = int64 jmptbl.EntrySize
         { Root = root
           RootShift = shift
           ZeroAddr = int64 jmptbl.TableAddress + offset * size
           Index = idx
-          MaxRoot = tryFindMask findDef (Var root)
+          MaxRoot = tryFindMaxRoot findDef root shift mask
           Admits = fun _ -> false
           StartsAt = fun _ -> false })
     | None ->
@@ -706,6 +738,29 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     if t = 16<rt> then scaleNarrowIndex findConst findDef t memExpr
     else memExpr
 
+  /// Rewrites the address of an entry whose index the code scales within the
+  /// mask that takes it as a field of a value, as ESA/390 code adds (x >> 20)
+  /// & 12 to a table of words, so that the index is scaled as isJmpTable
+  /// expects: tbl + (e & (k << s)) becomes tbl + (((e >> s) & k) << s), where
+  /// 2^s is the size of an entry and k keeps a run of low bits.
+  let scaleMaskedIndex t memExpr =
+    let s = System.Numerics.BitOperations.Log2(uint64 (RegType.toByteWidth t))
+    let isScaledMask (m: BitVector) =
+      let k = m.ToUInt64() >>> s
+      s > 0 && isLowBitsMask k && k <<< s = m.ToUInt64()
+    let unmask rt e (m: BitVector) =
+      let num (n: uint64) = Num(BitVector(n, rt))
+      let field = BinOp(BinOpType.SHR, rt, e, num (uint64 s))
+      let idx = BinOp(BinOpType.AND, rt, field, num (m.ToUInt64() >>> s))
+      BinOp(BinOpType.SHL, rt, idx, num (uint64 s))
+    match memExpr with
+    | BinOp(BinOpType.ADD, rt, BinOp(BinOpType.AND, mt, e, Num m), tbl)
+    | BinOp(BinOpType.ADD, rt, tbl, BinOp(BinOpType.AND, mt, e, Num m))
+      when isScaledMask m ->
+      BinOp(BinOpType.ADD, rt, tbl, unmask mt e m)
+    | _ ->
+      memExpr
+
   let rec detect expandPhi findConst findDef iAddr = function
     | EvenTarget e ->
       detect expandPhi findConst findDef iAddr e
@@ -713,7 +768,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
     | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
     | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, memExpr)), Num b) ->
-      let memExpr = scaleDoubledHalfIndex findConst findDef t memExpr
+      let memExpr =
+        scaleDoubledHalfIndex findConst findDef t memExpr
+        |> scaleMaskedIndex t
       if isJmpTable expandPhi findConst findDef t memExpr then
         extractTblInfo findConst findDef iAddr (Num b) memExpr t false
       elif isSingleEntryJmpTable memExpr then
@@ -750,6 +807,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
         Error ErrorCase.ItemNotFound
     | Load(_, t, memExpr)
     | Cast(_, _, Load(_, t, memExpr)) ->
+      let memExpr = scaleMaskedIndex t memExpr
       if isJmpTable expandPhi findConst findDef t memExpr then
         let zero = BitVector.Zero t
         extractTblInfo findConst findDef iAddr (Num zero) memExpr t false
@@ -1581,10 +1639,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | None -> None
 
   /// Counts the entries of the given table, from the first, that a constant
-  /// mask on the root of its index, shifted as the index shifts the root, lets
-  /// the index select. Returns None, as for a range check, if the mask keeps
-  /// the index from the first entry, or lets it select an entry that does not
-  /// fit in the section.
+  /// mask on the root of its index, shifted as the index shifts the root, or
+  /// on the index itself, lets the index select. Returns None, as for a range
+  /// check, if the mask keeps the index from the first entry, or lets it
+  /// select an entry that does not fit in the section.
   let countMaskedEntries file (jmptbl: JmpTableInfo) origin =
     let tblAddr = int64 jmptbl.TableAddress
     match origin with
