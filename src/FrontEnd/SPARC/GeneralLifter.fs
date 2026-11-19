@@ -65,148 +65,91 @@ let private binopOf op a b =
 /// Whether two nodes are one.
 let inline private same a b = LanguagePrimitives.PhysicalEquality a b
 
-/// An expression with each read of %g0 made the zero it holds, and what that
-/// leaves to fold folded; the expression itself where it reads no %g0.
-let rec private zeroG0 e =
+/// An expression with each register read the leaf function names replaced
+/// by what it gives, and what that leaves to fold folded; the expression
+/// itself where it reads no such register.
+let rec private rewrite leaf e =
   match e with
-  | Var(Type = t) when isG0 e ->
-    AST.num (BitVector.Zero t)
+  | Var _ ->
+    leaf e
   | UnOp(Op = op; Operand = x) ->
-    zeroUnder e x (AST.unop op)
+    rewriteUnder leaf e x (AST.unop op)
   | Cast(Kind = k; Type = t; Operand = x) ->
-    zeroUnder e x (AST.cast k t)
+    rewriteUnder leaf e x (AST.cast k t)
   | Extract(Operand = x; Type = t; StartPos = p) ->
-    zeroUnder e x (fun x -> AST.extract x t p)
+    rewriteUnder leaf e x (fun x -> AST.extract x t p)
   | Load(Endian = en; Type = t; Addr = x) ->
-    zeroUnder e x (AST.load en t)
+    rewriteUnder leaf e x (AST.load en t)
   | BinOp(Op = BinOpType.APP; Type = t; Left = f; Right = args) ->
-    zeroUnder e args (AST.Raw.binop BinOpType.APP t f)
+    rewriteUnder leaf e args (AST.Raw.binop BinOpType.APP t f)
   | BinOp(Op = op; Left = x; Right = y) ->
-    zeroUnder2 e x y (binopOf op)
+    rewriteUnder2 leaf e x y (binopOf op)
   | RelOp(Op = op; Left = x; Right = y) ->
-    zeroUnder2 e x y (AST.relop op)
+    rewriteUnder2 leaf e x y (AST.relop op)
   | Ite(Cond = c; TrueExpr = x; FalseExpr = y) ->
-    let c' = zeroG0 c
-    let x' = zeroG0 x
-    let y' = zeroG0 y
+    let c' = rewrite leaf c
+    let x' = rewrite leaf x
+    let y' = rewrite leaf y
     if same c' c && same x' x && same y' y then e else AST.ite c' x' y'
   | ExprList(Elements = es) ->
-    let es' = List.map zeroG0 es
+    let es' = List.map (rewrite leaf) es
     if List.forall2 same es' es then e else AST.exprList es'
   | _ ->
     e
 
-and private zeroUnder e x make =
-  let x' = zeroG0 x
+and private rewriteUnder leaf e x make =
+  let x' = rewrite leaf x
   if same x' x then e else make x'
 
-and private zeroUnder2 e x y make =
-  let x' = zeroG0 x
-  let y' = zeroG0 y
+and private rewriteUnder2 leaf e x y make =
+  let x' = rewrite leaf x
+  let y' = rewrite leaf y
   if same x' x && same y' y then e else make x' y'
 
-/// A statement with its reads of %g0 made zero. A write to %g0 stays the
+/// A statement with the registers the leaf function names replaced, where
+/// it writes them as well as where it reads them. A write to %g0 stays the
 /// self-assign := leaves, which the optimizer drops.
-let private zeroG0In stmt =
+let private rewriteIn leaf stmt =
   match stmt with
   | Put(Dst = d) when isG0 d ->
     stmt
   | Put(Dst = d; Src = s) ->
-    AST.put d (zeroG0 s)
+    AST.put (rewrite leaf d) (rewrite leaf s)
   | Store(Endian = en; Addr = a; Value = v) ->
-    AST.store en (zeroG0 a) (zeroG0 v)
+    AST.store en (rewrite leaf a) (rewrite leaf v)
   | CJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
-    AST.cjmp (zeroG0 c) t f
+    AST.cjmp (rewrite leaf c) t f
   | InterJmp(Target = t; Kind = k) ->
-    AST.interjmp (zeroG0 t) k
+    AST.interjmp (rewrite leaf t) k
   | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
-    AST.intercjmp (zeroG0 c) (zeroG0 t) (zeroG0 f)
+    AST.intercjmp (rewrite leaf c) (rewrite leaf t) (rewrite leaf f)
   | ExternalCall(Call = e) ->
-    AST.extCall (zeroG0 e)
+    AST.extCall (rewrite leaf e)
   | _ ->
     stmt
+
+/// Rewrites the statements from start on with the given leaf function.
+let private rewriteFrom (stream: LowUIRStream) start leaf =
+  for i in start .. stream.Count - 1 do stream[i] <- rewriteIn leaf stream[i]
+
+/// %g0 as the zero it holds, and any other register as itself.
+let private g0AsZero e =
+  match e with
+  | Var(Type = t) when isG0 e -> AST.num (BitVector.Zero t)
+  | _ -> e
 
 /// Makes each read of %g0 in the statements from start on the zero it holds,
 /// so that nothing downstream reads a register that never holds anything
 /// else.
-let private zeroG0From (stream: LowUIRStream) start =
-  for i in start .. stream.Count - 1 do stream[i] <- zeroG0In stream[i]
+let zeroG0From (stream: LowUIRStream) start = rewriteFrom stream start g0AsZero
 
-/// Marks the start of an instruction and, when it is the delay slot of an
-/// annulling conditional branch (AnnulCond set by that branch), wraps the body
-/// in a guard: it runs only if the branch was taken, else jumps past it to a
-/// skip label the matching instruction end plants. It takes the place of the
-/// plain ISMark.
-let markInsStart (bld: ILowUIRBuilder) addr insLen =
-  bld.Stream.MarkStart(addr, insLen)
-  match bld with
-  | :? LowUIRBuilder as sbld ->
-    (* A branch deferred by a prior block's decode expects its delay slot at a
-       fixed address; reaching a different address instead means that state
-       leaked across the block boundary (the slot was never lifted here), so
-       drop it rather than flush this unrelated instruction as the slot. *)
-    match sbld.DelaySlotAddr with
-    | ValueSome expected when sbld.DelayedBranch <> InterJmpKind.NotAJmp
-                              && not sbld.Armed
-                              && addr <> expected -> sbld.ResetDelayState()
-    | _ -> ()
-    sbld.CurAddr <- addr
-    sbld.InsStart <- bld.Stream.Count
-    match sbld.AnnulCond with
-    | ValueSome cond ->
-      let runLbl = label bld "AnnulRun"
-      let skipLbl = label bld "AnnulSkip"
-      append bld {
-        AST.cjmp cond (AST.jmpDest runLbl) (AST.jmpDest skipLbl)
-        AST.lmark runLbl
-      }
-      sbld.AnnulSkip <- ValueSome skipLbl
-      sbld.AnnulCond <- ValueNone
-    | ValueNone ->
-      ()
-  | _ ->
-    ()
-
-/// Finalizes an instruction: closes any annulled delay slot's skip label, then
-/// flushes a pending delayed branch. A SPARC control transfer arms the branch
-/// and stores its target in %nPC rather than jumping, so the delay-slot
-/// instruction that follows executes and then this emits the InterJmp. The
-/// transfer's own end (Armed) defers; the delay slot's end flushes. It takes
-/// the place of the plain IEMark.
-let markInsEnd (bld: ILowUIRBuilder) insLen =
-  match bld with
-  | :? LowUIRBuilder as sbld ->
-    match sbld.AnnulSkip with
-    | ValueSome lbl ->
-      append bld {
-        AST.lmark lbl
-      }
-      sbld.AnnulSkip <- ValueNone
-    | ValueNone ->
-      ()
-    if sbld.DelayedBranch <> InterJmpKind.NotAJmp then
-      if sbld.Armed then
-        sbld.Armed <- false
-        sbld.DelaySlotAddr <- ValueSome(sbld.CurAddr + uint64 insLen)
-      else
-        append bld {
-          AST.interjmp (regVar bld Register.NPC) sbld.DelayedBranch
-        }
-        sbld.Disarm()
-    else
-      ()
-    zeroG0From bld.Stream sbld.InsStart
-    bld.Stream.MarkEnd insLen
-    bld
-  | _ ->
-    bld.Stream.MarkEnd insLen
-    bld
-
-
-/// Provides the `lift` computation expression for SPARC, whose instruction
-/// marks carry the delay-slot bookkeeping that LiftingUtils's cannot. It
-/// shadows the one from LiftingUtils, so a lifter in this module gets the
-/// SPARC marks without asking for them.
+/// Provides the `lift` computation expression for SPARC, which differs from
+/// the one in LiftingUtils in two ways. It makes each read of %g0 the zero it
+/// holds. And on delay slots: a transfer closes with its own transfer rather
+/// than an IEMark, and the instruction in its slot, lifted into the transfer,
+/// writes no marks, those of the transfer spanning both. It shadows the one
+/// from LiftingUtils, so a lifter in this module gets the SPARC closing
+/// without asking for it.
 [<Struct>]
 type LiftBuilder =
   /// Builder that the statements are emitted into.
@@ -218,8 +161,13 @@ type LiftBuilder =
   /// Length of the instruction being lifted.
   val InsLen: uint32
 
+  /// Whether the instruction closes with a transfer of its own, which no
+  /// IEMark follows.
+  val Transfers: bool
+
   /// Creates a lift builder for the instruction at the given address.
-  new(bld, addr, insLen) = { Bld = bld; Address = addr; InsLen = insLen }
+  new(bld, addr, insLen, transfers) =
+    { Bld = bld; Address = addr; InsLen = insLen; Transfers = transfers }
 
   member inline _.Zero() = ()
 
@@ -233,20 +181,23 @@ type LiftBuilder =
     for x in xs do f x
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
-    markInsStart this.Bld this.Address this.InsLen
+    let stream = this.Bld.Stream
+    let inSlot = (this.Bld :?> LowUIRBuilder).InDelaySlot
+    if inSlot then () else stream.MarkStart(this.Address, this.InsLen)
+    let start = stream.Count
     f ()
-    markInsEnd this.Bld this.InsLen
+    zeroG0From stream start
+    if inSlot || this.Transfers then () else stream.MarkEnd this.InsLen
+    this.Bld
 
-/// Starts lifting the given instruction, closing it with the SPARC
-/// instruction end rather than a plain IEMark.
+/// Starts lifting an ordinary instruction, closing it with an IEMark.
 let inline lift bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length)
+  LiftBuilder(bld, ins.Address, ins.Length, false)
 
-/// Arms a delayed control transfer of the given kind; its target must already
-/// have been stored into %nPC. The following instruction end (after the
-/// delay slot) emits
-/// the InterJmp.
-let arm (bld: ILowUIRBuilder) kind = (bld :?> LowUIRBuilder).Arm kind
+/// Starts lifting a control transfer, which runs its delay slot and then
+/// closes with the transfer.
+let inline liftTransfer bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length, true)
 
 let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 
@@ -1113,48 +1064,126 @@ let andncc ins bld =
     putCC bld (getConditionCodeLog res src src1)
   }
 
-/// Sets %nPC to the taken target when cond holds, else to the not-taken
-/// continuation, for a delayed conditional branch: the following delay slot
-/// runs and then the instruction end emits the InterJmp to %nPC. The delay
-/// slot thus always
-/// executes (annulling branches are not yet modeled).
-let setNPCCond (bld: ILowUIRBuilder) cond taken notTaken =
+let private isTransferStmt = function
+  | InterJmp _ | InterCJmp _ -> true
+  | _ -> false
+
+/// <summary>
+/// Lifts the instruction in the delay slot of a transfer into the transfer,
+/// which runs it after reading what decides it and before making it. The
+/// slot writes no marks of its own, those of the transfer spanning both. A
+/// transfer in a slot (a DCTI couple) is lifted as an undefined instruction,
+/// nothing of it taken.
+/// </summary>
+let runDelaySlot (ins: Instruction) (bld: ILowUIRBuilder) =
+  match ins.DelaySlot with
+  | Some slot ->
+    let sbld = bld :?> LowUIRBuilder
+    let start = bld.Stream.Count
+    sbld.InDelaySlot <- true
+    try slot.LiftInto sbld
+    finally sbld.InDelaySlot <- false
+    if Seq.skip start bld.Stream |> Seq.exists isTransferStmt then
+      bld.Stream.RemoveRange(start, bld.Stream.Count - start)
+      bld.Stream.Append(AST.sideEffect UndefinedInstruction)
+    else
+      ()
+  | None ->
+    ()
+
+/// Lifts the delay slot with the registers the leaf function names replaced
+/// by what it gives, wherever the slot reads or writes them.
+let private runDelaySlotOn ins (bld: ILowUIRBuilder) leaf =
+  let start = bld.Stream.Count
+  runDelaySlot ins bld
+  rewriteFrom bld.Stream start leaf
+
+/// Where a branch goes on when it does not take its target: past its delay
+/// slot, which ran all the same unless the branch annulled it.
+let private pastSlot bld = regVar bld Register.PC .+ numI32PC 8
+
+/// A transfer that always goes where it goes, once its delay slot has run.
+let private jumpAfterSlot ins bld target =
+  runDelaySlot ins bld
+  append bld { AST.interjmp target InterJmpKind.Base }
+
+/// A branch on a condition, which it reads before its delay slot runs: the
+/// slot may write what the condition reads, and the branch goes where the
+/// value it read says.
+let private branchIf ins bld cond target =
+  let taken = tmpVar bld 1<rt>
+  append bld { taken := cond }
+  runDelaySlot ins bld
+  append bld { AST.intercjmp taken target (pastSlot bld) }
+
+/// An annulling branch on a condition, which runs its delay slot only when
+/// it takes its target: the taken path runs the slot and goes to the target,
+/// and the other goes past the slot without running it.
+let private branchAnnulIf ins bld cond target =
+  let lblTaken = label bld "Taken"
+  let lblNotTaken = label bld "NotTaken"
   append bld {
-    let nPC = regVar bld Register.NPC
-    let lblTaken = label bld "Taken"
-    let lblNotTaken = label bld "NotTaken"
-    let lblEnd = label bld "End"
     AST.cjmp cond (AST.jmpDest lblTaken) (AST.jmpDest lblNotTaken)
     AST.lmark lblTaken
-    nPC := taken
-    AST.jmp (AST.jmpDest lblEnd)
+  }
+  runDelaySlot ins bld
+  append bld {
+    AST.interjmp target InterJmpKind.Base
     AST.lmark lblNotTaken
-    nPC := notTaken
-    AST.lmark lblEnd
+    AST.interjmp (pastSlot bld) InterJmpKind.Base
   }
 
-/// Arms a branch's delayed transfer, honoring the annul bit. Without annul the
-/// delay slot always runs (%nPC set conditionally, then armed). With annul: an
-/// always/never branch (cond is the constant b1/b0) jumps at once, annulling
-/// the delay slot; a conditional one arms but records AnnulCond so its delay
-/// slot runs only when taken.
-let branchTo (bld: ILowUIRBuilder) an cond taken notTaken =
+/// <summary>
+/// A branch to the taken target where cond holds, honoring the annul bit.
+/// One that always or never branches with the bit set annuls its delay slot
+/// whatever happens and goes at once; without it, it runs the slot and goes.
+/// A conditional one runs the slot always, or with the bit set only when it
+/// is taken.
+/// </summary>
+let branchTo (ins: Instruction) bld an cond taken =
   let annul = (AST.extract an 1<rt> 0 = AST.b1)
-  if annul && cond = AST.b1 then
-    append bld {
-      AST.interjmp taken InterJmpKind.Base
-    }
-  elif annul && cond = AST.b0 then
-    append bld {
-      AST.interjmp notTaken InterJmpKind.Base
-    }
+  if not ins.HasDelaySlot then
+    let target = if cond = AST.b1 then taken else pastSlot bld
+    append bld { AST.interjmp target InterJmpKind.Base }
+  elif cond = AST.b1 then
+    jumpAfterSlot ins bld taken
+  elif cond = AST.b0 then
+    jumpAfterSlot ins bld (pastSlot bld)
+  elif annul then
+    branchAnnulIf ins bld cond taken
   else
-    setNPCCond bld cond taken notTaken
-    arm bld InterJmpKind.Base
-    if annul then (bld :?> LowUIRBuilder).AnnulCond <- ValueSome cond else ()
+    branchIf ins bld cond taken
+
+/// Whether the instruction in the delay slot turns the register window,
+/// which moves every %o and %i out from under the slot.
+let private slotTurnsWindow (ins: Instruction) =
+  match ins.DelaySlot with
+  | Some slot -> slot.Opcode = Opcode.SAVE || slot.Opcode = Opcode.RESTORE
+  | None -> false
+
+/// <summary>
+/// Links into a register around the delay slot. The slot sees the link, but
+/// works on a copy that holds it, and the register takes the copy once the
+/// slot is done: a slot that faults leaves the register as it was, so the
+/// transfer runs again as it ran the first time, even where the register is
+/// one it reads. A slot that turns the register window would move the
+/// register out from under the copy, so there the link is written before
+/// the slot; and %g0 takes no link at all.
+/// </summary>
+let private linkAround ins bld dst value =
+  if isG0 dst then
+    runDelaySlot ins bld
+  elif slotTurnsWindow ins then
+    append bld { dst := value }
+    runDelaySlot ins bld
+  else
+    let link = tmpVar bld 64<rt>
+    append bld { link := value }
+    runDelaySlotOn ins bld (fun e -> if e = dst then link else e)
+    append bld { dst := link }
 
 let branchpr ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let oprSize = 64<rt>
     let struct (src, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
@@ -1168,7 +1197,7 @@ let branchpr ins bld =
       | Opcode.BRGEZ -> (src ?>= AST.num0 oprSize)
       | _ -> raise InvalidOpcodeException
     let jumpTarget = pc .+ AST.zext 64<rt> label
-    branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+    branchTo ins bld an branchCond jumpTarget
   }
 
 /// The condition the branchicc family branches on, which the
@@ -1213,13 +1242,13 @@ let private branchiccCond (ins: Instruction) bld =
     raise InvalidOpcodeException
 
 let branchicc ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let oprSize = 64<rt>
     let struct (an, label) = transTwoOprs ins bld
     let pc = regVar bld Register.PC
     let branchCond = branchiccCond ins bld
     let jumpTarget = pc .+ AST.zext 64<rt> label
-    branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+    branchTo ins bld an branchCond jumpTarget
   }
 
 /// The condition the branchpcc family branches on, which the
@@ -1308,23 +1337,21 @@ let private branchpccCond (ins: Instruction) cc bld =
     raise InvalidOpcodeException
 
 let branchpcc ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let oprSize = 64<rt>
     let struct (cc, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
     let branchCond = branchpccCond ins cc bld
     let jumpTarget = pc .+ AST.zext 64<rt> label
-    branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+    branchTo ins bld an branchCond jumpTarget
   }
 
 let call ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let dst = transOneOpr ins bld
-    let o7 = regVar bld Register.O7
     let pc = regVar bld Register.PC
-    o7 := pc
-    regVar bld Register.NPC := pc .+ dst
-    arm bld InterJmpKind.IsCall
+    linkAround ins bld (regVar bld Register.O7) pc
+    AST.interjmp (pc .+ dst) InterJmpKind.IsCall
   }
 
 let casa ins bld =
@@ -1367,10 +1394,6 @@ let casxa ins bld =
 
 let ``done`` (ins: Instruction) bld =
   lift bld ins {
-    (* nPC before PC: %pc is a PCVar, so the interpreter treats its write as a
-       control transfer that ends the trace -- writing it last keeps the nPC
-       update from being skipped. *)
-    regVar bld Register.NPC := regVar bld Register.TNPC .+ numI32PC 4
     regVar bld Register.PC := regVar bld Register.TNPC
   }
 
@@ -1552,7 +1575,7 @@ let faddq ins bld =
   liftQFloatBinOp ins bld AST.fadd
 
 let fbranchfcc ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let struct (an, label) = transTwoOprs ins bld
     let pc = regVar bld Register.PC
     let fsr = regVar bld Register.FSR
@@ -1580,11 +1603,11 @@ let fbranchfcc ins bld =
       | Opcode.FBO -> (l .| e .| g)
       | _ -> raise InvalidOpcodeException
     let jumpTarget = pc .+ AST.zext 64<rt> label
-    branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+    branchTo ins bld an branchCond jumpTarget
   }
 
 let fbranchpfcc ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let struct (cc, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
     let fsr = regVar bld Register.FSR
@@ -1622,7 +1645,7 @@ let fbranchpfcc ins bld =
       | Opcode.FBPO -> (l .| e .| g)
       | _ -> raise InvalidOpcodeException
     let jumpTarget = pc .+ AST.zext 64<rt> label
-    branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+    branchTo ins bld an branchCond jumpTarget
   }
 
 /// Compares two single-precision operands.
@@ -2805,11 +2828,12 @@ let fitoq ins bld =
   }
 
 let jmpl ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let struct (addr, dst) = transAddrThreeOprs ins bld
-    regVar bld Register.NPC := addr
-    dst := regVar bld Register.PC
-    arm bld InterJmpKind.Base
+    let target = tmpVar bld 64<rt>
+    target := addr
+    linkAround ins bld dst (regVar bld Register.PC)
+    AST.interjmp target InterJmpKind.Base
   }
 
 let ldf ins bld =
@@ -3274,10 +3298,16 @@ let popc ins bld =
     dst := count
   }
 
+/// The address of the instruction, which RD %pc reads: the PC itself is the
+/// address of the transfer carrying a delay slot while the slot runs.
+let private pcOf (ins: Instruction) = numI64 (int64 ins.Address) 64<rt>
+
 let rd ins bld =
   lift bld ins {
     let struct (reg, dst) = transTwoOprs ins bld
-    if reg = regVar bld Register.CCR then dst := ccByte bld else dst := reg
+    if reg = regVar bld Register.CCR then dst := ccByte bld
+    elif reg = regVar bld Register.PC then dst := pcOf ins
+    else dst := reg
   }
 
 /// The in/out register pairs the register window rotates: on SAVE the caller's
@@ -3325,24 +3355,68 @@ let restored (ins: Instruction) bld =
     AST.lmark lblEnd
   }
 
+/// Turns the register window out, as RESTORE does: the %o take the %i, so
+/// the caller regains its %l/%i and receives the callee's %i as its %o.
+let private restoreWindow bld =
+  for i, o in inOutPairs do append bld { regVar bld o := regVar bld i }
+  append bld { AST.sideEffect RestoreWindow }
+
+/// Whether the instruction in the delay slot names a %l or an %i, which in
+/// the slot of RETURN are those of the window RETURN restores.
+let private slotNamesLocalsOrIns (ins: Instruction) =
+  let isLocalOrIn r = int r >= int Register.L0 && int r <= int Register.I7
+  let named = function
+    | OprReg r ->
+      isLocalOrIn r
+    | OprMemory(DispMode(r, _) | PreIdxMode r | PostIdxMode r | UnchMode r) ->
+      isLocalOrIn r
+    | _ ->
+      false
+  match ins.DelaySlot with
+  | Some slot ->
+    match slot.Operands with
+    | NoOperand -> false
+    | OneOperand a -> named a
+    | TwoOperands(a, b) -> named a || named b
+    | ThreeOperands(a, b, c) -> named a || named b || named c
+    | FourOperands(a, b, c, d) -> named a || named b || named c || named d
+    | FiveOperands(a, b, c, d, e) -> List.exists named [ a; b; c; d; e ]
+  | None ->
+    false
+
+/// The %iN a RETURN slot's %oN is: the caller's %oN, in the window RETURN
+/// restores, is the callee's %iN.
+let private outAsIn bld e =
+  match List.tryFind (fun (_, o) -> regVar bld o = e) inOutPairs with
+  | Some(i, _) -> regVar bld i
+  | None -> e
+
+/// <summary>
+/// Runs the delay slot of RETURN in the window it restores, then restores
+/// it. Before the window turns, that window's %o are this one's %i, so the
+/// slot works on those, and a slot that faults leaves the window where it
+/// was. Its %l and %i are not here at all, so a slot that names one runs
+/// after the window is restored instead, and a fault there leaves it turned.
+/// </summary>
+let private restoreAround ins bld =
+  if slotNamesLocalsOrIns ins then
+    restoreWindow bld
+    runDelaySlot ins bld
+  else
+    runDelaySlotOn ins bld (outAsIn bld)
+    restoreWindow bld
+
 let ret ins bld =
-  lift bld ins {
+  liftTransfer bld ins {
     let struct (src, src1) = transTwoOprs ins bld
-    (* RETURN is jmpl + a register-window RESTORE: the target reads %i7
-       first, then the window rotates out (%o := %i, matching the RESTORE
-       instruction), so the caller regains its %l/%i and receives the callee's
-       %i as its %o. *)
-    regVar bld Register.NPC := src .+ src1
-    for i, o in inOutPairs do
-      regVar bld o := regVar bld i
-    AST.sideEffect RestoreWindow
-    arm bld InterJmpKind.IsRet
+    let target = tmpVar bld 64<rt>
+    target := src .+ src1
+    restoreAround ins bld
+    AST.interjmp target InterJmpKind.IsRet
   }
 
 let retry (ins: Instruction) bld =
   lift bld ins {
-    (* nPC before PC: writing %pc (a PCVar) ends the trace, so it goes last. *)
-    regVar bld Register.NPC := regVar bld Register.TNPC
     regVar bld Register.PC := regVar bld Register.TPC
   }
 
@@ -3396,7 +3470,7 @@ let getContext (ins: Instruction) bld =
 /// SETCONTEXT (ta 0x6f): the restore half used by _longjmp and setcontext.
 /// Reload the integer state saved by GETCONTEXT from the ucontext at %o0 (%g1
 /// takes MC_G1, which _longjmp set to the longjmp value) and the window's %l/%i
-/// from the restored frame's save area, then resume at the saved PC/NPC the way
+/// from the restored frame's save area, then resume at the saved PC the way
 /// RETRY does. Windows the skipped frames orphaned on the stack are dropped
 /// lazily by the next RESTORE.
 let setContext (ins: Instruction) bld =
@@ -3413,7 +3487,6 @@ let setContext (ins: Instruction) bld =
     let slot k = AST.loadBE 64<rt> (sp .+ numI64 (2047L + int64 k * 8L) 64<rt>)
     for i in 0 .. 7 do append bld { regVar bld (lReg i) := slot i }
     for i in 0 .. 7 do append bld { regVar bld (iReg i) := slot (8 + i) }
-    regVar bld Register.NPC := gregs 0x30L
     regVar bld Register.PC := gregs 0x28L
   }
 

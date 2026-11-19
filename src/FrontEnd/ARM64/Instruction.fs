@@ -70,6 +70,8 @@ type Instruction
 
     member _.Length with get() = nb
 
+    member _.Extent with get() = nb
+
     member this.IsBranch =
       match this.Opcode with
       (* Conditional branch *)

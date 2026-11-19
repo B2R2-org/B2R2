@@ -57,6 +57,8 @@ type Instruction
 
     member _.Length with get() = numBytes
 
+    member _.Extent with get() = numBytes
+
     member _.IsBranch =
       match opcode with
       | _ -> false

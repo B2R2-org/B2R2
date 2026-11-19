@@ -135,6 +135,8 @@ type Instruction
 
     member _.Length with get() = nb
 
+    member _.Extent with get() = nb
+
     member this.IsBranch =
       match this.Opcode with
       | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ

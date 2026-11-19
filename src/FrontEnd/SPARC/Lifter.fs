@@ -28,8 +28,17 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SPARC
 open B2R2.FrontEnd.SPARC.GeneralLifter
 
-/// Translate IR.
-let translate (ins: Instruction) bld =
+/// Refuses a transfer whose delay slot was not read, before anything of it is
+/// emitted. A transfer inside a slot has no slot of its own and is let
+/// through: the slot it sits in lifts it as undefined (see runDelaySlot).
+let private requireDelaySlot (ins: Instruction) (bld: ILowUIRBuilder) =
+  let inSlot = (bld :?> LowUIRBuilder).InDelaySlot
+  if ins.HasDelaySlot && ins.DelaySlot.IsNone && not inSlot then
+    raise MissingDelaySlotException
+  else
+    ()
+
+let private translateOpcode (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.ADD ->
     add ins bld
@@ -382,3 +391,13 @@ let translate (ins: Instruction) bld =
             eprintfn "%A" o
   #endif
             raise <| NotImplementedIRException(Disasm.opCodeToString o)
+
+/// <summary>
+/// Translates an instruction into the statements it lifts to. A transfer
+/// whose delay slot the parser could not read is not lifted at all (see
+/// MissingDelaySlotException): without the slot it would transfer without
+/// running the instruction it must run first.
+/// </summary>
+let translate (ins: Instruction) bld =
+  requireDelaySlot ins bld
+  translateOpcode ins bld

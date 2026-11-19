@@ -158,6 +158,8 @@ type Instruction
 
     member this.Length with get() = this.Length
 
+    member this.Extent with get() = this.Length
+
     member this.IsBranch = Opcode.isBranch this.Opcode
 
     member _.IsModeChanging = false
