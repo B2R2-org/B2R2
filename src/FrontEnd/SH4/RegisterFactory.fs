@@ -80,7 +80,6 @@ type RegisterFactory(isa: ISA) =
   let pr = var R.PR
   let fpul = var R.FPUL
   let pc = var R.PC
-  let npc = var R.NPC
   let fpscr = var R.FPSCR
   let fpr0 = var R.FPR0
   let fpr1 = var R.FPR1
@@ -228,7 +227,6 @@ type RegisterFactory(isa: ISA) =
       | R.PR -> pr
       | R.FPUL -> fpul
       | R.PC -> pc
-      | R.NPC -> npc
       | R.FPSCR -> fpscr
       | R.FPR0 -> fpr0
       | R.FPR1 -> fpr1
@@ -349,7 +347,6 @@ type RegisterFactory(isa: ISA) =
       | "r14" -> r14
       | "r15" -> r15
       | "pc" -> pc
-      | "npc" -> npc
       | "pr" -> pr
       | "gbr" -> gbr
       | "t" -> t
@@ -375,7 +372,6 @@ type RegisterFactory(isa: ISA) =
          r14
          r15
          pc
-         npc
          pr
          gbr
          mach

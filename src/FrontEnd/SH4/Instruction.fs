@@ -30,6 +30,38 @@ open B2R2.FrontEnd.BinLifter
 /// Represents an instruction for SH4.
 type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
 
+  let mutable delaySlot: Instruction option = None
+
+  (* The delayed branches, which run the instruction after them before they
+     transfer control. *)
+  let isDelayedBranch () =
+    match op with
+    | Opcode.BFS | Opcode.BTS | Opcode.BRA | Opcode.BRAF | Opcode.BSR
+    | Opcode.BSRF | Opcode.JMP | Opcode.JSR | Opcode.RTS | Opcode.RTE -> true
+    | _ -> false
+
+  (* Whether this writes SR, as LDC Rm, SR and LDC.L @Rm+, SR do. *)
+  let writesSR () =
+    match opr with
+    | TwoOperands(_, OpReg(Regdir Register.SR)) -> true
+    | _ -> false
+
+  (* Whether this reads memory at an address taken from the PC. *)
+  let readsPCRelative () =
+    match opr with
+    | TwoOperands(OpReg(PCRelDisp _), _) -> true
+    | _ -> false
+
+  (* The instructions that may not sit in a delay slot, which the processor
+     meets with a slot illegal instruction exception: those that change the
+     PC, and the PC-relative MOV and MOVA. *)
+  let isSlotIllegal () =
+    match op with
+    | Opcode.BF | Opcode.BT | Opcode.TRAPA | Opcode.MOVA -> true
+    | Opcode.LDC | Opcode.LDCL -> writesSR ()
+    | Opcode.MOVW | Opcode.MOVL -> readsPCRelative ()
+    | _ -> isDelayedBranch ()
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -42,11 +74,40 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
   //// Operands.
   member _.Operands with get(): Operands = opr
 
+  /// Whether this is a delayed branch, which runs the instruction after it,
+  /// in its delay slot, before it transfers control.
+  member _.HasDelaySlot with get(): bool = isDelayedBranch ()
+
+  /// Whether this may not sit in a delay slot: the processor raises a slot
+  /// illegal instruction exception where it does.
+  member _.IsSlotIllegal with get(): bool = isSlotIllegal ()
+
+  /// <summary>
+  /// The instruction in the delay slot of this branch, which the branch runs
+  /// after reading what decides it and before making it, and so lifts as
+  /// part of itself. None where the branch has no delay slot, or where the
+  /// bytes after it were not given or hold no instruction; a branch left
+  /// without its slot that way still disassembles, but is not lifted (see
+  /// MissingDelaySlotException). Only the parser sets it, on the instruction
+  /// it has just read.
+  /// </summary>
+  member _.DelaySlot
+    with get(): Instruction option = delaySlot
+     and internal set v = delaySlot <- v
+
+  /// Lifts this instruction into the statements the builder holds.
+  member internal this.LiftInto(builder: LowUIRBuilder) =
+    lifter.Lift(this, builder) |> ignore
+
   interface IInstruction with
     member _.Address with get() = addr
     member _.Length with get() = numBytes
 
-    member _.Extent with get() = numBytes
+    member _.Extent with get() =
+      match delaySlot with
+      | Some slot -> numBytes + slot.Length
+      | None -> numBytes
+
     member _.IsBranch = Terminator.futureFeature ()
     member _.IsModeChanging = false
     member _.IsDirectBranch = Terminator.futureFeature ()
@@ -61,7 +122,13 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
     member _.IsExit = Terminator.futureFeature ()
     member _.IsNop = Terminator.futureFeature ()
     member _.IsInlinedAssembly = false
-    member _.IsTerminator _ = Terminator.futureFeature ()
+    (* A delayed branch carries its delay slot, so it ends the block itself,
+       and the instruction after it ends nothing. *)
+    member _.IsTerminator _ =
+      match op with
+      | Opcode.BF | Opcode.BT | Opcode.TRAPA -> true
+      | _ -> isDelayedBranch ()
+
     member _.DirectBranchTarget _ = Terminator.futureFeature ()
     member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
     member _.MemoryDereferences _ = Terminator.futureFeature ()
