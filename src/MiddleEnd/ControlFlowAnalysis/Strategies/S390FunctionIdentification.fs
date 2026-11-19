@@ -40,7 +40,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 /// entry of a jump table does, so it starts one only where the code shows a
 /// function starting, as S390Code tells, which the code alone tells, so that
 /// the recovery knows every such function before it starts, as it bounds a
-/// table by the next function.
+/// table by the next function. The same goes for an address that recovered
+/// code takes as a constant, as code does that passes a callback or stores a
+/// function pointer, which the identification finds in what the recovery
+/// builds.
 type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -178,7 +181,24 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     else
       storedEntries () |> Array.distinct
 
-  interface IFunctionIdentifiable with
+  /// Returns the addresses that the code that the recovery has built for the
+  /// function takes as constants.
+  let addressesTakenBy (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.collect (fun v -> v.VData.Internals.Instructions)
+    |> Array.choose (fun ins ->
+      S390Code.tryTakenAddress (ins :?> S390.Instruction))
+    |> Array.map (fun addr -> addr &&& addressMask)
+
+  interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
+      |> Array.distinct
+
+    member _.IdentifyMore recovered =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> Array.collect addressesTakenBy
+      |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)
       |> Array.distinct

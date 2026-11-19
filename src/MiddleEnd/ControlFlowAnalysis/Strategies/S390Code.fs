@@ -306,3 +306,13 @@ module internal S390Code =
       && (setsUpFrame lu ins || isSectionStart || hasFlowEndAbove lu addr)
     | Error _ ->
       false
+
+  /// Returns the address that the instruction takes as a constant, if it does:
+  /// the one that LARL loads, counting halfwords from the instruction, as code
+  /// does that passes a callback or stores a function pointer.
+  let tryTakenAddress (ins: Instruction) =
+    match ins.Opcode, ins.Operands with
+    | Opcode.LARL, TwoOperands(_, OpRImm(ImmS32 halfwords)) ->
+      Some(ins.Address + uint64 (2L * int64 halfwords))
+    | _ ->
+      None

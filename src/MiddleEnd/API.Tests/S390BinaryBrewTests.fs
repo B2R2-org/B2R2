@@ -260,3 +260,21 @@ type S390BinaryBrewTests() =
     let code = 0x84e, "a729000007fe" (* lghi %r2,0; br %r14 *)
     let entries = findEntries (code :: relocatedPointerTo 0x84eUL)
     CollectionAssert.DoesNotContain(entries, 0x84eUL)
+
+  (* main loads the address of register_tm_clones with LARL this time, rather
+     than that of its string, as code does that passes a callback. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A code address that recovered code takes is a function``() =
+    let code = 0x824, "c030ffffff9e" (* larl %r3,0x760 *)
+    let entries = findEntries [ code ]
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* The address that main takes lies in the middle of register_tm_clones,
+     which the shift above runs into. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A taken address that code above runs into is no function``() =
+    let code = 0x824, "c030ffffffb1" (* larl %r3,0x786 *)
+    let entries = findEntries [ code ]
+    CollectionAssert.DoesNotContain(entries, 0x786UL)
