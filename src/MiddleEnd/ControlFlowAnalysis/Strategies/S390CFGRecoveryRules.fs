@@ -81,6 +81,28 @@ module private S390CFGRecoveryRules =
     | _ ->
       false
 
+  /// Checks if the instruction at the given address works on two operands in
+  /// storage, and code of the function from its entry up to there runs it by
+  /// EXRL, which gives it a length that a register holds. The instruction is
+  /// then a template that runs only that way, which clang lays past the code
+  /// of its function, where the label of an unreachable default lands.
+  let isExecuteTemplate (ctx: CFGBuildingContext<_, _>) addr =
+    let rec scan insAddr =
+      if insAddr >= addr then
+        false
+      else
+        match ctx.BBLFactory.PeekInstruction insAddr with
+        | Ok ins ->
+          S390Code.tryExecutedAddress (ins :?> S390.Instruction) = Some addr
+          || scan (insAddr + uint64 ins.Length)
+        | Error _ ->
+          false
+    match ctx.BBLFactory.PeekInstruction addr with
+    | Ok ins when (ins :?> S390.Instruction).Fmt = S390.InstructionFormat.SS ->
+      scan ctx.FunctionAddress
+    | _ ->
+      false
+
 /// Represents the rules of the CFG recovery for S390: the rules of every
 /// architecture, except that an indirect jump returns where it goes to the
 /// address that the caller left in R14, and that a jump table ends where the
@@ -96,12 +118,17 @@ module private S390CFGRecoveryRules =
 /// it does a jump table, to call one as its tail. A function that jumps to
 /// another one before the recovery has found that one is built again to call
 /// it as its tail, as clang emits no call frame information for C code that
-/// would tell every function up front.
+/// would tell every function up front. An entry that sends the jump to an
+/// instruction that EXRL runs is a hole, as clang lays such templates past the
+/// code of a function, where the label of an unreachable default lands.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.ReturnsThroughLink(ctx, v: IVertex<LowUIRBasicBlock>) =
     jumpsToLink ctx v
+
+  override _.IsJumpTableHole(ctx, target) =
+    isExecuteTemplate ctx target
 
   override _.EndsJumpTableBefore(ctx, jmptbl, idx) =
     let isPast = Option.exists (fun n -> idx >= n)

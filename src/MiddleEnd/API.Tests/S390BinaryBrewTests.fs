@@ -50,6 +50,13 @@ type S390BinaryBrewTests() =
     let isa = ISA(Architecture.S390, Endian.Big, WordSize.Bit64)
     BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
 
+  /// Returns where the indirect jumps of the function go, in order.
+  static let indirectJumpTargetsOf (fn: Function) =
+    fn.CFG.Edges
+    |> Array.filter (fun e -> e.Label = IndirectJmpEdge)
+    |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
+    |> Array.sort
+
   /// Returns where the functions that the recovery finds in elf_s390x start,
   /// once each of the given hex strings is written at its offset. Its symbol
   /// table is hidden, so that only its call frame information, its entry and
@@ -206,6 +213,32 @@ type S390BinaryBrewTests() =
           "a729000107fe" (* 0x85e: lghi %r2,1; br %r14 *) ]
     let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 4 |], entries)
+
+  (* clang lays the template that EXRL runs past the code of its function,
+     where the label of an unreachable default lands, so the entries of the
+     cases that never come send the jump to the template. They are holes. *)
+  [<TestMethod>]
+  member _.``A table entry to a template that EXRL runs is a hole``() =
+    let fns =
+      recoverPatchedMain
+        [ "c64000000028" (* exrl %r4,0x860 *)
+          "ec220021037d" (* clgijh %r2,3,0x858 *)
+          "eb120003000d" (* sllg %r1,%r2,3 *)
+          "c0300000000b" (* larl %r3,0x838 *)
+          "e31130000004" (* lg %r1,0(%r1,%r3) *)
+          "47f13000" (* b 0(%r1,%r3) *)
+          "070707070707" (* nopr %r7; nopr %r7; nopr %r7 *)
+          "0000000000000020" (* 0x838: .quad 0x858 - 0x838 *)
+          "0000000000000028" (* .quad 0x860 - 0x838, a hole *)
+          "0000000000000022" (* .quad 0x85a - 0x838 *)
+          "0000000000000028" (* .quad 0x860 - 0x838, a hole *)
+          "07fe" (* 0x858: br %r14 *)
+          "a729000107fe" (* 0x85a: lghi %r2,1; br %r14 *)
+          "d20020003000" (* 0x860: mvc 0(1,%r2),0(%r3) *) ]
+    let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
+    let targets = indirectJumpTargetsOf fns[0x810UL]
+    CollectionAssert.AreEqual([| 4 |], entries)
+    CollectionAssert.AreEqual([| 0x858UL; 0x85aUL |], targets)
 
   (* The first entry sends the jump below main, to the return of
      __do_global_dtors_aux, where no switch of main lays a case, as clang

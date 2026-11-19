@@ -307,12 +307,20 @@ module internal S390Code =
     | Error _ ->
       false
 
-  /// Returns the address that the instruction takes as a constant, if it does:
-  /// the one that LARL loads, counting halfwords from the instruction, as code
-  /// does that passes a callback or stores a function pointer.
-  let tryTakenAddress (ins: Instruction) =
-    match ins.Opcode, ins.Operands with
-    | Opcode.LARL, TwoOperands(_, OpRImm(ImmS32 halfwords)) ->
+  /// Returns the address that the instruction names, counting halfwords from
+  /// itself, if its opcode is the given one.
+  let private tryRelativeAddress opcode (ins: Instruction) =
+    match ins.Operands with
+    | TwoOperands(_, OpRImm(ImmS32 halfwords)) when ins.Opcode = opcode ->
       Some(ins.Address + uint64 (2L * int64 halfwords))
     | _ ->
       None
+
+  /// Returns the address that the instruction takes as a constant, if it does:
+  /// the one that LARL loads, counting halfwords from the instruction, as code
+  /// does that passes a callback or stores a function pointer.
+  let tryTakenAddress ins = tryRelativeAddress Opcode.LARL ins
+
+  /// Returns the address of the instruction that the given one runs, if it is
+  /// EXRL, which picks the length that the instruction there works on.
+  let tryExecutedAddress ins = tryRelativeAddress Opcode.EXRL ins
