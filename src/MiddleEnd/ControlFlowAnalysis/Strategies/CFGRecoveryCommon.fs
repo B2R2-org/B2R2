@@ -1146,11 +1146,17 @@ module internal CFGRecoveryCommon =
     else
       MoveOn (* We ignore this indirect branch. *)
 
+  /// Reads the target of the entry at the given index of the given table,
+  /// unless the rules of the architecture end the table before it.
+  let tryReadTableTarget ctx (rules: ICFGRecoveryRules<_, _>) jmptbl idx =
+    if rules.EndsJumpTableBefore(ctx, jmptbl, idx) then None
+    else JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx
+
   /// Starts recovering the given table from its first entry, unless the slot
-  /// of that entry holds none, in which case no table starts there.
-  let startJmpTblRecovery ctx queue jmptbl =
-    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
-    match JmpTableInfo.tryReadTarget hdl jmptbl 0 with
+  /// of that entry holds none, or the rules of the architecture end the table
+  /// before it, in which case no table starts there.
+  let startJmpTblRecovery ctx rules queue jmptbl =
+    match tryReadTableTarget ctx rules jmptbl 0 with
     | Some targetAddr ->
       pushJmpTblRecoveryAction ctx queue jmptbl 0 targetAddr
     | None ->
@@ -1163,11 +1169,11 @@ module internal CFGRecoveryCommon =
   /// folded the smallest index into its address, so it may start right after
   /// those entries instead. We move it there once, if the conditional jumps on
   /// every path to its indirect branch say so, and ignore the branch if not.
-  let rec notifyRecovery ctx jmptblAnalysis queue jmptbl canMove =
+  let rec notifyRecovery ctx rules jmptblAnalysis queue jmptbl canMove =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     match ctx.JumpTableChannel.NotifyRecovery(fnAddr, jmptbl) with
     | GoRecovery ->
-      startJmpTblRecovery ctx queue jmptbl
+      startJmpTblRecovery ctx rules queue jmptbl
     | StopRecoveryButReload ->
       StopAndReload
     | StopRecoveryAndContinue ->
@@ -1180,7 +1186,7 @@ module internal CFGRecoveryCommon =
         <| $"{jmptbl.InsAddr:x}: moved to [{tableEnd:x}]"
 #endif
         let jmptbl = { jmptbl with TableAddress = tableEnd }
-        notifyRecovery ctx jmptblAnalysis queue jmptbl false
+        notifyRecovery ctx rules jmptblAnalysis queue jmptbl false
       else
         MoveOn (* We ignore this indirect branch. *)
     | Overlapping _ ->
@@ -1191,7 +1197,7 @@ module internal CFGRecoveryCommon =
   /// else is left to do, as the data flow of the CFG built so far may lack the
   /// paths that give its index its values, such as those past a call that the
   /// function waits to learn returns.
-  let recoverJumpTable ctx jmptblAnalysis queue insAddr =
+  let recoverJumpTable ctx rules jmptblAnalysis queue insAddr =
     let analysis: IJmpTableAnalyzable<_, _> = jmptblAnalysis
     match analysis.Identify(ctx, insAddr) with
     | Ok(jmptbl) ->
@@ -1201,7 +1207,7 @@ module internal CFGRecoveryCommon =
 #endif
       match tryFindSelfDefeatingEntry ctx analysis jmptbl with
       | Some entry -> blameEntry ctx entry
-      | None -> notifyRecovery ctx jmptblAnalysis queue jmptbl true
+      | None -> notifyRecovery ctx rules jmptblAnalysis queue jmptbl true
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"
@@ -1219,7 +1225,7 @@ module internal CFGRecoveryCommon =
       ctx.LinkReturns.Add insAddr |> ignore
       MoveOn
     | _ ->
-      recoverJumpTable ctx jmptblAnalysis queue insAddr
+      recoverJumpTable ctx rules jmptblAnalysis queue insAddr
 
   /// Recovers the indirect branch at the given address again if the CFG has
   /// gained edges since its analysis failed with the given number of them.
@@ -1342,12 +1348,6 @@ module internal CFGRecoveryCommon =
     else
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge
       |> toCFGResult
-
-  /// Reads the target of the entry at the given index of the given table,
-  /// unless the rules of the architecture end the table before it.
-  let tryReadTableTarget ctx (rules: ICFGRecoveryRules<_, _>) jmptbl idx =
-    if rules.EndsJumpTableBefore(ctx, jmptbl, idx) then None
-    else JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx
 
   let sendJmpTblRecoverySuccess ctx rules queue jmptbl idx =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress

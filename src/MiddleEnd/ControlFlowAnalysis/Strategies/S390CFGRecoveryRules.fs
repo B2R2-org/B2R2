@@ -26,6 +26,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.ABI
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -61,21 +63,44 @@ module private S390CFGRecoveryRules =
     | OnStack ->
       false
 
+  /// Checks if the jump at jmpAddr enters a part that its function splits
+  /// off, as the call frame information tells.
+  let entersSplitOffPart (hdl: BinHandle) jmpAddr target =
+    match hdl.File with
+    | :? ELFBinFile as elf -> elf.IsWithinSplitOffPart(jmpAddr, target)
+    | _ -> false
+
+  /// Checks if the entry at the given index of the given table sends the jump
+  /// below the function, where no part that the function splits off lies.
+  let leadsBelowFunction (ctx: CFGBuildingContext<_, _>) jmptbl idx =
+    let hdl = ctx.BinHandle
+    match JmpTableInfo.tryReadTarget hdl jmptbl idx with
+    | Some target when target < ctx.FunctionAddress ->
+      not (entersSplitOffPart hdl jmptbl.InsAddr target)
+    | _ ->
+      false
+
 /// Represents the rules of the CFG recovery for S390: the rules of every
 /// architecture, except that an indirect jump returns where it goes to the
 /// address that the caller left in R14, and that a jump table ends where the
 /// range check before its indirect jump says, or where a mask on its index
-/// does. S390 has no return instruction, and GCC reloads the saved R14 into
-/// another register to return through, while both GCC and clang jump through a
-/// table by way of R14. Both lay the tables of a function next to each other,
-/// so the entries of the next table read as more of the first, and clang
-/// without PIC fills them with addresses that all lie in the function.
+/// does, or before an entry that sends the jump below its function. S390 has
+/// no return instruction, and GCC reloads the saved R14 into another register
+/// to return through, while both GCC and clang jump through a table by way of
+/// R14. Both lay the tables of a function next to each other, so the entries
+/// of the next table read as more of the first, and clang without PIC fills
+/// them with addresses that all lie in the function. Neither lays a case below
+/// its function, apart from a part that the function splits off, which the
+/// call frame information tells, while clang indexes a table of callbacks as
+/// it does a jump table, to call one as its tail.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.ReturnsThroughLink(ctx, v: IVertex<LowUIRBasicBlock>) =
     jumpsToLink ctx v
 
-  override _.EndsJumpTableBefore(_, jmptbl, idx) =
+  override _.EndsJumpTableBefore(ctx, jmptbl, idx) =
     let isPast = Option.exists (fun n -> idx >= n)
-    isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries
+    isPast jmptbl.OwnRangeEntries
+    || isPast jmptbl.MaskedEntries
+    || leadsBelowFunction ctx jmptbl idx

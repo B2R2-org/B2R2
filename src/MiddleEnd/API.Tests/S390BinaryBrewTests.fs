@@ -127,3 +127,24 @@ type S390BinaryBrewTests() =
           "a729000107fe" (* 0x856: lghi %r2,1; br %r14 *) ]
     let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* The first entry sends the jump below main, to the return of
+     __do_global_dtors_aux, where no switch of main lays a case, as clang
+     indexes a table of callbacks that way to call one as its tail. *)
+  [<TestMethod>]
+  member _.``A table whose first entry leads below its function is none``() =
+    let fns =
+      recoverPatchedMain
+        [ "ec220023017d" (* clgijh %r2,1,0x856 *)
+          "eb120003000d" (* sllg %r1,%r2,3 *)
+          "c0300000000a" (* larl %r3,0x830 *)
+          "e31130000004" (* lg %r1,0(%r1,%r3) *)
+          "47f13000" (* b 0(%r1,%r3) *)
+          "07070707" (* nopr %r7; nopr %r7 *)
+          "ffffffffffffffc0" (* 0x830: .quad 0x7f0 - 0x830 *)
+          "0000000000000026" (* .quad 0x856 - 0x830 *)
+          "ffff0000ffff0000" (* no entry *)
+          "ffff0000ffff0000" (* no entry *)
+          "a729000007fe" (* 0x850: lghi %r2,0; br %r14 *)
+          "a729000107fe" (* 0x856: lghi %r2,1; br %r14 *) ]
+    Assert.AreEqual<int>(0, fns[0x810UL].JumpTables.Length)
