@@ -160,6 +160,29 @@ type S390BinaryBrewTests() =
     let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
 
+  (* The range check bounds the value before the shift that takes its top
+     bits as the index, as ESA/390 code switches over the top bits of a byte,
+     so it admits two entries, while the next table follows right after. *)
+  [<TestMethod>]
+  member _.``A range check before a shift of the index ends a table``() =
+    let fns =
+      recoverPatchedMain
+        [ "ec2200277f7d" (* clgijh %r2,127,0x85e *)
+          "eb120006000c" (* srlg %r1,%r2,6 *)
+          "eb110003000d" (* sllg %r1,%r1,3 *)
+          "c0300000000b" (* larl %r3,0x838 *)
+          "e31130000004" (* lg %r1,0(%r1,%r3) *)
+          "47f13000" (* b 0(%r1,%r3) *)
+          "070707070707" (* nopr %r7; nopr %r7; nopr %r7 *)
+          "0000000000000020" (* 0x838: .quad 0x858 - 0x838 *)
+          "0000000000000026" (* .quad 0x85e - 0x838 *)
+          "0000000000000020" (* an entry of the next table, 0x858 here *)
+          "ffff0000ffff0000" (* no entry *)
+          "a729000007fe" (* 0x858: lghi %r2,0; br %r14 *)
+          "a729000107fe" (* 0x85e: lghi %r2,1; br %r14 *) ]
+    let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+
   (* The first entry sends the jump below main, to the return of
      __do_global_dtors_aux, where no switch of main lays a case, as clang
      indexes a table of callbacks that way to call one as its tail. *)

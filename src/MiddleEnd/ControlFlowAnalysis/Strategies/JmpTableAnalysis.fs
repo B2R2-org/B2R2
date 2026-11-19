@@ -42,6 +42,9 @@ type private L = ConstantDomain.Lattice
 type private IndexOrigin =
   { /// The variable that the index derives from.
     Root: Variable
+    /// The bits that the index shifts the root to the right by, before it adds
+    /// a constant, as code does that switches over a field of the root.
+    RootShift: int
     /// The address of the entry that the index selects when Root is zero.
     ZeroAddr: int64
     /// The index itself, whose value is the number of the entry it selects.
@@ -499,27 +502,30 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   let isLowWordMask (m: BitVector) =
     m.Length = 64<rt> && m.ToUInt64() = 0xffffffffUL
 
-  /// Decomposes an index into the variable it derives from and the constant
-  /// added to that variable, looking through copies, extensions, masks that
-  /// keep the low word, shifts by zero, as SLL of MIPS64 sign-extends a word
-  /// with, and constant additions, but not through an extension of a variable
-  /// that carries no width and that no definition computes, so that the
-  /// variable holding the extension becomes the root instead.
+  /// Decomposes an index into the variable it derives from, the bits it shifts
+  /// that variable to the right by, and the constant it adds after the shift,
+  /// looking through copies, extensions, masks that keep the low word, shifts
+  /// to the left by zero, as SLL of MIPS64 sign-extends a word with, a shift
+  /// to the right of the variable itself, and constant additions, but not
+  /// through an extension of a variable that carries no width and that no
+  /// definition computes, so that the variable holding the extension becomes
+  /// the root instead. A range check may bound the variable before the shift,
+  /// as ESA/390 code checks a byte before it takes its top bits as the index.
   let rec decomposeIndex findDef e =
     match e with
     | Var v ->
       match findDef v with
       | Some(Def(_, def)) ->
-        decomposeIndex findDef def |> Option.orElse (Some(v, 0L))
+        decomposeIndex findDef def |> Option.orElse (Some(v, 0, 0L))
       | _ ->
-        Some(v, 0L)
+        Some(v, 0, 0L)
     | BinOp(BinOpType.ADD, _, e, Num n)
     | BinOp(BinOpType.ADD, _, Num n, e) ->
       decomposeIndex findDef e
-      |> Option.map (fun (v, offset) -> v, offset + toSigned n)
+      |> Option.map (fun (v, shift, offset) -> v, shift, offset + toSigned n)
     | BinOp(BinOpType.SUB, _, e, Num n) ->
       decomposeIndex findDef e
-      |> Option.map (fun (v, offset) -> v, offset - toSigned n)
+      |> Option.map (fun (v, shift, offset) -> v, shift, offset - toSigned n)
     | Cast(CastKind.ZeroExt, _, e)
     | Cast(CastKind.SignExt, _, e)
     | Extract(e, _, 0) when not (isWidthlessLeaf findDef e) ->
@@ -529,6 +535,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       decomposeIndex findDef e
     | BinOp(BinOpType.SHL, _, e, Num n) when n.IsZero ->
       decomposeIndex findDef e
+    | BinOp(BinOpType.SHR, _, e, Num n) ->
+      match decomposeIndex findDef e with
+      | Some(v, 0, 0L) -> Some(v, int (n.ToUInt64()), 0L)
+      | _ -> None
     | _ ->
       None
 
@@ -555,9 +565,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     match tryExtractIndexExpr tblExpr with
     | Some idx ->
       decomposeIndex findDef idx
-      |> Option.map (fun (root, offset) ->
+      |> Option.map (fun (root, shift, offset) ->
         let size = int64 jmptbl.EntrySize
         { Root = root
+          RootShift = shift
           ZeroAddr = int64 jmptbl.TableAddress + offset * size
           Index = idx
           MaxRoot = tryFindMask findDef (Var root)
@@ -838,12 +849,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       None
 
   /// Computes the value that the root has to hold for the index of the given
-  /// table to select the entry at addr, if the index can select it at all.
+  /// table to select the entry at addr, if the index can select it at all:
+  /// the smallest of them, where the index shifts the root to the right.
   let tryComputeRootValue findDef (jmptbl: JmpTableInfo) origin addr =
     let size = int64 jmptbl.EntrySize
     let offset = addr - int64 jmptbl.TableAddress
     if offset >= 0L && offset % size = 0L then
-      let value = Some((addr - origin.ZeroAddr) / size)
+      let value = Some(((addr - origin.ZeroAddr) / size) <<< origin.RootShift)
       if selects findDef origin value (uint64 (offset / size)) then value
       else None
     else
@@ -1483,12 +1495,14 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Error _ -> None
 
   /// Computes the value that the variable indexing the given table holds when
-  /// the entry at entryAddr is taken, along with the variable. The range check
-  /// of the table must admit both that entry and the one at addr.
+  /// the entry at entryAddr is taken, shifted to the right as the index shifts
+  /// it, along with the variable and the shift. The range check of the table
+  /// must admit both that entry and the one at addr.
   let tryComputeIndexValue analyze (jmptbl: JmpTableInfo) entryAddr addr =
     match tryFindIndexOrigin analyze jmptbl with
     | Some o when o.Admits entryAddr && o.Admits addr ->
-      Some(o.Root, (entryAddr - o.ZeroAddr) / int64 jmptbl.EntrySize)
+      let value = (entryAddr - o.ZeroAddr) / int64 jmptbl.EntrySize
+      Some(o.Root, o.RootShift, value)
     | _ ->
       None
 
@@ -1506,7 +1520,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | Some o, Some(outer, entryAddr) ->
       let tblAddr = int64 jmptbl.TableAddress
       match tryComputeIndexValue analyze outer entryAddr tblAddr with
-      | Some(root, value) when root = o.Root ->
+      | Some(root, shift, value) when root = o.Root && shift = o.RootShift ->
         let start = o.ZeroAddr + value * int64 jmptbl.EntrySize
         if start > tblAddr then
 #if CFGDEBUG
@@ -1567,13 +1581,16 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       | None -> None
 
   /// Counts the entries of the given table, from the first, that a constant
-  /// mask on the root of its index lets the index select. Returns None, as for
-  /// a range check, if the mask keeps the index from the first entry, or lets
-  /// it select an entry that does not fit in the section.
+  /// mask on the root of its index, shifted as the index shifts the root, lets
+  /// the index select. Returns None, as for a range check, if the mask keeps
+  /// the index from the first entry, or lets it select an entry that does not
+  /// fit in the section.
   let countMaskedEntries file (jmptbl: JmpTableInfo) origin =
     let tblAddr = int64 jmptbl.TableAddress
     match origin with
-    | Some { ZeroAddr = zeroAddr; MaxRoot = Some m } when zeroAddr <= tblAddr ->
+    | Some({ ZeroAddr = zeroAddr; MaxRoot = Some maxRoot } as o)
+      when zeroAddr <= tblAddr ->
+      let m = maxRoot >>> o.RootShift
       let before = uint64 ((tblAddr - zeroAddr) / int64 jmptbl.EntrySize)
       if m >= before && m - before < countFittingEntries file jmptbl then
         Some(int (m - before + 1UL))
@@ -1717,6 +1734,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       let originOf = tryFindIndexOrigin (prepareAnalysis ctx)
       match originOf jmptbl, originOf other with
       | Some o, Some otherOrigin ->
-        o.Root = otherOrigin.Root && o.ZeroAddr = otherOrigin.ZeroAddr
+        o.Root = otherOrigin.Root
+        && o.RootShift = otherOrigin.RootShift
+        && o.ZeroAddr = otherOrigin.ZeroAddr
       | _ ->
         false
