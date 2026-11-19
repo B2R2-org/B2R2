@@ -65,6 +65,7 @@
     <Compile Include="Strategies\ARM32FunctionIdentification.fs" />
     <Compile Include="Strategies\MIPSFunctionIdentification.fs" />
     <Compile Include="Strategies\PPCFunctionIdentification.fs" />
+    <Compile Include="Strategies\FunctionIdentificationCommon.fs" />
     <Compile Include="Strategies\M68KCode.fs" />
     <Compile Include="Strategies\M68KFunctionIdentification.fs" />
     <Compile Include="Strategies\PythonFunctionIdentification.fs" />
