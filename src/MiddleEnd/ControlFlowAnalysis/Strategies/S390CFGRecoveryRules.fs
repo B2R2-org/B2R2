@@ -31,6 +31,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
 open B2R2.MiddleEnd.DataFlow
 
 [<AutoOpen>]
@@ -92,7 +93,10 @@ module private S390CFGRecoveryRules =
 /// them with addresses that all lie in the function. Neither lays a case below
 /// its function, apart from a part that the function splits off, which the
 /// call frame information tells, while clang indexes a table of callbacks as
-/// it does a jump table, to call one as its tail.
+/// it does a jump table, to call one as its tail. A function that jumps to
+/// another one before the recovery has found that one is built again to call
+/// it as its tail, as clang emits no call frame information for C code that
+/// would tell every function up front.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -104,3 +108,6 @@ type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     isPast jmptbl.OwnRangeEntries
     || isPast jmptbl.MaskedEntries
     || leadsBelowFunction ctx jmptbl idx
+
+  override this.FindFunctionsToRebuild builders =
+    findFunctionsMissingTailCalls this builders

@@ -42,8 +42,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 /// the recovery knows every such function before it starts, as it bounds a
 /// table by the next function. The same goes for an address that recovered
 /// code takes as a constant, as code does that passes a callback or stores a
-/// function pointer, which the identification finds in what the recovery
-/// builds.
+/// function pointer, and for where a recovered function jumps past the next
+/// function or before its own entry, as it calls another as its tail, which
+/// the identification finds in what the recovery builds.
 type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -197,8 +198,9 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       |> Array.distinct
 
     member _.IdentifyMore recovered =
-      recovered
-      |> Array.filter (fun fn -> not fn.IsExternal)
-      |> Array.collect addressesTakenBy
+      let internals = recovered |> Array.filter (fun fn -> not fn.IsExternal)
+      Array.append
+        (Array.collect addressesTakenBy internals)
+        (findTailCallTargets internals)
       |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)
       |> Array.distinct

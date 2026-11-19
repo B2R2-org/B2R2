@@ -278,3 +278,12 @@ type S390BinaryBrewTests() =
     let code = 0x824, "c030ffffffb1" (* larl %r3,0x786 *)
     let entries = findEntries [ code ]
     CollectionAssert.DoesNotContain(entries, 0x786UL)
+
+  (* frame_dummy jumps back to register_tm_clones, as it calls that as its
+     tail, and only that jump leads there. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function that a jump leaves for is a function``() =
+    let code = 0x800, "c0f4ffffffb0" (* jg 0x760 *)
+    let entries = findEntries [ code ]
+    CollectionAssert.Contains(entries, 0x760UL)
