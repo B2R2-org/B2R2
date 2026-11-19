@@ -333,6 +333,26 @@ type M68KBinaryBrewTests() =
     let kinds = edgeKindsFrom fns[0xaUL] 0xaUL
     CollectionAssert.AreEqual([| TailCallEdge |], kinds)
 
+  (* f jumps to x, which main has called, both on a condition and not. Nothing
+     tells that the conditional jump calls x as its tail, so its building
+     leaves out the code there as lying past where the next function starts,
+     while the other jump calls x as its tail, which no building again
+     changes. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A tail call beside a jump that leaves out its callee ends``() =
+    let fns =
+      recoverCode
+        [ "61000012" (* main: bsr.w x *)
+          "61000004" (* bsr.w f *)
+          "4e75" (* rts *)
+          "4a80" (* 0xa: f: tst.l d0 *)
+          "67000006" (* beq.w x *)
+          "60000002" (* bra.w x *)
+          "4e75" (* 0x14: x: rts *) ]
+    let kinds = edgeKindsFrom fns[0xaUL] 0x10UL
+    CollectionAssert.AreEqual([| TailCallEdge |], kinds)
+
   (* f jumps over code that it never runs to a return of its own, which lies
      below a return as a function does, but within f. *)
   [<TestMethod>]

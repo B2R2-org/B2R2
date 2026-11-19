@@ -1566,10 +1566,14 @@ module internal CFGRecoveryCommon =
   let isFollowedWithin (ctx: CFGBuildingContext<_, _>) v =
     ctx.CFG.GetSuccEdges v |> Array.exists (fun e -> e.Label = InterJmpEdge)
 
-  /// Checks if the building left out the code at the given address, as it
-  /// lies past where the next function starts.
-  let isLeftOut (ctx: CFGBuildingContext<_, _>) addr =
-    ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
+  /// Checks if the building left out the code at the given address, which the
+  /// jump that ends the given vertex leads to, as it lies past where the next
+  /// function starts. A jump that calls a function there as its tail leaves
+  /// out nothing, even where a conditional jump there, which the building did
+  /// not take for a tail call, left out the code.
+  let isLeftOut (ctx: CFGBuildingContext<_, _>) v addr =
+    ctx.CFG.GetSuccEdges v |> Array.forall (fun e -> e.Label <> TailCallEdge)
+    && ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
 
   /// Checks if the given vertex ends with a jump to where a function of the
   /// given entries starts, which the building did not take for a tail call as
@@ -1582,7 +1586,7 @@ module internal CFGRecoveryCommon =
       let callee = (rules: ICFGRecoveryRules<_, _>).ToCalleeAddr(ctx, target)
       callee <> ctx.FunctionAddress
       && (entries: HashSet<Addr>).Contains callee
-      && (isFollowedWithin ctx v || isLeftOut ctx target)
+      && (isFollowedWithin ctx v || isLeftOut ctx v target)
     | _ ->
       false
 
