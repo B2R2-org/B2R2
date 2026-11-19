@@ -37,6 +37,7 @@ type private FakeInstruction(addr: Addr, len: uint32) =
   interface IInstruction with
     member _.Address = addr
     member _.Length = len
+    member _.Extent = len
     member _.IsBranch = false
     member _.IsModeChanging = false
     member _.IsDirectBranch = false

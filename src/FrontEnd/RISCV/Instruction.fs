@@ -111,6 +111,8 @@ type Instruction
 
     member _.Length with get() = numBytes
 
+    member _.Extent with get() = numBytes
+
     member _.IsBranch = isJump () || isCondBranch ()
 
     member _.IsModeChanging = false

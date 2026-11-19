@@ -73,6 +73,8 @@ type Instruction
 
     member this.Length with get() = this.Length
 
+    member this.Extent with get() = this.Length
+
     member _.IsBranch =
       match op with
       | _ -> false

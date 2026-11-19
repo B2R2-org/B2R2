@@ -160,6 +160,11 @@ type Instruction
 
     member _.Length with get() = numBytes
 
+    member _.Extent with get() =
+      match delaySlot with
+      | Some slot -> numBytes + slot.Length
+      | None -> numBytes
+
     (* NAL has a delay slot, but goes nowhere the next instruction does not. *)
     member _.IsBranch =
       match op with

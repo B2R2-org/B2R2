@@ -48,6 +48,8 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
 
     member _.Length with get() = numBytes
 
+    member _.Extent with get() = numBytes
+
     member _.IsBranch =
       match op with
       | _ -> false

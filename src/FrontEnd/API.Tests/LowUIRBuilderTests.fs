@@ -44,10 +44,7 @@ type LowUIRBuilderTests() =
     | :? MIPS.LowUIRBuilder as bld ->
       bld.InDelaySlot <- true
     | :? SPARC.LowUIRBuilder as bld ->
-      bld.Arm InterJmpKind.Base
-      bld.Armed <- false
-      bld.DelaySlotAddr <- ValueSome 0UL
-      bld.AnnulCond <- ValueSome AST.b1
+      bld.InDelaySlot <- true
     | :? SH4.LowUIRBuilder as bld ->
       bld.Arm InterJmpKind.Base
       bld.Armed <- false

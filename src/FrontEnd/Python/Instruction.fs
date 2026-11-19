@@ -80,6 +80,8 @@ type Instruction
 
     member this.Length with get() = this.Length
 
+    member this.Extent with get() = this.Length
+
     member this.IsBranch = semantics.IsBranch this
 
     member _.IsModeChanging = false

@@ -47,6 +47,15 @@ type IInstruction =
   abstract Length: uint32
 
   /// <summary>
+  /// How many bytes from its address the statements of this instruction
+  /// depend on: its length, and that of the instruction in its delay slot
+  /// where it carries one and lifts it as part of itself. A decoder that
+  /// checks whether an instruction fits the bytes it was given, or a block
+  /// that says which bytes its code came from, counts these.
+  /// </summary>
+  abstract Extent: uint32
+
+  /// <summary>
   /// Is this a branch instruction? A branch instruction includes any kinds of
   /// jump instructions, such as CALL/RET instructions, indirect/direct jump
   /// instructions, and conditional jump instructions.

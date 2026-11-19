@@ -74,6 +74,8 @@ type Instruction
 
     member _.Length with get() = numBytes
 
+    member _.Extent with get() = numBytes
+
     member this.IsBranch =
       match op with
       | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS

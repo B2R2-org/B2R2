@@ -25,77 +25,27 @@
 namespace B2R2.FrontEnd.SPARC
 
 open B2R2
-open B2R2.BinIR
-open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
-/// The LowUIR builder for SPARC. Beyond the plain register/stream builder it
-/// carries the delayed-branch state SPARC's delay slots need: a control
-/// transfer stores its target in %nPC, records its InterJmpKind here, and does
-/// NOT jump; the following (delay-slot) instruction runs and then flushes the
-/// deferred jump. Armed distinguishes the transfer's own instruction end (which
-/// must defer) from the delay slot's end (which flushes), since the shared
-/// builder sees both.
+/// Represents the LowUIR builder for SPARC.
 type LowUIRBuilder(isa: ISA,
                    regFactory: IRegisterFactory,
                    stream: LowUIRStream) =
   let regType = WordSize.toRegType isa.WordSize
-  let mutable delayedBranch = InterJmpKind.NotAJmp
-  let mutable armed = false
-  let mutable annulCond: Expr voption = ValueNone
-  let mutable annulSkip: Label voption = ValueNone
-  let mutable curAddr = 0UL
-  let mutable delaySlotAddr: Addr voption = ValueNone
-  let mutable insStart = 0
+  let mutable inDelaySlot = false
 
-  /// Where in the stream the statements of the instruction being lifted
-  /// start, which its end rewrites (see GeneralLifter.markInsEnd).
-  member _.InsStart with get() = insStart and set v = insStart <- v
-
-  /// The address of the instruction currently being lifted, so a deferred
-  /// branch can record where its delay slot must appear.
-  member _.CurAddr with get() = curAddr and set v = curAddr <- v
-
-  /// The address the pending deferred branch's delay slot must be lifted at.
-  /// A later instruction lifted at a different address means the branch is
-  /// stale state leaked from a prior block's decode, not this branch's slot.
-  member _.DelaySlotAddr
-    with get() = delaySlotAddr and set v = delaySlotAddr <- v
-
-  /// The kind of a pending delayed branch, or NotAJmp when none is pending.
-  member _.DelayedBranch with get() = delayedBranch
-
-  /// Whether the pending branch was armed by the instruction now ending, so its
-  /// own end defers rather than flushes.
-  member _.Armed with get() = armed and set v = armed <- v
-
-  /// When ValueSome, the next instruction is an annulling branch's delay slot
-  /// that runs only when this (taken) condition holds, else is annulled.
-  member _.AnnulCond with get() = annulCond and set v = annulCond <- v
-
-  /// The label the annulled delay slot's body jumps past, shared from that
-  /// instruction's MarkStart to its MarkEnd.
-  member _.AnnulSkip with get() = annulSkip and set v = annulSkip <- v
+  /// <summary>
+  /// Whether the instruction being lifted is the one in the delay slot of the
+  /// transfer being lifted. The transfer carries its slot: it opens and
+  /// closes the two with its own marks, and the slot adds only what it does.
+  /// Nothing is left set once the transfer is lifted, so an instruction lifts
+  /// the same whatever was lifted before it.
+  /// </summary>
+  member _.InDelaySlot
+    with get() = inDelaySlot
+     and set v = inDelaySlot <- v
 
   member _.RegType with get() = regType
-
-  /// Drops all pending delayed-branch and annul state. Called when a leaked
-  /// deferred branch surfaces at the wrong delay-slot address so it does not
-  /// mis-flush against an unrelated instruction.
-  member _.ResetDelayState() =
-    delayedBranch <- InterJmpKind.NotAJmp
-    armed <- false
-    annulCond <- ValueNone
-    annulSkip <- ValueNone
-    delaySlotAddr <- ValueNone
-
-  /// Arms a delayed branch of the given kind (the target lives in %nPC).
-  member _.Arm kind =
-    delayedBranch <- kind
-    armed <- true
-
-  /// Clears the pending branch after the delay slot flushes it.
-  member _.Disarm() = delayedBranch <- InterJmpKind.NotAJmp
 
   interface ILowUIRBuilder with
     member _.ISA with get() = isa
@@ -125,8 +75,6 @@ type LowUIRBuilder(isa: ISA,
     member _.IsProgramCounter id = regFactory.IsProgramCounter id
     member _.IsStackPointer id = regFactory.IsStackPointer id
     member _.IsFramePointer id = regFactory.IsFramePointer id
-    member this.BeginRegion() =
+    member _.BeginRegion() =
       stream.Clear()
-      this.ResetDelayState()
-      curAddr <- 0UL
-      insStart <- 0
+      inDelaySlot <- false

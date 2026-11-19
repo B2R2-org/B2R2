@@ -123,7 +123,6 @@ type RegisterFactory(isa: ISA) =
   let f60 = AST.var rt (Register.toRegID F60) "f60"
   let f62 = AST.var rt (Register.toRegID F62) "f62"
   let pc = AST.pcvar rt "PC"
-  let npc = AST.var rt (Register.toRegID NPC) "nPC"
   let y = AST.var rt (Register.toRegID Y) "Y"
   let ccr = AST.var rt (Register.toRegID CCR) "CCR"
   let fsr = AST.var rt (Register.toRegID FSR) "FSR"
@@ -198,7 +197,6 @@ type RegisterFactory(isa: ISA) =
       | Register.I6 -> i6
       | Register.I7 -> i7
       | Register.PC -> pc
-      | Register.NPC -> npc
       | Register.CCR -> ccr
       | Register.FSR -> fsr
       | Register.Y -> y

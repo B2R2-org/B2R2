@@ -172,6 +172,8 @@ type Instruction
 
     member this.Length with get() = this.Length
 
+    member this.Extent with get() = this.Length
+
     member _.IsBranch = isBranch ()
 
     member _.IsModeChanging = false
