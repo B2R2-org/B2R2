@@ -139,8 +139,8 @@ let branchOnCount ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
-    let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
-    let next = numG (int64 (codeAddr bld (nextAddr ins)))
+    let target = relAddr bld ins o2
+    let next = numR bld (int64 (codeAddr bld (nextAddr ins)))
     let t = tmpVar bld WSize
     t := high d .- AST.num1 WSize
     high d := t

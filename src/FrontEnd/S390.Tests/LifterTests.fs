@@ -38,12 +38,14 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 /// InstructionTests.
 [<TestClass>]
 type LifterTests() =
-  static let lift addr hex =
-    let isa = ISA(Architecture.S390, Endian.Big, WordSize.Bit64)
+  static let liftAs wordSize addr hex =
+    let isa = ISA(Architecture.S390, Endian.Big, wordSize)
     let parser = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
     let ins = parser.Parse(ByteArray.ofHexString hex, addr)
     let regs = RegisterFactory isa
     ins.Translate(ILowUIRBuilder.Default(isa, regs, LowUIRStream()))
+
+  static let lift addr hex = liftAs WordSize.Bit64 addr hex
 
   static let kindsOf stmts =
     stmts
@@ -119,3 +121,17 @@ type LifterTests() =
         | SideEffect(Effect = e) -> Some e
         | _ -> None)
     CollectionAssert.AreEqual([| UndefinedInstruction |], effects)
+
+  (* A 31-bit program never reaches past the low word of a general register, so
+     a load fills the whole register, from an address as wide as the register
+     is. *)
+  [<TestMethod>]
+  member _.``[S390] A 31-Bit Load Fills Its Register Test``() =
+    let puts =
+      liftAs WordSize.Bit32 0x1000UL "58101008" (* l %r1,8(%r1) *)
+      |> Array.choose (function
+        | Put(Dst = Var(Type = rt); Src = Load(Type = lt; Addr = a)) ->
+          Some(rt, lt, Expr.typeOf a)
+        | _ ->
+          None)
+    CollectionAssert.AreEqual([| 32<rt>, 32<rt>, 32<rt> |], puts)

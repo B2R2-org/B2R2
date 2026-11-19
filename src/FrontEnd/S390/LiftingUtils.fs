@@ -31,10 +31,10 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-/// The width of a general register. z/Architecture widened the ESA/390
-/// registers to 64 bits and kept the old operations as ones that touch only
-/// their low half, so a register is this wide whichever of the two an
-/// instruction belongs to.
+/// The width of a general register of z/Architecture, which widened the
+/// ESA/390 registers to 64 bits and kept the old operations as ones that touch
+/// only their low half. ESA/390 code knows only those operations, so its
+/// registers stay 32 bits wide, as grSize tells.
 let [<Literal>] GRSize = 64<rt>
 
 /// The width of a word -- the half of a general register the ESA/390-era
@@ -55,15 +55,16 @@ let inline ccVar bld = regVar bld Register.CC
 
 /// The low word (bits 32 to 63) of a general register: what an operation named
 /// without the "G" reads, and -- as an assignment target -- what it writes,
-/// leaving the register's high half as it found it.
-let inline low e = AST.xtlo WSize e
+/// leaving the register's high half as it found it. A register of ESA/390 is
+/// that word and nothing more.
+let inline low e = if Expr.typeOf e = WSize then e else AST.xtlo WSize e
 
 /// The high word (bits 0 to 31) of a general register, which the high-word
 /// facility turns into a register in its own right so that code short of
 /// registers has thirty-two words to spend rather than sixteen.
 let inline high e = AST.xthi WSize e
 
-/// A number of the general-register width.
+/// A number of the width of a general register of z/Architecture.
 let inline numG (v: int64) = numI64 v GRSize
 
 /// A number of the word width.
@@ -119,6 +120,14 @@ let immValue = function
 /// than being tracked as state a program could change.
 let inline esaMode (bld: ILowUIRBuilder) = bld.WordSize = WordSize.Bit32
 
+/// The width of a general register in the guest's architecture, which is also
+/// that of an address an instruction forms: ESA/390 gives a register 32 bits,
+/// of which an address takes the low 31.
+let grSize (bld: ILowUIRBuilder) = if esaMode bld then WSize else GRSize
+
+/// A number of the width of a general register in the guest's architecture.
+let numR bld (v: int64) = numI64 v (grSize bld)
+
 /// The bits an address keeps in the guest's addressing mode. Only the address
 /// an instruction forms is narrowed; a storage-to-storage operation walking a
 /// field does not re-narrow every step, so a field that ran off the end of a
@@ -129,7 +138,7 @@ let addrMask (bld: ILowUIRBuilder) = if esaMode bld then 0x7fffffffL else -1L
 /// is nothing at all, so the expression is handed back untouched rather than
 /// masked with all ones.
 let maskAddr (bld: ILowUIRBuilder) e =
-  if esaMode bld then e .& numI64 0x7fffffffL GRSize else e
+  if esaMode bld then e .& numR bld 0x7fffffffL else e
 
 /// The same for an address settled at lifting time -- a relative branch's
 /// target, or the address an instruction returns to.
@@ -155,8 +164,8 @@ let transAddr (bld: ILowUIRBuilder) idx b disp =
       acc
   match acc with
   | Some e when d = 0L -> maskAddr bld e
-  | Some e -> maskAddr bld (e .+ numG d)
-  | None -> numG (d &&& addrMask bld)
+  | Some e -> maskAddr bld (e .+ numR bld d)
+  | None -> numR bld (d &&& addrMask bld)
 
 /// The address the sole memory operand of an instruction names.
 let transMem (bld: ILowUIRBuilder) = function
@@ -228,6 +237,11 @@ let oprImm = function
 
 /// The register variable an operand names.
 let inline oprRegVar bld o = reg bld (oprReg o)
+
+/// The address an operand names relative to the instruction, in halfwords, as
+/// a number of the width of a general register.
+let relAddr bld (ins: Instruction) o =
+  numR bld (int64 (codeAddr bld (relTarget ins.Address (oprImm o))))
 
 /// Sets the condition code to a value known at lifting time.
 let setCC bld v =
@@ -393,15 +407,15 @@ let inline storeMem addr v = AST.store BE addr v
 /// length is an expression because EXECUTE supplies one only at run time.
 let emitByteLoop bld len dst src (f: Expr -> Expr -> Expr) =
   append bld {
-    let i = tmpVar bld GRSize
+    let i = tmpVar bld (grSize bld)
     let body = label bld "SSBody"
     let out = label bld "SSOut"
-    i := AST.num0 GRSize
+    i := AST.num0 (grSize bld)
     AST.lmark body
     let d = dst .+ i
     let s = src .+ i
     storeMem d (f (loadMem 8<rt> d) (loadMem 8<rt> s))
-    i := i .+ AST.num1 GRSize
+    i := i .+ AST.num1 (grSize bld)
     AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
     AST.lmark out
   }
@@ -410,14 +424,14 @@ let emitByteLoop bld len dst src (f: Expr -> Expr -> Expr) =
 /// is what makes an exclusive-or of a field with itself both a clear and a
 /// test.
 let emitLogicLoop bld len dst src (f: Expr -> Expr -> Expr) =
-  let i = tmpVar bld GRSize
+  let i = tmpVar bld (grSize bld)
   let acc = tmpVar bld 8<rt>
   let v = tmpVar bld 8<rt>
   let body = label bld "SSLogicBody"
   let out = label bld "SSLogicOut"
   append bld {
     acc := AST.num0 8<rt>
-    i := AST.num0 GRSize
+    i := AST.num0 (grSize bld)
     AST.lmark body
   }
   let d = dst .+ i
@@ -425,7 +439,7 @@ let emitLogicLoop bld len dst src (f: Expr -> Expr -> Expr) =
     v := f (loadMem 8<rt> d) (loadMem 8<rt> (src .+ i))
     storeMem d v
     acc := acc .| v
-    i := i .+ AST.num1 GRSize
+    i := i .+ AST.num1 (grSize bld)
     AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
     AST.lmark out
   }
@@ -435,14 +449,14 @@ let emitLogicLoop bld len dst src (f: Expr -> Expr -> Expr) =
 /// in decides, and equal fields report equality.
 let emitCompareLoop bld len a b =
   append bld {
-    let i = tmpVar bld GRSize
+    let i = tmpVar bld (grSize bld)
     let x = tmpVar bld 8<rt>
     let y = tmpVar bld 8<rt>
     let body = label bld "ClcBody"
     let diff = label bld "ClcDiff"
     let next = label bld "ClcNext"
     let out = label bld "ClcOut"
-    i := AST.num0 GRSize
+    i := AST.num0 (grSize bld)
     setCC bld 0
     AST.lmark body
     x := loadMem 8<rt> (a .+ i)
@@ -452,7 +466,7 @@ let emitCompareLoop bld len a b =
     ccVar bld := AST.ite (x .< y) (numCC 1) (numCC 2)
     AST.jmp (AST.jmpDest out)
     AST.lmark next
-    i := i .+ AST.num1 GRSize
+    i := i .+ AST.num1 (grSize bld)
     AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
     AST.lmark out
   }
