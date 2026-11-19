@@ -78,6 +78,24 @@ type RegisterFactoryTests() =
     Assert.AreEqual<RegType>(32<rt>, regType WordSize.Bit32 Register.AR0)
     Assert.AreEqual<RegType>(32<rt>, regType WordSize.Bit64 Register.AR0)
 
+  (* GCC and clang keep a frame pointer in R11 in either mode, where they keep
+     one, so that a slot of the frame reads as one through it. *)
+  [<TestMethod>]
+  member _.``[S390] R15 and R11 are the stack and frame pointers test``() =
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.S390, Endian.Big, wordSize)
+      let factory = RegisterFactory isa :> IRegisterFactory
+      let sp = Register.toRegID Register.R15
+      let fp = Register.toRegID Register.R11
+      Assert.AreEqual<RegisterID option>(Some sp, factory.StackPointer)
+      Assert.AreEqual<RegisterID option>(Some fp, factory.FramePointer)
+      Assert.AreEqual<bool>(true, factory.IsStackPointer sp)
+      Assert.AreEqual<bool>(true, factory.IsFramePointer fp)
+      for other in [ Register.R10; Register.R12; Register.R14 ] do
+        let rid = Register.toRegID other
+        Assert.AreEqual<bool>(false, factory.IsStackPointer rid)
+        Assert.AreEqual<bool>(false, factory.IsFramePointer rid)
+
   (* ESA/390 has a 64-bit PSW and z/Architecture a 128-bit one. *)
   [<TestMethod>]
   member _.``[S390] the PSW follows the word size test``() =

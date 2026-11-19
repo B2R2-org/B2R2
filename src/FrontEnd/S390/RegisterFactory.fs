@@ -32,6 +32,10 @@ open B2R2.BinIR.LowUIR
 type RegisterFactory(isa: ISA) =
   let stackPointer = Register.R15 |> Register.toRegID |> Some
 
+  (* GCC and clang keep a frame pointer in R11 on both ESA/390 and
+     z/Architecture, where they keep one, as they do without optimization. *)
+  let framePointer = Register.R11 |> Register.toRegID |> Some
+
   (* ESA/390 code reads and writes general registers of 32 bits, as a 31-bit
      program never reaches past the low word of one. *)
   let grSize = RegisterHelper.toRegType isa.WordSize Register.R0
@@ -194,7 +198,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.StackPointer = stackPointer
 
-    member _.FramePointer = None
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with
@@ -727,4 +731,4 @@ type RegisterFactory(isa: ISA) =
 
     member _.IsStackPointer rid = Register.toRegID Register.R15 = rid
 
-    member _.IsFramePointer _ = false
+    member _.IsFramePointer rid = Register.toRegID Register.R11 = rid
