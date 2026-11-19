@@ -50,6 +50,38 @@ type S390BinaryBrewTests() =
     let isa = ISA(Architecture.S390, Endian.Big, WordSize.Bit64)
     BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
 
+  /// Returns where the functions that the recovery finds in elf_s390x start,
+  /// once each of the given hex strings is written at its offset. Its symbol
+  /// table is hidden, so that only its call frame information, its entry and
+  /// its data tell of functions, and frame_dummy returns right away, so that
+  /// nothing leads to register_tm_clones, at 0x760.
+  static let findEntries (patches: (int * string) list) =
+    let bytes = readZippedBinary "elf_s390x"
+    let patch (offset: int, hex: string) =
+      (ByteArray.ofHexString hex).CopyTo(bytes, offset)
+    patch (0x1f64, "00000000") (* the type of .symtab: SHT_NULL *)
+    patch (0x800, "07fe") (* frame_dummy: br %r14 *)
+    List.iter patch patches
+    let isa = ISA(Architecture.S390, Endian.Big, WordSize.Bit64)
+    let hdl = BinHandle.LoadFileBytes(bytes, isa)
+    Seq.toArray (BinaryBrew hdl).Functions.Addresses
+
+  /// Returns the patches that make the word of .data that a relocation sets,
+  /// at 0x2008, point to the given address: the addend of the relocation and
+  /// the word itself.
+  static let relocatedPointerTo (addr: uint64) =
+    let hex = addr.ToString("x16")
+    [ 0x518, hex; 0x1008, hex ]
+
+  /// Returns the patches that make the binary an executable that stays where
+  /// it is linked, whose .rodata holds the given words, one after another, as
+  /// it takes in the bytes of .eh_frame_hdr past its own.
+  static let readOnlyWords (words: uint64 list) =
+    let wordPatch i (w: uint64) = 0x898 + 8 * i, w.ToString("x16")
+    [ 0x10, "0002" (* e_type: ET_EXEC *)
+      0x1d00, "0000000000000024" (* the size of .rodata *) ]
+    @ List.mapi wordPatch words
+
   (* gnulib's error exits unless its status is zero, and GCC returns from it
      through R4, which it reloads the saved R14 into, as no S390 instruction
      returns by itself. *)
@@ -148,3 +180,83 @@ type S390BinaryBrewTests() =
           "a729000007fe" (* 0x850: lghi %r2,0; br %r14 *)
           "a729000107fe" (* 0x856: lghi %r2,1; br %r14 *) ]
     Assert.AreEqual<int>(0, fns[0x810UL].JumpTables.Length)
+
+  (* Only the relocated word of .data leads to register_tm_clones, which no
+     code runs into, as nops pad the code above up to it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A relocated pointer to code below padding is a function``() =
+    let entries = findEntries (relocatedPointerTo 0x760UL)
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* The pointer names the middle of register_tm_clones, which saves registers
+     first this time, as a function sets up its frame. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A relocated pointer to code saving registers is a function``() =
+    let code = 0x786, "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+    let entries = findEntries (code :: relocatedPointerTo 0x786UL)
+    CollectionAssert.Contains(entries, 0x786UL)
+
+  (* The code that the pointer names, past the return of deregister_tm_clones,
+     copies R1, which holds nothing as a function starts. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code reading what code above left is no function``() =
+    let code = 0x752, "b904002107fe" (* lgr %r2,%r1; br %r14 *)
+    let entries = findEntries (code :: relocatedPointerTo 0x752UL)
+    CollectionAssert.DoesNotContain(entries, 0x752UL)
+
+  (* The code past the return of deregister_tm_clones changes R12 this time,
+     which a function saves first, for its caller. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code changing an unsaved register is no function``() =
+    let code = 0x752, "b90400c207fe" (* lgr %r12,%r2; br %r14 *)
+    let entries = findEntries (code :: relocatedPointerTo 0x752UL)
+    CollectionAssert.DoesNotContain(entries, 0x752UL)
+
+  (* The pointer names the middle of register_tm_clones, which the shift above
+     runs into, with no frame set up. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code that code above runs into is no function``() =
+    let entries = findEntries (relocatedPointerTo 0x786UL)
+    CollectionAssert.DoesNotContain(entries, 0x786UL)
+
+  (* As an executable that stays where it is linked, the binary relocates
+     nothing, and .data holds the address of register_tm_clones as it is. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A code address in fixed-base data is a pointer``() =
+    let entries = findEntries [ 0x10, "0002"; 0x1008, "0000000000000760" ]
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* .rodata holds the addresses of register_tm_clones and
+     __do_global_dtors_aux, one after the other, as a table of callbacks
+     does. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A table of callbacks in read-only data holds functions``() =
+    let entries = findEntries (readOnlyWords [ 0x760UL; 0x7b0UL ])
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* The second word names code that copies R1 this time, as the entry of a
+     jump table names code that the code before the jump leads into, and the
+     words of such a table name no functions. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A jump table in read-only data holds no functions``() =
+    let code = 0x752, "b904002107fe" (* lgr %r2,%r1; br %r14 *)
+    let entries = findEntries (code :: readOnlyWords [ 0x760UL; 0x752UL ])
+    CollectionAssert.DoesNotContain(entries, 0x760UL)
+
+  (* The pointer names code in main that returns right below a call, as the
+     return of a case does that a jump table of GCC names, while the call
+     frame information gives main the code from 0x810 to 0x862. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer into a function that a frame covers is no function``() =
+    let code = 0x84e, "a729000007fe" (* lghi %r2,0; br %r14 *)
+    let entries = findEntries (code :: relocatedPointerTo 0x84eUL)
+    CollectionAssert.DoesNotContain(entries, 0x84eUL)
