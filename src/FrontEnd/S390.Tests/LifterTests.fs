@@ -135,3 +135,38 @@ type LifterTests() =
         | _ ->
           None)
     CollectionAssert.AreEqual([| 32<rt>, 32<rt>, 32<rt> |], puts)
+
+  (* A 31-bit call leaves the return address alone in its link register,
+     without the addressing mode that ESA/390 records in the bit above, so
+     that no address a 31-bit program forms needs narrowing. *)
+  [<TestMethod>]
+  member _.``[S390] A 31-Bit Call Links Its Return Address Alone Test``() =
+    let links =
+      liftAs WordSize.Bit32 0x2444UL "0de2" (* basr %r14,%r2 *)
+      |> Array.choose (function
+        | Put(Dst = Var(Type = rt); Src = Num(Value = v)) ->
+          Some(rt, v.ToUInt64())
+        | _ ->
+          None)
+    CollectionAssert.AreEqual([| 32<rt>, 0x2446UL |], links)
+
+  (* A 31-bit load reads storage at the sum that its operand names, left
+     whole, as a load of any other 32-bit architecture does. *)
+  [<TestMethod>]
+  member _.``[S390] A 31-Bit Address Is The Sum Its Operand Names Test``() =
+    let addrs =
+      liftAs WordSize.Bit32 0x1000UL "58101008" (* l %r1,8(%r1) *)
+      |> Array.choose (function
+        | Put(Src = Load(Addr = BinOp(BinOpType.ADD, _, Var _, Num n))) ->
+          Some(n.ToUInt64())
+        | _ ->
+          None)
+    CollectionAssert.AreEqual([| 8UL |], addrs)
+
+  (* A 31-bit branch through a register goes where the register points, as
+     the register holds no addressing mode to drop. *)
+  [<TestMethod>]
+  member _.``[S390] A 31-Bit Branch Goes Where Its Register Points Test``() =
+    match Array.last (liftAs WordSize.Bit32 0x22f4UL "07f4") (* br %r4 *) with
+    | InterJmp(Target = Var(Type = rt)) when rt = 32<rt> -> ()
+    | stmt -> Assert.Fail $"br ends with {stmt}"

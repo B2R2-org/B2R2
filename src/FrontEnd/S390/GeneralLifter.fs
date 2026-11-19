@@ -793,18 +793,12 @@ let testMaskReg ins bld pos =
 
 /// The address of the instruction after the one being lifted, as an
 /// expression, which is where a branch not taken carries on and where a call
-/// leaves its return address.
+/// leaves its return address. ESA/390 records the addressing mode in the bit
+/// above the 31 that the return address takes, which only a branch that
+/// switches the mode reads, as a branch back ignores it. Leaving it out keeps
+/// that bit clear in every address that a 31-bit program forms.
 let private fallThrough bld (ins: Instruction) =
   numR bld (int64 (codeAddr bld (nextAddr ins)))
-
-/// The value a call leaves in its link register. On z/Architecture that is the
-/// return address and nothing else. ESA/390 has the addressing mode to record
-/// as well, and puts it in the bit above the 31 an address occupies -- which is
-/// why the branch back has to mask that bit off again.
-let private linkValue bld (ins: Instruction) =
-  let next = codeAddr bld (nextAddr ins)
-  if esaMode bld then numR bld (int64 (next ||| 0x80000000UL))
-  else numR bld (int64 next)
 
 /// A branch a condition-code mask decides, whose target the instruction names
 /// relative to itself. GCC plants a branch into its own second halfword, which
@@ -873,7 +867,7 @@ let branchOnConditionReg ins bld =
     if isNever m || r2 = Register.R0 then
       ()
     else
-      let target = maskAddr bld (reg bld r2)
+      let target = reg bld r2
       if isAlways m then
         AST.interjmp target InterJmpKind.Base
         return NoEndMark
@@ -888,7 +882,7 @@ let branchAndSaveRel ins bld =
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let target = relAddr bld ins o2
-    d := linkValue bld ins
+    d := fallThrough bld ins
     AST.interjmp target InterJmpKind.IsCall
     return NoEndMark
   }
@@ -900,7 +894,7 @@ let branchAndSave ins bld =
     let d = oprRegVar bld o1
     let t = tmpVar bld (grSize bld)
     t := transMem bld o2
-    d := linkValue bld ins
+    d := fallThrough bld ins
     AST.interjmp t InterJmpKind.IsCall
     return NoEndMark
   }
@@ -914,10 +908,10 @@ let branchAndSaveReg ins bld =
     let r2 = oprReg o2
     let t = tmpVar bld (grSize bld)
     if r2 = Register.R0 then
-      d := linkValue bld ins
+      d := fallThrough bld ins
     else
-      t := maskAddr bld (reg bld r2)
-      d := linkValue bld ins
+      t := reg bld r2
+      d := fallThrough bld ins
       AST.interjmp t InterJmpKind.IsCall
       return NoEndMark
   }
@@ -962,7 +956,7 @@ let branchOnCountReg ins bld rt =
       t := srcReg rt d .- AST.num1 rt
       dst rt d := t
     else
-      target := maskAddr bld (reg bld r2)
+      target := reg bld r2
       t := srcReg rt d .- AST.num1 rt
       dst rt d := t
       jumpIf bld (t != AST.num0 rt) target InterJmpKind.Base

@@ -112,10 +112,8 @@ let immValue = function
   | ImmU32 v -> int64 v
   | ImmS32 v -> int64 v
 
-/// Whether the guest addresses storage the way ESA/390 does. z/Architecture
-/// forms a whole 64-bit address; its predecessor forms one of 31 bits and
-/// ignores everything above, which is why the C library there is free to keep
-/// flag bits in the top bit of a pointer. Linux runs its 31-bit processes in
+/// Whether the guest runs ESA/390 code, which forms an address of 31 bits where
+/// z/Architecture forms a whole 64-bit one. Linux runs its 31-bit processes in
 /// that mode and never leaves it, so the mode follows the word size here rather
 /// than being tracked as state a program could change.
 let inline esaMode (bld: ILowUIRBuilder) = bld.WordSize = WordSize.Bit32
@@ -128,27 +126,18 @@ let grSize (bld: ILowUIRBuilder) = if esaMode bld then WSize else GRSize
 /// A number of the width of a general register in the guest's architecture.
 let numR bld (v: int64) = numI64 v (grSize bld)
 
-/// The bits an address keeps in the guest's addressing mode. Only the address
-/// an instruction forms is narrowed; a storage-to-storage operation walking a
-/// field does not re-narrow every step, so a field that ran off the end of a
-/// 31-bit space would carry on rather than wrap, which no program does.
-let addrMask (bld: ILowUIRBuilder) = if esaMode bld then 0x7fffffffL else -1L
-
-/// Narrows an address the way the addressing mode does. On z/Architecture that
-/// is nothing at all, so the expression is handed back untouched rather than
-/// masked with all ones.
-let maskAddr (bld: ILowUIRBuilder) e =
-  if esaMode bld then e .& numR bld 0x7fffffffL else e
-
-/// The same for an address settled at lifting time -- a relative branch's
-/// target, or the address an instruction returns to.
+/// Narrows an address settled at lifting time -- a relative branch's target, or
+/// the address an instruction returns to -- the way the addressing mode does.
 let codeAddr (bld: ILowUIRBuilder) (a: Addr) =
   if esaMode bld then a &&& 0x7fffffffUL else a
 
 /// The address a D(X,B) or D(B) reference names: the sum of the index and base
-/// registers and the displacement, narrowed to what the addressing mode keeps.
-/// A register field of zero means "no register" rather than R0, so R0's
-/// contents never take part in address arithmetic.
+/// registers and the displacement. A register field of zero means "no
+/// register" rather than R0, so R0's contents never take part in address
+/// arithmetic. ESA/390 would narrow the sum to 31 bits, but no address that a
+/// 31-bit Linux program forms reaches the bit above them, as no call here
+/// leaves its addressing mode there, so the sum is left whole, which the data
+/// flow reads as it reads an address of any other 32-bit architecture.
 let transAddr (bld: ILowUIRBuilder) idx b disp =
   let d = dispValue disp
   let acc =
@@ -163,9 +152,9 @@ let transAddr (bld: ILowUIRBuilder) idx b disp =
     else
       acc
   match acc with
-  | Some e when d = 0L -> maskAddr bld e
-  | Some e -> maskAddr bld (e .+ numR bld d)
-  | None -> numR bld (d &&& addrMask bld)
+  | Some e when d = 0L -> e
+  | Some e -> e .+ numR bld d
+  | None -> numR bld d
 
 /// The address the sole memory operand of an instruction names.
 let transMem (bld: ILowUIRBuilder) = function
