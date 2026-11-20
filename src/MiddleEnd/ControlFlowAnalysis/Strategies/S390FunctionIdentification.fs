@@ -266,16 +266,30 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       jumpsByBuiltCode.AddOrUpdate(built, (start, jumps))
       jumps
 
+  /// Tells whether the given vertex of the CFG calls an external function that
+  /// never returns, which its name tells for sure, such as abort, unlike what
+  /// the recovery finds of a function of the binary, which it may yet find to
+  /// return.
+  let callsNoReturnExternal (cfg: LowUIRCFG) v =
+    cfg.GetSuccs v
+    |> Array.exists (fun w ->
+      let bbl = w.VData.Internals
+      bbl.IsAbstract
+      && bbl.AbstractContent.IsExternal
+      && bbl.AbstractContent.ReturningStatus = NoRet)
+
   /// Tells whether the code that the recovery has built for the function ends
   /// the flow where it ends, at the given address, as the last instruction of
-  /// its last block returns or jumps.
+  /// its last block returns or jumps, or calls an external function that never
+  /// returns.
   let endsFlowAt (fn: Function) codeEnd =
     fn.CFG.Vertices
     |> Array.exists (fun v ->
       let bbl = v.VData.Internals
       not bbl.IsAbstract
       && bbl.Range.Max + 1UL = codeEnd
-      && S390Code.leaves bbl.LastInstruction)
+      && (S390Code.leaves bbl.LastInstruction
+          || callsNoReturnExternal fn.CFG v))
 
   /// Tells whether the code where code resumes past the given function, at the
   /// given start past the end of its code, shows a function starting there,

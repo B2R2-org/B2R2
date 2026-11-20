@@ -453,19 +453,34 @@ type S390BinaryBrewTests() =
           0x75a, "d70020002000" (* xc 0(1,%r2),0(%r2) *) ]
     CollectionAssert.Contains(entries, 0x760UL)
 
-  (* deregister_tm_clones calls abort where it returns this time, and code that
-     sets up no frame lies right past the call, as code does that a call
-     returns to, which the recovery may yet find of a callee that it took for
-     one that never returns. *)
+  (* deregister_tm_clones calls frame_dummy where it returns this time, which
+     calls abort as its tail, and code that sets up no frame lies right past
+     the call, as code does that a call returns to, which the recovery may yet
+     find of a callee of the binary that it took for one that never returns. *)
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``Frameless code right past a call is no function``() =
     let entries =
       findEntries
         [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
-          0x750, "c0e5ffffffb4" (* brasl %r14,0x6b8: abort@plt *)
+          0x800, "c0f4ffffff5c" (* jg 0x6b8: abort@plt *)
+          0x750, "c0e500000058" (* brasl %r14,0x800 *)
           0x756, "a729000007fe" (* lghi %r2,0; br %r14 *) ]
     CollectionAssert.DoesNotContain(entries, 0x756UL)
+
+  (* deregister_tm_clones calls abort where it returns this time, which its name
+     tells never to return, and code that sets up no frame lies right past the
+     call, as clang lays a function right past one that ends with such a call,
+     without padding. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code right past a call to abort is a function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x750, "c0e5ffffffb4" (* brasl %r14,0x6b8: abort@plt *)
+          0x756, "a729000007fe" (* lghi %r2,0; br %r14 *) ]
+    CollectionAssert.Contains(entries, 0x756UL)
 
   (* deregister_tm_clones calls abort this time and jumps past its return to
      code of its own, as a function does to a block that it lays past the rest
