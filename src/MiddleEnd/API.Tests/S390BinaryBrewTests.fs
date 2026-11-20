@@ -147,6 +147,26 @@ type S390BinaryBrewTests() =
     let expected = ConditionalNoRet(ArgLocation.Reg r2)
     Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
+  (* The function branches past the function that it calls, which it learns
+     starts there only once it has taken in the code past it, as a function
+     does that takes in the code of the next one before that one is known. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A function leaves out code past the function it calls``() =
+    let fns =
+      recoverCode
+        [ "ec280008007c" (* cgije %r2,0,0x10 *)
+          "c0e500000004" (* 0x06: brasl %r14,0x0e *)
+          "07fe" (* 0x0c: br %r14 *)
+          "07fe" (* 0x0e: br %r14 *)
+          "07f3" (* 0x10: br %r3 *) ]
+    let blocks =
+      fns[0x0UL].CFG.Vertices
+      |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+      |> Array.map _.VData.Internals.BlockAddress
+      |> Array.sort
+    CollectionAssert.AreEqual([| 0x0UL; 0x6UL; 0xcUL |], blocks)
+
   (* Compilers lay the tables of a function next to each other, so the words
      past a table read as more of its entries, which send its jump into the
      code of the function all the same. The range check right before the jump

@@ -1218,13 +1218,20 @@ module internal CFGRecoveryCommon =
 
   /// Recovers the indirect branch at the given address, unless it returns to
   /// the caller through the link that the caller left, which leads nowhere
-  /// within the function.
+  /// within the function, or it lies past where the next function starts for
+  /// the first time. The function took in the code of the branch before that
+  /// function was known, so it builds again without the code, and leaves the
+  /// table of the branch to the function that the branch lies in: a rollback
+  /// of its first entry here would mark it as a phantom for every function.
   let recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr =
     let rules: ICFGRecoveryRules<_, _> = rules
     match tryGetCallerVertex ctx (LeafCallSite insAddr) with
     | Some v when rules.ReturnsThroughLink(ctx, v) ->
       ctx.LinkReturns.Add insAddr |> ignore
       MoveOn
+    | _ when not (isWithinFunction ctx ctx.FunctionAddress insAddr)
+             && ctx.BranchesPastBoundary.Add insAddr ->
+      StopAndReload
     | _ ->
       recoverJumpTable ctx rules jmptblAnalysis queue insAddr
 
