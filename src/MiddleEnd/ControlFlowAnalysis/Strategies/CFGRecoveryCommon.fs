@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -1575,29 +1576,51 @@ module internal CFGRecoveryCommon =
     ctx.CFG.GetSuccEdges v |> Array.forall (fun e -> e.Label <> TailCallEdge)
     && ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
 
-  /// Checks if the given vertex ends with a jump to where a function of the
-  /// given entries starts, which the building did not take for a tail call as
-  /// none started there yet: it followed the jump within its function, or left
-  /// out the code there as lying past where the next function starts.
-  let jumpsToEntryUncalled rules entries ctx (v: IVertex<LowUIRBasicBlock>) =
+  /// Returns where a function would start that the jump ending the given
+  /// vertex goes to, if the building did not take the jump for a tail call:
+  /// it followed the jump within its function, or left out the code there as
+  /// lying past where the next function starts.
+  let tryFindUncalledJumpTarget rules ctx (v: IVertex<LowUIRBasicBlock>) =
     match v.VData.Internals.Terminator with
     | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
       let target = n.ToUInt64()
       let callee = (rules: ICFGRecoveryRules<_, _>).ToCalleeAddr(ctx, target)
-      callee <> ctx.FunctionAddress
-      && (entries: HashSet<Addr>).Contains callee
-      && (isFollowedWithin ctx v || isLeftOut ctx v target)
+      if callee <> ctx.FunctionAddress
+         && (isFollowedWithin ctx v || isLeftOut ctx v target) then
+        Some callee
+      else
+        None
     | _ ->
-      false
+      None
+
+  /// Where each built function jumps without calling a function there as its
+  /// tail, by its CFG, with the counts of its vertices and edges and of the
+  /// blocks that it left out, as finding it takes walking the whole CFG,
+  /// while most functions stay the same from round to round of the recovery.
+  let private uncalledByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns where a function would start that the function of the given
+  /// context jumps to without calling it as its tail, reading the function
+  /// anew only once it has changed.
+  let findUncalledJumpTargets rules (ctx: CFGBuildingContext<_, _>) =
+    let cfg = ctx.CFG
+    let stamp = cfg.VertexCount, cfg.EdgeCount, ctx.BlocksPastBoundary.Count
+    match uncalledByCFG.TryGetValue cfg with
+    | true, (stampOfCache, targets) when stampOfCache = stamp ->
+      targets
+    | _ ->
+      let targets =
+        cfg.Vertices
+        |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+        |> Array.choose (tryFindUncalledJumpTarget rules ctx)
+      uncalledByCFG.AddOrUpdate(cfg, (stamp, targets))
+      targets
 
   /// Checks if the function that the given builder has built jumps to a
   /// function of the given entries without calling it as its tail.
   let missesTailCall rules entries (builder: ICFGBuildable<_, _>) =
-    let ctx = builder.Context
-    ctx.CFG.Vertices
-    |> Array.exists (fun v ->
-      not v.VData.Internals.IsAbstract
-      && jumpsToEntryUncalled rules entries ctx v)
+    findUncalledJumpTargets rules builder.Context
+    |> Array.exists (entries: HashSet<Addr>).Contains
 
   /// Finds the functions that jump to another function without calling it as
   /// their tail, as they jumped there before any call told that a function

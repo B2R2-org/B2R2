@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -136,20 +137,53 @@ module internal FunctionIdentificationCommon =
         ()
     ranges.ToArray()
 
+  /// Returns what reading the given function gives, which the given table
+  /// keeps by its CFG, with the counts of its vertices and edges, so that a
+  /// function is read anew only once it has changed, while most stay the same
+  /// from round to round of identification.
+  let readOnce (table: ConditionalWeakTable<LowUIRCFG, _>) read (fn: Function) =
+    let cfg = fn.CFG
+    let stamp = cfg.VertexCount, cfg.EdgeCount
+    match table.TryGetValue cfg with
+    | true, (stampOfCache, value) when stampOfCache = stamp ->
+      value
+    | _ ->
+      let value = read fn
+      table.AddOrUpdate(cfg, (stamp, value))
+      value
+
+  /// Where the jumps that leave each recovered function go, and what it covers
+  /// but for what it reaches only through them, by its CFG, with the counts of
+  /// its vertices and edges and the next entry that they hold for, as finding
+  /// them takes walking the whole CFG, while most functions stay the same from
+  /// round to round of identification.
+  let private leavingByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Finds where the jumps that leave the given function, up to the given next
+  /// entry, go, and what it covers but for what it reaches only through them.
+  let private findLeavingOnce (fn: Function, next) =
+    let cfg = fn.CFG
+    let stamp = cfg.VertexCount, cfg.EdgeCount, next
+    match leavingByCFG.TryGetValue cfg with
+    | true, (stampOfCache, leaving) when stampOfCache = stamp ->
+      leaving
+    | _ ->
+      let jumps = findLeavingJumps (fn, next)
+      let home =
+        collectHomeRanges fn (HashSet(Array.map fst jumps))
+        |> AddrRangeUnion.ofArray
+      let leaving = Array.map snd jumps, home.Ranges
+      leavingByCFG.AddOrUpdate(cfg, (stamp, leaving))
+      leaving
+
   /// Returns where jumps leave the given functions for code that none of them
   /// covers but through such jumps, as a jump into the middle of a function
   /// that the recovery has built calls no function.
   let findTailCallTargets internals =
-    let leaving =
-      withNextEntries internals
-      |> Array.map (fun (fn, next) -> fn, findLeavingJumps (fn, next))
-    let home =
-      leaving
-      |> Array.collect (fun (fn, jumps) ->
-        collectHomeRanges fn (HashSet(Array.map fst jumps)))
-      |> AddrRangeUnion.ofArray
+    let leaving = withNextEntries internals |> Array.map findLeavingOnce
+    let home = leaving |> Array.collect snd |> AddrRangeUnion.ofArray
     leaving
-    |> Array.collect (fun (_, jumps) -> Array.map snd jumps)
+    |> Array.collect fst
     |> Array.filter (fun t -> not (AddrRangeUnion.containsAddr t home))
 
   /// Returns what the code that the recovery has built for the functions

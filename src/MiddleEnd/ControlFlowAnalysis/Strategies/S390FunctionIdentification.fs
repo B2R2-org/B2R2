@@ -25,9 +25,11 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 
@@ -184,13 +186,24 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   /// Returns the addresses that the code that the recovery has built for the
   /// function takes as constants.
-  let addressesTakenBy (fn: Function) =
+  let readTakenAddresses (fn: Function) =
     fn.CFG.Vertices
     |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
     |> Array.collect (fun v -> v.VData.Internals.Instructions)
     |> Array.choose (fun ins ->
       S390Code.tryTakenAddress (ins :?> S390.Instruction))
     |> Array.map (fun addr -> addr &&& addressMask)
+
+  /// The addresses that the code of each recovered function takes as
+  /// constants, by its CFG, with the counts of its vertices and edges, as
+  /// reading them takes every instruction of the function, while most
+  /// functions stay the same from round to round of identification.
+  let takenByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns the addresses that the code that the recovery has built for the
+  /// function takes as constants, reading them anew only once the function has
+  /// changed.
+  let addressesTakenBy fn = readOnce takenByCFG readTakenAddresses fn
 
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
