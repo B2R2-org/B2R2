@@ -45,56 +45,10 @@ let inline private numByte (n: int) = numU32 (uint32 n) 8<rt>
 /// A thirty-two-bit constant naming a code address.
 let inline private numAddr (addr: Addr) = numU32 (uint32 addr) 32<rt>
 
-/// Marks the start of an instruction and records its address, so a delayed
-/// branch can name where its delay slot must appear. It takes the place of
-/// the plain ISMark.
-let markInsStart (bld: ILowUIRBuilder) addr insLen =
-  bld.Stream.MarkStart(addr, insLen)
-  match bld with
-  | :? LowUIRBuilder as sbld ->
-    (* A branch deferred by a prior block's decode expects its delay slot at a
-       fixed address; reaching a different address instead means that state
-       leaked across the block boundary (the slot was never lifted here), so
-       drop it rather than flush this unrelated instruction as the slot. *)
-    match sbld.DelaySlotAddr with
-    | ValueSome expected when sbld.DelayedBranch <> InterJmpKind.NotAJmp
-                              && not sbld.Armed
-                              && addr <> expected -> sbld.ResetDelayState()
-    | _ -> ()
-    sbld.CurAddr <- addr
-  | _ ->
-    ()
-
-/// Finalizes an instruction, flushing a pending delayed branch. An SH4 control
-/// transfer that has a delay slot stores its target in NPC rather than jumping,
-/// so the instruction that follows executes and then this emits the InterJmp.
-/// The transfer's own end (Armed) defers; the delay slot's end flushes. It
-/// takes the place of the plain IEMark.
-let markInsEnd (bld: ILowUIRBuilder) insLen =
-  match bld with
-  | :? LowUIRBuilder as sbld ->
-    if sbld.DelayedBranch <> InterJmpKind.NotAJmp then
-      if sbld.Armed then
-        sbld.Armed <- false
-        sbld.DelaySlotAddr <- ValueSome(sbld.CurAddr + uint64 insLen)
-      else
-        append bld {
-          AST.interjmp (regVar bld R.NPC) sbld.DelayedBranch
-        }
-        sbld.Disarm()
-    else
-      ()
-    bld.Stream.MarkEnd insLen
-    bld
-  | _ ->
-    bld.Stream.MarkEnd insLen
-    bld
-
-
-/// Provides the `lift` computation expression for SH4, whose instruction
-/// marks carry the delay-slot bookkeeping that LiftingUtils's cannot. It
-/// shadows the one from LiftingUtils, so a lifter in this module gets the
-/// SH4 marks without asking for them.
+/// Provides the `lift` computation expression for SH4. An instruction lifted
+/// in the delay slot of a branch writes no marks, those of the branch
+/// spanning both. It shadows the one from LiftingUtils, so a lifter in this
+/// module gets the SH4 marks without asking for them.
 [<Struct>]
 type LiftBuilder =
   /// Builder that the statements are emitted into.
@@ -121,20 +75,17 @@ type LiftBuilder =
     for x in xs do f x
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
-    markInsStart this.Bld this.Address this.InsLen
+    let stream = this.Bld.Stream
+    let inSlot = (this.Bld :?> LowUIRBuilder).InDelaySlot
+    if inSlot then () else stream.MarkStart(this.Address, this.InsLen)
     f ()
-    markInsEnd this.Bld this.InsLen
+    if inSlot then () else stream.MarkEnd this.InsLen
+    this.Bld
 
-/// Starts lifting the given instruction, closing it with the SH4
-/// instruction end rather than a plain IEMark.
+/// Starts lifting the given instruction, closing it with an IEMark unless it
+/// sits in a delay slot.
 let inline lift bld (ins: Instruction) =
   LiftBuilder(bld, ins.Address, ins.Length)
-
-/// Arms a delayed control transfer of the given kind; its target must already
-/// have been stored into NPC. The following instruction end (after the
-/// delay slot) emits
-/// the InterJmp.
-let private arm (bld: ILowUIRBuilder) kind = (bld :?> LowUIRBuilder).Arm kind
 
 /// Reports an instruction this lifter does not model, so the caller ends its
 /// block at it rather than running arithmetic that is merely plausible. The
@@ -363,6 +314,66 @@ let andb (ins: Instruction) bld =
     storeNative bld addr ((loadNative bld 8<rt> addr) .& numByte imm)
   }
 
+/// <summary>
+/// Lifts the instruction in the delay slot of a branch into the branch,
+/// which runs it after reading what decides it and before making it. The
+/// slot writes no marks of its own, those of the branch spanning both.
+/// </summary>
+let private runDelaySlot (ins: Instruction) (bld: ILowUIRBuilder) =
+  match ins.DelaySlot with
+  | Some slot ->
+    let sbld = bld :?> LowUIRBuilder
+    sbld.InDelaySlot <- true
+    try slot.LiftInto sbld
+    finally sbld.InDelaySlot <- false
+  | None ->
+    ()
+
+/// <summary>
+/// Lifts a delayed branch, which reads what decides it, runs its delay slot,
+/// and then goes, closing with the branch rather than an IEMark. A slot that
+/// holds an instruction that may not sit there makes the whole an undefined
+/// instruction: the processor raises a slot illegal instruction exception,
+/// and neither the branch nor its slot runs.
+/// </summary>
+let private liftDelayed (ins: Instruction) (bld: ILowUIRBuilder) branch =
+  bld.Stream.MarkStart(ins.Address, ins.Length)
+  match ins.DelaySlot with
+  | Some slot when slot.IsSlotIllegal ->
+    bld.Stream.Append(AST.sideEffect UndefinedInstruction)
+  | _ ->
+    branch ()
+  bld
+
+/// Where a branch goes on when it does not take its target: past its delay
+/// slot, which ran all the same.
+let private pastSlot (ins: Instruction) = numAddr (ins.Address + 4UL)
+
+/// A branch that always goes to its target, once its delay slot has run.
+let private jumpAfterSlot ins bld target kind =
+  runDelaySlot ins bld
+  append bld { AST.interjmp target kind }
+
+/// A branch on a condition, which it reads before its delay slot runs: the
+/// slot may write what the condition reads, and the branch goes where the
+/// value it read says.
+let private branchIf ins bld cond target =
+  let taken = tmpVar bld 1<rt>
+  append bld { taken := cond }
+  runDelaySlot ins bld
+  append bld { AST.intercjmp taken target (pastSlot ins) }
+
+/// The value a branch goes to, read before its delay slot runs, since the
+/// slot may write what it is read from.
+let private targetOf bld e =
+  let target = tmpVar bld 32<rt>
+  append bld { target := e }
+  target
+
+/// The address a call returns to, past its delay slot.
+let private linkOf (ins: Instruction) bld =
+  append bld { regVar bld R.PR := numAddr (ins.Address + 4UL) }
+
 let bf (ins: Instruction) bld =
   lift bld ins {
     let target = pcRelTarget ins 8
@@ -372,42 +383,28 @@ let bf (ins: Instruction) bld =
   }
 
 let bfs (ins: Instruction) bld =
-  lift bld ins {
-    let target = pcRelTarget ins 8
-    (* The delay slot runs either way, so the untaken path resumes past it. *)
-    let fallThrough = numAddr (ins.Address + 4UL)
-    regVar bld R.NPC :=
-      AST.ite (AST.not (regVar bld R.T)) target fallThrough
-    arm bld InterJmpKind.Base
-  }
+  liftDelayed ins bld (fun () ->
+    branchIf ins bld (AST.not (regVar bld R.T)) (pcRelTarget ins 8))
 
 let bra (ins: Instruction) bld =
-  lift bld ins {
-    regVar bld R.NPC := pcRelTarget ins 12
-    arm bld InterJmpKind.Base
-  }
+  liftDelayed ins bld (fun () ->
+    jumpAfterSlot ins bld (pcRelTarget ins 12) InterJmpKind.Base)
 
 let braf (ins: Instruction) bld =
-  lift bld ins {
-    let src = oneReg ins bld
-    regVar bld R.NPC := numAddr (ins.Address + 4UL) .+ src
-    arm bld InterJmpKind.Base
-  }
+  liftDelayed ins bld (fun () ->
+    let target = targetOf bld (pastSlot ins .+ oneReg ins bld)
+    jumpAfterSlot ins bld target InterJmpKind.Base)
 
 let bsr (ins: Instruction) bld =
-  lift bld ins {
-    regVar bld R.PR := numAddr (ins.Address + 4UL)
-    regVar bld R.NPC := pcRelTarget ins 12
-    arm bld InterJmpKind.IsCall
-  }
+  liftDelayed ins bld (fun () ->
+    linkOf ins bld
+    jumpAfterSlot ins bld (pcRelTarget ins 12) InterJmpKind.IsCall)
 
 let bsrf (ins: Instruction) bld =
-  lift bld ins {
-    let src = oneReg ins bld
-    regVar bld R.PR := numAddr (ins.Address + 4UL)
-    regVar bld R.NPC := numAddr (ins.Address + 4UL) .+ src
-    arm bld InterJmpKind.IsCall
-  }
+  liftDelayed ins bld (fun () ->
+    let target = targetOf bld (pastSlot ins .+ oneReg ins bld)
+    linkOf ins bld
+    jumpAfterSlot ins bld target InterJmpKind.IsCall)
 
 let bt (ins: Instruction) bld =
   lift bld ins {
@@ -417,12 +414,8 @@ let bt (ins: Instruction) bld =
   }
 
 let bts (ins: Instruction) bld =
-  lift bld ins {
-    let target = pcRelTarget ins 8
-    let fallThrough = numAddr (ins.Address + 4UL)
-    regVar bld R.NPC := AST.ite (regVar bld R.T) target fallThrough
-    arm bld InterJmpKind.Base
-  }
+  liftDelayed ins bld (fun () ->
+    branchIf ins bld (regVar bld R.T) (pcRelTarget ins 8))
 
 let clrmac (ins: Instruction) bld =
   lift bld ins {
@@ -948,19 +941,15 @@ let private indirOf bld = function
   | _ -> raise InvalidOperandException
 
 let jmp (ins: Instruction) bld =
-  lift bld ins {
-    let src = getOneOpr ins |> indirOf bld
-    regVar bld R.NPC := src
-    arm bld InterJmpKind.Base
-  }
+  liftDelayed ins bld (fun () ->
+    let target = targetOf bld (getOneOpr ins |> indirOf bld)
+    jumpAfterSlot ins bld target InterJmpKind.Base)
 
 let jsr (ins: Instruction) bld =
-  lift bld ins {
-    let src = getOneOpr ins |> indirOf bld
-    regVar bld R.PR := numAddr (ins.Address + 4UL)
-    regVar bld R.NPC := src
-    arm bld InterJmpKind.IsCall
-  }
+  liftDelayed ins bld (fun () ->
+    let target = targetOf bld (getOneOpr ins |> indirOf bld)
+    linkOf ins bld
+    jumpAfterSlot ins bld target InterJmpKind.IsCall)
 
 /// Loads a control or system register from @Rm+, the form ldc.l and lds.l
 /// share.
@@ -1224,10 +1213,9 @@ let rotr (ins: Instruction) bld =
 let rte ins _bld = notLifted ins
 
 let rts (ins: Instruction) bld =
-  lift bld ins {
-    regVar bld R.NPC := regVar bld R.PR
-    arm bld InterJmpKind.IsRet
-  }
+  liftDelayed ins bld (fun () ->
+    let target = targetOf bld (regVar bld R.PR)
+    jumpAfterSlot ins bld target InterJmpKind.IsRet)
 
 let sets (ins: Instruction) bld =
   lift bld ins {

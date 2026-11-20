@@ -35,6 +35,19 @@ type Parser(reader) =
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
+  /// Gives a delayed branch the instruction in its delay slot, read from the
+  /// bytes right after it. A branch whose bytes end with it, or go on with
+  /// bytes that hold no instruction, gets none.
+  let withDelaySlot (ins: Instruction) (span: ByteSpan) =
+    let rest = span.Slice(int ins.Length)
+    if ins.HasDelaySlot && not rest.IsEmpty then
+      let slotAddr = ins.Address + uint64 ins.Length
+      try ins.DelaySlot <- Some(ParsingMain.parse lifter rest reader slotAddr)
+      with e when not (Terminator.isCritical e) -> ()
+    else
+      ()
+    ins
+
   interface IInstructionParsable with
     member _.MaxInstructionSize = 2
 
@@ -44,5 +57,8 @@ type Parser(reader) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr: Addr) =
-      try ParsingMain.parse lifter span reader addr :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+      try
+        withDelaySlot (ParsingMain.parse lifter span reader addr) span
+        :> IInstruction
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException

@@ -46,9 +46,7 @@ type LowUIRBuilderTests() =
     | :? SPARC.LowUIRBuilder as bld ->
       bld.InDelaySlot <- true
     | :? SH4.LowUIRBuilder as bld ->
-      bld.Arm InterJmpKind.Base
-      bld.Armed <- false
-      bld.DelaySlotAddr <- ValueSome 0UL
+      bld.InDelaySlot <- true
     | :? PARISC.LowUIRBuilder as bld ->
       bld.ArmGateway PARISC.Gateway.SystemCall
       bld.Promote()

@@ -27,8 +27,17 @@ module internal B2R2.FrontEnd.SH4.Lifter
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SH4.GeneralLifter
 
-/// Translate IR.
-let translate (ins: Instruction) bld =
+/// Refuses a delayed branch whose delay slot was not read, before anything of
+/// it is emitted. A branch inside a slot is let through: the branch the slot
+/// belongs to never lifts it (see runDelaySlot).
+let private requireDelaySlot (ins: Instruction) (bld: ILowUIRBuilder) =
+  let inSlot = (bld :?> LowUIRBuilder).InDelaySlot
+  if ins.HasDelaySlot && ins.DelaySlot.IsNone && Operators.not inSlot then
+    raise MissingDelaySlotException
+  else
+    ()
+
+let private translateOpcode (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.ADD -> add ins bld
   | Opcode.ADDC -> addc ins bld
@@ -158,3 +167,8 @@ let translate (ins: Instruction) bld =
      parsing failure, so an instruction never carries it this far. *)
   | Opcode.InvalidOp -> B2R2.Terminator.impossible ()
   | o -> raise (NotImplementedIRException(o.ToString()))
+
+/// Translate IR.
+let translate (ins: Instruction) bld =
+  requireDelaySlot ins bld
+  translateOpcode ins bld
