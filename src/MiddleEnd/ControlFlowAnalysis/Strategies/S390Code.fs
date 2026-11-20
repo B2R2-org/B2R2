@@ -292,14 +292,15 @@ module internal S390Code =
   /// may have left, nor changes one that it has to save before saving it, and
   /// sets up a frame first or lies where no code runs into it: it starts its
   /// section, or the instruction above ends the flow, as the given test tells.
+  /// Code that starts with a nop pads functions apart rather than starts one.
   let private startsCleanly lu isSectionStart endsFlow (addr: Addr) =
     match (lu: LiftingUnit).TryParseInstruction(addr) with
-    | Ok ins ->
+    | Ok ins when not ins.IsNop ->
       not (readsLeftover lu addr)
       && (setsUpFrame lu ins
           || isSectionStart
           || hasFlowEndAbove lu addr endsFlow)
-    | Error _ ->
+    | _ ->
       false
 
   /// Tells whether code that ends with the instruction runs into nothing past

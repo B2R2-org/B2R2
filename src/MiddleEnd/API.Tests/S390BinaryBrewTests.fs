@@ -342,6 +342,15 @@ type S390BinaryBrewTests() =
     let entries = findEntries (relocatedPointerTo 0x786UL)
     CollectionAssert.DoesNotContain(entries, 0x786UL)
 
+  (* The pointer names the nops that pad the code above up to
+     register_tm_clones, as halfwords of data next to each other do that read
+     as a word. No function starts with the nops that pad functions apart. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to the padding between functions is no function``() =
+    let entries = findEntries (relocatedPointerTo 0x75cUL)
+    CollectionAssert.DoesNotContain(entries, 0x75cUL)
+
   (* As an executable that stays where it is linked, the binary relocates
      nothing, and .data holds the address of register_tm_clones as it is. *)
   [<TestMethod>]
