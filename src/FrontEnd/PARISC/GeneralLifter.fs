@@ -90,80 +90,51 @@ let private scaleOf (ins: Instruction) sh =
   | Some c when Array.contains Completer.SM c -> sh
   | _ -> 0
 
-/// Emits the nullify guard: the instruction's body runs only when the nullify
-/// bit is clear, and the bit is consumed either way, so the instruction after
-/// this one is never nullified by this one's arrival. The guard is left out
-/// when the instruction lifted just before this one is known to have been the
+/// Whether the instruction at addr needs a nullify guard. It does not when
+/// the instruction lifted just before it is known to have been the
 /// immediately preceding one and to be unable to nullify -- then the bit is
 /// provably clear and the whole test folds away.
+let private needsGuard (bld: LowUIRBuilder) addr =
+  match bld.PrevEnd with
+  | ValueSome e -> e <> addr || bld.PrevMayNullify
+  | ValueNone -> true
+
+/// Emits the test of the nullify bit, which consumes the bit either way, so
+/// the instruction after this one is never nullified by this one's arrival.
+/// Gives the labels the test goes to where the bit was set and where not.
+let private testNullify (bld: ILowUIRBuilder) =
+  let rt = bld.RegType
+  let n = regVar bld Register.PSW_N
+  let pending = tmpVar bld rt
+  let runLbl = label bld "NullifyRun"
+  let skipLbl = label bld "NullifySkip"
+  append bld {
+    pending := n
+    n := AST.num0 rt
+    AST.cjmp (pending != AST.num0 rt)
+             (AST.jmpDest skipLbl)
+             (AST.jmpDest runLbl)
+  }
+  struct (skipLbl, runLbl)
+
+/// Emits the nullify guard: the instruction's body runs only when the nullify
+/// bit is clear, and skips to the label its end closes otherwise.
 let private guard (bld: LowUIRBuilder) addr =
-  let ibld = bld :> ILowUIRBuilder
-  let stale =
-    match bld.PrevEnd with
-    | ValueSome e -> e <> addr || bld.PrevMayNullify
-    | ValueNone -> true
-  if stale then
-    let rt = ibld.RegType
-    let n = regVar ibld Register.PSW_N
-    let pending = tmpVar ibld rt
-    let runLbl = label ibld "NullifyRun"
-    let skipLbl = label ibld "NullifySkip"
-    append ibld {
-      pending := n
-      n := AST.num0 rt
-      AST.cjmp (pending != AST.num0 rt)
-               (AST.jmpDest skipLbl)
-               (AST.jmpDest runLbl)
-      AST.lmark runLbl
-    }
+  if needsGuard bld addr then
+    let struct (skipLbl, runLbl) = testNullify bld
+    append bld { AST.lmark runLbl }
     bld.NullifySkip <- ValueSome skipLbl
   else
     ()
   bld.PrevMayNullify <- false
 
-/// Marks the start of an instruction and plants its nullify guard. A transfer
-/// of control with nothing pending additionally seeds the back of the
-/// instruction-address queue with the address past its delay slot -- before the
-/// guard, so that a nullified transfer, whose body never runs, still leaves the
-/// queue naming the sequential continuation, and so that a conditional one need
-/// only overwrite it when taken. With a transfer already pending the queue
-/// holds that transfer's target, which must not be disturbed.
-let markAt (bld: ILowUIRBuilder) addr insLen isTransfer =
-  bld.Stream.MarkStart(addr, insLen)
-  match bld with
-  | :? LowUIRBuilder as pbld ->
-    (* A transfer deferred by a prior block's decode expects its delay slot at a
-       fixed address; reaching a different address instead means that state
-       leaked across the block boundary (the slot was never lifted here), so
-       drop it rather than flush this unrelated instruction as the slot. *)
-    match pbld.DelaySlotAddr with
-    | ValueSome expected when
-        pbld.PendingKind <> InterJmpKind.NotAJmp && addr <> expected ->
-      pbld.ResetPending()
-    | ValueNone when pbld.PendingKind <> InterJmpKind.NotAJmp ->
-      pbld.ResetPending()
-    | _ ->
-      ()
-    pbld.CurAddr <- addr
-    if isTransfer && pbld.PendingKind = InterJmpKind.NotAJmp then
-      let back = regVar bld Register.IAOQ_Back
-      append bld {
-        back := numU64 (addr + uint64 insLen + 4UL) bld.RegType
-      }
-    else
-      ()
-    guard pbld addr
-  | _ ->
-    ()
-
-/// Marks the start of an ordinary instruction. It takes the place of the
-/// plain ISMark.
-let markInsStart (bld: ILowUIRBuilder) addr insLen =
-  markAt bld addr insLen false
-
-/// Marks the start of a control transfer. See markAt.
-let markTransfer (bld: ILowUIRBuilder) (addr, insLen) =
-  markAt bld addr insLen true
+/// Marks the start of an instruction and plants its nullify guard. An
+/// instruction in a delay slot writes no mark: the transfer that lifts it
+/// writes those of both.
+let markAt (bld: ILowUIRBuilder) addr insLen =
+  let pbld = bld :?> LowUIRBuilder
+  if pbld.InDelaySlot then () else bld.Stream.MarkStart(addr, insLen)
+  guard pbld addr
 
 /// Emits one compare-and-exchange at the given width: the value found at the
 /// address goes to GR28 unchanged, and the replacement is written over it only
@@ -272,79 +243,45 @@ let private lws (bld: ILowUIRBuilder) =
     AST.lmark lblOut
   }
 
-/// Emits the flush of the pending transfer: the deferred jump to whatever the
-/// back of the instruction-address queue names, or -- where the transfer
-/// entered the Linux gateway page -- the service the gateway offers at the
-/// address it entered, since the number of the call is what its delay slot
-/// places.
-let private flushPending (bld: ILowUIRBuilder) (pbld: LowUIRBuilder) =
-  append bld {
-    match pbld.PendingGateway with
-    | SystemCall ->
-      AST.sideEffect SysCall
-    | LightWeightCall ->
-      lws bld
-    | SetThreadPointer ->
-      regVar bld Register.CR27 := regVar bld Register.GR26
-    | NotGateway ->
-      let back = regVar bld Register.IAOQ_Back
-      AST.interjmp back pbld.PendingKind
-  }
+/// Which of the services the Linux/PA-RISC gateway page offers a transfer of
+/// control entered. PA-RISC has no instruction for a system call, nor for an
+/// atomic exchange, nor for reaching the one control register a thread owns;
+/// what it has instead is a page at a fixed address whose entry points the
+/// kernel fills in, and a branch through space register 2 is how each is
+/// reached. The offset branched to says which, while the argument each takes
+/// is placed by that branch's delay slot.
+type private Gateway =
+  /// A system call, whose number GR20 carries.
+  | SystemCall
+  /// A light-weight call: a compare-and-exchange, selected by GR20.
+  | LightWeightCall
+  /// The write of the thread pointer GR26 carries into the control register a
+  /// thread's own storage is reached through.
+  | SetThreadPointer
 
-/// Finalizes an instruction: closes any nullify guard and flushes the transfer
-/// pending on it. A PA-RISC transfer stores its target in the back of the
-/// instruction-address queue rather than jumping, so the delay-slot instruction
-/// that follows executes and then this emits the deferred jump. The flush sits
-/// after the nullify label so that a nullified delay slot still transfers
-/// control, as the architecture requires.
-///
-/// A transfer standing in another's delay slot is the one case where the flush
-/// must not be unconditional. Such an instruction is only ever reached with the
-/// outer transfer untaken -- a transfer that puts one in its delay slot always
-/// nullifies that slot on the taken side, since otherwise the architecture
-/// leaves the pair undefined -- and untaken means the queue already names this
-/// instruction's own successor, which the block simply falls through to. So the
-/// outer flush is emitted on the nullified path alone, and the block carries on
-/// to the delay slot of the inner transfer. It takes the place of the plain
-/// IEMark.
-let markInsEnd (bld: ILowUIRBuilder) insLen =
-  match bld with
-  | :? LowUIRBuilder as pbld ->
-    let skip = pbld.NullifySkip
-    match pbld.PendingKind, pbld.ArmedKind, skip with
-    | InterJmpKind.NotAJmp, _, ValueSome lbl ->
-      append bld {
-        AST.lmark lbl
-      }
-    | InterJmpKind.NotAJmp, _, ValueNone ->
-      ()
-    | _, InterJmpKind.NotAJmp, _ ->
-      (match skip with
-       | ValueSome lbl -> append bld { AST.lmark lbl }
-       | ValueNone -> ())
-      flushPending bld pbld
-    | _, _, ValueSome lbl ->
-      let doneLbl = label bld "TransferDone"
-      append bld {
-        AST.jmp (AST.jmpDest doneLbl)
-        AST.lmark lbl
-      }
-      flushPending bld pbld
-      append bld {
-        AST.lmark doneLbl
-      }
-    | _, _, ValueNone ->
-      flushPending bld pbld
-    pbld.NullifySkip <- ValueNone
-    pbld.Promote()
-    pbld.DelaySlotAddr <- ValueSome(pbld.CurAddr + uint64 insLen)
-    pbld.PrevEnd <- ValueSome(pbld.CurAddr + uint64 insLen)
-    bld.Stream.MarkEnd insLen
-    bld
-  | _ ->
-    bld.Stream.MarkEnd insLen
-    bld
+/// Emits the service the gateway page offers at the address a transfer
+/// entered, once the transfer's delay slot has placed its argument.
+let private service (bld: ILowUIRBuilder) gateway =
+  match gateway with
+  | SystemCall ->
+    append bld { AST.sideEffect SysCall }
+  | LightWeightCall ->
+    lws bld
+  | SetThreadPointer ->
+    append bld { regVar bld Register.CR27 := regVar bld Register.GR26 }
 
+/// Finalizes an instruction: closes any nullify guard, past which a
+/// nullified instruction carries on. An instruction in a delay slot ends with
+/// no mark, the transfer that lifts it going on after it.
+let markInsEnd (bld: ILowUIRBuilder) addr insLen =
+  let pbld = bld :?> LowUIRBuilder
+  match pbld.NullifySkip with
+  | ValueSome lbl -> bld.Stream.Append(AST.lmark lbl)
+  | ValueNone -> ()
+  pbld.NullifySkip <- ValueNone
+  pbld.PrevEnd <- ValueSome(addr + uint64 insLen)
+  if pbld.InDelaySlot then () else bld.Stream.MarkEnd insLen
+  bld
 
 /// Provides the `lift` computation expression for PARISC, whose instruction
 /// marks carry the delay-slot and nullification bookkeeping that
@@ -361,15 +298,8 @@ type LiftBuilder =
   /// Length of the instruction being lifted.
   val InsLen: uint32
 
-  /// Whether the instruction is a control transfer, which owns a delay slot.
-  val IsTransfer: bool
-
   /// Creates a lift builder for the instruction at the given address.
-  new(bld, addr, insLen, isTransfer) =
-    { Bld = bld
-      Address = addr
-      InsLen = insLen
-      IsTransfer = isTransfer }
+  new(bld, addr, insLen) = { Bld = bld; Address = addr; InsLen = insLen }
 
   member inline _.Zero() = ()
 
@@ -383,31 +313,19 @@ type LiftBuilder =
     for x in xs do f x
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
-    markAt this.Bld this.Address this.InsLen this.IsTransfer
+    markAt this.Bld this.Address this.InsLen
     f ()
-    markInsEnd this.Bld this.InsLen
+    markInsEnd this.Bld this.Address this.InsLen
 
 /// Starts lifting an ordinary instruction, closing it with the PARISC
 /// instruction end rather than a plain IEMark.
 let inline lift bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length, false)
-
-/// Starts lifting a control transfer, which owns the delay slot that follows.
-let inline liftTransfer bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length, true)
+  LiftBuilder(bld, ins.Address, ins.Length)
 
 /// Records that the instruction just lifted can nullify the next one, so that
 /// one keeps its guard.
 let private mayNullify (bld: ILowUIRBuilder) =
   (bld :?> LowUIRBuilder).PrevMayNullify <- true
-
-/// Arms a delayed transfer of the given kind; its target must already have been
-/// stored into the back of the instruction-address queue.
-let private arm (bld: ILowUIRBuilder) kind = (bld :?> LowUIRBuilder).Arm kind
-
-/// Arms a delayed entry into one of the gateway page's services.
-let private armGateway (bld: ILowUIRBuilder) service =
-  (bld :?> LowUIRBuilder).ArmGateway service
 
 (* Bit patterns with one bit per sub-unit of a doubleword, truncated to the
    register width when they are built, so the same constant serves the word and
@@ -1110,13 +1028,22 @@ let dep (ins: Instruction) bld =
 /// wide.
 let [<Literal>] private PrivUser = 3UL
 
+/// Writes a register as a transfer of control does: the write is held in a
+/// temporary, which the delay slot reads and writes in the register's place,
+/// until the slot has run (see LowUIRBuilder.Defer). GR0 keeps no write.
+let private defer (bld: ILowUIRBuilder) reg value =
+  if reg = Register.GR0 then
+    ()
+  else
+    let tmp = tmpVar bld bld.RegType
+    append bld { tmp := value }
+    (bld :?> LowUIRBuilder).Defer(Register.toRegID reg, tmp)
+
 /// Writes the return address a linking transfer leaves behind: the address one
 /// past the delay slot, which is where the callee returns to, carrying the
 /// privilege level as the instruction-address queue does.
 let private link (bld: ILowUIRBuilder) addr reg =
-  append bld {
-    regVar bld reg := numU64 (addr + 8UL ||| PrivUser) bld.RegType
-  }
+  defer bld reg (numU64 (addr + 8UL ||| PrivUser) bld.RegType)
 
 /// Strips the privilege level an instruction address carries in its low two
 /// bits, which every transfer through a register has to do before it can treat
@@ -1134,63 +1061,209 @@ let private branchTarget (bld: ILowUIRBuilder) (ins: Instruction) imm =
 /// slot belongs to.
 let private isForward imm = int64 (imm - 8UL) >= 0L
 
-/// Completes an unconditional transfer: the target goes to the back of the
-/// instruction-address queue, and the delay slot runs before the jump does.
-///
-/// With the "n" completer the jump is taken here and now instead, because for
-/// an unconditional transfer that completer nullifies the delay slot every
-/// time, so nothing whatever happens between the two. PA-RISC code counts on
-/// that: a jump table's entries and a literal pool are placed immediately
-/// after such a
-/// transfer, where looking for a delay slot to lift would find data rather than
-/// an instruction.
-let private transfer (bld: ILowUIRBuilder) ins kind target =
-  append bld {
-    regVar bld Register.IAOQ_Back := target
-  }
-  if hasNullify ins then
-    append bld { AST.interjmp target kind }
-  else
-    arm bld kind
-
-/// Completes a conditional transfer. The target replaces the seeded
-/// fall-through only when the branch is taken, and the nullify bit follows
-/// PA-RISC's rule: with the "n" completer, a taken forward branch or an untaken
-/// backward one nullifies the delay slot, so that the slot always belongs to
-/// the path which stays with the branch's own body -- the loop it closes, or
-/// the code it skips past.
-let private condTransfer bld (ins: Instruction) taken imm =
-  let rt = (bld: ILowUIRBuilder).RegType
-  let tk = tmpVar bld 1<rt>
-  let back = regVar bld Register.IAOQ_Back
-  let fall = numU64 (ins.Address + 8UL) rt
-  append bld {
-    tk := match taken with
-          | Some t -> t
-          | None -> AST.b0
-    back := AST.ite tk (branchTarget bld ins imm) fall
-  }
-  if hasNullify ins then
-    let cond = if isForward imm then tk else AST.not tk
-    append bld {
-      regVar bld Register.PSW_N := zextTo rt cond
-    }
-    mayNullify bld
-  else
-    ()
-  arm bld InterJmpKind.Base
-
 /// The displacement operand of a compare-and-branch instruction.
 let private branchImm opr =
   match opr with
   | OpImm imm -> imm
   | _ -> raise InvalidOperandException
 
+/// Where a transfer goes once its delay slot has run.
+type private Exit =
+  /// To the target, as a transfer of the given kind.
+  | Jump of Expr * InterJmpKind
+  /// To the target where taken holds and past the slot otherwise; forward
+  /// says whether the target lies ahead, which decides the side whose slot the
+  /// "n" completer nullifies.
+  | Branch of taken: Expr * target: Expr * forward: bool
+  /// Into one of the gateway page's services, which return past the slot.
+  | Service of Gateway
+
+/// The address of a transfer's delay slot, where the instruction in it runs on
+/// its own whenever the transfer itself does not go.
+let private slotAt (ins: Instruction) (bld: ILowUIRBuilder) =
+  numU64 (ins.Address + 4UL) bld.RegType
+
+/// Goes where a transfer goes on a path its delay slot does not run on.
+let private jumpTo (bld: ILowUIRBuilder) target =
+  append bld { AST.interjmp target InterJmpKind.Base }
+
+/// The nullify guard of a transfer of control. A transfer the instruction
+/// before it nullified does nothing and goes on to the instruction after it,
+/// its slot, which then runs as any other. That way out comes first, so that
+/// the transfer's own jump is its last statement, where a client looks for
+/// it.
+let private transferGuard (bld: LowUIRBuilder) (ins: Instruction) =
+  let ibld = bld :> ILowUIRBuilder
+  if needsGuard bld ins.Address then
+    let struct (skipLbl, runLbl) = testNullify ibld
+    append ibld { AST.lmark skipLbl }
+    jumpTo ibld (slotAt ins ibld)
+    append ibld { AST.lmark runLbl }
+  else
+    ()
+  bld.PrevMayNullify <- false
+
+/// Makes the writes a transfer held back while its delay slot ran.
+let private commit (bld: LowUIRBuilder) =
+  let ibld = bld :> ILowUIRBuilder
+  for struct (rid, tmp) in bld.TakeDeferred() do
+    ibld.Stream.Append(ibld.GetRegVar rid := tmp)
+
+/// Where a transfer goes on when it does not take its target: past its delay
+/// slot, which ran all the same.
+let private pastSlot (ins: Instruction) (bld: ILowUIRBuilder) =
+  numU64 (ins.Address + 8UL) bld.RegType
+
+/// The path of a transfer whose delay slot holds another transfer, which runs
+/// after the first is taken: the manual then has the first target run once
+/// and the second target next, which one program counter cannot follow.
+let private unsupportedPath (bld: ILowUIRBuilder) =
+  append bld { AST.sideEffect UnsupportedInstruction }
+
+/// Leaves a transfer whose delay slot holds another transfer. Where the slot
+/// runs after this one is taken, the path is unsupported; where it runs with
+/// this one untaken, the slot is an ordinary transfer, lifted on its own at
+/// its own address; where it is nullified, this one leaves as ever. Either
+/// way the jump on the path that leaves is the last statement.
+let private leaveAroundTransfer (ins: Instruction) (bld: LowUIRBuilder) exit =
+  let ibld = bld :> ILowUIRBuilder
+  commit bld
+  match exit with
+  | Branch(taken, target, true) when hasNullify ins ->
+    append ibld { AST.intercjmp taken target (slotAt ins ibld) }
+  | Branch(taken, _, _) ->
+    let lblTaken = label ibld "SlotTaken"
+    let lblFall = label ibld "SlotFall"
+    let fall = if hasNullify ins then pastSlot ins ibld else slotAt ins ibld
+    append ibld {
+      AST.cjmp taken (AST.jmpDest lblTaken) (AST.jmpDest lblFall)
+      AST.lmark lblTaken
+    }
+    unsupportedPath ibld
+    append ibld { AST.lmark lblFall }
+    jumpTo ibld fall
+  | Jump _ | Service _ ->
+    unsupportedPath ibld
+
+/// Lifts the instruction in a transfer's delay slot into the transfer, with
+/// the registers the transfer writes standing in their temporaries.
+let private runDelaySlot (slot: Instruction) (bld: LowUIRBuilder) =
+  bld.InDelaySlot <- true
+  try slot.LiftInto bld
+  finally bld.InDelaySlot <- false
+
+/// Emits where a transfer goes, once its slot has run or been nullified.
+let private leave ins (bld: ILowUIRBuilder) exit =
+  match exit with
+  | Jump(target, kind) ->
+    append bld { AST.interjmp target kind }
+  | Branch(taken, target, _) ->
+    append bld { AST.intercjmp taken target (pastSlot ins bld) }
+  | Service gateway ->
+    service bld gateway
+    append bld { AST.interjmp (pastSlot ins bld) InterJmpKind.Base }
+
+/// Runs the delay slot only where skips does not hold.
+let private runSlotUnless (bld: LowUIRBuilder) slot skips =
+  let ibld = bld :> ILowUIRBuilder
+  let lblRun = label ibld "SlotRun"
+  let lblSkip = label ibld "SlotSkip"
+  append ibld {
+    AST.cjmp skips (AST.jmpDest lblSkip) (AST.jmpDest lblRun)
+    AST.lmark lblRun
+  }
+  runDelaySlot slot bld
+  append ibld { AST.lmark lblSkip }
+
+/// Runs a transfer's delay slot and leaves. With the "n" completer, a taken
+/// forward branch or an untaken backward one nullifies the slot, so that the
+/// slot always belongs to the path which stays with the branch's own body --
+/// the loop it closes, or the code it skips past; the transfer jumps over the
+/// slot on that path itself. The slot needs no guard of its own: the
+/// transfer's guard consumed the nullify bit, and the transfer sets nothing
+/// in it.
+let private runThenLeave (ins: Instruction) (bld: LowUIRBuilder) slot exit =
+  let ibld = bld :> ILowUIRBuilder
+  bld.PrevMayNullify <- false
+  bld.PrevEnd <- ValueSome(ins.Address + uint64 ins.Length)
+  match exit with
+  | Branch(taken, _, forward) when hasNullify ins ->
+    runSlotUnless bld slot (if forward then taken else AST.not taken)
+  | _ ->
+    runDelaySlot slot bld
+  commit bld
+  leave ins ibld exit
+
+/// Runs a transfer's delay slot, or goes around the transfer in it, and
+/// leaves.
+let private finish (ins: Instruction) (bld: LowUIRBuilder) slot exit =
+  if (slot: Instruction).IsTransfer then leaveAroundTransfer ins bld exit
+  else runThenLeave ins bld slot exit
+
+/// Lifts a transfer whose delay slot may run. One the instruction before it
+/// nullified goes on to its slot (see transferGuard).
+let private liftWithSlot (ins: Instruction) (bld: LowUIRBuilder) slot body =
+  transferGuard bld ins
+  bld.PrevEnd <- ValueSome(ins.Address + uint64 ins.Length)
+  finish ins bld slot (body ())
+
+/// Lifts an unconditional transfer with the "n" completer, which has no slot
+/// to run: it jumps here and now, nothing whatever happening between the two,
+/// and PA-RISC code counts on that -- a jump table's entries and a literal
+/// pool sit right after such a transfer, where a delay slot would find data
+/// rather than an instruction. One the instruction before it nullified falls
+/// through to the instruction after it, as any nullified instruction does, so
+/// the block it sits in goes on there, as a compare that clears and nullifies
+/// a jump has it do; where none can have, what follows the transfer is
+/// reached from elsewhere and keeps its nullify guard.
+let private liftWithoutSlot (ins: Instruction) (bld: LowUIRBuilder) body =
+  let ibld = bld :> ILowUIRBuilder
+  guard bld ins.Address
+  let exit = body ()
+  commit bld
+  leave ins ibld exit
+  match bld.NullifySkip with
+  | ValueSome lbl ->
+    append ibld { AST.lmark lbl }
+    bld.NullifySkip <- ValueNone
+    bld.PrevEnd <- ValueSome(ins.Address + uint64 ins.Length)
+    ibld.Stream.MarkEnd ins.Length
+  | ValueNone ->
+    bld.PrevEnd <- ValueNone
+
+/// Lifts a transfer of control, which reads what decides it, runs its delay
+/// slot, makes its writes, and then goes, closing with the transfer rather
+/// than an IEMark. Writes a lift that threw left held are dropped first.
+let private liftDelayed (ins: Instruction) (bld: ILowUIRBuilder) body =
+  let pbld = bld :?> LowUIRBuilder
+  pbld.TakeDeferred() |> ignore
+  bld.Stream.MarkStart(ins.Address, ins.Length)
+  match ins.DelaySlot with
+  | Some slot -> liftWithSlot ins pbld slot body
+  | None -> liftWithoutSlot ins pbld body
+  bld
+
+/// A conditional transfer, which reads its condition before its slot runs.
+let private branchOn bld (ins: Instruction) taken imm =
+  let tk = tmpVar bld 1<rt>
+  append bld {
+    tk := match taken with
+          | Some t -> t
+          | None -> AST.b0
+  }
+  Branch(tk, branchTarget bld ins imm, isForward imm)
+
+/// The register a compare-and-branch family member writes back.
+let private destReg opr =
+  match opr with
+  | OpReg r -> r
+  | _ -> raise InvalidOperandException
+
 /// An IA-relative branch, optionally leaving its return address in a register.
 /// A branch that links GR0 keeps no return address, so it is a plain jump; one
 /// that links any other register is a call.
 let b (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (target, linkReg) = getTwoOprs ins
     let kind =
       match linkReg with
@@ -1201,17 +1274,20 @@ let b (ins: Instruction) bld =
         InterJmpKind.IsCall
       | _ ->
         raise InvalidOperandException
-    transfer bld ins kind (branchTarget bld ins (branchImm target))
-  }
+    Jump(branchTarget bld ins (branchImm target), kind))
 
 /// Branch and link register: the target is the address past the delay slot
 /// advanced by eight times the index register, which is how a jump table of
 /// two-instruction entries is entered.
 let blr (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (idx, linkReg) = getTwoOprs ins
     let rt = bld.RegType
     let target = tmpVar bld rt
+    append bld {
+      target := numU64 (ins.Address + 8UL) rt
+                .+ (transOpr bld idx << numI32 3 rt)
+    }
     let kind =
       match linkReg with
       | OpReg Register.GR0 ->
@@ -1221,16 +1297,13 @@ let blr (ins: Instruction) bld =
         InterJmpKind.IsCall
       | _ ->
         raise InvalidOperandException
-    target := numU64 (ins.Address + 8UL) rt
-              .+ (transOpr bld idx << numI32 3 rt)
-    transfer bld ins kind target
-  }
+    Jump(target, kind))
 
 /// Branch vectored: the transfer through a register that both a computed jump
 /// and a procedure return are made of. A return goes through GR2, the register
 /// a call leaves its return address in, so that is what marks one.
 let bv (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let opr = getOneOpr ins
     let rt = bld.RegType
     let target = tmpVar bld rt
@@ -1246,15 +1319,14 @@ let bv (ins: Instruction) bld =
         struct (scaled, kind)
       | _ ->
         raise InvalidOperandException
-    target := stripPriv bld bse
-    transfer bld ins kind target
-  }
+    append bld { target := stripPriv bld bse }
+    Jump(target, kind))
 
 /// Branch vectored to an external address: the same transfer through a
 /// register, reaching another space. Its linking form leaves the return
 /// address in GR2.
 let bve (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let rt = (bld: ILowUIRBuilder).RegType
     let links =
       match ins.Completer with
@@ -1266,7 +1338,7 @@ let bve (ins: Instruction) bld =
       | TwoOperands(OpMem(b, _, _, _), _) -> b
       | _ -> raise InvalidOperandException
     let target = tmpVar bld rt
-    target := stripPriv bld (regVar bld bse)
+    append bld { target := stripPriv bld (regVar bld bse) }
     let kind =
       if links then
         link bld ins.Address Register.GR2
@@ -1275,31 +1347,30 @@ let bve (ins: Instruction) bld =
         InterJmpKind.IsRet
       else
         InterJmpKind.Base
-    transfer bld ins kind target
-  }
+    Jump(target, kind))
 
 /// The service the Linux/PA-RISC gateway page offers at an offset into the page
 /// of zero, which is the page the kernel keeps it in. There is no system-call
 /// instruction on PA-RISC, nor an atomic exchange, nor a way for user code to
 /// reach the control register that holds a thread's own pointer; a branch to
 /// one of these three fixed addresses through space register 2 is how each is
-/// asked
-/// for instead. Each takes its argument -- the call number, the operation
-/// number, the pointer -- from a register the delay slot of that very branch
-/// writes, so the service is performed once the delay slot has run.
+/// asked for instead. Each takes its argument -- the call number, the
+/// operation number, the pointer -- from a register the delay slot of that
+/// very branch writes, so the service is performed once the delay slot has
+/// run.
 let private gatewayAt offset =
   match offset with
-  | 0xb0UL -> LightWeightCall
-  | 0xe0UL -> SetThreadPointer
-  | 0x100UL -> SystemCall
-  | _ -> NotGateway
+  | 0xb0UL -> ValueSome LightWeightCall
+  | 0xe0UL -> ValueSome SetThreadPointer
+  | 0x100UL -> ValueSome SystemCall
+  | _ -> ValueNone
 
 /// Branch external: a transfer to an absolute address in another space. Where
 /// it names the gateway page it asks for one of the kernel's services rather
 /// than branching; its linking form leaves the address to return to in GR31,
 /// which is where each of those services returns.
 let be (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (bse, off) =
       match ins.Operands with
       | OneOperand(OpMem(b, _, off, _))
@@ -1316,80 +1387,78 @@ let be (ins: Instruction) bld =
     let rt = bld.RegType
     if links then link bld ins.Address Register.GR31 else ()
     let service =
-      if bse = Register.GR0 then gatewayAt (uint64 disp) else NotGateway
+      if bse = Register.GR0 then gatewayAt (uint64 disp) else ValueNone
     match service with
-    | NotGateway ->
+    | ValueNone ->
       let target = tmpVar bld rt
-      target := stripPriv bld (regVar bld bse .+ numI64 disp rt)
-      let kind = if links then InterJmpKind.IsCall else InterJmpKind.Base
-      transfer bld ins kind target
-    | _ ->
-      armGateway bld service
-  }
+      append bld { target := stripPriv bld (regVar bld bse .+ numI64 disp rt) }
+      Jump(target, if links then InterJmpKind.IsCall else InterJmpKind.Base)
+    | ValueSome gateway ->
+      Service gateway)
 
 /// Compare and branch: the comparison of the two operands decides the branch,
 /// and nothing is written. Its immediate form compares the immediate with the
 /// register, in that order.
 let cmpb (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (o1, o2, target) = getThreeOprs ins
     let rt = bld.RegType
     let in1 = transOpr bld o1
     let in2 = transOpr bld o2
     let res = tmpVar bld rt
-    res := in1 .- in2
+    append bld { res := in1 .- in2 }
     let taken =
       match firstCompleter ins with
       | Some c -> subCond bld c in1 in2 res
       | None -> None
-    condTransfer bld ins taken (branchImm target)
-  }
+    branchOn bld ins taken (branchImm target))
 
 /// Add and branch: the sum is written back to the second operand's register and
 /// also decides the branch, which is what makes one instruction out of a loop's
 /// counter update and its test. Its immediate form adds the immediate to the
 /// register.
 let addb (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (o1, o2, target) = getThreeOprs ins
     let rt = bld.RegType
     let in1 = transOpr bld o1
     let in2 = transOpr bld o2
     let res = tmpVar bld rt
     let carries = tmpVar bld rt
-    res := in1 .+ in2
     (* The sum's carries decide the condition but are not recorded: an add that
        also branches leaves the carry bits as it found them. *)
-    carries := carryOut in1 in2 res
+    append bld {
+      res := in1 .+ in2
+      carries := carryOut in1 in2 res
+    }
     let taken =
       match firstCompleter ins with
       | Some c -> addCond bld c in1 in2 res carries
       | None -> None
-    in2 := res
-    condTransfer bld ins taken (branchImm target)
-  }
+    let exit = branchOn bld ins taken (branchImm target)
+    defer bld (destReg o2) res
+    exit)
 
 /// Move and branch: the first operand is copied to the second's register and
 /// decides the branch.
 let movb (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (o1, o2, target) = getThreeOprs ins
     let res = tmpVar bld bld.RegType
-    let dst = transOpr bld o2
-    res := transOpr bld o1
+    append bld { res := transOpr bld o1 }
     let taken =
       match firstCompleter ins with
       | Some c -> logCond bld c res
       | None -> None
-    dst := res
-    condTransfer bld ins taken (branchImm target)
-  }
+    let exit = branchOn bld ins taken (branchImm target)
+    defer bld (destReg o2) res
+    exit)
 
 /// Branch on bit: the named bit of the register, counted from the most
 /// significant, decides the branch. The bit is brought to the top of the word
 /// and its sign tested, which is how the architecture states it.
 let bb (ins: Instruction) bld =
-  liftTransfer bld ins {
+  liftDelayed ins bld (fun () ->
     let struct (src, pos, target) = getThreeOprs ins
     let rt = bld.RegType
     let width = RegType.toBitWidth rt
@@ -1398,14 +1467,13 @@ let bb (ins: Instruction) bld =
       match pos with
       | OpReg Register.CR11 -> regVar bld Register.CR11 .& numI32 (width - 1) rt
       | _ -> transOpr bld pos
-    shifted := transOpr bld src << sh
+    append bld { shifted := transOpr bld src << sh }
     let taken =
       match firstCompleter ins with
       | Some c when baseCond c = Completer.GE -> Some(AST.not (msb shifted))
       | Some _ -> Some(msb shifted)
       | None -> None
-    condTransfer bld ins taken (branchImm target)
-  }
+    branchOn bld ins taken (branchImm target))
 
 /// Move to control register. Only the shift-amount register and the two
 /// registers the ABI leaves to a thread matter to user code, and all of them

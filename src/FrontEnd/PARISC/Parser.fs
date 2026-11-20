@@ -37,14 +37,33 @@ type Parser(isa: ISA, reader) =
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
+  /// Reads the instruction in a transfer's delay slot into the transfer, which
+  /// lifts the two as one. Bytes that end before the slot, or that hold no
+  /// instruction there, leave it unread, and the transfer is then not lifted.
+  let withDelaySlot (ins: Instruction) (span: ByteSpan) =
+    let rest = span.Slice(int ins.Length)
+    if ins.HasDelaySlot && not rest.IsEmpty then
+      let slotAddr = ins.Address + uint64 ins.Length
+      try
+        ins.DelaySlot <-
+          Some(ParsingMain.parse lifter rest reader wordSize slotAddr)
+      with e when not (Terminator.isCritical e) ->
+        ()
+    else
+      ()
+    ins
+
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
     member _.InstructionAlignment = 4
 
     member _.Parse(span: ByteSpan, addr: Addr) =
-      try ParsingMain.parse lifter span reader wordSize addr :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+      try
+        let ins = ParsingMain.parse lifter span reader wordSize addr
+        withDelaySlot ins span :> IInstruction
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException
 
     member this.Parse(bs: byte[], addr: Addr) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)

@@ -28,8 +28,16 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.PARISC
 open B2R2.FrontEnd.PARISC.GeneralLifter
 
-/// Translate IR.
-let translate (ins: Instruction) bld =
+/// Refuses a transfer whose delay slot was not read, before anything of it is
+/// emitted: alone it would go without running the instruction it must run
+/// first.
+let private requireDelaySlot (ins: Instruction) =
+  if ins.HasDelaySlot && ins.DelaySlot.IsNone then
+    raise MissingDelaySlotException
+  else
+    ()
+
+let private translateOpcode (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.ADD ->
     add ins bld
@@ -180,3 +188,8 @@ let translate (ins: Instruction) bld =
     unsupported ins bld
   | o ->
     raise (NotImplementedIRException(Disasm.opCodeToString o))
+
+/// Translate IR.
+let translate (ins: Instruction) bld =
+  requireDelaySlot ins
+  translateOpcode ins bld
