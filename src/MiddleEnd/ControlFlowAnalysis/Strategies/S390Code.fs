@@ -293,22 +293,23 @@ module internal S390Code =
 
   /// Tells whether the code at the address reads no register that code above
   /// may have left, nor changes one that it has to save before saving it, and
-  /// sets up a frame first or lies where no code runs into it: it starts its
-  /// section, or the instruction above ends the flow, as the given test tells.
-  /// Code that starts with a nop pads functions apart rather than starts one.
-  let private startsCleanly lu isSectionStart endsFlow (addr: Addr) =
+  /// sets up a frame first or lies where no code runs into it: it lies apart,
+  /// as it starts its section, or the instruction above ends the flow, as the
+  /// given test tells. Code that starts with a nop pads functions apart rather
+  /// than starts one.
+  let private startsCleanly lu liesApart endsFlow (addr: Addr) =
     match (lu: LiftingUnit).TryParseInstruction(addr) with
     | Ok ins when not ins.IsNop ->
       not (readsLeftover lu addr)
       && (setsUpFrame lu ins
-          || isSectionStart
+          || liesApart
           || hasFlowEndAbove lu addr endsFlow)
     | _ ->
       false
 
   /// Tells whether code that ends with the instruction runs into nothing past
   /// it: it returns or jumps, traps, or pads with a nop.
-  let private leaves (ins: IInstruction) =
+  let leaves (ins: IInstruction) =
     ins.IsNop
     || ins.IsExit
     || (ins.IsBranch && not ins.IsCondBranch && not ins.IsCall)
@@ -326,6 +327,12 @@ module internal S390Code =
   /// yet find that one does that it took for one that never returns.
   let showsEntryPastCode lu isSectionStart addr =
     startsCleanly lu isSectionStart leaves addr
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// where code resumes past what the recovery has built for a function, which
+  /// ends the flow where it ends, as nothing past that code then runs into the
+  /// address, whatever lies between, such as the templates that EXRL runs.
+  let showsEntryPastFlowEnd lu addr = startsCleanly lu true leaves addr
 
   /// Returns the address that the instruction names, counting halfwords from
   /// itself, if its opcode is the given one.

@@ -440,6 +440,19 @@ type S390BinaryBrewTests() =
     let entries = findEntries [ code ]
     CollectionAssert.Contains(entries, 0x760UL)
 
+  (* Templates that EXRL runs lie right above register_tm_clones this time, past
+     the return of deregister_tm_clones and a nop, as clang lays them past the
+     functions of a source file. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past templates below a function is a function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x754, "d20020004000" (* mvc 0(1,%r2),0(%r4) *)
+          0x75a, "d70020002000" (* xc 0(1,%r2),0(%r2) *) ]
+    CollectionAssert.Contains(entries, 0x760UL)
+
   (* deregister_tm_clones calls abort where it returns this time, and code that
      sets up no frame lies right past the call, as code does that a call
      returns to, which the recovery may yet find of a callee that it took for

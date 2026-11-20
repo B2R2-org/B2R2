@@ -266,6 +266,25 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       jumpsByBuiltCode.AddOrUpdate(built, (start, jumps))
       jumps
 
+  /// Tells whether the code that the recovery has built for the function ends
+  /// the flow where it ends, at the given address, as the last instruction of
+  /// its last block returns or jumps.
+  let endsFlowAt (fn: Function) codeEnd =
+    fn.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && bbl.Range.Max + 1UL = codeEnd
+      && S390Code.leaves bbl.LastInstruction)
+
+  /// Tells whether the code where code resumes past the given function, at the
+  /// given start past the end of its code, shows a function starting there,
+  /// either by the code right above the start, or, past code of the function
+  /// that ends the flow, by the code at the start alone.
+  let showsEntryPast fn codeEnd start =
+    showsEntryPastCode start
+    || (endsFlowAt fn codeEnd && S390Code.showsEntryPastFlowEnd lu start)
+
   /// Returns where code resumes past each of the given functions: past the end
   /// of its code and the padding there, before the next entry, where no code
   /// of a function at or before it reaches, nor its code jumps to, as it does
@@ -281,17 +300,17 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         let reach = max reach codeEnd
         let start = S390Code.skipPadding lu codeEnd next
         if start < next && start >= reach then
-          reach, (fn.EntryPoint, built, start) :: starts
+          reach, (fn, built, codeEnd, start) :: starts
         else
           reach, starts
       | None ->
         reach, starts) (0UL, [])
     |> snd
-    |> List.filter (fun (entry, built, start) ->
+    |> List.filter (fun (fn, built, codeEnd, start) ->
       isCodePointer start
-      && showsEntryPastCode start
-      && not (jumpsAhead entry built start))
-    |> List.map (fun (_, _, start) -> start)
+      && showsEntryPast fn codeEnd start
+      && not (jumpsAhead fn.EntryPoint built start))
+    |> List.map (fun (_, _, _, start) -> start)
     |> List.toArray
 
   interface IIncrementalFunctionIdentifiable with
