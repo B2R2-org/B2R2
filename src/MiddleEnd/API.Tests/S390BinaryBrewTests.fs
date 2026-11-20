@@ -167,6 +167,21 @@ type S390BinaryBrewTests() =
       |> Array.sort
     CollectionAssert.AreEqual([| 0x0UL; 0x6UL; 0xcUL |], blocks)
 
+  (* _init and _fini of 31-bit glibc branch over a pool of literals with
+     BRAS, which leaves the address of the pool in R13 rather than an address
+     to return to in R14, the link register of the calling convention. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A branch over literals that saves their address calls nothing``() =
+    let fns =
+      recoverCode
+        [ "a7d50004" (* bras %r13,0x08 *)
+          "00048800" (* .long 0x00048800 *)
+          "58c0d000" (* 0x08: l %r12,0(%r13) *)
+          "1acd" (* ar %r12,%r13 *)
+          "07fe" (* br %r14 *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], Seq.toArray fns.Addresses)
+
   (* Compilers lay the tables of a function next to each other, so the words
      past a table read as more of its entries, which send its jump into the
      code of the function all the same. The range check right before the jump

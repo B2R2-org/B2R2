@@ -64,6 +64,20 @@ module private S390CFGRecoveryRules =
     | OnStack ->
       false
 
+  /// Checks if the call that ends the given block saves the address past it in
+  /// a register other than the link register of the calling convention, R14,
+  /// as code does that branches over a pool of literals to learn where the
+  /// pool lies, rather than calls a function. Every call names the register
+  /// that it saves the address in first.
+  let branchesOverLiterals (ctx: CFGBuildingContext<_, _>) bbl =
+    let ins = (bbl: ILowUIRBasicBlock).LastInstruction :?> S390.Instruction
+    let conv = ctx.BinHandle.Conventions.Calling
+    match conv.ReturnAddressLocation, ins.Operands with
+    | InRegister link, S390.TwoOperands(S390.OpReg r, _) ->
+      S390.Register.toRegID r <> link
+    | _ ->
+      false
+
   /// Checks if the jump at jmpAddr enters a part that its function splits
   /// off, as the call frame information tells.
   let entersSplitOffPart (hdl: BinHandle) jmpAddr target =
@@ -120,12 +134,18 @@ module private S390CFGRecoveryRules =
 /// it as its tail, as clang emits no call frame information for C code that
 /// would tell every function up front. An entry that sends the jump to an
 /// instruction that EXRL runs is a hole, as clang lays such templates past the
-/// code of a function, where the label of an unreachable default lands.
+/// code of a function, where the label of an unreachable default lands. A call
+/// that saves the address past it in another register than R14 calls nothing,
+/// as 31-bit code branches over a pool of literals that way to learn where the
+/// pool lies.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.ReturnsThroughLink(ctx, v: IVertex<LowUIRBasicBlock>) =
     jumpsToLink ctx v
+
+  override _.IsGetPCThunk(ctx, bbl, _) =
+    branchesOverLiterals ctx bbl
 
   override _.IsJumpTableHole(ctx, target) =
     isExecuteTemplate ctx target
