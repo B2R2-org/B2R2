@@ -46,7 +46,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 /// code takes as a constant, as code does that passes a callback or stores a
 /// function pointer, and for where a recovered function jumps past the next
 /// function or before its own entry, as it calls another as its tail, which
-/// the identification finds in what the recovery builds.
+/// the identification finds in what the recovery builds, and for where code
+/// resumes past a recovered function, past the nops and the templates of EXRL
+/// that follow it, as nothing else leads to a function that nothing calls or
+/// points to.
 type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -205,6 +208,92 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// changed.
   let addressesTakenBy fn = readOnce takenByCFG readTakenAddresses fn
 
+  /// Returns what the blocks that the recovery has built for the function
+  /// cover.
+  let readBuiltCode (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.map (fun v -> v.VData.Internals.Range)
+    |> AddrRangeUnion.ofArray
+
+  /// What the blocks of each recovered function cover, by its CFG, with the
+  /// counts of its vertices and edges, as telling it takes every block of the
+  /// function.
+  let builtCodeByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns what the blocks that the recovery has built for the function
+  /// cover, reading them anew only once the function has changed.
+  let findBuiltCode fn = readOnce builtCodeByCFG readBuiltCode fn
+
+  /// Returns where the given code that the recovery has built ends, past its
+  /// last block, if it has built any.
+  let tryFindCodeEnd (built: AddrRangeUnion) =
+    Array.tryLast built.Ranges |> Option.map (fun range -> range.Max + 1UL)
+
+  /// What the code at each address where code resumes past a recovered
+  /// function shows of a function starting there.
+  let resumeEvidence = Dictionary<Addr, bool>()
+
+  /// Tells whether the code at the address, where code resumes past a
+  /// recovered function, shows a function starting there.
+  let showsEntryPastCode addr =
+    match resumeEvidence.TryGetValue addr with
+    | true, shows ->
+      shows
+    | false, _ ->
+      let isSectionStart = sectionStarts.Contains addr
+      let shows = S390Code.showsEntryPastCode lu isSectionStart addr
+      resumeEvidence[addr] <- shows
+      shows
+
+  /// Whether the code of each recovered function jumps to where code resumes
+  /// past it, by what the recovery has built of the function, along with
+  /// where code resumes, as telling it takes reading the whole function.
+  let jumpsByBuiltCode = ConditionalWeakTable<AddrRangeUnion, Addr * bool>()
+
+  /// Tells whether the code of the function at the given entry, of which the
+  /// recovery has built the given code, jumps to the given address where code
+  /// resumes past it. The code that the recovery has yet to build is the
+  /// function's own up to where it shows another function starting.
+  let jumpsAhead entry built start =
+    match jumpsByBuiltCode.TryGetValue built with
+    | true, (startOfCache, jumps) when startOfCache = start ->
+      jumps
+    | _ ->
+      let startsAnother addr =
+        not (AddrRangeUnion.containsAddr addr built) && showsEntryPastCode addr
+      let jumps = S390Code.jumpsAhead lu entry start startsAnother
+      jumpsByBuiltCode.AddOrUpdate(built, (start, jumps))
+      jumps
+
+  /// Returns where code resumes past each of the given functions: past the end
+  /// of its code and the padding there, before the next entry, where no code
+  /// of a function at or before it reaches, nor its code jumps to, as it does
+  /// to a block of its own that the recovery has yet to build. Nothing else
+  /// leads to a function that nothing calls or points to, such as one that
+  /// only calls itself.
+  let findNextStarts internals =
+    withNextEntries internals
+    |> Array.fold (fun (reach, starts) (fn: Function, next) ->
+      let built = findBuiltCode fn
+      match tryFindCodeEnd built with
+      | Some codeEnd ->
+        let reach = max reach codeEnd
+        let start = S390Code.skipPadding lu codeEnd next
+        if start < next && start >= reach then
+          reach, (fn.EntryPoint, built, start) :: starts
+        else
+          reach, starts
+      | None ->
+        reach, starts) (0UL, [])
+    |> snd
+    |> List.filter (fun (entry, built, start) ->
+      isCodePointer start
+      && showsEntryPastCode start
+      && not (jumpsAhead entry built start))
+    |> List.map (fun (_, _, start) -> start)
+    |> List.toArray
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
@@ -216,4 +305,5 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         (Array.collect addressesTakenBy internals)
         (findTailCallTargets internals)
       |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)
+      |> Array.append (findNextStarts internals)
       |> Array.distinct

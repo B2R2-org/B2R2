@@ -60,14 +60,17 @@ type S390BinaryBrewTests() =
   /// Returns where the functions that the recovery finds in elf_s390x start,
   /// once each of the given hex strings is written at its offset. Its symbol
   /// table is hidden, so that only its call frame information, its entry and
-  /// its data tell of functions, and frame_dummy returns right away, so that
-  /// nothing leads to register_tm_clones, at 0x760.
+  /// its data tell of functions, frame_dummy returns right away, and
+  /// __do_global_dtors_aux calls nothing, so that nothing leads to
+  /// register_tm_clones, at 0x760, nor to deregister_tm_clones, at 0x730,
+  /// past which code resumes there.
   static let findEntries (patches: (int * string) list) =
     let bytes = readZippedBinary "elf_s390x"
     let patch (offset: int, hex: string) =
       (ByteArray.ofHexString hex).CopyTo(bytes, offset)
     patch (0x1f64, "00000000") (* the type of .symtab: SHT_NULL *)
     patch (0x800, "07fe") (* frame_dummy: br %r14 *)
+    patch (0x7e6, "c00400000000") (* brasl %r14,0x730 -> brcl 0,0x7e6 *)
     List.iter patch patches
     let isa = ISA(Architecture.S390, Endian.Big, WordSize.Bit64)
     let hdl = BinHandle.LoadFileBytes(bytes, isa)
@@ -366,4 +369,57 @@ type S390BinaryBrewTests() =
   member _.``A function that a jump leaves for is a function``() =
     let code = 0x800, "c0f4ffffffb0" (* jg 0x760 *)
     let entries = findEntries [ code ]
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* __do_global_dtors_aux calls deregister_tm_clones this time, as it does in
+     the binary, and nops pad the code past its return up to
+     register_tm_clones, which nothing calls or points to. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past the padding of a function is a function``() =
+    let code = 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+    let entries = findEntries [ code ]
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* deregister_tm_clones calls abort where it returns this time, and code that
+     sets up no frame lies right past the call, as code does that a call
+     returns to, which the recovery may yet find of a callee that it took for
+     one that never returns. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Frameless code right past a call is no function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x750, "c0e5ffffffb4" (* brasl %r14,0x6b8: abort@plt *)
+          0x756, "a729000007fe" (* lghi %r2,0; br %r14 *) ]
+    CollectionAssert.DoesNotContain(entries, 0x756UL)
+
+  (* deregister_tm_clones calls abort this time and jumps past its return to
+     code of its own, as a function does to a block that it lays past the rest
+     of its code, which the recovery builds only once it finds that the callee
+     returns. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that the function above jumps to is no function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x742, "c0e5ffffffbb" (* brasl %r14,0x6b8: abort@plt *)
+          0x748, "a7f400050707" (* j 0x752; nopr %r7 *)
+          0x752, "a729000007fe" (* lghi %r2,0; br %r14 *) ]
+    CollectionAssert.DoesNotContain(entries, 0x752UL)
+
+  (* deregister_tm_clones jumps to its return this time, over a function that
+     calls register_tm_clones as its tail, which nothing calls or points to,
+     as code past the function above may be one that another jumps to. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code that a function inside the one above jumps to is one``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x730, "a7f40010" (* j 0x750 *)
+          0x734, "c0f400000016" (* jg 0x760 *)
+          0x73a, String.replicate 11 "0707" (* nopr %r7 *) ]
     CollectionAssert.Contains(entries, 0x760UL)

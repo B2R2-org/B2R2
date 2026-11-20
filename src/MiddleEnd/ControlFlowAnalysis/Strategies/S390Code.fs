@@ -277,17 +277,10 @@ module internal S390Code =
        |> Seq.exists (fun r -> r = Register.toRegID Register.R14
                                || preserved.Contains r)
 
-  /// Tells whether code that ends with the instruction runs into nothing past
-  /// it: it returns or jumps, traps, pads with a nop, or calls, as a call may
-  /// never return.
-  let private endsFlow (ins: IInstruction) =
-    ins.IsNop || ins.IsExit || ins.IsCall
-    || (ins.IsBranch && not ins.IsCondBranch)
-
   /// Tells whether an instruction that ends right at the address ends the
-  /// flow, at any length that one decodes at, as nothing tells where the
-  /// instruction above an address starts.
-  let private hasFlowEndAbove (lu: LiftingUnit) (addr: Addr) =
+  /// flow, as the given test tells, at any length that one decodes at, as
+  /// nothing tells where the instruction above an address starts.
+  let private hasFlowEndAbove (lu: LiftingUnit) (addr: Addr) endsFlow =
     [ 2UL; 4UL; 6UL ]
     |> List.exists (fun len ->
       len <= addr
@@ -295,17 +288,40 @@ module internal S390Code =
          | Ok ins -> uint64 ins.Length = len && endsFlow ins
          | Error _ -> false)
 
-  /// Tells whether the code at the address shows a function starting there,
-  /// given whether it starts its section: it reads no register that code
-  /// above may have left, nor changes one that it has to save before saving
-  /// it, and it sets up a frame first or lies where no code runs into it.
-  let showsEntry (lu: LiftingUnit) isSectionStart (addr: Addr) =
-    match lu.TryParseInstruction(addr) with
+  /// Tells whether the code at the address reads no register that code above
+  /// may have left, nor changes one that it has to save before saving it, and
+  /// sets up a frame first or lies where no code runs into it: it starts its
+  /// section, or the instruction above ends the flow, as the given test tells.
+  let private startsCleanly lu isSectionStart endsFlow (addr: Addr) =
+    match (lu: LiftingUnit).TryParseInstruction(addr) with
     | Ok ins ->
       not (readsLeftover lu addr)
-      && (setsUpFrame lu ins || isSectionStart || hasFlowEndAbove lu addr)
+      && (setsUpFrame lu ins
+          || isSectionStart
+          || hasFlowEndAbove lu addr endsFlow)
     | Error _ ->
       false
+
+  /// Tells whether code that ends with the instruction runs into nothing past
+  /// it: it returns or jumps, traps, or pads with a nop.
+  let private leaves (ins: IInstruction) =
+    ins.IsNop
+    || ins.IsExit
+    || (ins.IsBranch && not ins.IsCondBranch && not ins.IsCall)
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// given whether it starts its section, where code above that leaves or
+  /// calls ends the flow, as a call may never return.
+  let showsEntry lu isSectionStart addr =
+    startsCleanly lu isSectionStart (fun ins -> leaves ins || ins.IsCall) addr
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// as showsEntry does, where code resumes past what the recovery has built
+  /// for a function. A call right above runs into it then, as the recovery
+  /// builds code only so far as it takes the callees to return, which it may
+  /// yet find that one does that it took for one that never returns.
+  let showsEntryPastCode lu isSectionStart addr =
+    startsCleanly lu isSectionStart leaves addr
 
   /// Returns the address that the instruction names, counting halfwords from
   /// itself, if its opcode is the given one.
@@ -324,3 +340,51 @@ module internal S390Code =
   /// Returns the address of the instruction that the given one runs, if it is
   /// EXRL, which picks the length that the instruction there works on.
   let tryExecutedAddress ins = tryRelativeAddress Opcode.EXRL ins
+
+  /// Tells whether the instruction is shaped as a template that EXRL runs: it
+  /// works on two operands in storage, a byte long by its own length, as EXRL
+  /// ORs the length that a register holds into it. clang lays such templates
+  /// past the functions of a source file, where they read as code that starts
+  /// a function.
+  let private isTemplate (ins: Instruction) =
+    match ins.Operands with
+    | TwoOperands(OpStoreLen(1us, _, _), _) -> ins.Fmt = InstructionFormat.SS
+    | _ -> false
+
+  /// Returns where code resumes from the address, before the given end, past
+  /// the nops that pad functions apart and the templates that EXRL runs.
+  let skipPadding (lu: LiftingUnit) (addr: Addr) endAddr =
+    let rec skip (addr: Addr) =
+      if addr >= endAddr then
+        addr
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins when ins.IsNop || isTemplate (ins :?> Instruction) ->
+          skip (addr + uint64 ins.Length)
+        | _ ->
+          addr
+    skip addr
+
+  /// Tells whether the instruction jumps to the given address, rather than
+  /// calls code there.
+  let private jumpsTo target (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, t -> t = target && not ins.IsCall
+    | false, _ -> false
+
+  /// Tells whether code from the address up to the given target, read one
+  /// instruction after another, jumps to the target, as a function does to a
+  /// block of its own that it lays past the rest of its code, such as one that
+  /// calls a function that never returns. The reading stops where the given
+  /// test tells that the code of another function starts, as such a function
+  /// may jump to the target as its tail. Code that does not decode tells
+  /// nothing, and the reading resumes at the next halfword.
+  let jumpsAhead (lu: LiftingUnit) (addr: Addr) target startsAnother =
+    let rec scan (addr: Addr) =
+      if addr >= target || startsAnother addr then
+        false
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins -> jumpsTo target ins || scan (addr + uint64 ins.Length)
+        | Error _ -> scan (addr + 2UL)
+    scan addr
