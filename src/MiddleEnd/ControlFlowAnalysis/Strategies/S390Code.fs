@@ -62,40 +62,43 @@ module internal S390Code =
   /// The stack pointer.
   let private sp = Register.toRegID Register.R15
 
-  /// Tells whether the number keeps one word of a doubleword as it is when
-  /// ANDed with it, as an instruction does that writes only the other word of
-  /// a register.
-  let private isWordMask (n: BitVector) =
-    let v = n.ToUInt64()
-    v = 0xFFFFFFFF00000000UL || v = 0x00000000FFFFFFFFUL
-
-  /// Adds the registers that the expression reads to the set, leaving out the
-  /// given register where the expression keeps one word of it as it is, as
-  /// the instruction that writes the other word reads nothing of it.
-  let rec private addReads (reads: HashSet<RegisterID>) kept e =
+  /// Adds the registers that the expression reads to the set.
+  let rec private addReads (reads: HashSet<RegisterID>) e =
     match e with
     | Var(RegisterID = rid) ->
       reads.Add rid |> ignore
-    | BinOp(Op = BinOpType.AND; Left = Var(RegisterID = rid); Right = Num n)
-      when Some rid = kept && isWordMask n ->
-      ()
     | BinOp(Left = e1; Right = e2) | RelOp(Left = e1; Right = e2) ->
-      addReads reads kept e1
-      addReads reads kept e2
+      addReads reads e1
+      addReads reads e2
     | UnOp(Operand = e) | Cast(Operand = e) | Extract(Operand = e)
     | Load(Addr = e) ->
-      addReads reads kept e
+      addReads reads e
     | Ite(Cond = c; TrueExpr = e1; FalseExpr = e2) ->
-      addReads reads kept c
-      addReads reads kept e1
-      addReads reads kept e2
+      addReads reads c
+      addReads reads e1
+      addReads reads e2
     | RoundCtrl(Mode = mode; Body = body) ->
-      addReads reads kept mode
-      addReads reads kept body
+      addReads reads mode
+      addReads reads body
     | ExprList(Elements = es) ->
-      for e in es do addReads reads kept e
+      for e in es do addReads reads e
     | _ ->
       ()
+
+  /// Returns what a write to the given register puts in it of its own, past
+  /// the bits of the register that the write keeps as they are, as a write to
+  /// a part of a register does, which reads nothing of the rest: one that
+  /// writes a word of a doubleword, or IPM, which inserts the condition code.
+  let private insertedPart rid src =
+    match src with
+    | BinOp(Op = BinOpType.OR
+            Left = BinOp(Op = BinOpType.AND
+                         Left = Var(RegisterID = kept)
+                         Right = Num _)
+            Right = e) when kept = rid ->
+      e
+    | _ ->
+      src
 
   /// Substitutes the definitions of the temporaries of an instruction for
   /// them, given what each holds.
@@ -135,32 +138,32 @@ module internal S390Code =
   /// Notes what the statement does with registers in the effect, given what
   /// the temporaries of the instruction hold so far.
   let private note (eff: Effect) (temps: Dictionary<int, Expr>) stmt =
-    let addNew e kept =
+    let addNew e =
       let reads = HashSet<RegisterID>()
-      addReads reads kept e
+      addReads reads e
       reads.ExceptWith eff.Writes
       eff.Reads.UnionWith reads
     match stmt with
     | Put(Dst = TempVar(Index = n); Src = src) ->
-      addNew src None
+      addNew src
       temps[n] <- src
     | Put(Dst = Var(RegisterID = rid); Src = src) ->
-      addNew src (Some rid)
+      addNew (insertedPart rid src)
       if rid = sp && allocates temps src then eff.Allocates <- true else ()
       eff.Writes.Add rid |> ignore
     | Store(Addr = addr; Value = Var(RegisterID = rid))
       when isOnStack temps addr ->
-      addNew addr None
+      addNew addr
       eff.Saves.Add rid |> ignore
     | Store(Addr = addr; Value = v) ->
-      addNew addr None
-      addNew v None
+      addNew addr
+      addNew v
     | InterJmp(Target = e) | CJmp(Cond = e) ->
-      addNew e None
+      addNew e
     | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
-      addNew c None
-      addNew t None
-      addNew f None
+      addNew c
+      addNew t
+      addNew f
     | _ ->
       ()
 

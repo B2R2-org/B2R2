@@ -325,6 +325,21 @@ type S390BinaryBrewTests() =
     let entries = findEntries (code :: relocatedPointerTo 0x752UL)
     CollectionAssert.DoesNotContain(entries, 0x752UL)
 
+  (* The code that the pointer names, past the return of deregister_tm_clones,
+     tests its argument and inserts the condition code into R1 with IPM,
+     which keeps the rest of R1 as it is, as clang does to turn a comparison
+     into a value. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A pointer to code inserting the condition code is a function``() =
+    let hex =
+      "b9020022" (* ltgr %r2,%r2 *)
+      + "b2220010" (* ipm %r1 *)
+      + "b9140021" (* lgfr %r2,%r1 *)
+      + "07fe" (* br %r14 *)
+    let entries = findEntries ((0x752, hex) :: relocatedPointerTo 0x752UL)
+    CollectionAssert.Contains(entries, 0x752UL)
+
   (* The code past the return of deregister_tm_clones changes R12 this time,
      which a function saves first, for its caller. *)
   [<TestMethod>]
