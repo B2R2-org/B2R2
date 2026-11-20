@@ -203,6 +203,17 @@ type InstructionTests() =
     Assert.AreEqual<bool>(true, ins.IsTerminator null)
     Assert.AreEqual<int>(0, (nexts ins).Length)
 
+  (* glibc branches into the second halfword on a condition, to stop a 31-bit
+     program on a machine that lacks a facility the program needs, and goes on
+     otherwise. *)
+  [<TestMethod>]
+  member _.``[S390] A Conditional Branch Into Its Own Halfword Traps Test``() =
+    let ins = parse31 0x4026aaUL "a7840001" (* je 0x4026ac *)
+    Assert.AreEqual<bool>(false, ins.IsExit)
+    Assert.AreEqual<bool>(false, ins.IsBranch)
+    Assert.AreEqual<bool>(false, ins.IsCondBranch)
+    CollectionAssert.AreEqual([| 0x4026aeUL |], nexts ins)
+
   [<TestMethod>]
   member _.``[S390] A Branch Target Wraps At 31 Bits Test``() =
     let ins = parse31 0x23e6UL "c0e500002b05" (* brasl %r14,0x79f0 *)

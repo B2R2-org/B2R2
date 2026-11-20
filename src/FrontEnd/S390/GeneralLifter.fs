@@ -800,10 +800,23 @@ let testMaskReg ins bld pos =
 let private fallThrough bld (ins: Instruction) =
   numR bld (int64 (codeAddr bld (nextAddr ins)))
 
+/// Runs into an undefined instruction where the condition holds and goes on to
+/// the next instruction where it does not.
+let private trapIf bld cond =
+  let lblTrap = label bld "Trap"
+  let lblNoTrap = label bld "NoTrap"
+  append bld {
+    AST.cjmp cond (AST.jmpDest lblTrap) (AST.jmpDest lblNoTrap)
+    AST.lmark lblTrap
+    AST.sideEffect UndefinedInstruction
+    AST.lmark lblNoTrap
+  }
+
 /// A branch a condition-code mask decides, whose target the instruction names
 /// relative to itself. GCC plants a branch into its own second halfword, which
 /// holds no valid opcode, where __builtin_trap is, so that branch runs into an
-/// undefined instruction rather than on to any code.
+/// undefined instruction rather than on to any code. glibc plants one that a
+/// condition decides, which is no branch either, as it only traps or goes on.
 let branchRelative ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
@@ -813,6 +826,8 @@ let branchRelative ins bld =
       ()
     elif (ins :> IInstruction).IsExit then
       AST.sideEffect UndefinedInstruction
+    elif not (ins :> IInstruction).IsBranch then
+      trapIf bld (condOfMask bld m)
     elif isAlways m then
       AST.interjmp target InterJmpKind.Base
       return NoEndMark

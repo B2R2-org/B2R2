@@ -122,6 +122,24 @@ type LifterTests() =
         | _ -> None)
     CollectionAssert.AreEqual([| UndefinedInstruction |], effects)
 
+  (* glibc branches into the second halfword on a condition, to stop a 31-bit
+     program on a machine that lacks a facility the program needs, so the
+     branch traps where it is taken and goes on to the next instruction where
+     it is not, rather than jumps anywhere. *)
+  [<TestMethod>]
+  member _.``[S390] A Conditional Branch Into Its Own Halfword Traps Test``() =
+    let stmts = liftAs WordSize.Bit32 0x4026aaUL "a7840001" (* je 0x4026ac *)
+    let effects =
+      stmts
+      |> Array.choose (function
+        | SideEffect(Effect = e) -> Some e
+        | _ -> None)
+    CollectionAssert.AreEqual([| UndefinedInstruction |], effects)
+    Assert.AreEqual<int>(0, (kindsOf stmts).Length)
+    match Array.last stmts with
+    | IEMark _ -> ()
+    | stmt -> Assert.Fail $"je ends with {stmt}"
+
   (* A 31-bit program never reaches past the low word of a general register, so
      a load fills the whole register, from an address as wide as the register
      is. *)

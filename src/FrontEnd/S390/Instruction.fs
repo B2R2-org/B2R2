@@ -112,11 +112,14 @@ type Instruction
   (* GCC plants j .+2 where __builtin_trap is: the branch goes into its own
      second halfword, which holds no valid opcode, so the program interruption
      that the halfword raises ends the program rather than the branch going on
-     anywhere. *)
-  let isTrap () =
+     anywhere. glibc branches there on a condition, to stop a 31-bit program
+     on a machine that lacks a facility it needs, and goes on otherwise. *)
+  let branchesIntoItself () =
     (op = Opcode.BRC || op = Opcode.BRCL)
-    && takesAll ()
     && tryRelTarget () = Some(addr + 2UL)
+
+  let isTrap () =
+    branchesIntoItself () && takesAll ()
 
   (* An RR branch to the register R0 names no register, and so branches
      nowhere: BCR does nothing then, BASR only saves the address that follows,
@@ -150,14 +153,16 @@ type Instruction
 
   let isBranch () =
     if isMaskedBranch () then
-      not (takesNone () || isTrap ())
+      not (takesNone () || branchesIntoItself ())
     else
       isCountingBranch () || isCall ()
       || (op = Opcode.BSM && r2 () <> Register.R0)
 
   let isCondBranch () =
-    if isMaskedBranch () then not (takesNone () || takesAll ())
-    else isCountingBranch ()
+    if isMaskedBranch () then
+      not (takesNone () || takesAll () || branchesIntoItself ())
+    else
+      isCountingBranch ()
 
   let tryGetTarget () =
     match tryRelTarget () with
