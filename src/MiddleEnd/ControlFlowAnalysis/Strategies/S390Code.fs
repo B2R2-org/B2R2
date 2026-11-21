@@ -219,15 +219,24 @@ module internal S390Code =
     |> List.concat
     |> Set.ofList
 
+  /// Tells whether the instruction calls a function that never returns, as
+  /// the given test tells of the callee.
+  let private callsNoReturn neverReturns (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, callee -> neverReturns callee
+    | false, _ -> false
+
   /// Returns where the code goes past the instruction, given the registers
   /// written so far: past a call, which changes the volatile registers, to
-  /// the next instruction; past a branch, to its direct target, and to the
-  /// next instruction as well if it branches on a condition; nowhere past an
-  /// indirect jump, an exit, or an interrupt; and to the next one otherwise.
-  let private successorsOf (ins: IInstruction) written =
+  /// the next instruction, unless the callee never returns, as the given test
+  /// tells; past a branch, to its direct target, and to the next instruction
+  /// as well if it branches on a condition; nowhere past an indirect jump, an
+  /// exit, or an interrupt; and to the next one otherwise.
+  let private successorsOf (ins: IInstruction) neverReturns written =
     let next = ins.Address + uint64 ins.Length
     if ins.IsCall then
-      [ next, Set.union written clobberedByCall ]
+      if callsNoReturn neverReturns ins then []
+      else [ next, Set.union written clobberedByCall ]
     elif ins.IsBranch then
       let target =
         match ins.DirectBranchTarget() with
@@ -255,7 +264,9 @@ module internal S390Code =
   /// not decode may do anything, while code past an instruction that runs
   /// another one tells nothing more, nor does a template that EXRL runs past
   /// the start, as code runs into one only past a call that never returns.
-  let private readsLeftover (lu: LiftingUnit) (start: Addr) =
+  /// Code past a call to a function that never returns, as the given test
+  /// tells of the callee, runs only from a branch to it, if at all.
+  let private readsLeftover (lu: LiftingUnit) neverReturns (start: Addr) =
     let work = Stack<Addr * Set<RegisterID> * Set<RegisterID>>()
     let visited = HashSet<Addr>()
     let mutable found = false
@@ -275,7 +286,7 @@ module internal S390Code =
             found <- true
           else
             let written = Set.union written (Set.ofSeq eff.Writes)
-            for next, written in successorsOf ins written do
+            for next, written in successorsOf ins neverReturns written do
               work.Push(next, written, saved)
         | Error _ ->
           found <- true
@@ -310,10 +321,10 @@ module internal S390Code =
   /// as it starts its section, or the instruction above ends the flow, as the
   /// given test tells. Code that starts with a nop pads functions apart rather
   /// than starts one.
-  let private startsCleanly lu liesApart endsFlow (addr: Addr) =
+  let private startsCleanly lu neverReturns liesApart endsFlow (addr: Addr) =
     match (lu: LiftingUnit).TryParseInstruction(addr) with
     | Ok ins when not ins.IsNop ->
-      not (readsLeftover lu addr)
+      not (readsLeftover lu neverReturns addr)
       && (setsUpFrame lu ins
           || liesApart
           || hasFlowEndAbove lu addr endsFlow)
@@ -329,23 +340,28 @@ module internal S390Code =
 
   /// Tells whether the code at the address shows a function starting there,
   /// given whether it starts its section, where code above that leaves or
-  /// calls ends the flow, as a call may never return.
-  let showsEntry lu isSectionStart addr =
-    startsCleanly lu isSectionStart (fun ins -> leaves ins || ins.IsCall) addr
+  /// calls ends the flow, as a call may never return. Code past a call to a
+  /// function that never returns, as the given test tells of the callee, runs
+  /// only from a branch to it.
+  let showsEntry lu neverReturns isSectionStart addr =
+    let endsFlow ins = leaves ins || (ins: IInstruction).IsCall
+    startsCleanly lu neverReturns isSectionStart endsFlow addr
 
   /// Tells whether the code at the address shows a function starting there,
   /// as showsEntry does, where code resumes past what the recovery has built
   /// for a function. A call right above runs into it then, as the recovery
   /// builds code only so far as it takes the callees to return, which it may
   /// yet find that one does that it took for one that never returns.
-  let showsEntryPastCode lu isSectionStart addr =
-    startsCleanly lu isSectionStart leaves addr
+  let showsEntryPastCode lu neverReturns isSectionStart addr =
+    startsCleanly lu neverReturns isSectionStart leaves addr
 
   /// Tells whether the code at the address shows a function starting there,
-  /// where code resumes past what the recovery has built for a function, which
-  /// ends the flow where it ends, as nothing past that code then runs into the
-  /// address, whatever lies between, such as the templates that EXRL runs.
-  let showsEntryPastFlowEnd lu addr = startsCleanly lu true leaves addr
+  /// as showsEntry does, where code resumes past what the recovery has built
+  /// for a function, which ends the flow where it ends, as nothing past that
+  /// code then runs into the address, whatever lies between, such as the
+  /// templates that EXRL runs.
+  let showsEntryPastFlowEnd lu neverReturns addr =
+    startsCleanly lu neverReturns true leaves addr
 
   /// Tells whether the instruction that ends right at the address runs into
   /// nothing past it, so that no code runs into the address.

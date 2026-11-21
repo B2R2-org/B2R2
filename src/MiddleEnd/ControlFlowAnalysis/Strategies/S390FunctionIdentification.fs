@@ -31,6 +31,7 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 
 /// Represents the function identification for S390. It takes what the binary
@@ -123,6 +124,25 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   let lu = hdl.NewLiftingUnit()
 
+  /// The stubs of the imports that never return, as their names tell for
+  /// sure, such as _exit.
+  let noReturnStubs =
+    let cc = hdl.Conventions.Calling
+    let isNoRet (entry: BinImport) =
+      ELF.getNoReturnStatusFromKnownFunc cc entry.Name = NoRet
+    match file.ImportTable with
+    | Some tbl ->
+      tbl.Imports
+      |> Seq.filter isNoRet
+      |> Seq.choose (fun entry -> entry.TrampolineAddress)
+      |> HashSet
+    | None ->
+      HashSet()
+
+  /// Tells whether the function at the given address never returns, as the
+  /// stub of an import that its name tells never to return.
+  let neverReturns callee = noReturnStubs.Contains callee
+
   /// What the code at each address shows of a function starting there, as
   /// telling it takes lifting.
   let entryEvidence = Dictionary<Addr, bool>()
@@ -133,7 +153,8 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     | true, shows ->
       shows
     | false, _ ->
-      let shows = S390Code.showsEntry lu (sectionStarts.Contains addr) addr
+      let isSectionStart = sectionStarts.Contains addr
+      let shows = S390Code.showsEntry lu neverReturns isSectionStart addr
       entryEvidence[addr] <- shows
       shows
 
@@ -245,7 +266,8 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       shows
     | false, _ ->
       let isSectionStart = sectionStarts.Contains addr
-      let shows = S390Code.showsEntryPastCode lu isSectionStart addr
+      let shows =
+        S390Code.showsEntryPastCode lu neverReturns isSectionStart addr
       resumeEvidence[addr] <- shows
       shows
 
@@ -294,13 +316,18 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       && (S390Code.leaves bbl.LastInstruction
           || callsNoReturnExternal fn.CFG v))
 
+  /// Tells whether the code at the address, where code resumes past code that
+  /// ends the flow, shows a function starting there by its own code alone.
+  let showsEntryPastFlowEnd addr =
+    S390Code.showsEntryPastFlowEnd lu neverReturns addr
+
   /// Tells whether the code where code resumes past the given function, at the
   /// given start past the end of its code, shows a function starting there,
   /// either by the code right above the start, or, past code of the function
   /// that ends the flow, by the code at the start alone.
   let showsEntryPast fn codeEnd start =
     showsEntryPastCode start
-    || (endsFlowAt fn codeEnd && S390Code.showsEntryPastFlowEnd lu start)
+    || (endsFlowAt fn codeEnd && showsEntryPastFlowEnd start)
 
   /// Returns where code resumes past each of the given functions: past the end
   /// of its code and the padding there, before the next entry, where no code
@@ -360,7 +387,7 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       isCodePointer start
       && not (showsEntryPast fn codeEnd start)
       && endsInCallAt fn codeEnd
-      && S390Code.showsEntryPastFlowEnd lu start
+      && showsEntryPastFlowEnd start
       && not (jumpsAhead fn.EntryPoint built start))
     |> List.map (fun (_, _, _, start) -> start)
     |> List.toArray

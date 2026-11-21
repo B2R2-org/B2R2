@@ -370,6 +370,26 @@ type S390BinaryBrewTests() =
     let entries = findEntries (code @ relocatedPointerTo 0x760UL)
     CollectionAssert.Contains(entries, 0x760UL)
 
+  (* register_tm_clones calls abort on one way this time, past which lies a
+     block that reads R13, which the other way sets before it jumps there, as
+     a compiler lays a block that a branch leads to past a call that never
+     returns. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A block past a call to abort reads what its branch sets``() =
+    let code =
+      [ 0x760, "ebdff0680024" (* stmg %r13,%r15,104(%r15) *)
+        0x766, "a7fbff60" (* aghi %r15,-160 *)
+        0x76a, "ec260007007e" (* cijne %r2,0,0x778 *)
+        0x770, "b90400d3" (* lgr %r13,%r3 *)
+        0x774, "a7f40005" (* j 0x77e *)
+        0x778, "c0e5ffffffa0" (* brasl %r14,0x6b8: abort@plt *)
+        0x77e, "b904002d" (* lgr %r2,%r13 *)
+        0x782, "ebdff1080004" (* lmg %r13,%r15,264(%r15) *)
+        0x788, "07fe" (* br %r14 *) ]
+    let entries = findEntries (code @ relocatedPointerTo 0x760UL)
+    CollectionAssert.Contains(entries, 0x760UL)
+
   (* The pointer names the middle of register_tm_clones, which saves registers
      first this time, as a function sets up its frame. *)
   [<TestMethod>]
