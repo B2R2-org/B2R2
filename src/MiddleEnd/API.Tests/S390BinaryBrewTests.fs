@@ -478,6 +478,56 @@ type S390BinaryBrewTests() =
     let entries = findEntries [ code ]
     CollectionAssert.Contains(entries, 0x760UL)
 
+  (* deregister_tm_clones jumps ahead to register_tm_clones this time, which
+     starts by saving R14 and R15, before the next function that the recovery
+     knows, as clang lays a function that only jumps lead to right past the one
+     that jumps to it. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code saving the link that a jump leads to is a function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x730, "c0f400000018" (* jg 0x760 *)
+          0x760, "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+          0x766, "ebeff0700004" (* lmg %r14,%r15,112(%r15) *)
+          0x76c, "07fe" (* br %r14 *) ]
+    CollectionAssert.Contains(entries, 0x760UL)
+
+  (* deregister_tm_clones branches to the same code on a condition before it
+     jumps there, so the code is its own. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code saving the link that a branch reaches too is no function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x730, "ec280018007c" (* cgije %r2,0,0x760 *)
+          0x736, "c0f400000015" (* jg 0x760 *)
+          0x760, "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+          0x766, "ebeff0700004" (* lmg %r14,%r15,112(%r15) *)
+          0x76c, "07fe" (* br %r14 *) ]
+    CollectionAssert.DoesNotContain(entries, 0x760UL)
+
+  (* deregister_tm_clones saves R14 and R15 past a return on a condition this
+     time, which runs into the saving otherwise, and jumps back there from
+     below, as GCC does that saves them only once it has to. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code saving the link that code above runs into is no function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x730, "b9020022" (* ltgr %r2,%r2 *)
+          0x734, "a784000a" (* je 0x748 *)
+          0x738, "077e" (* bner %r14 *)
+          0x73a, "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+          0x740, "ebeff0700004" (* lmg %r14,%r15,112(%r15) *)
+          0x746, "07fe" (* br %r14 *)
+          0x748, "a7f4fff9" (* j 0x73a *)
+          0x74c, "07070707" (* nopr %r7; nopr %r7 *) ]
+    CollectionAssert.DoesNotContain(entries, 0x73aUL)
+
   (* __do_global_dtors_aux calls deregister_tm_clones this time, as it does in
      the binary, and nops pad the code past its return up to
      register_tm_clones, which nothing calls or points to. *)

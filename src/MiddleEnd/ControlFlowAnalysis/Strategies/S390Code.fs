@@ -334,6 +334,10 @@ module internal S390Code =
   /// address, whatever lies between, such as the templates that EXRL runs.
   let showsEntryPastFlowEnd lu addr = startsCleanly lu true leaves addr
 
+  /// Tells whether the instruction that ends right at the address runs into
+  /// nothing past it, so that no code runs into the address.
+  let liesPastFlowEnd lu addr = hasFlowEndAbove lu addr leaves
+
   /// Returns the address that the instruction names, counting halfwords from
   /// itself, if its opcode is the given one.
   let private tryRelativeAddress opcode (ins: Instruction) =

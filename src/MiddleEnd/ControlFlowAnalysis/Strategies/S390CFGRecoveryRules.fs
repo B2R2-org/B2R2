@@ -117,6 +117,33 @@ module private S390CFGRecoveryRules =
     | _ ->
       false
 
+  /// Checks if the instruction stores the registers from R14 or one below up
+  /// to R15 where R15 points.
+  let storesLinkAndStack (ins: S390.Instruction) =
+    match ins.Operands with
+    | S390.ThreeOperands(S390.OpReg first,
+                         S390.OpStore(_, S390.Register.R15, _),
+                         S390.OpReg S390.Register.R15) ->
+      let op = ins.Opcode
+      (op = S390.Opcode.STMG || op = S390.Opcode.STMY || op = S390.Opcode.STM)
+      && first <= S390.Register.R14
+    | _ ->
+      false
+
+  /// Checks if the code at the given address looks like the start of a
+  /// function: it starts by saving R14 and R15 in the area that the caller
+  /// keeps for them, as a function does to save the address that it returns
+  /// to and the stack pointer of its caller, and no code runs into it. GCC
+  /// saves them amid a function past code that may return early, which runs
+  /// into the saving otherwise.
+  let startsLikeFunction (ctx: CFGBuildingContext<_, _>) addr =
+    match ctx.BBLFactory.PeekInstruction addr with
+    | Ok ins ->
+      storesLinkAndStack (ins :?> S390.Instruction)
+      && S390Code.liesPastFlowEnd ctx.ScanningUnit addr
+    | Error _ ->
+      false
+
 /// Represents the rules of the CFG recovery for S390: the rules of every
 /// architecture, except that an indirect jump returns where it goes to the
 /// address that the caller left in R14, and that a jump table ends where the
@@ -137,7 +164,10 @@ module private S390CFGRecoveryRules =
 /// code of a function, where the label of an unreachable default lands. A call
 /// that saves the address past it in another register than R14 calls nothing,
 /// as 31-bit code branches over a pool of literals that way to learn where the
-/// pool lies.
+/// pool lies. A jump to code that no code runs into and that starts by saving
+/// R14 and R15 may call a function there as its tail, as clang lays a function
+/// that only such jumps lead to right past the one that jumps to it, before
+/// the recovery knows of the next function.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -155,6 +185,17 @@ type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     isPast jmptbl.OwnRangeEntries
     || isPast jmptbl.MaskedEntries
     || leadsBelowFunction ctx jmptbl idx
+
+  /// Judges a jump to the entry of another function a tail call, as every
+  /// architecture does, while a jump to code that looks like the start of a
+  /// function may call one there, where none starts yet, as its tail.
+  override _.JudgeTailCall(ctx, jmpAddr, target) =
+    match base.JudgeTailCall(ctx, jmpAddr, target) with
+    | NotTailCall when target <> ctx.FunctionAddress
+                       && startsLikeFunction ctx target ->
+      TentativeTailCall
+    | judgment ->
+      judgment
 
   override this.FindFunctionsToRebuild builders =
     findFunctionsMissingTailCalls this builders
