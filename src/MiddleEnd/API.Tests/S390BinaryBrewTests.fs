@@ -355,6 +355,21 @@ type S390BinaryBrewTests() =
     let entries = findEntries (relocatedPointerTo 0x760UL)
     CollectionAssert.Contains(entries, 0x760UL)
 
+  (* register_tm_clones calls a function that never returns this time, which
+     no name tells, as it calls abort as its tail, and past the call lies a
+     template that EXRL runs, which reads what no code sets, as clang lays the
+     templates of a function past the code of the next one. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A template past a call that never returns reads nothing``() =
+    let code =
+      [ 0x760, "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+        0x766, "c0e500000006" (* brasl %r14,0x772 *)
+        0x76c, "d2002000c000" (* mvc 0(1,%r2),0(%r12) *)
+        0x772, "c0f4ffffffa3" (* jg 0x6b8: abort@plt *) ]
+    let entries = findEntries (code @ relocatedPointerTo 0x760UL)
+    CollectionAssert.Contains(entries, 0x760UL)
+
   (* The pointer names the middle of register_tm_clones, which saves registers
      first this time, as a function sets up its frame. *)
   [<TestMethod>]

@@ -239,21 +239,34 @@ module internal S390Code =
     else
       [ next, written ]
 
-  /// Tells whether the code from the address, along any way that it goes
+  /// Tells whether the instruction is shaped as a template that EXRL runs: it
+  /// works on two operands in storage, a byte long by its own length, as EXRL
+  /// ORs the length that a register holds into it. clang lays such templates
+  /// past the functions of a source file, where they read as code that starts
+  /// a function.
+  let private isTemplate (ins: Instruction) =
+    match ins.Operands with
+    | TwoOperands(OpStoreLen(1us, _, _), _) -> ins.Fmt = InstructionFormat.SS
+    | _ -> false
+
+  /// Tells whether the code from the given start, along any way that it goes
   /// within MaxLeadLength instructions, reads a register that code above left,
   /// or changes one that it has to save without having saved it. Code that does
   /// not decode may do anything, while code past an instruction that runs
-  /// another one tells nothing more.
-  let private readsLeftover (lu: LiftingUnit) (addr: Addr) =
+  /// another one tells nothing more, nor does a template that EXRL runs past
+  /// the start, as code runs into one only past a call that never returns.
+  let private readsLeftover (lu: LiftingUnit) (start: Addr) =
     let work = Stack<Addr * Set<RegisterID> * Set<RegisterID>>()
     let visited = HashSet<Addr>()
     let mutable found = false
-    work.Push(addr, Set.empty, Set.empty)
+    work.Push(start, Set.empty, Set.empty)
     while not found && work.Count > 0 && visited.Count < MaxLeadLength do
       let addr, written, saved = work.Pop()
       if visited.Add addr then
         match lu.TryParseInstruction addr with
         | Ok ins when executes ins ->
+          ()
+        | Ok ins when addr <> start && isTemplate (ins :?> Instruction) ->
           ()
         | Ok ins ->
           let eff = effectOf lu ins
@@ -355,16 +368,6 @@ module internal S390Code =
   /// Returns the address of the instruction that the given one runs, if it is
   /// EXRL, which picks the length that the instruction there works on.
   let tryExecutedAddress ins = tryRelativeAddress Opcode.EXRL ins
-
-  /// Tells whether the instruction is shaped as a template that EXRL runs: it
-  /// works on two operands in storage, a byte long by its own length, as EXRL
-  /// ORs the length that a register holds into it. clang lays such templates
-  /// past the functions of a source file, where they read as code that starts
-  /// a function.
-  let private isTemplate (ins: Instruction) =
-    match ins.Operands with
-    | TwoOperands(OpStoreLen(1us, _, _), _) -> ins.Fmt = InstructionFormat.SS
-    | _ -> false
 
   /// Returns where code resumes from the address, before the given end, past
   /// the nops that pad functions apart and the templates that EXRL runs.
