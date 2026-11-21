@@ -140,6 +140,14 @@ type LifterTests() =
     | IEMark _ -> ()
     | stmt -> Assert.Fail $"je ends with {stmt}"
 
+  (* A compare and branch whose mask takes low and high takes what is not equal,
+     which one comparison tells, as clang's error_tail tests its status. *)
+  [<TestMethod>]
+  member _.``[S390] A Branch On Low Or High Compares Once Test``() =
+    match Array.last (lift 0x1003160UL "ecd6000e007e") (* cijlh *) with
+    | InterCJmp(Cond = RelOp(Op = RelOpType.NEQ)) -> ()
+    | stmt -> Assert.Fail $"cijlh ends with {stmt}"
+
   (* A 31-bit program never reaches past the low word of a general register, so
      a load fills the whole register, from an address as wide as the register
      is. *)

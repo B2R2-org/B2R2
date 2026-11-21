@@ -147,6 +147,24 @@ type S390BinaryBrewTests() =
     let expected = ConditionalNoRet(ArgLocation.Reg r2)
     Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
+  (* clang's error_tail branches to exit where a compare finds its status low
+     or high, which is where it is not zero. *)
+  [<TestMethod>]
+  member _.``A status that a compare finds low or high decides the return``() =
+    let fns =
+      recoverCode
+        [ "ebeff0700024" (* stmg %r14,%r15,112(%r15) *)
+          "a7fbff60" (* aghi %r15,-160 *)
+          "ec26000a007e" (* 0x0a: cijlh %r2,0,0x1e *)
+          "e340f1100004" (* 0x10: lg %r4,272(%r15) *)
+          "ebeff1100004" (* lmg %r14,%r15,272(%r15) *)
+          "07f4" (* 0x1c: br %r4 *)
+          "c0e500000003" (* 0x1e: brasl %r14,0x24 *)
+          "a7f40000" (* 0x24: j 0x24 *) ]
+    let r2 = S390.Register.toRegID S390.Register.R2
+    let expected = ConditionalNoRet(ArgLocation.Reg r2)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
+
   (* The function branches past the function that it calls, which it learns
      starts there only once it has taken in the code past it, as a function
      does that takes in the code of the next one before that one is known. *)

@@ -1017,16 +1017,26 @@ let branchOnIndex ins bld rt high =
 
 /// The condition a compare-and-branch mask names, taken straight from the
 /// comparison rather than through the condition code, which these instructions
-/// leave alone: the mask's bits stand for equal, low, and high.
+/// leave alone: the mask's bits stand for equal, low, and high. Two of them
+/// make one comparison: low or high is not equal, and equal and either one is
+/// that one or equal.
 let private cmpCond (m: Mask) signed a b =
-  let eq = if m &&& 8us <> 0us then [ a == b ] else []
-  let lo =
-    if m &&& 4us <> 0us then [ if signed then a ?< b else a .< b ] else []
-  let hi =
-    if m &&& 2us <> 0us then [ if signed then a ?> b else a .> b ] else []
-  match eq @ lo @ hi with
-  | [] -> AST.b0
-  | h :: t -> List.fold (.|) h t
+  match m &&& 0xeus with
+  | 0x6us ->
+    a != b
+  | 0xcus ->
+    if signed then a ?<= b else a .<= b
+  | 0xaus ->
+    if signed then a ?>= b else a .>= b
+  | _ ->
+    let eq = if m &&& 8us <> 0us then [ a == b ] else []
+    let lo =
+      if m &&& 4us <> 0us then [ if signed then a ?< b else a .< b ] else []
+    let hi =
+      if m &&& 2us <> 0us then [ if signed then a ?> b else a .> b ] else []
+    match eq @ lo @ hi with
+    | [] -> AST.b0
+    | h :: t -> List.fold (.|) h t
 
 /// COMPARE AND BRANCH RELATIVE, which folds a comparison and the branch that
 /// acts on it into one instruction.
