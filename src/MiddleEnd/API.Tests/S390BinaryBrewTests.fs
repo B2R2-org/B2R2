@@ -223,6 +223,32 @@ type S390BinaryBrewTests() =
     let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
 
+  (* The second entry sends the jump to the next function, which the function
+     takes in as its own code until the case that the third entry sends the
+     jump to calls it, as clang lays the label of an unreachable default where
+     the next function starts. The code taken in then lies past the next
+     function, which tells nothing wrong of the entry. *)
+  [<TestMethod>]
+  member _.``A table to a function found later keeps its entries``() =
+    let fns =
+      recoverPatchedMain
+        [ "ec22001c027d" (* clgijh %r2,2,0x848 *)
+          "eb120003000d" (* sllg %r1,%r2,3 *)
+          "c0300000000a" (* larl %r3,0x830 *)
+          "e31130000004" (* lg %r1,0(%r1,%r3) *)
+          "47f13000" (* b 0(%r1,%r3) *)
+          "07070707" (* nopr %r7; nopr %r7 *)
+          "0000000000000018" (* 0x830: .quad 0x848 - 0x830 *)
+          "0000000000000030" (* .quad 0x860 - 0x830 *)
+          "000000000000001e" (* .quad 0x84e - 0x830 *)
+          "a729000007fe" (* 0x848: lghi %r2,0; br %r14 *)
+          "c0e500000009" (* 0x84e: brasl %r14,0x860 *)
+          "a729000107fe" (* lghi %r2,1; br %r14 *)
+          String.replicate 3 "0707" (* nopr %r7 *)
+          "a729000207fe" (* 0x860: lghi %r2,2; br %r14 *) ]
+    let entries = fns[0x810UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 3 |], entries)
+
   (* The range check bounds the value before the shift that takes its top
      bits as the index, as ESA/390 code switches over the top bits of a byte,
      so it admits two entries, while the next table follows right after. *)

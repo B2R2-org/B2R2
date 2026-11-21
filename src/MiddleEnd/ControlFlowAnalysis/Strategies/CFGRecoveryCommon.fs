@@ -1473,9 +1473,30 @@ module internal CFGRecoveryCommon =
     | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
     | _ -> MoveOn
 
+  /// Checks if the given entry of the given table sends the jump to what the
+  /// function by now takes for a hole, such as where the next function starts,
+  /// as clang lays the label of an unreachable default there, the first time
+  /// the entry does so. The function took in the code there as its own before
+  /// it learned that a function starts there, which tells nothing wrong of
+  /// the entry.
+  let firstLeadsToHole (ctx: CFGBuildingContext<_, _>) rules tblAddr idx =
+    match ctx.JumpTables.TryGetValue tblAddr with
+    | true, jmptbl ->
+      match tryReadTableTarget ctx rules jmptbl idx with
+      | Some target ->
+        isHoleTarget ctx rules (isFuncEntryPoint ctx target) target
+        && ctx.EntriesPastBoundary.Add((tblAddr, idx))
+      | None ->
+        false
+    | false, _ ->
+      false
+
   /// Finalizes the recovery, unless the function runs into the next one
-  /// through a jump table entry that turns out bogus, which rebuilds it.
-  let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
+  /// through a jump table entry that turns out bogus, which rebuilds it. An
+  /// entry that sends the jump to what the function by now takes for a hole
+  /// rebuilds it too, as the function took in the code there before it learned
+  /// that the next function starts there.
+  let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec rules postAnalysis =
     let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress
     match ctx.FindOverlap nextFn with
     | Some v ->
@@ -1485,6 +1506,8 @@ module internal CFGRecoveryCommon =
       <| $"Found overlap at {addr:x} @ {ctx.FunctionAddress}"
 #endif
       match v.VData.DominatingJumpTableEntry with
+      | Some(tblAddr, idx) when firstLeadsToHole ctx rules tblAddr idx ->
+        StopAndReload
       | Some(tblAddr, idx) ->
         let fnAddr = ctx.FunctionAddress
         ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx)
@@ -1529,7 +1552,7 @@ module internal CFGRecoveryCommon =
       StopAndReload
     else
       refuteOwnGuess ctx rules
-      checkOverlap ctx cfgRec postAnalysis
+      checkOverlap ctx cfgRec rules postAnalysis
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
     let sorted = deps |> Array.sortBy fst

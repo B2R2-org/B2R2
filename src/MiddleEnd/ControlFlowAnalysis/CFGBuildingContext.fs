@@ -68,6 +68,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let branchesPastBoundary = HashSet<Addr>()
 
+  let entriesPastBoundary = HashSet<Addr * int>()
+
   let mutable isGuessedEntry = false
 
   let jumpTables = Dictionary<Addr, JmpTableInfo>()
@@ -209,6 +211,13 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// was known. Finding one builds the function again without the code, which
   /// keeps them, as code may yet run into a branch there.
   member internal _.BranchesPastBoundary with get() = branchesPastBoundary
+
+  /// Entries of jump tables, as the address of the table and the index, that
+  /// sent the jump past where the next function starts, as the function took
+  /// in the code there before that function was known. Finding one builds the
+  /// function again without the code, which keeps them, so that it does so
+  /// once for each entry.
+  member internal _.EntriesPastBoundary with get() = entriesPastBoundary
 
   /// Whether the function starts only on the guess that a jump calls it as
   /// its tail, which its own code may refute once built.
