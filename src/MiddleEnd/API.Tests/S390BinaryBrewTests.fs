@@ -57,14 +57,13 @@ type S390BinaryBrewTests() =
     |> Array.map (fun e -> e.Second.VData.Internals.BlockAddress)
     |> Array.sort
 
-  /// Returns where the functions that the recovery finds in elf_s390x start,
-  /// once each of the given hex strings is written at its offset. Its symbol
-  /// table is hidden, so that only its call frame information, its entry and
-  /// its data tell of functions, frame_dummy returns right away, and
-  /// __do_global_dtors_aux calls nothing, so that nothing leads to
-  /// register_tm_clones, at 0x760, nor to deregister_tm_clones, at 0x730,
-  /// past which code resumes there.
-  static let findEntries (patches: (int * string) list) =
+  /// Recovers the functions of elf_s390x once each of the given hex strings is
+  /// written at its offset. Its symbol table is hidden, so that only its call
+  /// frame information, its entry and its data tell of functions, frame_dummy
+  /// returns right away, and __do_global_dtors_aux calls nothing, so that
+  /// nothing leads to register_tm_clones, at 0x760, nor to
+  /// deregister_tm_clones, at 0x730, past which code resumes there.
+  static let recoverPatched (patches: (int * string) list) =
     let bytes = readZippedBinary "elf_s390x"
     let patch (offset: int, hex: string) =
       (ByteArray.ofHexString hex).CopyTo(bytes, offset)
@@ -73,8 +72,13 @@ type S390BinaryBrewTests() =
     patch (0x7e6, "c00400000000") (* brasl %r14,0x730 -> brcl 0,0x7e6 *)
     List.iter patch patches
     let isa = ISA(Architecture.S390, Endian.Big, WordSize.Bit64)
-    let hdl = BinHandle.LoadFileBytes(bytes, isa)
-    Seq.toArray (BinaryBrew hdl).Functions.Addresses
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, isa)).Functions
+
+  /// Returns where the functions that the recovery finds in elf_s390x start,
+  /// once each of the given hex strings is written at its offset, as
+  /// recoverPatched recovers them.
+  static let findEntries patches =
+    Seq.toArray (recoverPatched patches).Addresses
 
   /// Returns the patches that make the word of .data that a relocation sets,
   /// at 0x2008, point to the given address: the addend of the relocation and
@@ -499,18 +503,58 @@ type S390BinaryBrewTests() =
 
   (* deregister_tm_clones calls frame_dummy where it returns this time, which
      calls abort as its tail, and code that sets up no frame lies right past
-     the call, as code does that a call returns to, which the recovery may yet
-     find of a callee of the binary that it took for one that never returns. *)
+     the call, which starts a function on the guess that the call never
+     returns, as the recovery finds of frame_dummy. *)
   [<TestMethod>]
   [<Timeout(10000)>]
-  member _.``Frameless code right past a call is no function``() =
+  member _.``Frameless code right past a call that never returns is one``() =
     let entries =
       findEntries
         [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
           0x800, "c0f4ffffff5c" (* jg 0x6b8: abort@plt *)
           0x750, "c0e500000058" (* brasl %r14,0x800 *)
           0x756, "a729000007fe" (* lghi %r2,0; br %r14 *) ]
-    CollectionAssert.DoesNotContain(entries, 0x756UL)
+    CollectionAssert.Contains(entries, 0x756UL)
+
+  (* deregister_tm_clones calls code right below register_tm_clones this time,
+     which jumps past __do_global_dtors_aux to code right past frame_dummy, so
+     that it returns nowhere until the recovery finds that a function starts
+     there, and the code right past the call is the rest of
+     deregister_tm_clones after all. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``Code past a call that turns out to return is no function``() =
+    let entries =
+      findEntries
+        [ 0x7e6, "c0e5ffffffa5" (* brasl %r14,0x730 *)
+          0x730, "c0e500000010" (* brasl %r14,0x750 *)
+          0x736, "a729000007fe" (* lghi %r2,0; br %r14 *)
+          0x73c, String.replicate 10 "0707" (* nopr %r7 *)
+          0x750, "c0f40000005c" (* jg 0x808 *)
+          0x756, String.replicate 5 "0707" (* nopr %r7 *)
+          0x802, String.replicate 2 "0707" (* nopr %r7 *)
+          0x808, "a729000107fe" (* lghi %r2,1; br %r14 *) ]
+    CollectionAssert.DoesNotContain(entries, 0x736UL)
+
+  (* deregister_tm_clones calls the code right below register_tm_clones as
+     above and then abort, which starts a function on a guess right past the
+     first call until the recovery finds that call to return, and main calls
+     deregister_tm_clones and then returns, which it never does. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A caller of code that runs into a guess never returns``() =
+    let fns =
+      recoverPatched
+        [ 0x730, "c0e500000010" (* brasl %r14,0x750 *)
+          0x736, "c0e5ffffffc1" (* brasl %r14,0x6b8: abort@plt *)
+          0x73c, String.replicate 10 "0707" (* nopr %r7 *)
+          0x750, "c0f40000005c" (* jg 0x808 *)
+          0x756, String.replicate 5 "0707" (* nopr %r7 *)
+          0x802, String.replicate 2 "0707" (* nopr %r7 *)
+          0x808, "a729000107fe" (* lghi %r2,1; br %r14 *)
+          0x810, "c0e5ffffff90" (* brasl %r14,0x730 *)
+          0x816, "a729000007fe" (* lghi %r2,0; br %r14 *) ]
+    Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x810UL].NoRet)
 
   (* deregister_tm_clones calls abort where it returns this time, which its name
      tells never to return, and code that sets up no frame lies right past the

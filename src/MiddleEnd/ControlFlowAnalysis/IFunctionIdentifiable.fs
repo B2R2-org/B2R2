@@ -46,3 +46,17 @@ and IIncrementalFunctionIdentifiable =
   /// Identify does, and an empty array once it finds no more. The functions
   /// are valid only during the call.
   abstract IdentifyMore: recovered: Function[] -> Addr[]
+
+/// Represents an incremental function identification strategy that also
+/// guesses where functions start in what the recovery has built, on what the
+/// recovery may yet find otherwise, such as code right past a call that never
+/// returns as far as the recovery knows. The recovery builds a function at
+/// each guess and gives it up once a function runs on into its code.
+and IGuessingFunctionIdentifiable =
+  inherit IIncrementalFunctionIdentifiable
+
+  /// Guesses where more functions start in the given functions, which
+  /// IdentifyMore takes in the same round, returning their addresses, and an
+  /// empty array once it guesses no more. The functions are valid only during
+  /// the call.
+  abstract GuessMore: recovered: Function[] -> Addr[]

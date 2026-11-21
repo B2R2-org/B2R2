@@ -56,9 +56,13 @@ type TaskScheduler<'FnCtx, 'GlCtx>
   let functionsAwaitingGaps = HashSet<Addr>()
 
   /// Functions that start only on the guess that the jumps to them call them
-  /// as their tail. A call or the identification proves one, which then is a
-  /// function like any other.
+  /// as their tail, or on a guess of the identification. A call or the
+  /// identification proves one, which then is a function like any other.
   let guessedEntries = HashSet<Addr>()
+
+  /// The guessed entries that the identification guessed, which no jump calls,
+  /// and which a function that runs on into their code refutes.
+  let identifiedGuesses = HashSet<Addr>()
 
   /// Addresses where a guess that a function starts has been given up. A jump
   /// there stays within its function, unless a call proves a function there
@@ -180,6 +184,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     builder.Invalidate()
     builders.Retire fnAddr
     guessedEntries.Remove fnAddr |> ignore
+    identifiedGuesses.Remove fnAddr |> ignore
     refutedEntries.Add fnAddr |> ignore
     for callerFnAddr in Array.append tempCallers confirmedCallers do
       let caller = builders[callerFnAddr]
@@ -236,6 +241,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       ()
     | Error _ ->
       guessedEntries.Remove addr |> ignore
+      identifiedGuesses.Remove addr |> ignore
 
   /// Checks if a function refuted the guess that a function starts at the
   /// given address while it was being built.
@@ -321,6 +327,7 @@ type TaskScheduler<'FnCtx, 'GlCtx>
         ()
     | _ ->
       guessedEntries.Remove addr |> ignore
+      identifiedGuesses.Remove addr |> ignore
 
   /// Tells whether a function that the identification finds at the given
   /// address is to be built: no builder starts there yet, or the one that a
@@ -331,17 +338,48 @@ type TaskScheduler<'FnCtx, 'GlCtx>
     | Ok builder -> builder.BuilderState = Initialized
     | Error _ -> true
 
+  /// Takes the code at the given address for a function on a guess of the
+  /// identification, telling whether it is to be built: no builder starts
+  /// there yet, and no guess there has been given up.
+  let isGuessToBuild addr =
+    if refutedEntries.Contains addr then
+      false
+    else
+      match builders.TryGetBuilder addr with
+      | Ok _ ->
+        false
+      | Error _ ->
+        guessedEntries.Add addr |> ignore
+        identifiedGuesses.Add addr |> ignore
+        true
+
+  /// Asks the identification for the functions that it guesses in the given
+  /// functions besides those that it finds, if it guesses any.
+  let guessMore (identification: IIncrementalFunctionIdentifiable) recovered =
+    match identification with
+    | :? IGuessingFunctionIdentifiable as guessing ->
+      guessing.GuessMore recovered
+      |> Array.map builders.RegisterEntry
+      |> Array.distinct
+      |> Array.filter isGuessToBuild
+    | _ ->
+      [||]
+
   /// Asks the identification for more functions in what has been built,
   /// keeping those that no builder starts at yet: a function that is built or
-  /// failed to be needs no second start.
+  /// failed to be needs no second start. The functions that it only guesses
+  /// follow.
   let identifyMore (identification: IIncrementalFunctionIdentifiable) =
-    builders.Values
-    |> Array.filter (fun builder -> builder.BuilderState = Finished)
-    |> Array.map (fun builder -> builder.ToFunction())
-    |> identification.IdentifyMore
-    |> Array.map builders.RegisterEntry
-    |> Array.distinct
-    |> Array.filter isToBuild
+    let recovered =
+      builders.Values
+      |> Array.filter (fun builder -> builder.BuilderState = Finished)
+      |> Array.map (fun builder -> builder.ToFunction())
+    let found =
+      identification.IdentifyMore recovered
+      |> Array.map builders.RegisterEntry
+      |> Array.distinct
+      |> Array.filter isToBuild
+    Array.append found (guessMore identification recovered)
 
   /// Finds the functions to build once every builder is done: those that the
   /// strategy asks for and, while it identifies, those that the identification
@@ -430,11 +468,14 @@ type TaskScheduler<'FnCtx, 'GlCtx>
 
   /// Gives up the guesses that no function calls as its tail any longer, once
   /// every builder is done, as the functions that did were built again since
-  /// without the jumps there. Giving up one may leave another uncalled.
+  /// without the jumps there. Giving up one may leave another uncalled. The
+  /// guesses of the identification, which no jump calls, stay.
   let rec giveUpUncalledGuesses () =
     let isUncalled addr =
-      dependenceMap.GetConfirmedCallers addr
-      |> Array.forall (fun caller -> builders[caller].BuilderState <> Finished)
+      not (identifiedGuesses.Contains addr)
+      && dependenceMap.GetConfirmedCallers addr
+         |> Array.forall (fun caller ->
+           builders[caller].BuilderState <> Finished)
     match guessedEntries |> Seq.filter isUncalled |> Seq.toArray with
     | [||] ->
       ()
@@ -620,14 +661,53 @@ type TaskScheduler<'FnCtx, 'GlCtx>
       (* invalid builder will be auto-reloaded later *)
       if builder.BuilderState = Invalid then () else rollback builder
 
+  /// Checks if the given builder has left out the code at the given address as
+  /// lying past where the next function starts, as its function runs on into
+  /// the code there.
+  let leavesOut (builder: ICFGBuildable<_, _>) addr =
+    builder.Context.BlocksPastBoundary
+    |> Seq.exists (fun range -> range.IsIncluding addr)
+
+  /// Finds the guess of the identification that bounds the function of the
+  /// given builder, if the function runs on into it, as a function does that
+  /// calls one which the recovery has found to return since the guess.
+  let tryFindRunIntoGuess (builder: ICFGBuildable<_, _>) =
+    match builder.NextFunctionAddress with
+    | Some next
+      when identifiedGuesses.Contains next && leavesOut builder next ->
+      Some next
+    | _ ->
+      None
+
+  /// Gives up the given guess of the identification, which the function of the
+  /// given builder runs on into, and builds the function again to take in the
+  /// code there, before the given result counts. The function keeps what it
+  /// found of its return before, which its callers know, to compare it with
+  /// what it finds this time.
+  let rebuildPastGuess (builder: ICFGBuildable<_, _>) guess result =
+    match result with
+    | MoveOnButReloadCallers prevStatus ->
+      builder.Context.NonReturningStatus <- prevStatus
+    | _ ->
+      ()
+    refuteEntry guess
+    restartBuilder builder
+
   /// Handles the result of a builder, or gives up the guess that a function
-  /// starts where it does, which a function refuted while it was building.
+  /// starts where it does, which a function refuted while it was building, or
+  /// which the function of the builder runs on into.
   let handleResultOrGiveUp entryPoint result =
+    let builder = builders[entryPoint]
     if isRefutedGuess entryPoint then
       workingSet.Remove entryPoint |> ignore
-      giveUpGuess builders[entryPoint]
+      giveUpGuess builder
     else
-      handleResult entryPoint result
+      match tryFindRunIntoGuess builder, result with
+      | Some guess, (MoveOn | MoveOnButReloadCallers _) ->
+        workingSet.Remove entryPoint |> ignore
+        rebuildPastGuess builder guess result
+      | _ ->
+        handleResult entryPoint result
 
   /// Handles the result of a builder, unless the recovery has been aborted.
   let reportResult entryPoint result =

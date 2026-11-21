@@ -49,7 +49,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 /// the identification finds in what the recovery builds, and for where code
 /// resumes past a recovered function, past the nops and the templates of EXRL
 /// that follow it, as nothing else leads to a function that nothing calls or
-/// points to.
+/// points to. Where the function ends with a call to a function of the binary
+/// that the recovery takes never to return, a function starts there only on a
+/// guess, as the recovery may yet find the callee to return, which runs the
+/// caller on into the code there.
 type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -301,11 +304,9 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   /// Returns where code resumes past each of the given functions: past the end
   /// of its code and the padding there, before the next entry, where no code
-  /// of a function at or before it reaches, nor its code jumps to, as it does
-  /// to a block of its own that the recovery has yet to build. Nothing else
-  /// leads to a function that nothing calls or points to, such as one that
-  /// only calls itself.
-  let findNextStarts internals =
+  /// of a function at or before it reaches, along with the function, what the
+  /// recovery has built of it, and where that ends.
+  let findResumes internals =
     withNextEntries internals
     |> Array.fold (fun (reach, starts) (fn: Function, next) ->
       let built = findBuiltCode fn
@@ -320,9 +321,46 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       | None ->
         reach, starts) (0UL, [])
     |> snd
+
+  /// Returns where code resumes past each of the given functions, as
+  /// findResumes finds, where the code shows a function starting and the code
+  /// of the function does not jump, as it does to a block of its own that the
+  /// recovery has yet to build. Nothing else leads to a function that nothing
+  /// calls or points to, such as one that only calls itself.
+  let findNextStarts internals =
+    findResumes internals
     |> List.filter (fun (fn, built, codeEnd, start) ->
       isCodePointer start
       && showsEntryPast fn codeEnd start
+      && not (jumpsAhead fn.EntryPoint built start))
+    |> List.map (fun (_, _, _, start) -> start)
+    |> List.toArray
+
+  /// Tells whether the code that the recovery has built for the function ends
+  /// at the given address with a call that returns nowhere in it, as the
+  /// recovery takes the callee never to return there.
+  let endsInCallAt (fn: Function) codeEnd =
+    fn.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && bbl.Range.Max + 1UL = codeEnd
+      && bbl.LastInstruction.IsCall
+      && fn.CFG.GetSuccs v
+         |> Array.forall (fun w ->
+           w.VData.Internals.IsAbstract && Array.isEmpty (fn.CFG.GetSuccs w)))
+
+  /// Returns where code resumes past each of the given functions, as
+  /// findResumes finds, where the code would show a function starting, were
+  /// the call that ends the code of the function never to return, as the
+  /// recovery takes it, though it may yet find the callee to return.
+  let guessNextStarts internals =
+    findResumes internals
+    |> List.filter (fun (fn, built, codeEnd, start) ->
+      isCodePointer start
+      && not (showsEntryPast fn codeEnd start)
+      && endsInCallAt fn codeEnd
+      && S390Code.showsEntryPastFlowEnd lu start
       && not (jumpsAhead fn.EntryPoint built start))
     |> List.map (fun (_, _, _, start) -> start)
     |> List.toArray
@@ -340,3 +378,9 @@ type S390FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       |> Array.filter (fun addr -> isCodePointer addr && showsEntry addr)
       |> Array.append (findNextStarts internals)
       |> Array.distinct
+
+  interface IGuessingFunctionIdentifiable with
+    member _.GuessMore recovered =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> guessNextStarts
