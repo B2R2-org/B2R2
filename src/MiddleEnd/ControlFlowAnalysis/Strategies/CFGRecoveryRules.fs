@@ -208,6 +208,13 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * IVertex<LowUIRBasicBlock>
     -> bool
 
+  /// Checks if the code past the direct call that ends the given vertex
+  /// refutes that the call returns there.
+  abstract RefutesReturn:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> bool
+
   /// Checks if the entries of a jump table that point to the given target are
   /// holes, which lead to no code.
   abstract IsJumpTableHole:
@@ -280,6 +287,10 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Takes no indirect jump for a return, as a return instruction tells one.
   default _.ReturnsThroughLink(_, _) = false
 
+  /// Leaves the return of a direct call to what the recovery finds of its
+  /// callee.
+  default _.RefutesReturn(_, _) = false
+
   /// Takes no target for a hole, leaving the padding at the end of a function
   /// to the recovery itself.
   default _.IsJumpTableHole(_, _) = false
@@ -332,6 +343,8 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       this.TryJudgeIndirectReturn(ctx, caller)
 
     member this.ReturnsThroughLink(ctx, v) = this.ReturnsThroughLink(ctx, v)
+
+    member this.RefutesReturn(ctx, v) = this.RefutesReturn(ctx, v)
 
     member this.IsJumpTableHole(ctx, target) =
       this.IsJumpTableHole(ctx, target)

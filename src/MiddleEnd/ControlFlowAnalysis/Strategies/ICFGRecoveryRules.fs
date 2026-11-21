@@ -132,6 +132,14 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * IVertex<LowUIRBasicBlock>
     -> bool
 
+  /// Checks if the code past the direct call that ends the given vertex
+  /// refutes that the call returns there, whatever its callee does, as no code
+  /// that a call returns to reads as that code does.
+  abstract RefutesReturn:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> bool
+
   /// Checks if the entries of a jump table that point to the given target are
   /// holes, which lead to no code. A compiler points the entries of the cases
   /// that never come to the end of their function, and what lies there besides

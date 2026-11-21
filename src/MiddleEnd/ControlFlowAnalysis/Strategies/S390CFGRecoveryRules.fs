@@ -144,6 +144,24 @@ module private S390CFGRecoveryRules =
     | Error _ ->
       false
 
+  /// Checks if the call that ends the given vertex saves the address past it
+  /// in R14, while code that saves R14 and R15 where R15 points lies right
+  /// past the call, past any padding, as a function starts there. Code that
+  /// the call returns to has no use for saving what the call leaves in R14,
+  /// as R14 no longer tells where its function returns.
+  let callsBeforeSave (ctx: CFGBuildingContext<_, _>) v =
+    let bbl = (v: IVertex<LowUIRBasicBlock>).VData.Internals
+    let ins = bbl.LastInstruction
+    if ins.IsCall && not (branchesOverLiterals ctx bbl) then
+      let lu = ctx.ScanningUnit
+      let past = ins.Address + uint64 ins.Length
+      let next = S390Code.skipPadding lu past System.UInt64.MaxValue
+      match lu.TryParseInstruction next with
+      | Ok nextIns -> storesLinkAndStack (nextIns :?> S390.Instruction)
+      | Error _ -> false
+    else
+      false
+
 /// Represents the rules of the CFG recovery for S390: the rules of every
 /// architecture, except that an indirect jump returns where it goes to the
 /// address that the caller left in R14, and that a jump table ends where the
@@ -167,7 +185,10 @@ module private S390CFGRecoveryRules =
 /// pool lies. A jump to code that no code runs into and that starts by saving
 /// R14 and R15 may call a function there as its tail, as clang lays a function
 /// that only such jumps lead to right past the one that jumps to it, before
-/// the recovery knows of the next function.
+/// the recovery knows of the next function. A call right before code that
+/// saves R14 and R15 never returns there, whatever its callee does, as clang
+/// lays a function right past a call to error with a status that it knows is
+/// not zero, where the recovery may not tell.
 type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -196,6 +217,8 @@ type internal S390CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       TentativeTailCall
     | judgment ->
       judgment
+
+  override _.RefutesReturn(ctx, v) = callsBeforeSave ctx v
 
   override this.FindFunctionsToRebuild builders =
     findFunctionsMissingTailCalls this builders

@@ -64,14 +64,14 @@ module private CFGRecovery =
       dbglog ctx.ThreadID (nameof MakeCall)
       <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-      connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo false
+      connectCallEdge ctx cfgRec rules callSite calleeAddr calleeInfo false
     | MakeTlCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeTlCall)
       <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
       if isGivenUpGuess ctx calleeAddr then StopAndReload
-      else connectCallEdge ctx cfgRec callSite calleeAddr calleeInfo true
+      else connectCallEdge ctx cfgRec rules callSite calleeAddr calleeInfo true
     | MakeIndCall(callsiteAddr) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID (nameof MakeIndCall)

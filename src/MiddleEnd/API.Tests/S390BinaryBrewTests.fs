@@ -169,6 +169,32 @@ type S390BinaryBrewTests() =
     let expected = ConditionalNoRet(ArgLocation.Reg r2)
     Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
+  (* The function passes error_tail a status that it reads, and a function that
+     saves R14 lies right past the call, which tells that the call never
+     returns there, as the call leaves in R14 what it returns to. *)
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``A call right before code that saves the link never returns``() =
+    let fns =
+      recoverCode
+        [ "e32030000014" (* lgf %r2,0(%r3) *)
+          "c0e50000000d" (* brasl %r14,0x20 *)
+          "ebeff0700024" (* 0x0c: stmg %r14,%r15,112(%r15) *)
+          "a7290000" (* lghi %r2,0 *)
+          "ebeff0700004" (* lmg %r14,%r15,112(%r15) *)
+          "07fe" (* br %r14 *)
+          "0707" (* nopr %r7 *)
+          "ebeff0700024" (* 0x20: stmg %r14,%r15,112(%r15) *)
+          "a7fbff60" (* aghi %r15,-160 *)
+          "ec26000a007e" (* cijlh %r2,0,0x3e *)
+          "e340f1100004" (* lg %r4,272(%r15) *)
+          "ebeff1100004" (* lmg %r14,%r15,272(%r15) *)
+          "07f4" (* br %r4 *)
+          "c0e500000003" (* 0x3e: brasl %r14,0x44 *)
+          "a7f40000" (* 0x44: j 0x44 *) ]
+    Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x0UL].NoRet)
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0xcUL)
+
   (* The function branches past the function that it calls, which it learns
      starts there only once it has taken in the code past it, as a function
      does that takes in the code of the next one before that one is known. *)

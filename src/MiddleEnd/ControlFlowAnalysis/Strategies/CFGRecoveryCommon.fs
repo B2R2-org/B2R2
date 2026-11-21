@@ -914,6 +914,7 @@ module internal CFGRecoveryCommon =
 
   let connectCallEdge ctx
                       (cfgRec: ICFGRecovery<_, _>)
+                      (rules: ICFGRecoveryRules<_, _>)
                       callsiteAddr
                       callee
                       calleeInfo
@@ -938,6 +939,8 @@ module internal CFGRecoveryCommon =
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
       |> toCFGResult
+    elif rules.RefutesReturn(ctx, caller) then
+      connectCallWithoutFT ctx cfgRec caller callee calleeInfo
     else
       match calleeInfo.Status with
       | NoRet ->
