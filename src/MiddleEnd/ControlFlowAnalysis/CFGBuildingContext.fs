@@ -110,11 +110,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// instructions, and the delay slot of the last one, which runs with it.
   let coveredRange (v: IVertex<LowUIRBasicBlock>) =
     let range = v.VData.Internals.Range
-    match v.VData.Internals.LastInstruction with
-    | :? MIPS.Instruction as ins ->
-      AddrRange.create range.Min (ins.FallThroughAddress - 1UL)
-    | _ ->
-      range
+    let last = v.VData.Internals.LastInstruction
+    AddrRange.create range.Min (last.Address + uint64 last.Extent - 1UL)
 
   /// The address of the function that is being built.
   member _.FunctionAddress with get(): Addr = entryPoint
