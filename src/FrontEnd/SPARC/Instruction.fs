@@ -116,14 +116,18 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
     | _ ->
       false
 
-  (* RESTORE in the delay slot of a call turns the window back to the caller,
-     whose %o7 holds the address the caller returns to, and a leaf moves that
-     address back into %o7 itself: either way the callee returns where the
-     caller would have, so the call is the last thing the caller does. *)
+  (* RESTORE in the delay slot of a transfer turns the window back to the
+     caller, whose %o7 holds the address the caller returns to, and a leaf
+     moves that address back into %o7 in the slot of a call, over the link of
+     the call: either way the code that the transfer goes to returns where the
+     caller would have, so the transfer is the last thing the caller does. A
+     branch may move into %o7 for any end, as %o7 links nothing it makes. *)
   let passesReturnAddress () =
     match delaySlot with
-    | Some slot -> slot.Opcode = Opcode.RESTORE || movesIntoO7 slot
-    | None -> false
+    | Some slot ->
+      slot.Opcode = Opcode.RESTORE || (linksO7 () && movesIntoO7 slot)
+    | None ->
+      false
 
   let isCall () = linksO7 () && not (passesReturnAddress ())
 
@@ -200,6 +204,13 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
   member _.DelaySlot
     with get(): Instruction option = delaySlot
      and internal set v = delaySlot <- v
+
+  /// Whether this transfer hands the code it goes to the return address of
+  /// the caller, which it does by restoring the window in its delay slot, or
+  /// as a call, by moving an address into %o7 there: the code then returns
+  /// where the caller would have.
+  member _.PassesReturnAddress with get(): bool =
+    isTransfer () && passesReturnAddress ()
 
   /// Lifts this instruction into the statements the builder holds.
   member internal this.LiftInto(builder: LowUIRBuilder) =

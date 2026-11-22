@@ -46,6 +46,10 @@ type SPARCBinaryBrewTests() =
     (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x6a8)
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "sparc64")).Functions
 
+  /// Returns the entries of the given functions, in order.
+  static let entriesOf (fns: FunctionCollection) =
+    fns.Sequence |> Seq.map _.EntryPoint |> Seq.sort |> Seq.toArray
+
   /// Returns the addresses of the blocks of the function, in order.
   static let blocksOf (fn: Function) =
     fn.CFG.Vertices
@@ -181,3 +185,26 @@ type SPARCBinaryBrewTests() =
           "90102001" (* 0x6e8: mov 1, %o0 *) ]
     let entries = fns[0x6a8UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* A jump that restores the window in its delay slot, as GCC calls a
+     function as its tail, and a call that does, as clang does, hand the code
+     they go to the return address of their caller, so a function starts
+     there even where nothing else tells so, rather than more of main. *)
+  [<TestMethod>]
+  member _.``A transfer that restores the window calls its tail``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "80a62000" (* 0x04: cmp %i0, 0 *)
+          "02480004" (* 0x08: be %icc, 0x18 *)
+          "01000000" (* 0x0c: nop *)
+          "10800004" (* 0x10: b 0x20 *)
+          "81e80000" (* 0x14: restore *)
+          "40000004" (* 0x18: call 0x28 *)
+          "81e80000" (* 0x1c: restore *)
+          "81c3e008" (* 0x20: retl *)
+          "90102001" (* 0x24: mov 1, %o0 *)
+          "81c3e008" (* 0x28: retl *)
+          "90102002" (* 0x2c: mov 2, %o0 *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x20UL; 0x28UL |], entriesOf fns)
+    CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x18UL |], blocksOf fns[0x0UL])

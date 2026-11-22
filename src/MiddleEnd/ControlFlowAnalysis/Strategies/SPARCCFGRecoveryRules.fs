@@ -25,6 +25,18 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open B2R2.FrontEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
+
+[<AutoOpen>]
+module private SPARCCFGRecoveryRules =
+  /// Checks if the transfer at the given address hands the code it goes to
+  /// the return address of the caller of the function.
+  let passesReturnAddress (ctx: CFGBuildingContext<_, _>) addr =
+    match ctx.BBLFactory.PeekInstruction addr with
+    | Ok ins -> (ins :?> SPARC.Instruction).PassesReturnAddress
+    | Error _ -> false
+
 /// Represents the rules of the CFG recovery for SPARC: the rules of every
 /// architecture, except that a jump table ends where the range check right
 /// before its indirect branch says, or where a mask on its index does. GCC
@@ -32,9 +44,19 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 /// from the code, and reaches each through a register, which PIC code builds
 /// from the GOT, so neither the entries nor the code end a table before the
 /// next one, whose entries read as ones of the first, counted from its base.
+/// A jump that restores the window in its delay slot, or a call that moves the
+/// return address of its caller into %o7 there, calls the code it goes to as
+/// its tail, whether a function is known to start there yet or not, as the
+/// code there returns where the caller would have.
 type internal SPARCCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.EndsJumpTableBefore(_, jmptbl, idx) =
     let isPast = Option.exists (fun n -> idx >= n)
     isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries
+
+  override _.JudgeTailCall(ctx, jmpAddr, target) =
+    if target <> ctx.FunctionAddress && passesReturnAddress ctx jmpAddr then
+      TailCall
+    else
+      base.JudgeTailCall(ctx, jmpAddr, target)

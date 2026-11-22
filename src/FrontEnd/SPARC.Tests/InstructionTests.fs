@@ -76,6 +76,25 @@ type InstructionTests() =
     let ins = parse 0xab74UL "400489db82100001" (* call free; mov %g1, %g1 *)
     Assert.AreEqual<bool>(true, ins.IsCall)
 
+  (* GCC calls a function as its tail with a branch that restores the window,
+     clang with a call that does or that moves the return address back into
+     %o7, while GCC moves into %o7 in the slot of a branch for any end. *)
+  [<TestMethod>]
+  member _.``[SPARC] A Tail Transfer Passes The Return Address Test``() =
+    let passes addr hex = (parse addr hex :?> Instruction).PassesReturnAddress
+    (* b fflush_unlocked; restore *)
+    Assert.AreEqual<bool>(true, passes 0x49fcUL "1084975981e80000")
+    (* call 0x15410; restore *)
+    Assert.AreEqual<bool>(true, passes 0x6c7cUL "400039e581e80000")
+    (* call free; mov %g1, %o7 *)
+    Assert.AreEqual<bool>(true, passes 0xab74UL "400489db9e100001")
+    (* b 0x1010; mov %g1, %o7 *)
+    Assert.AreEqual<bool>(false, passes 0x1000UL "108000049e100001")
+    (* call 0x6f00; or %l7, 0x30, %l7 *)
+    Assert.AreEqual<bool>(false, passes 0x6bd0UL "400000ccae15e030")
+    (* restore *)
+    Assert.AreEqual<bool>(false, passes 0x6bfcUL "81e80000")
+
   [<TestMethod>]
   member _.``[SPARC] A Function Returns 8 Past Its Link Test``() =
     for addr, hex in [| 0x6bf8UL, "81c7e00881e80000" (* ret; restore *)
