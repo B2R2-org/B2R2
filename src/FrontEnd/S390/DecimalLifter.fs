@@ -75,7 +75,7 @@ let private loadBytes bld addr len =
   let bytes = Array.init len (fun _ -> tmpVar bld 8<rt>)
   append bld {
     for i in 0 .. len - 1 do
-      bytes[i] := loadMem 8<rt> (addr .+ numG (int64 i))
+      bytes[i] := loadMem 8<rt> (addr .+ numR bld (int64 i))
   }
   bytes
 
@@ -100,8 +100,8 @@ let private packedSign bytes = byteFromRight bytes 0 |> loNibble
 
 /// The addresses of two storage operands, each held in a temporary.
 let private twoAddrs bld o1 o2 =
-  let a1 = tmpVar bld GRSize
-  let a2 = tmpVar bld GRSize
+  let a1 = tmpVar bld (grSize bld)
+  let a2 = tmpVar bld (grSize bld)
   append bld {
     a1 := transMem bld o1
     a2 := transMem bld o2
@@ -135,7 +135,7 @@ let private storePacked bld addr len v =
     m := negWhen neg v
     ovf := m .>= pow10 (2 * len - 1)
     for k in 0 .. len - 1 do
-      let a = addr .+ numG (int64 (len - 1 - k))
+      let a = addr .+ numR bld (int64 (len - 1 - k))
       if k = 0 then
         let sign = AST.ite neg (numI32 0xd 8<rt>) (numI32 0xc 8<rt>)
         storeMem a (toHigh (AST.xtlo 8<rt> (m .% ten)) .| sign)
@@ -237,7 +237,7 @@ let divide ins bld =
       q := v1 ?/ v2
       r := v1 ?% v2
       storePacked bld a1 (l1 - l2) q |> ignore
-      storePacked bld (a1 .+ numG (int64 (l1 - l2))) l2 r |> ignore
+      storePacked bld (a1 .+ numR bld (int64 (l1 - l2))) l2 r |> ignore
     }
 
 /// The loop of SHIFT AND ROUND DECIMAL: one digit per pass, multiplying by
@@ -282,7 +282,7 @@ let shiftAndRound ins bld =
   lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let len = lenOfMem o1
-    let a1 = tmpVar bld GRSize
+    let a1 = tmpVar bld (grSize bld)
     let count = tmpVar bld GRSize
     let right = tmpVar bld 1<rt>
     let neg = tmpVar bld 1<rt>
@@ -307,7 +307,7 @@ let shiftAndRound ins bld =
 let testDecimal ins bld =
   lift bld (ins: Instruction) {
     let o = getOneOpr ins
-    let a = tmpVar bld GRSize
+    let a = tmpVar bld (grSize bld)
     a := transMem bld o
     let bytes = loadBytes bld a (lenOfMem o)
     let badDigit =
@@ -325,7 +325,7 @@ let testDecimal ins bld =
 let convertToBinary ins bld rt =
   lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
-    let a = tmpVar bld GRSize
+    let a = tmpVar bld (grSize bld)
     a := transMem bld o2
     let v = loadPacked bld a (if rt = GRSize then 16 else 8)
     let r = oprRegVar bld o1
@@ -337,7 +337,7 @@ let convertToBinary ins bld rt =
 let convertToDecimal ins bld rt =
   lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
-    let a = tmpVar bld GRSize
+    let a = tmpVar bld (grSize bld)
     a := transMem bld o2
     let v = AST.sext DecSize (narrowTo rt (oprRegVar bld o1))
     storePacked bld a (if rt = GRSize then 16 else 8) v |> ignore
@@ -357,7 +357,7 @@ let pack ins bld =
       let b =
         if k = 0 then toHigh (digit 0) .| hiNibble (byteFromRight src 0)
         else toHigh (digit (2 * k)) .| digit (2 * k - 1)
-      storeMem (a1 .+ numG (int64 (l1 - 1 - k))) b
+      storeMem (a1 .+ numR bld (int64 (l1 - 1 - k))) b
   }
 
 /// UNPACK: the digits of the packed second operand go one to a byte into the
@@ -373,7 +373,7 @@ let unpack ins bld =
       let b =
         if k = 0 then toHigh (packedSign src) .| nibbleFromRight src 1
         else numI32 0xf0 8<rt> .| nibbleFromRight src (k + 1)
-      storeMem (a1 .+ numG (int64 (l1 - 1 - k))) b
+      storeMem (a1 .+ numR bld (int64 (l1 - 1 - k))) b
   }
 
 /// PACK ASCII and PACK UNICODE: the low half of each character of the second
@@ -390,7 +390,7 @@ let packChars ins bld charSize =
       let b =
         if k = 0 then toHigh (digit 1) .| numI32 0xc 8<rt>
         else toHigh (digit (2 * k + 1)) .| digit (2 * k)
-      storeMem (a1 .+ numG (int64 (15 - k))) b
+      storeMem (a1 .+ numR bld (int64 (15 - k))) b
   }
 
 /// UNPACK ASCII and UNPACK UNICODE: the thirty-one digits of a sixteen-byte
@@ -404,11 +404,11 @@ let unpackChars ins bld charSize =
     let l1 = lenOfMem o1
     let src = loadBytes bld a2 16
     for c in 0 .. l1 / charSize - 1 do
-      let a = a1 .+ numG (int64 (l1 - (c + 1) * charSize))
+      let a = a1 .+ numR bld (int64 (l1 - (c + 1) * charSize))
       let d = numI32 0x30 8<rt> .| nibbleFromRight src (c + 1)
       if charSize = 2 then
         storeMem a (AST.num0 8<rt>)
-        storeMem (a .+ numG 1L) d
+        storeMem (a .+ numR bld 1L) d
       else
         storeMem a d
     let s = packedSign src
@@ -429,8 +429,8 @@ type private EditState =
     Nonzero: Expr }
 
 let private newEditState bld =
-  { Pattern = tmpVar bld GRSize
-    Source = tmpVar bld GRSize
+  { Pattern = tmpVar bld (grSize bld)
+    Source = tmpVar bld (grSize bld)
     LowNext = tmpVar bld 1<rt>
     Fill = tmpVar bld 8<rt>
     Signif = tmpVar bld 1<rt>
@@ -468,13 +468,13 @@ let private editDigit bld (st: EditState) c d mark adv =
     AST.cjmp (d .> numI32 9 8<rt>) (AST.jmpDest skipSign) (AST.jmpDest setLow)
     AST.lmark skipSign
     st.Signif := AST.ite (isMinus d) st.Signif AST.b0
-    st.Source := st.Source .+ numG 1L
+    st.Source := st.Source .+ numR bld 1L
     AST.jmp (AST.jmpDest adv)
     AST.lmark setLow
     st.LowNext := AST.b1
     AST.jmp (AST.jmpDest adv)
     AST.lmark loDone
-    st.Source := st.Source .+ numG 1L
+    st.Source := st.Source .+ numR bld 1L
     st.LowNext := AST.b0
     AST.jmp (AST.jmpDest adv)
   }
@@ -514,7 +514,7 @@ let private editLoop bld (st: EditState) len mark =
     AST.lmark digit
     editDigit bld st c d mark adv
     AST.lmark adv
-    st.Pattern := st.Pattern .+ numG 1L
+    st.Pattern := st.Pattern .+ numR bld 1L
     i := i .+ numG 1L
     AST.cjmp (i == numG (int64 len)) (AST.jmpDest out) (AST.jmpDest body)
     AST.lmark out
@@ -536,7 +536,7 @@ let edit ins bld mark =
     st.Signif := AST.b0
     st.LowNext := AST.b0
     st.Nonzero := AST.b0
-    st.Pattern := st.Pattern .+ numG 1L
+    st.Pattern := st.Pattern .+ numR bld 1L
     if len > 1 then editLoop bld st len mark else ()
     let sign = AST.ite st.Signif (numCC 1) (numCC 2)
     ccVar bld := AST.ite st.Nonzero sign (numCC 0)

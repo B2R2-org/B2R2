@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -913,6 +914,7 @@ module internal CFGRecoveryCommon =
 
   let connectCallEdge ctx
                       (cfgRec: ICFGRecovery<_, _>)
+                      (rules: ICFGRecoveryRules<_, _>)
                       callsiteAddr
                       callee
                       calleeInfo
@@ -937,6 +939,8 @@ module internal CFGRecoveryCommon =
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
       |> toCFGResult
+    elif rules.RefutesReturn(ctx, caller) then
+      connectCallWithoutFT ctx cfgRec caller callee calleeInfo
     else
       match calleeInfo.Status with
       | NoRet ->
@@ -1146,11 +1150,17 @@ module internal CFGRecoveryCommon =
     else
       MoveOn (* We ignore this indirect branch. *)
 
+  /// Reads the target of the entry at the given index of the given table,
+  /// unless the rules of the architecture end the table before it.
+  let tryReadTableTarget ctx (rules: ICFGRecoveryRules<_, _>) jmptbl idx =
+    if rules.EndsJumpTableBefore(ctx, jmptbl, idx) then None
+    else JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx
+
   /// Starts recovering the given table from its first entry, unless the slot
-  /// of that entry holds none, in which case no table starts there.
-  let startJmpTblRecovery ctx queue jmptbl =
-    let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
-    match JmpTableInfo.tryReadTarget hdl jmptbl 0 with
+  /// of that entry holds none, or the rules of the architecture end the table
+  /// before it, in which case no table starts there.
+  let startJmpTblRecovery ctx rules queue jmptbl =
+    match tryReadTableTarget ctx rules jmptbl 0 with
     | Some targetAddr ->
       pushJmpTblRecoveryAction ctx queue jmptbl 0 targetAddr
     | None ->
@@ -1163,11 +1173,11 @@ module internal CFGRecoveryCommon =
   /// folded the smallest index into its address, so it may start right after
   /// those entries instead. We move it there once, if the conditional jumps on
   /// every path to its indirect branch say so, and ignore the branch if not.
-  let rec notifyRecovery ctx jmptblAnalysis queue jmptbl canMove =
+  let rec notifyRecovery ctx rules jmptblAnalysis queue jmptbl canMove =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     match ctx.JumpTableChannel.NotifyRecovery(fnAddr, jmptbl) with
     | GoRecovery ->
-      startJmpTblRecovery ctx queue jmptbl
+      startJmpTblRecovery ctx rules queue jmptbl
     | StopRecoveryButReload ->
       StopAndReload
     | StopRecoveryAndContinue ->
@@ -1180,17 +1190,18 @@ module internal CFGRecoveryCommon =
         <| $"{jmptbl.InsAddr:x}: moved to [{tableEnd:x}]"
 #endif
         let jmptbl = { jmptbl with TableAddress = tableEnd }
-        notifyRecovery ctx jmptblAnalysis queue jmptbl false
+        notifyRecovery ctx rules jmptblAnalysis queue jmptbl false
       else
         MoveOn (* We ignore this indirect branch. *)
     | Overlapping _ ->
       MoveOn
 
-  /// Recovers the indirect branch at the given address. A branch whose analysis
-  /// fails is read again once nothing else is left to do, as the data flow of
-  /// the CFG built so far may lack the paths that give its index its values,
-  /// such as those past a call that the function waits to learn returns.
-  let recoverIndirectBranches ctx jmptblAnalysis queue insAddr =
+  /// Recovers the jump table that the indirect branch at the given address
+  /// jumps through. A branch whose analysis fails is read again once nothing
+  /// else is left to do, as the data flow of the CFG built so far may lack the
+  /// paths that give its index its values, such as those past a call that the
+  /// function waits to learn returns.
+  let recoverJumpTable ctx rules jmptblAnalysis queue insAddr =
     let analysis: IJmpTableAnalyzable<_, _> = jmptblAnalysis
     match analysis.Identify(ctx, insAddr) with
     | Ok(jmptbl) ->
@@ -1200,7 +1211,7 @@ module internal CFGRecoveryCommon =
 #endif
       match tryFindSelfDefeatingEntry ctx analysis jmptbl with
       | Some entry -> blameEntry ctx entry
-      | None -> notifyRecovery ctx jmptblAnalysis queue jmptbl true
+      | None -> notifyRecovery ctx rules jmptblAnalysis queue jmptbl true
     | Error _ ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable" $"{insAddr:x} unknown pattern"
@@ -1208,11 +1219,30 @@ module internal CFGRecoveryCommon =
       pushAction ctx <| RetryIndEdges(insAddr, ctx.CFG.EdgeCount)
       MoveOn (* We ignore this indirect branch for now. *)
 
+  /// Recovers the indirect branch at the given address, unless it returns to
+  /// the caller through the link that the caller left, which leads nowhere
+  /// within the function, or it lies past where the next function starts for
+  /// the first time. The function took in the code of the branch before that
+  /// function was known, so it builds again without the code, and leaves the
+  /// table of the branch to the function that the branch lies in: a rollback
+  /// of its first entry here would mark it as a phantom for every function.
+  let recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr =
+    let rules: ICFGRecoveryRules<_, _> = rules
+    match tryGetCallerVertex ctx (LeafCallSite insAddr) with
+    | Some v when rules.ReturnsThroughLink(ctx, v) ->
+      ctx.LinkReturns.Add insAddr |> ignore
+      MoveOn
+    | _ when not (isWithinFunction ctx ctx.FunctionAddress insAddr)
+             && ctx.BranchesPastBoundary.Add insAddr ->
+      StopAndReload
+    | _ ->
+      recoverJumpTable ctx rules jmptblAnalysis queue insAddr
+
   /// Recovers the indirect branch at the given address again if the CFG has
   /// gained edges since its analysis failed with the given number of them.
-  let retryIndirectBranches ctx jmptblAnalysis queue insAddr numEdges =
+  let retryIndirectBranches ctx rules jmptblAnalysis queue insAddr numEdges =
     if (ctx: CFGBuildingContext<_, _>).CFG.EdgeCount > numEdges then
-      recoverIndirectBranches ctx jmptblAnalysis queue insAddr
+      recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr
     else
       MoveOn
 
@@ -1330,12 +1360,6 @@ module internal CFGRecoveryCommon =
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge
       |> toCFGResult
 
-  /// Reads the target of the entry at the given index of the given table,
-  /// unless the rules of the architecture end the table before it.
-  let tryReadTableTarget ctx (rules: ICFGRecoveryRules<_, _>) jmptbl idx =
-    if rules.EndsJumpTableBefore(ctx, jmptbl, idx) then None
-    else JmpTableInfo.tryReadTarget ctx.BinHandle jmptbl idx
-
   let sendJmpTblRecoverySuccess ctx rules queue jmptbl idx =
     let fnAddr = (ctx: CFGBuildingContext<_, _>).FunctionAddress
     let tblAddr = jmptbl.TableAddress
@@ -1394,7 +1418,7 @@ module internal CFGRecoveryCommon =
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else
-        v.VData.Internals.LastInstruction.IsRET)
+        ctx.Returns v.VData.Internals)
     |> Option.isSome
 
   /// Checks if a block of the function runs on into the given entry, where an
@@ -1452,9 +1476,42 @@ module internal CFGRecoveryCommon =
     | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
     | _ -> MoveOn
 
+  /// Checks if the given entry of the given table sends the jump to what the
+  /// function by now takes for a hole, such as where the next function starts,
+  /// as clang lays the label of an unreachable default there, the first time
+  /// the entry does so. The function took in the code there as its own before
+  /// it learned that a function starts there, which tells nothing wrong of
+  /// the entry.
+  let firstLeadsToHole (ctx: CFGBuildingContext<_, _>) rules tblAddr idx =
+    match ctx.JumpTables.TryGetValue tblAddr with
+    | true, jmptbl ->
+      match tryReadTableTarget ctx rules jmptbl idx with
+      | Some target ->
+        isHoleTarget ctx rules (isFuncEntryPoint ctx target) target
+        && ctx.EntriesPastBoundary.Add((tblAddr, idx))
+      | None ->
+        false
+    | false, _ ->
+      false
+
+  /// Checks if the given vertex, which the given entry of a jump table led to,
+  /// starts where a function does, the first time the entry leads there. The
+  /// code that the entry sends the jump to jumps there, which the function
+  /// took in as its own before it learned that a function starts there, as
+  /// clang lays a function that only a jump leads to right past the one that
+  /// jumps to it. Built again, the function calls that one as its tail there,
+  /// which tells nothing wrong of the entry.
+  let firstLeadsToFunction ctx (v: IVertex<LowUIRBasicBlock>) entry =
+    isFuncEntryPoint ctx v.VData.Internals.PPoint.Address
+    && (ctx: CFGBuildingContext<_, _>).EntriesPastBoundary.Add entry
+
   /// Finalizes the recovery, unless the function runs into the next one
-  /// through a jump table entry that turns out bogus, which rebuilds it.
-  let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec postAnalysis =
+  /// through a jump table entry that turns out bogus, which rebuilds it. An
+  /// entry that sends the jump to what the function by now takes for a hole
+  /// rebuilds it too, as the function took in the code there before it learned
+  /// that the next function starts there, and so does one that leads to where
+  /// a function starts.
+  let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec rules postAnalysis =
     let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress
     match ctx.FindOverlap nextFn with
     | Some v ->
@@ -1464,6 +1521,10 @@ module internal CFGRecoveryCommon =
       <| $"Found overlap at {addr:x} @ {ctx.FunctionAddress}"
 #endif
       match v.VData.DominatingJumpTableEntry with
+      | Some(tblAddr, idx) when firstLeadsToHole ctx rules tblAddr idx ->
+        StopAndReload
+      | Some entry when firstLeadsToFunction ctx v entry ->
+        StopAndReload
       | Some(tblAddr, idx) ->
         let fnAddr = ctx.FunctionAddress
         ctx.JumpTableChannel.NotifyBogusEntry(fnAddr, tblAddr, idx)
@@ -1508,7 +1569,7 @@ module internal CFGRecoveryCommon =
       StopAndReload
     else
       refuteOwnGuess ctx rules
-      checkOverlap ctx cfgRec postAnalysis
+      checkOverlap ctx cfgRec rules postAnalysis
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
     let sorted = deps |> Array.sortBy fst
@@ -1553,34 +1614,60 @@ module internal CFGRecoveryCommon =
   let isFollowedWithin (ctx: CFGBuildingContext<_, _>) v =
     ctx.CFG.GetSuccEdges v |> Array.exists (fun e -> e.Label = InterJmpEdge)
 
-  /// Checks if the building left out the code at the given address, as it
-  /// lies past where the next function starts.
-  let isLeftOut (ctx: CFGBuildingContext<_, _>) addr =
-    ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
+  /// Checks if the building left out the code at the given address, which the
+  /// jump that ends the given vertex leads to, as it lies past where the next
+  /// function starts. A jump that calls a function there as its tail leaves
+  /// out nothing, even where a conditional jump there, which the building did
+  /// not take for a tail call, left out the code.
+  let isLeftOut (ctx: CFGBuildingContext<_, _>) v addr =
+    ctx.CFG.GetSuccEdges v |> Array.forall (fun e -> e.Label <> TailCallEdge)
+    && ctx.BlocksPastBoundary |> Seq.exists (fun range -> range.Min = addr)
 
-  /// Checks if the given vertex ends with a jump to where a function of the
-  /// given entries starts, which the building did not take for a tail call as
-  /// none started there yet: it followed the jump within its function, or left
-  /// out the code there as lying past where the next function starts.
-  let jumpsToEntryUncalled rules entries ctx (v: IVertex<LowUIRBasicBlock>) =
+  /// Returns where a function would start that the jump ending the given
+  /// vertex goes to, if the building did not take the jump for a tail call:
+  /// it followed the jump within its function, or left out the code there as
+  /// lying past where the next function starts.
+  let tryFindUncalledJumpTarget rules ctx (v: IVertex<LowUIRBasicBlock>) =
     match v.VData.Internals.Terminator with
     | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
       let target = n.ToUInt64()
       let callee = (rules: ICFGRecoveryRules<_, _>).ToCalleeAddr(ctx, target)
-      callee <> ctx.FunctionAddress
-      && (entries: HashSet<Addr>).Contains callee
-      && (isFollowedWithin ctx v || isLeftOut ctx target)
+      if callee <> ctx.FunctionAddress
+         && (isFollowedWithin ctx v || isLeftOut ctx v target) then
+        Some callee
+      else
+        None
     | _ ->
-      false
+      None
+
+  /// Where each built function jumps without calling a function there as its
+  /// tail, by its CFG, with the counts of its vertices and edges and of the
+  /// blocks that it left out, as finding it takes walking the whole CFG,
+  /// while most functions stay the same from round to round of the recovery.
+  let private uncalledByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns where a function would start that the function of the given
+  /// context jumps to without calling it as its tail, reading the function
+  /// anew only once it has changed.
+  let findUncalledJumpTargets rules (ctx: CFGBuildingContext<_, _>) =
+    let cfg = ctx.CFG
+    let stamp = cfg.VertexCount, cfg.EdgeCount, ctx.BlocksPastBoundary.Count
+    match uncalledByCFG.TryGetValue cfg with
+    | true, (stampOfCache, targets) when stampOfCache = stamp ->
+      targets
+    | _ ->
+      let targets =
+        cfg.Vertices
+        |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+        |> Array.choose (tryFindUncalledJumpTarget rules ctx)
+      uncalledByCFG.AddOrUpdate(cfg, (stamp, targets))
+      targets
 
   /// Checks if the function that the given builder has built jumps to a
   /// function of the given entries without calling it as its tail.
   let missesTailCall rules entries (builder: ICFGBuildable<_, _>) =
-    let ctx = builder.Context
-    ctx.CFG.Vertices
-    |> Array.exists (fun v ->
-      not v.VData.Internals.IsAbstract
-      && jumpsToEntryUncalled rules entries ctx v)
+    findUncalledJumpTargets rules builder.Context
+    |> Array.exists (entries: HashSet<Addr>).Contains
 
   /// Finds the functions that jump to another function without calling it as
   /// their tail, as they jumped there before any call told that a function

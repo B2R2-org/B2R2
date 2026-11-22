@@ -32,22 +32,30 @@ open B2R2.BinIR.LowUIR
 type RegisterFactory(isa: ISA) =
   let stackPointer = Register.R15 |> Register.toRegID |> Some
 
-  let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "R0"
-  let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "R1"
-  let r2 = AST.var 64<rt> (Register.toRegID Register.R2) "R2"
-  let r3 = AST.var 64<rt> (Register.toRegID Register.R3) "R3"
-  let r4 = AST.var 64<rt> (Register.toRegID Register.R4) "R4"
-  let r5 = AST.var 64<rt> (Register.toRegID Register.R5) "R5"
-  let r6 = AST.var 64<rt> (Register.toRegID Register.R6) "R6"
-  let r7 = AST.var 64<rt> (Register.toRegID Register.R7) "R7"
-  let r8 = AST.var 64<rt> (Register.toRegID Register.R8) "R8"
-  let r9 = AST.var 64<rt> (Register.toRegID Register.R9) "R9"
-  let r10 = AST.var 64<rt> (Register.toRegID Register.R10) "R10"
-  let r11 = AST.var 64<rt> (Register.toRegID Register.R11) "R11"
-  let r12 = AST.var 64<rt> (Register.toRegID Register.R12) "R12"
-  let r13 = AST.var 64<rt> (Register.toRegID Register.R13) "R13"
-  let r14 = AST.var 64<rt> (Register.toRegID Register.R14) "R14"
-  let r15 = AST.var 64<rt> (Register.toRegID Register.R15) "R15"
+  (* GCC and clang keep a frame pointer in R11 on both ESA/390 and
+     z/Architecture, where they keep one, as they do without optimization. *)
+  let framePointer = Register.R11 |> Register.toRegID |> Some
+
+  (* ESA/390 code reads and writes general registers of 32 bits, as a 31-bit
+     program never reaches past the low word of one. *)
+  let grSize = RegisterHelper.toRegType isa.WordSize Register.R0
+
+  let r0 = AST.var grSize (Register.toRegID Register.R0) "R0"
+  let r1 = AST.var grSize (Register.toRegID Register.R1) "R1"
+  let r2 = AST.var grSize (Register.toRegID Register.R2) "R2"
+  let r3 = AST.var grSize (Register.toRegID Register.R3) "R3"
+  let r4 = AST.var grSize (Register.toRegID Register.R4) "R4"
+  let r5 = AST.var grSize (Register.toRegID Register.R5) "R5"
+  let r6 = AST.var grSize (Register.toRegID Register.R6) "R6"
+  let r7 = AST.var grSize (Register.toRegID Register.R7) "R7"
+  let r8 = AST.var grSize (Register.toRegID Register.R8) "R8"
+  let r9 = AST.var grSize (Register.toRegID Register.R9) "R9"
+  let r10 = AST.var grSize (Register.toRegID Register.R10) "R10"
+  let r11 = AST.var grSize (Register.toRegID Register.R11) "R11"
+  let r12 = AST.var grSize (Register.toRegID Register.R12) "R12"
+  let r13 = AST.var grSize (Register.toRegID Register.R13) "R13"
+  let r14 = AST.var grSize (Register.toRegID Register.R14) "R14"
+  let r15 = AST.var grSize (Register.toRegID Register.R15) "R15"
   let fpr0 = AST.var 64<rt> (Register.toRegID Register.FPR0) "FPR0"
   let fpr1 = AST.var 64<rt> (Register.toRegID Register.FPR1) "FPR1"
   let fpr2 = AST.var 64<rt> (Register.toRegID Register.FPR2) "FPR2"
@@ -190,7 +198,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.StackPointer = stackPointer
 
-    member _.FramePointer = None
+    member _.FramePointer = framePointer
 
     member _.GetRegVar id =
       match Register.ofRegID id with
@@ -723,4 +731,4 @@ type RegisterFactory(isa: ISA) =
 
     member _.IsStackPointer rid = Register.toRegID Register.R15 = rid
 
-    member _.IsFramePointer _ = false
+    member _.IsFramePointer rid = Register.toRegID Register.R11 = rid

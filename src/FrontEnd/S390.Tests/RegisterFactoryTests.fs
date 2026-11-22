@@ -26,6 +26,7 @@
 namespace B2R2.FrontEnd.BinLifter.Tests
 
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.S390
 open Microsoft.VisualStudio.TestTools.UnitTesting
@@ -37,6 +38,11 @@ type RegisterFactoryTests() =
     let factory = RegisterFactory isa :> IRegisterFactory
     factory.GetRegType(Register.toRegID reg)
 
+  static let regVarType wordSize reg =
+    let isa = ISA(Architecture.S390, Endian.Big, wordSize)
+    let factory = RegisterFactory isa :> IRegisterFactory
+    Expr.typeOf (factory.GetRegVar(Register.toRegID reg))
+
   (* A 32-bit S390 target runs ESA/390, whose general and control registers are
      32 bits wide; z/Architecture widened both to 64. Reporting 64 either way
      would tell the IR that a 31-bit program has doubleword registers. *)
@@ -47,6 +53,13 @@ type RegisterFactoryTests() =
   [<TestMethod>]
   member _.``[S390] a general register is 64 bits in 64-bit mode test``() =
     Assert.AreEqual<RegType>(64<rt>, regType WordSize.Bit64 Register.R1)
+
+  (* The IR reads and writes a general register as wide as the register is, so
+     that what a 31-bit program computes in one stays a word. *)
+  [<TestMethod>]
+  member _.``[S390] a general register variable follows the word size test``() =
+    Assert.AreEqual<RegType>(32<rt>, regVarType WordSize.Bit32 Register.R1)
+    Assert.AreEqual<RegType>(64<rt>, regVarType WordSize.Bit64 Register.R1)
 
   [<TestMethod>]
   member _.``[S390] a control register follows the word size test``() =
@@ -64,6 +77,24 @@ type RegisterFactoryTests() =
   member _.``[S390] an access register is 32 bits either way test``() =
     Assert.AreEqual<RegType>(32<rt>, regType WordSize.Bit32 Register.AR0)
     Assert.AreEqual<RegType>(32<rt>, regType WordSize.Bit64 Register.AR0)
+
+  (* GCC and clang keep a frame pointer in R11 in either mode, where they keep
+     one, so that a slot of the frame reads as one through it. *)
+  [<TestMethod>]
+  member _.``[S390] R15 and R11 are the stack and frame pointers test``() =
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.S390, Endian.Big, wordSize)
+      let factory = RegisterFactory isa :> IRegisterFactory
+      let sp = Register.toRegID Register.R15
+      let fp = Register.toRegID Register.R11
+      Assert.AreEqual<RegisterID option>(Some sp, factory.StackPointer)
+      Assert.AreEqual<RegisterID option>(Some fp, factory.FramePointer)
+      Assert.AreEqual<bool>(true, factory.IsStackPointer sp)
+      Assert.AreEqual<bool>(true, factory.IsFramePointer fp)
+      for other in [ Register.R10; Register.R12; Register.R14 ] do
+        let rid = Register.toRegID other
+        Assert.AreEqual<bool>(false, factory.IsStackPointer rid)
+        Assert.AreEqual<bool>(false, factory.IsFramePointer rid)
 
   (* ESA/390 has a 64-bit PSW and z/Architecture a 128-bit one. *)
   [<TestMethod>]

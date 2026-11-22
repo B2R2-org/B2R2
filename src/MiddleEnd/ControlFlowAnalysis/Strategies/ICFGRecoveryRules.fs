@@ -48,7 +48,8 @@ type internal TailCallJudgment =
 /// Represents the rules that the CFG recovery follows where architectures
 /// differ: where a call enters its callee, whether a jump calls a function as
 /// its tail, whether a call calls a function at all, whether an indirect call
-/// returns, which entries of a jump table are holes, where a jump table ends,
+/// returns, whether an indirect jump returns to the caller, which entries of a
+/// jump table are holes, where a jump table ends,
 /// whether callers forget the stack slots that their callees write, and
 /// whether a function needs building again. Workers share the rules, so
 /// the rules keep no state; what a function has to remember lives in its
@@ -122,6 +123,22 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * IVertex<LowUIRBasicBlock>
     -> (NonReturningStatus * int) option
+
+  /// Checks if the indirect jump that ends the given vertex returns to the
+  /// caller of the function, as it goes back to the address that the caller
+  /// left in its link register, which the instruction alone does not tell.
+  abstract ReturnsThroughLink:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> bool
+
+  /// Checks if the code past the direct call that ends the given vertex
+  /// refutes that the call returns there, whatever its callee does, as no code
+  /// that a call returns to reads as that code does.
+  abstract RefutesReturn:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> bool
 
   /// Checks if the entries of a jump table that point to the given target are
   /// holes, which lead to no code. A compiler points the entries of the cases

@@ -46,6 +46,9 @@ type private PPCReg = B2R2.FrontEnd.PPC.Register
 /// Represents the m68k registers under a shorter name.
 type private M68KReg = B2R2.FrontEnd.M68K.Register
 
+/// Represents the S390 registers under a shorter name.
+type private S390Reg = B2R2.FrontEnd.S390.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -349,3 +352,29 @@ type DWARFTests() =
     let isa = ISA Architecture.M68K
     for n, reg in numbers do
       Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")
+
+  [<TestMethod>]
+  member _.``[DWARF] S390 registers are numbered as the ABI numbers them``() =
+    (* The CIE of GCC for S390 defines the CFA as r15 plus 160 (96 on 31-bit)
+       and keeps the return address in column 14. A function that saves f8
+       and f10 notes them as 24 and 25, and the 31-bit one that saves f4 and
+       f6 as 18 and 19, as the floating-point registers pair up. *)
+    let rid reg = B2R2.FrontEnd.S390.Register.toRegID reg
+    let numbers =
+      [ 14uy, S390Reg.R14
+        15uy, S390Reg.R15
+        16uy, S390Reg.FPR0
+        18uy, S390Reg.FPR4
+        19uy, S390Reg.FPR6
+        20uy, S390Reg.FPR1
+        24uy, S390Reg.FPR8
+        25uy, S390Reg.FPR10
+        31uy, S390Reg.FPR15
+        32uy, S390Reg.CR0
+        63uy, S390Reg.AR15
+        65uy, S390Reg.PC
+        83uy, S390Reg.VR31 ]
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      let isa = ISA(Architecture.S390, Endian.Big, wordSize)
+      for n, reg in numbers do
+        Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")

@@ -148,6 +148,8 @@ type BinaryBrew =
       PPCFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | M68K ->
       M68KFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
+    | S390 ->
+      S390FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | _ ->
       FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 

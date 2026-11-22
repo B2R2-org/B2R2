@@ -26,13 +26,12 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
 open B2R2
-open B2R2.BinIR
-open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 
 /// Represents the function identification for m68k. It takes what the binary
 /// tells, as FunctionIdentification does, and then finds the functions that
@@ -55,40 +54,8 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   let file = hdl.File
 
-  /// Returns the values that the loader writes where it relocates the binary.
-  let relocatedValues () =
-    match file.Relocations with
-    | Some relocs ->
-      relocs.Relocations
-      |> Seq.choose (fun reloc ->
-        relocs.TryComputeRelocationValue reloc.Address |> Result.toOption)
-    | None ->
-      Seq.empty
-
-  /// Tells whether the section holds code that a function may start in: it is
-  /// executable, and it does not link the binary to others, as a PLT does,
-  /// which serves imports.
-  let isCodeSection (s: BinSection) =
-    s.Permission.HasFlag Permission.Executable
-    && s.Kind <> DynamicLinkageSection
-    && s.Size > 0UL
-
-  /// Lists the address ranges of the sections that hold code that a function
-  /// may start in, or of the executable segments of a file without sections,
-  /// such as a raw image.
-  let codeRanges =
-    let rangeOf (addr: Addr) size = AddrRange.create addr (addr + size - 1UL)
-    let sections = BinFileOps.getSections file
-    if sections.IsEmpty then
-      BinFileOps.getSegments file
-      |> Seq.filter (fun s -> s.Permission.HasFlag Permission.Executable)
-      |> Seq.map (fun s -> rangeOf s.Address s.Size)
-      |> Seq.toArray
-    else
-      sections
-      |> Seq.filter isCodeSection
-      |> Seq.map (fun s -> rangeOf s.Address s.Size)
-      |> Seq.toArray
+  /// The address ranges of the code that a function may start in.
+  let codeRanges = findCodeRanges file
 
   /// Tells whether the value names code of this binary that a function may
   /// start at: an even address, as every instruction of m68k starts at one,
@@ -172,7 +139,7 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// its data sections as they are.
   let dataPointers () =
     if file.IsBaseRelative then
-      relocatedValues ()
+      relocatedValues file
       |> Seq.map (fun v -> v &&& 0xFFFFFFFFUL)
       |> Seq.filter isCodePointer
       |> Seq.toArray
@@ -180,11 +147,7 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       storedValues ()
 
   /// Where the executable sections start, which no code runs into from above.
-  let sectionStarts =
-    BinFileOps.getSections file
-    |> Seq.filter (fun s -> s.Permission.HasFlag Permission.Executable)
-    |> Seq.map (fun s -> s.Address)
-    |> Set.ofSeq
+  let sectionStarts = findSectionStarts file
 
   let lu = hdl.NewLiftingUnit()
 
@@ -216,86 +179,6 @@ type M68KFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> Array.collect (fun v -> v.VData.Internals.Instructions)
     |> Array.choose (fun ins ->
       M68KCode.tryTakenAddress isFixedBase (ins :?> M68K.Instruction))
-
-  /// Pairs each of the given functions, in the order of their entries, with
-  /// the entry of the next one.
-  let withNextEntries (fns: Function[]) =
-    let sorted = fns |> Array.sortBy (fun fn -> fn.EntryPoint)
-    sorted
-    |> Array.mapi (fun i fn ->
-      if i + 1 < sorted.Length then fn, sorted[i + 1].EntryPoint
-      else fn, System.UInt64.MaxValue)
-
-  /// Returns where the direct jump that ends the vertex goes, if it ends with
-  /// one.
-  let tryDirectJumpTarget (v: IVertex<LowUIRBasicBlock>) =
-    match v.VData.Internals.Terminator with
-    | InterJmp(Target = Num(Value = n); Kind = InterJmpKind.Base) ->
-      Some(n.ToUInt64())
-    | _ ->
-      None
-
-  /// Finds the direct jumps of the function that leave the span from its entry
-  /// up to the given next entry, from within the span, each as the vertex
-  /// that it ends and where it goes. Only a jump to another function leaves,
-  /// as GCC keeps each function of m68k in one piece, while code that the
-  /// function has taken in past the span, as a call that never returns may
-  /// run it into the next function, tells nothing.
-  let findLeavingJumps (fn: Function, next) =
-    let isWithin addr = fn.EntryPoint <= addr && addr < next
-    fn.CFG.Vertices
-    |> Array.filter (fun v ->
-      let blk = v.VData.Internals
-      not blk.IsAbstract && isWithin blk.LastInstruction.Address)
-    |> Array.choose (fun v ->
-      match tryDirectJumpTarget v with
-      | Some target when not (isWithin target) -> Some(v, target)
-      | _ -> None)
-
-  /// Collects what the blocks cover that the function reaches from its roots
-  /// without leaving it through the given vertices, as it takes in the code
-  /// of a function that it jumps to before the recovery knows of that one.
-  let collectHomeRanges (fn: Function) (exits: HashSet<_>) =
-    let cfg = fn.CFG
-    let visited = HashSet<IVertex<LowUIRBasicBlock>>()
-    let work = Queue<IVertex<LowUIRBasicBlock>>(cfg.Roots)
-    let ranges = List<AddrRange>()
-    while work.Count > 0 do
-      let v = work.Dequeue()
-      let blk = v.VData.Internals
-      if visited.Add v then
-        if blk.IsAbstract then () else ranges.Add blk.Range
-        if exits.Contains v then ()
-        else for succ in cfg.GetSuccs v do work.Enqueue succ
-      else
-        ()
-    ranges.ToArray()
-
-  /// Returns where jumps leave the given functions for code that none of them
-  /// covers but through such jumps, as a jump into the middle of a function
-  /// that the recovery has built calls no function.
-  let findTailCallTargets internals =
-    let leaving =
-      withNextEntries internals
-      |> Array.map (fun (fn, next) -> fn, findLeavingJumps (fn, next))
-    let home =
-      leaving
-      |> Array.collect (fun (fn, jumps) ->
-        collectHomeRanges fn (HashSet(Array.map fst jumps)))
-      |> AddrRangeUnion.ofArray
-    leaving
-    |> Array.collect (fun (_, jumps) -> Array.map snd jumps)
-    |> Array.filter (fun t -> not (AddrRangeUnion.containsAddr t home))
-
-  /// Returns what the code that the recovery has built for the functions
-  /// covers.
-  let coverOf (fns: Function[]) =
-    fns
-    |> Array.collect (fun fn ->
-      fn.CFG.Vertices
-      |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
-      |> Array.map (fun v -> v.VData.Internals.Range))
-    |> AddrRangeUnion.ofArray
 
   /// Skips the nops that pad the code from the address on, returning where
   /// code resumes.

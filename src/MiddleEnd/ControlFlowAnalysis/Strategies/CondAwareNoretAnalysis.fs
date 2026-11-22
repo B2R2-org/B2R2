@@ -521,7 +521,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let judgeExit ctx dom tryGetCallerLoc judgeReturn (v: IVertex<_>) =
     let vData = v.VData :> ILowUIRBasicBlock
     if not vData.IsAbstract then
-      if vData.LastInstruction.IsRET then
+      if (ctx: CFGBuildingContext<_, _>).Returns vData then
         if hasUndecidableReturnTarget ctx v then
           NoRet
         else
@@ -588,6 +588,17 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | _ ->
       false
 
+  /// Checks if the given expression is a code that is never zero: a non-zero
+  /// number, or a choice between such codes.
+  let rec isNonZeroCode e =
+    match e with
+    | LowUIR.Num(Value = n) ->
+      not n.IsZero
+    | LowUIR.Ite(TrueExpr = t; FalseExpr = f) ->
+      isNonZeroCode t && isNonZeroCode f
+    | _ ->
+      false
+
   /// Matches a comparison of the given kind between two operands, one of
   /// which the given function finds zero, and gives the other.
   [<return: Struct>]
@@ -634,6 +645,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | LowUIR.BinOp(Op = (BinOpType.AND | BinOpType.OR); Left = e1; Right = e2)
       when e1 = e2 ->
       find e1
+    (* S390 sets its condition code to zero exactly where the comparison that
+       it makes finds equality, and to a non-zero code otherwise. *)
+    | LowUIR.Ite(Cond = c; TrueExpr = z; FalseExpr = code)
+      when isZero z && isNonZeroCode code ->
+      find c |> negate
     | LowUIR.BinOp(Op = BinOpType.SUB; Left = e; Right = z) when isZero z ->
       find e
     (* ARM subtracts zero to compare with it by adding its complement and one,

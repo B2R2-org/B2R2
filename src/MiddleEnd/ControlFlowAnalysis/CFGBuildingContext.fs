@@ -62,7 +62,13 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let guessedTailCallees = HashSet<Addr>()
 
+  let linkReturns = HashSet<Addr>()
+
   let blocksPastBoundary = List<AddrRange>()
+
+  let branchesPastBoundary = HashSet<Addr>()
+
+  let entriesPastBoundary = HashSet<Addr * int>()
 
   let mutable isGuessedEntry = false
 
@@ -191,9 +197,27 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// otherwise.
   member internal _.GuessedTailCallees with get() = guessedTailCallees
 
+  /// Addresses of the indirect jumps that return to the caller, as they go
+  /// back to the address that the caller left in its link register, which no
+  /// instruction tells by itself on an architecture such as S390.
+  member internal _.LinkReturns with get() = linkReturns
+
   /// Ranges of the blocks that the function reaches but leaves out, as they
   /// run past where the next function starts.
   member internal _.BlocksPastBoundary with get() = blocksPastBoundary
+
+  /// Addresses of the indirect branches that the function reached past where
+  /// the next function starts, as it took in their code before that function
+  /// was known. Finding one builds the function again without the code, which
+  /// keeps them, as code may yet run into a branch there.
+  member internal _.BranchesPastBoundary with get() = branchesPastBoundary
+
+  /// Entries of jump tables, as the address of the table and the index, that
+  /// sent the jump past where the next function starts, as the function took
+  /// in the code there before that function was known. Finding one builds the
+  /// function again without the code, which keeps them, so that it does so
+  /// once for each entry.
+  member internal _.EntriesPastBoundary with get() = entriesPastBoundary
 
   /// Whether the function starts only on the guess that a jump calls it as
   /// its tail, which its own code may refute once built.
@@ -298,6 +322,13 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   member _.UpdateGlobalContext(updater: 'GlCtx -> 'GlCtx) =
     managerChannel.UpdateGlobalContext updater
 
+  /// Checks if the given block returns to the caller of the function: it ends
+  /// with a return instruction, or with an indirect jump that goes back to the
+  /// address that the caller left in its link register.
+  member internal _.Returns(blk: ILowUIRBasicBlock) =
+    let ins = blk.LastInstruction
+    ins.IsRET || linkReturns.Contains ins.Address
+
   /// Sets how to find what this function writes through the pointers it gets,
   /// which runs only once its callers need to know, as a function often ends
   /// many times before it is done.
@@ -334,6 +365,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
     this.PendingCallActions.Clear()
     this.CallerVertices.Clear()
     this.GuessedTailCallees.Clear()
+    this.LinkReturns.Clear()
     this.BlocksPastBoundary.Clear()
     this.UnwindingBytes <- 0
 

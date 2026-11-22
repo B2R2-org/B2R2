@@ -175,7 +175,7 @@ let testDataClass ins bld rt =
     let high = AST.ite (exponent == numG expAll) big (numG 1L)
     cls := AST.ite (exponent == AST.num0 GRSize) small high
     let bit = numG 0x800L >> ((cls .+ cls) .+ sign)
-    let selected = transMem bld o2 .& bit
+    let selected = zextTo GRSize (transMem bld o2) .& bit
     ccVar bld := AST.ite (selected == AST.num0 GRSize)
                          (numCC 0)
                          (numCC 1)
@@ -522,7 +522,7 @@ let extTestDataClass ins bld =
       let high = AST.ite (expo == numI64 0x7fffL 64<rt>) big (AST.num1 64<rt>)
       cls := AST.ite (expo == AST.num0 64<rt>) small high
       let bit = numI64 0x800L 64<rt> >> ((cls .+ cls) .+ sign)
-      let selected = transMem bld o2 .& bit
+      let selected = zextTo 64<rt> (transMem bld o2) .& bit
       ccVar bld := AST.ite (selected == AST.num0 64<rt>)
                            (numCC 0)
                            (numCC 1)

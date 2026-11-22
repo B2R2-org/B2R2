@@ -1,0 +1,424 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
+
+open System.Collections.Generic
+open B2R2
+open B2R2.BinIR
+open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.S390
+
+/// Provides what S390 code tells on its own of where a function starts. The
+/// ABI of Linux hands a function its arguments in R2 to R6 and in F0, F2, F4
+/// and F6, the address to return to in R14 and the stack pointer in R15, and
+/// has it save R6 to R13 and F8 to F15 before it changes any of them, for its
+/// caller. Code that reads another register before it writes it, or changes
+/// one that it has to save without having saved it, runs on what code above
+/// left there and starts no function, which code that a switch jumps to does
+/// on the way to the end of the switch. A function first sets up its frame,
+/// saving registers or taking room on the stack, or lies where no code runs
+/// into it: the code above returns, jumps, traps, pads with a nop, or calls a
+/// function that never returns.
+module internal S390Code =
+  /// Returns the IDs of the registers from the first up to the last, which
+  /// S390 numbers one after another.
+  let private idsFrom (first: Register) (last: Register) =
+    [ int first .. int last ] |> List.map RegisterID.create
+
+  /// The most instructions that the reading of where a function may start goes
+  /// through.
+  let [<Literal>] private MaxLeadLength = 24
+
+  /// Tells whether the instruction runs another one that the code picks as it
+  /// runs, which the IR reads every register for.
+  let private executes (ins: IInstruction) =
+    let op = (ins :?> Instruction).Opcode
+    op = Opcode.EX || op = Opcode.EXRL
+
+  /// The stack pointer.
+  let private sp = Register.toRegID Register.R15
+
+  /// Adds the registers that the expression reads to the set.
+  let rec private addReads (reads: HashSet<RegisterID>) e =
+    match e with
+    | Var(RegisterID = rid) ->
+      reads.Add rid |> ignore
+    | BinOp(Left = e1; Right = e2) | RelOp(Left = e1; Right = e2) ->
+      addReads reads e1
+      addReads reads e2
+    | UnOp(Operand = e) | Cast(Operand = e) | Extract(Operand = e)
+    | Load(Addr = e) ->
+      addReads reads e
+    | Ite(Cond = c; TrueExpr = e1; FalseExpr = e2) ->
+      addReads reads c
+      addReads reads e1
+      addReads reads e2
+    | RoundCtrl(Mode = mode; Body = body) ->
+      addReads reads mode
+      addReads reads body
+    | ExprList(Elements = es) ->
+      for e in es do addReads reads e
+    | _ ->
+      ()
+
+  /// Returns what a write to the given register puts in it of its own, past
+  /// the bits of the register that the write keeps as they are, as a write to
+  /// a part of a register does, which reads nothing of the rest: one that
+  /// writes a word of a doubleword, or IPM, which inserts the condition code.
+  let private insertedPart rid src =
+    match src with
+    | BinOp(Op = BinOpType.OR
+            Left = BinOp(Op = BinOpType.AND
+                         Left = Var(RegisterID = kept)
+                         Right = Num _)
+            Right = e) when kept = rid ->
+      e
+    | _ ->
+      src
+
+  /// Substitutes the definitions of the temporaries of an instruction for
+  /// them, given what each holds.
+  let rec private resolve (temps: Dictionary<int, Expr>) e =
+    match e with
+    | TempVar(Index = n) when temps.ContainsKey n -> resolve temps temps[n]
+    | _ -> e
+
+  /// Tells whether the value moves the stack pointer down by a constant,
+  /// taking room on the stack.
+  let private allocates temps e =
+    match resolve temps e with
+    | BinOp(Op = BinOpType.ADD; Left = Var(RegisterID = rid); Right = Num n) ->
+      rid = sp && n.ToUInt64() >>> 63 = 1UL
+    | _ ->
+      false
+
+  /// Tells whether the address is one that the stack pointer gives.
+  let rec private isOnStack temps e =
+    match resolve temps e with
+    | Var(RegisterID = rid) ->
+      rid = sp
+    | BinOp(Op = BinOpType.ADD; Left = e1; Right = e2) ->
+      isOnStack temps e1 || isOnStack temps e2
+    | _ ->
+      false
+
+  /// Represents what an instruction does with registers: the ones that it
+  /// reads before it writes them, the ones that it writes, the ones that it
+  /// saves on the stack, and whether it takes room on the stack.
+  type private Effect =
+    { Reads: HashSet<RegisterID>
+      Writes: HashSet<RegisterID>
+      Saves: HashSet<RegisterID>
+      mutable Allocates: bool }
+
+  /// Notes what the statement does with registers in the effect, given what
+  /// the temporaries of the instruction hold so far.
+  let private note (eff: Effect) (temps: Dictionary<int, Expr>) stmt =
+    let addNew e =
+      let reads = HashSet<RegisterID>()
+      addReads reads e
+      reads.ExceptWith eff.Writes
+      eff.Reads.UnionWith reads
+    match stmt with
+    | Put(Dst = TempVar(Index = n); Src = src) ->
+      addNew src
+      temps[n] <- src
+    | Put(Dst = Var(RegisterID = rid); Src = src) ->
+      addNew (insertedPart rid src)
+      if rid = sp && allocates temps src then eff.Allocates <- true else ()
+      eff.Writes.Add rid |> ignore
+    | Store(Addr = addr; Value = Var(RegisterID = rid))
+      when isOnStack temps addr ->
+      addNew addr
+      eff.Saves.Add rid |> ignore
+    | Store(Addr = addr; Value = v) ->
+      addNew addr
+      addNew v
+    | InterJmp(Target = e) | CJmp(Cond = e) ->
+      addNew e
+    | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
+      addNew c
+      addNew t
+      addNew f
+    | _ ->
+      ()
+
+  /// Returns what the instruction does with registers, as its IR tells.
+  let private effectOf (lu: LiftingUnit) (ins: IInstruction) =
+    let eff =
+      { Reads = HashSet()
+        Writes = HashSet()
+        Saves = HashSet()
+        Allocates = false }
+    let temps = Dictionary<int, Expr>()
+    for stmt in lu.LiftInstruction ins do note eff temps stmt done
+    eff
+
+  /// The registers that hold what a function receives from its caller: its
+  /// arguments, the address to return to, the stack pointer, and the thread
+  /// pointer, which the access registers hold.
+  let private received =
+    [ idsFrom Register.R2 Register.R6
+      idsFrom Register.R14 Register.R15
+      idsFrom Register.FPR0 Register.FPR0
+      idsFrom Register.FPR2 Register.FPR2
+      idsFrom Register.FPR4 Register.FPR4
+      idsFrom Register.FPR6 Register.FPR6
+      idsFrom Register.VR24 Register.VR31
+      idsFrom Register.AR0 Register.AR1 ]
+    |> List.concat
+    |> HashSet
+
+  /// The registers that a function saves before it changes them.
+  let private preserved =
+    [ idsFrom Register.R6 Register.R13
+      idsFrom Register.FPR8 Register.FPR15 ]
+    |> List.concat
+    |> HashSet
+
+  /// Tells whether the instruction reads a register that it has not received
+  /// and that the code on the way to it has not written, or changes one that
+  /// it has to save without having saved it.
+  let private isLeftoverUse eff (written: Set<_>) (saved: Set<_>) =
+    eff.Reads
+    |> Seq.exists (fun r -> not (received.Contains r || written.Contains r))
+    || eff.Writes
+       |> Seq.exists (fun r -> preserved.Contains r && not (saved.Contains r))
+
+  /// The registers that a call may change: the volatile ones, which hold
+  /// what the callee returns, and the condition code.
+  let private clobberedByCall =
+    [ idsFrom Register.R0 Register.R5
+      idsFrom Register.R14 Register.R14
+      idsFrom Register.FPR0 Register.FPR7
+      idsFrom Register.CC Register.CC ]
+    |> List.concat
+    |> Set.ofList
+
+  /// Tells whether the instruction calls a function that never returns, as
+  /// the given test tells of the callee.
+  let private callsNoReturn neverReturns (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, callee -> neverReturns callee
+    | false, _ -> false
+
+  /// Returns where the code goes past the instruction, given the registers
+  /// written so far: past a call, which changes the volatile registers, to
+  /// the next instruction, unless the callee never returns, as the given test
+  /// tells; past a branch, to its direct target, and to the next instruction
+  /// as well if it branches on a condition; nowhere past an indirect jump, an
+  /// exit, or an interrupt; and to the next one otherwise.
+  let private successorsOf (ins: IInstruction) neverReturns written =
+    let next = ins.Address + uint64 ins.Length
+    if ins.IsCall then
+      if callsNoReturn neverReturns ins then []
+      else [ next, Set.union written clobberedByCall ]
+    elif ins.IsBranch then
+      let target =
+        match ins.DirectBranchTarget() with
+        | true, t -> [ t, written ]
+        | false, _ -> []
+      if ins.IsCondBranch then (next, written) :: target else target
+    elif ins.IsExit || ins.IsInterrupt then
+      []
+    else
+      [ next, written ]
+
+  /// Tells whether the instruction is shaped as a template that EXRL runs: it
+  /// works on two operands in storage, a byte long by its own length, as EXRL
+  /// ORs the length that a register holds into it. clang lays such templates
+  /// past the functions of a source file, where they read as code that starts
+  /// a function.
+  let private isTemplate (ins: Instruction) =
+    match ins.Operands with
+    | TwoOperands(OpStoreLen(1us, _, _), _) -> ins.Fmt = InstructionFormat.SS
+    | _ -> false
+
+  /// Tells whether the code from the given start, along any way that it goes
+  /// within MaxLeadLength instructions, reads a register that code above left,
+  /// or changes one that it has to save without having saved it. Code that does
+  /// not decode may do anything, while code past an instruction that runs
+  /// another one tells nothing more, nor does a template that EXRL runs past
+  /// the start, as code runs into one only past a call that never returns.
+  /// Code past a call to a function that never returns, as the given test
+  /// tells of the callee, runs only from a branch to it, if at all.
+  let private readsLeftover (lu: LiftingUnit) neverReturns (start: Addr) =
+    let work = Stack<Addr * Set<RegisterID> * Set<RegisterID>>()
+    let visited = HashSet<Addr>()
+    let mutable found = false
+    work.Push(start, Set.empty, Set.empty)
+    while not found && work.Count > 0 && visited.Count < MaxLeadLength do
+      let addr, written, saved = work.Pop()
+      if visited.Add addr then
+        match lu.TryParseInstruction addr with
+        | Ok ins when executes ins ->
+          ()
+        | Ok ins when addr <> start && isTemplate (ins :?> Instruction) ->
+          ()
+        | Ok ins ->
+          let eff = effectOf lu ins
+          let saved = Set.union saved (Set.ofSeq eff.Saves)
+          if isLeftoverUse eff written saved then
+            found <- true
+          else
+            let written = Set.union written (Set.ofSeq eff.Writes)
+            for next, written in successorsOf ins neverReturns written do
+              work.Push(next, written, saved)
+        | Error _ ->
+          found <- true
+      else
+        ()
+    found
+
+  /// Tells whether the instruction sets up the frame of a function: it saves
+  /// the return address or a register that it has to save on the stack, or
+  /// takes room there.
+  let private setsUpFrame lu ins =
+    let eff = effectOf lu ins
+    eff.Allocates
+    || eff.Saves
+       |> Seq.exists (fun r -> r = Register.toRegID Register.R14
+                               || preserved.Contains r)
+
+  /// Tells whether an instruction that ends right at the address ends the
+  /// flow, as the given test tells, at any length that one decodes at, as
+  /// nothing tells where the instruction above an address starts.
+  let private hasFlowEndAbove (lu: LiftingUnit) (addr: Addr) endsFlow =
+    [ 2UL; 4UL; 6UL ]
+    |> List.exists (fun len ->
+      len <= addr
+      && match lu.TryParseInstruction(addr - len) with
+         | Ok ins -> uint64 ins.Length = len && endsFlow ins
+         | Error _ -> false)
+
+  /// Tells whether the code at the address reads no register that code above
+  /// may have left, nor changes one that it has to save before saving it, and
+  /// sets up a frame first or lies where no code runs into it: it lies apart,
+  /// as it starts its section, or the instruction above ends the flow, as the
+  /// given test tells. Code that starts with a nop pads functions apart rather
+  /// than starts one.
+  let private startsCleanly lu neverReturns liesApart endsFlow (addr: Addr) =
+    match (lu: LiftingUnit).TryParseInstruction(addr) with
+    | Ok ins when not ins.IsNop ->
+      not (readsLeftover lu neverReturns addr)
+      && (setsUpFrame lu ins
+          || liesApart
+          || hasFlowEndAbove lu addr endsFlow)
+    | _ ->
+      false
+
+  /// Tells whether code that ends with the instruction runs into nothing past
+  /// it: it returns or jumps, traps, or pads with a nop.
+  let leaves (ins: IInstruction) =
+    ins.IsNop
+    || ins.IsExit
+    || (ins.IsBranch && not ins.IsCondBranch && not ins.IsCall)
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// given whether it starts its section, where code above that leaves or
+  /// calls ends the flow, as a call may never return. Code past a call to a
+  /// function that never returns, as the given test tells of the callee, runs
+  /// only from a branch to it.
+  let showsEntry lu neverReturns isSectionStart addr =
+    let endsFlow ins = leaves ins || (ins: IInstruction).IsCall
+    startsCleanly lu neverReturns isSectionStart endsFlow addr
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// as showsEntry does, where code resumes past what the recovery has built
+  /// for a function. A call right above runs into it then, as the recovery
+  /// builds code only so far as it takes the callees to return, which it may
+  /// yet find that one does that it took for one that never returns.
+  let showsEntryPastCode lu neverReturns isSectionStart addr =
+    startsCleanly lu neverReturns isSectionStart leaves addr
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// as showsEntry does, where code resumes past what the recovery has built
+  /// for a function, which ends the flow where it ends, as nothing past that
+  /// code then runs into the address, whatever lies between, such as the
+  /// templates that EXRL runs.
+  let showsEntryPastFlowEnd lu neverReturns addr =
+    startsCleanly lu neverReturns true leaves addr
+
+  /// Tells whether the instruction that ends right at the address runs into
+  /// nothing past it, so that no code runs into the address.
+  let liesPastFlowEnd lu addr = hasFlowEndAbove lu addr leaves
+
+  /// Returns the address that the instruction names, counting halfwords from
+  /// itself, if its opcode is the given one.
+  let private tryRelativeAddress opcode (ins: Instruction) =
+    match ins.Operands with
+    | TwoOperands(_, OpRImm(ImmS32 halfwords)) when ins.Opcode = opcode ->
+      Some(ins.Address + uint64 (2L * int64 halfwords))
+    | _ ->
+      None
+
+  /// Returns the address that the instruction takes as a constant, if it does:
+  /// the one that LARL loads, counting halfwords from the instruction, as code
+  /// does that passes a callback or stores a function pointer.
+  let tryTakenAddress ins = tryRelativeAddress Opcode.LARL ins
+
+  /// Returns the address of the instruction that the given one runs, if it is
+  /// EXRL, which picks the length that the instruction there works on.
+  let tryExecutedAddress ins = tryRelativeAddress Opcode.EXRL ins
+
+  /// Returns where code resumes from the address, before the given end, past
+  /// the nops that pad functions apart and the templates that EXRL runs.
+  let skipPadding (lu: LiftingUnit) (addr: Addr) endAddr =
+    let rec skip (addr: Addr) =
+      if addr >= endAddr then
+        addr
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins when ins.IsNop || isTemplate (ins :?> Instruction) ->
+          skip (addr + uint64 ins.Length)
+        | _ ->
+          addr
+    skip addr
+
+  /// Tells whether the instruction jumps to the given address, rather than
+  /// calls code there.
+  let private jumpsTo target (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, t -> t = target && not ins.IsCall
+    | false, _ -> false
+
+  /// Tells whether code from the address up to the given target, read one
+  /// instruction after another, jumps to the target, as a function does to a
+  /// block of its own that it lays past the rest of its code, such as one that
+  /// calls a function that never returns. The reading stops where the given
+  /// test tells that the code of another function starts, as such a function
+  /// may jump to the target as its tail. Code that does not decode tells
+  /// nothing, and the reading resumes at the next halfword.
+  let jumpsAhead (lu: LiftingUnit) (addr: Addr) target startsAnother =
+    let rec scan (addr: Addr) =
+      if addr >= target || startsAnother addr then
+        false
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins -> jumpsTo target ins || scan (addr + uint64 ins.Length)
+        | Error _ -> scan (addr + 2UL)
+    scan addr

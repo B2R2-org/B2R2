@@ -48,7 +48,7 @@ module private CalleeClobberHelper =
       match vData.AbstractContent.ReturningStatus with
       | NoRet -> IgnoredExit
       | _ -> ReturningExit
-    elif vData.LastInstruction.IsRET then
+    elif ctx.Returns vData then
       ReturningExit
     elif vData.LastInstruction.IsIndirectBranch then
       UnknownExit
