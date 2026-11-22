@@ -1494,11 +1494,23 @@ module internal CFGRecoveryCommon =
     | false, _ ->
       false
 
+  /// Checks if the given vertex, which the given entry of a jump table led to,
+  /// starts where a function does, the first time the entry leads there. The
+  /// code that the entry sends the jump to jumps there, which the function
+  /// took in as its own before it learned that a function starts there, as
+  /// clang lays a function that only a jump leads to right past the one that
+  /// jumps to it. Built again, the function calls that one as its tail there,
+  /// which tells nothing wrong of the entry.
+  let firstLeadsToFunction ctx (v: IVertex<LowUIRBasicBlock>) entry =
+    isFuncEntryPoint ctx v.VData.Internals.PPoint.Address
+    && (ctx: CFGBuildingContext<_, _>).EntriesPastBoundary.Add entry
+
   /// Finalizes the recovery, unless the function runs into the next one
   /// through a jump table entry that turns out bogus, which rebuilds it. An
   /// entry that sends the jump to what the function by now takes for a hole
   /// rebuilds it too, as the function took in the code there before it learned
-  /// that the next function starts there.
+  /// that the next function starts there, and so does one that leads to where
+  /// a function starts.
   let checkOverlap (ctx: CFGBuildingContext<_, _>) cfgRec rules postAnalysis =
     let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress
     match ctx.FindOverlap nextFn with
@@ -1510,6 +1522,8 @@ module internal CFGRecoveryCommon =
 #endif
       match v.VData.DominatingJumpTableEntry with
       | Some(tblAddr, idx) when firstLeadsToHole ctx rules tblAddr idx ->
+        StopAndReload
+      | Some entry when firstLeadsToFunction ctx v entry ->
         StopAndReload
       | Some(tblAddr, idx) ->
         let fnAddr = ctx.FunctionAddress
