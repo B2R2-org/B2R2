@@ -46,6 +46,20 @@ type SPARCBinaryBrewTests() =
     (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x6a8)
     BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "sparc64")).Functions
 
+  /// Recovers the functions of elf_sparc64_so with its symbol table hidden,
+  /// whose type in the section header at 0x2e98 becomes SHT_NULL, so that
+  /// only the dynamic symbols tell where functions start, as in a stripped
+  /// binary, with get, at 0x6a8, made the given code, which has room for 23
+  /// words, and the relocation that writes the address of pa at 0x3e40, the
+  /// third of .rela.dyn, made to write the given address.
+  static let recoverStrippedSoPointingTo (code: string list) (addr: uint64) =
+    let bytes = readZippedBinary "elf_sparc64_so"
+    (Array.zeroCreate<byte> 4).CopyTo(bytes, 0x2e9c)
+    (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x6a8)
+    let addend = System.BitConverter.GetBytes addr |> Array.rev
+    addend.CopyTo(bytes, 0x410)
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "sparc64")).Functions
+
   /// Returns the entries of the given functions, in order.
   static let entriesOf (fns: FunctionCollection) =
     fns.Sequence |> Seq.map _.EntryPoint |> Seq.sort |> Seq.toArray
@@ -208,3 +222,45 @@ type SPARCBinaryBrewTests() =
           "90102002" (* 0x2c: mov 2, %o0 *) ]
     CollectionAssert.AreEqual([| 0x0UL; 0x20UL; 0x28UL |], entriesOf fns)
     CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x18UL |], blocksOf fns[0x0UL])
+
+  (* Only a word of data leads to the function past get, which the loader
+     writes, and the function turns the window first, as a function does. *)
+  [<TestMethod>]
+  member _.``Functions start where data points to``() =
+    let fns =
+      recoverStrippedSoPointingTo
+        [ "81c3e008" (* 0x6a8: retl *)
+          "01000000" (* 0x6ac: nop *)
+          "9de3bf50" (* 0x6b0: save %sp, -176, %sp *)
+          "81c7e008" (* 0x6b4: ret *)
+          "81e80000" (* 0x6b8: restore *) ] 0x6b0UL
+    CollectionAssert.Contains(entriesOf fns, 0x6b0UL)
+
+  (* A word of data may name code that starts no function by chance, here
+     code that get skips with a branch, right past which it jumps, as one way
+     of an if-else, which the code above does not end. *)
+  [<TestMethod>]
+  member _.``No function starts where code above jumps right past``() =
+    let fns =
+      recoverStrippedSoPointingTo
+        [ "10800003" (* 0x6a8: b 0x6b4 *)
+          "90102001" (* 0x6ac: mov 1, %o0 *)
+          "90102002" (* 0x6b0: mov 2, %o0 *)
+          "81c3e008" (* 0x6b4: retl *)
+          "01000000" (* 0x6b8: nop *) ] 0x6b0UL
+    CollectionAssert.DoesNotContain(entriesOf fns, 0x6b0UL)
+
+  (* clang gives back the room that it takes on the stack for a call to a
+     function that never returns right past the call, where nothing runs, and
+     no function starts by giving back room that it never took, though a
+     word of data may name such code by chance. *)
+  [<TestMethod>]
+  member _.``No function starts by giving back stack it never took``() =
+    let fns =
+      recoverStrippedSoPointingTo
+        [ "81c3e008" (* 0x6a8: retl *)
+          "01000000" (* 0x6ac: nop *)
+          "9c03a030" (* 0x6b0: add %sp, 0x30, %sp *)
+          "81c3e008" (* 0x6b4: retl *)
+          "01000000" (* 0x6b8: nop *) ] 0x6b0UL
+    CollectionAssert.DoesNotContain(entriesOf fns, 0x6b0UL)
