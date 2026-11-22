@@ -96,6 +96,18 @@ type InstructionTests() =
     Assert.AreEqual<bool>(false, passes 0x6bfcUL "81e80000")
 
   [<TestMethod>]
+  member _.``[SPARC] A Leaf Copies The Return Address Test``() =
+    let copies hex = (parse 0x1000UL hex :?> Instruction).CopiesReturnAddress
+    (* mov %o7, %g1 *)
+    Assert.AreEqual<bool>(true, copies "8213c000")
+    (* or %g0, %o7, %g1 *)
+    Assert.AreEqual<bool>(true, copies "8210000f")
+    (* mov %g1, %o7 *)
+    Assert.AreEqual<bool>(false, copies "9e100001")
+    (* or %o7, 8, %g1 *)
+    Assert.AreEqual<bool>(false, copies "8213e008")
+
+  [<TestMethod>]
   member _.``[SPARC] A Function Returns 8 Past Its Link Test``() =
     for addr, hex in [| 0x6bf8UL, "81c7e00881e80000" (* ret; restore *)
                         0x6f00UL, "81c3e008ae03c017" (* retl; add *)

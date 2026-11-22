@@ -369,6 +369,32 @@ type SPARCBinaryBrewTests() =
     CollectionAssert.AreEqual([| 0x0UL; 0x20UL; 0x28UL |], entriesOf fns)
     CollectionAssert.AreEqual([| 0x0UL; 0x10UL; 0x18UL |], blocksOf fns[0x0UL])
 
+  (* A leaf f calls g as its tail with a call that moves a copy of %o7 back
+     into %o7 in its delay slot, which GNU ld relaxes into a branch with a nop
+     there, leaving the copy right above, so g returns to the caller of f,
+     past h, which lies between them, and main goes on past its call to f. *)
+  [<TestMethod>]
+  member _.``A branch past a copy of the return address calls its tail``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "4000000a" (* 0x04: call 0x2c *)
+          "01000000" (* 0x08: nop *)
+          "40000004" (* 0x0c: call 0x1c *)
+          "01000000" (* 0x10: nop *)
+          "81c7e008" (* 0x14: ret *)
+          "91e82001" (* 0x18: restore %g0, 1, %o0 *)
+          "90102010" (* 0x1c: mov 16, %o0 *)
+          "8213c000" (* 0x20: mov %o7, %g1 *)
+          "10800004" (* 0x24: b 0x34 *)
+          "01000000" (* 0x28: nop *)
+          "81c3e008" (* 0x2c: retl *)
+          "01000000" (* 0x30: nop *)
+          "9de3bf50" (* 0x34: save %sp, -176, %sp *)
+          "81c7e008" (* 0x38: ret *)
+          "81e80000" (* 0x3c: restore *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0xcUL; 0x14UL |], blocksOf fns[0x0UL])
+
   (* Only a word of data leads to the function past get, which the loader
      writes, and the function turns the window first, as a function does. *)
   [<TestMethod>]

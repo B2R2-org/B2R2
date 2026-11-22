@@ -116,6 +116,18 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
     | _ ->
       false
 
+  (* MOV, an OR with %g0, of %o7 into another register, which a leaf makes
+     right before a call that calls a function as its tail, so that the call
+     moves the copy back into %o7 in its delay slot. *)
+  let copiesO7 () =
+    match op, opr with
+    | Opcode.OR, ThreeOperands(OprReg a, OprReg b, OprReg dst) ->
+      dst <> Register.O7
+      && ((a = Register.O7 && b = Register.G0)
+          || (a = Register.G0 && b = Register.O7))
+    | _ ->
+      false
+
   (* RESTORE in the delay slot of a transfer turns the window back to the
      caller, whose %o7 holds the address the caller returns to, and a leaf
      moves that address back into %o7 in the slot of a call, over the link of
@@ -211,6 +223,11 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
   /// where the caller would have.
   member _.PassesReturnAddress with get(): bool =
     isTransfer () && passesReturnAddress ()
+
+  /// Whether this instruction copies the return address in %o7 into another
+  /// register, as a leaf does right before a call that calls a function as
+  /// its tail, which moves the copy back into %o7 in its delay slot.
+  member _.CopiesReturnAddress with get(): bool = copiesO7 ()
 
   /// Lifts this instruction into the statements the builder holds.
   member internal this.LiftInto(builder: LowUIRBuilder) =

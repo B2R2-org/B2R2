@@ -26,16 +26,40 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<AutoOpen>]
 module private SPARCCFGRecoveryRules =
-  /// Checks if the transfer at the given address hands the code it goes to
-  /// the return address of the caller of the function.
-  let passesReturnAddress (ctx: CFGBuildingContext<_, _>) addr =
+  /// Reads the instruction at the given address.
+  let tryPeek (ctx: CFGBuildingContext<_, _>) addr =
     match ctx.BBLFactory.PeekInstruction addr with
-    | Ok ins -> (ins :?> SPARC.Instruction).PassesReturnAddress
-    | Error _ -> false
+    | Ok ins -> Some(ins :?> SPARC.Instruction)
+    | Error _ -> None
+
+  /// Checks if the instruction branches, linking nothing, with a nop in its
+  /// delay slot, which leaves %o7 alone.
+  let isBranchOverNop (ins: SPARC.Instruction) =
+    let transfer = ins :> IInstruction
+    let isNop (slot: SPARC.Instruction) = slot.Opcode = SPARC.Opcode.NOP
+    transfer.IsDirectBranch
+    && not transfer.IsCondBranch
+    && not transfer.IsCall
+    && Option.exists isNop ins.DelaySlot
+
+  /// Checks if the transfer at the given address hands the code it goes to
+  /// the return address of the caller of the function: it does so itself, or
+  /// it branches over a nop right past a copy of %o7, into which the linker
+  /// relaxes a call of a leaf that moves the copy back into %o7 in its delay
+  /// slot, as both leave %o7 as it was.
+  let passesReturnAddress ctx addr =
+    match tryPeek ctx addr with
+    | Some ins when ins.PassesReturnAddress ->
+      true
+    | Some ins when isBranchOverNop ins && addr >= 4UL ->
+      tryPeek ctx (addr - 4UL) |> Option.exists _.CopiesReturnAddress
+    | _ ->
+      false
 
 /// Represents the rules of the CFG recovery for SPARC: the rules of every
 /// architecture, except that a jump table ends where the range check right
@@ -47,11 +71,13 @@ module private SPARCCFGRecoveryRules =
 /// A jump that restores the window in its delay slot, or a call that moves the
 /// return address of its caller into %o7 there, calls the code it goes to as
 /// its tail, whether a function is known to start there yet or not, as the
-/// code there returns where the caller would have. A call forgets the stack
-/// slots that its callee may write, so that a slot of the frame of the
-/// function holds nothing on entry: GCC keeps the base of a table in a slot
-/// that the code writes before a loop, which code that GCC shares reaches
-/// along a way that skips the write, but that never reaches the read.
+/// code there returns where the caller would have, and so does a branch over
+/// a nop right past a copy of %o7, which GNU ld relaxes such a call of a leaf
+/// into. A call forgets the stack slots that its callee may write, so that a
+/// slot of the frame of the function holds nothing on entry: GCC keeps the
+/// base of a table in a slot that the code writes before a loop, which code
+/// that GCC shares reaches along a way that skips the write, but that never
+/// reaches the read.
 type internal SPARCCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
