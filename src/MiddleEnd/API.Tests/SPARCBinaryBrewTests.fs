@@ -200,6 +200,63 @@ type SPARCBinaryBrewTests() =
     let entries = fns[0x6a8UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
 
+  (* GCC fills the delay slot of the branch of a range check with the last
+     step of the index, so the check compares a value that the code computes
+     the same way in another register, which bounds the index all the same. *)
+  [<TestMethod>]
+  member _.``A range check on a copy of the index ends its table``() =
+    let fns =
+      recoverPatchedGet
+        [ "82023fff" (* 0x6a8: add %o0, -1, %g1 *)
+          "840860ff" (* 0x6ac: and %g1, 0xff, %g2 *)
+          "80a0a001" (* 0x6b0: cmp %g2, 1 *)
+          "1840000e" (* 0x6b4: bgu,pn %icc, 0x6ec *)
+          "820860ff" (* 0x6b8: and %g1, 0xff, %g1 *)
+          "05000001" (* 0x6bc: sethi %hi(0x400), %g2 *)
+          "8410a2d4" (* 0x6c0: or %g2, 0x2d4, %g2 *)
+          "83287002" (* 0x6c4: sllx %g1, 2, %g1 *)
+          "c2408001" (* 0x6c8: ldsw [%g2 + %g1], %g1 *)
+          "81c08001" (* 0x6cc: jmp %g2 + %g1 *)
+          "01000000" (* 0x6d0: nop *)
+          "00000010" (* 0x6d4: .word 0x6e4 - 0x6d4 *)
+          "00000018" (* 0x6d8: .word 0x6ec - 0x6d4 *)
+          "00000010" (* 0x6dc: an entry of the next table, 0x6e4 here *)
+          "ffff0000" (* 0x6e0: no entry *)
+          "81c3e008" (* 0x6e4: retl *)
+          "90102000" (* 0x6e8: clr %o0 *)
+          "81c3e008" (* 0x6ec: retl *)
+          "90102001" (* 0x6f0: mov 1, %o0 *) ]
+    let entries = fns[0x6a8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* The delay slot may also take the low word of the index past the check,
+     which SRL does with a shift by zero, and the check bounds the value that
+     the code adjusts before the check all the same. *)
+  [<TestMethod>]
+  member _.``A range check before the low word of the index ends its table``() =
+    let fns =
+      recoverPatchedGet
+        [ "90023fff" (* 0x6a8: add %o0, -1, %o0 *)
+          "80a22001" (* 0x6ac: cmp %o0, 1 *)
+          "1840000e" (* 0x6b0: bgu,pn %icc, 0x6e8 *)
+          "91322000" (* 0x6b4: srl %o0, 0, %o0 *)
+          "03000001" (* 0x6b8: sethi %hi(0x400), %g1 *)
+          "821062d0" (* 0x6bc: or %g1, 0x2d0, %g1 *)
+          "912a3002" (* 0x6c0: sllx %o0, 2, %o0 *)
+          "d0404008" (* 0x6c4: ldsw [%g1 + %o0], %o0 *)
+          "81c04008" (* 0x6c8: jmp %g1 + %o0 *)
+          "01000000" (* 0x6cc: nop *)
+          "00000010" (* 0x6d0: .word 0x6e0 - 0x6d0 *)
+          "00000018" (* 0x6d4: .word 0x6e8 - 0x6d0 *)
+          "00000010" (* 0x6d8: an entry of the next table, 0x6e0 here *)
+          "ffff0000" (* 0x6dc: no entry *)
+          "81c3e008" (* 0x6e0: retl *)
+          "90102000" (* 0x6e4: clr %o0 *)
+          "81c3e008" (* 0x6e8: retl *)
+          "90102001" (* 0x6ec: mov 1, %o0 *) ]
+    let entries = fns[0x6a8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+
   (* A jump that restores the window in its delay slot, as GCC calls a
      function as its tail, and a call that does, as clang does, hand the code
      they go to the return address of their caller, so a function starts

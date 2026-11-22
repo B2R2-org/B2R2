@@ -512,8 +512,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
   /// Decomposes an index into the variable it derives from, the bits it shifts
   /// that variable to the right by, and the constant it adds after the shift,
   /// looking through copies, extensions, masks that keep the low word, shifts
-  /// to the left by zero, as SLL of MIPS64 sign-extends a word with, shifts to
-  /// the right of the variable itself, and constant additions, but not
+  /// by zero, as SLL of MIPS64 sign-extends a word with and SRL of SPARC
+  /// zero-extends one with, shifts to the right of the variable itself, and
+  /// constant additions, but not
   /// through an extension of a variable that carries no width and that no
   /// definition computes, so that the variable holding the extension becomes
   /// the root instead. A range check may bound the variable before the shift,
@@ -540,7 +541,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | BinOp(BinOpType.AND, _, e, Num m)
     | BinOp(BinOpType.AND, _, Num m, e) when isLowWordMask m ->
       decomposeIndex findDef e
-    | BinOp(BinOpType.SHL, _, e, Num n) when n.IsZero ->
+    | BinOp(BinOpType.SHL, _, e, Num n)
+    | BinOp(BinOpType.SHR, _, e, Num n) when n.IsZero ->
       decomposeIndex findDef e
     | BinOp(BinOpType.SHR, _, e, Num n) ->
       match decomposeIndex findDef e with
@@ -896,11 +898,28 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
     | ConstantDomain.Const n -> n.Length <= 64<rt> && n.ToUInt64() = entry
     | _ -> false
 
+  /// Finds the definition of the given variable, except that a variable whose
+  /// definition computes what that of the root does is a copy of the root, as
+  /// the two hold the same value. GCC for SPARC computes the index in the delay
+  /// slot of the branch of a range check, apart from the value it compares.
+  let findDefOrRootCopy findDef (root: Variable) =
+    match findDef root with
+    | Some(Def(_, rootDef)) ->
+      fun v ->
+        match findDef v with
+        | Some(Def(_, d)) when v <> root && d = rootDef ->
+          Some(Def(v, Var root))
+        | found ->
+          found
+    | _ ->
+      findDef
+
   /// Checks if the given guard, a condition paired with the outcome on which it
   /// branches toward the indirect jump, branches there while the root holds
   /// the given value. Returns None if the condition does not read the root,
   /// since then it bounds nothing.
   let tryTakeBranch findDef root value (cond, outcome) =
+    let findDef = findDefOrRootCopy findDef root
     let eval value = SSAExprEvaluator.evaluate findDef root value MaxDepth cond
     match eval None, eval value with
     | ConstantDomain.NotAConst, ConstantDomain.Const c ->
