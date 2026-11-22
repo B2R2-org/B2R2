@@ -99,3 +99,50 @@ type SPARCBinaryBrewTests() =
     let tables =
       fns[0x0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
     CollectionAssert.AreEqual([| (0x5cUL, 3) |], tables)
+
+  (* A table whose entries a jump adds to their base, after extending them,
+     may lie at a base that the code computes in more steps than the jump
+     table analysis expands: here the code keeps the address that it computes
+     from the GOT in its frame across a call, reloads it, and jumps to that
+     base plus a sign-extended entry. *)
+  [<TestMethod>]
+  member _.``A table is read off a base that the data flow computes``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "2f000007" (* 0x04: sethi %hi(0x1c00), %l7 *)
+          "4000001e" (* 0x08: call 0x80 *)
+          "ae15e3f8" (* 0x0c: or %l7, 0x3f8, %l7 *)
+          "05000007" (* 0x10: sethi %hi(0x1c00), %g2 *)
+          "8418a394" (* 0x14: xor %g2, 0x394, %g2 *)
+          "8225c002" (* 0x18: sub %l7, %g2, %g1 *)
+          "c277a7f7" (* 0x1c: stx %g1, [%fp + 2039] *)
+          "40000016" (* 0x20: call 0x78 *)
+          "01000000" (* 0x24: nop *)
+          "80a62002" (* 0x28: cmp %i0, 2 *)
+          "1840000e" (* 0x2c: bgu,pn %icc, 0x64 *)
+          "01000000" (* 0x30: nop *)
+          "c85fa7f7" (* 0x34: ldx [%fp + 2039], %g4 *)
+          "83362000" (* 0x38: srl %i0, 0, %g1 *)
+          "83287002" (* 0x3c: sllx %g1, 2, %g1 *)
+          "c2410001" (* 0x40: ldsw [%g4 + %g1], %g1 *)
+          "81c10001" (* 0x44: jmp %g4 + %g1 *)
+          "01000000" (* 0x48: nop *)
+          "81c7e008" (* 0x4c: ret *)
+          "91e8200a" (* 0x50: restore %g0, 10, %o0 *)
+          "81c7e008" (* 0x54: ret *)
+          "91e8200b" (* 0x58: restore %g0, 11, %o0 *)
+          "81c7e008" (* 0x5c: ret *)
+          "91e8200c" (* 0x60: restore %g0, 12, %o0 *)
+          "81c7e008" (* 0x64: ret *)
+          "91e82000" (* 0x68: restore %g0, 0, %o0 *)
+          "ffffffe0" (* 0x6c: .word 0x4c - 0x6c *)
+          "ffffffe8" (* 0x70: .word 0x54 - 0x6c *)
+          "fffffff0" (* 0x74: .word 0x5c - 0x6c *)
+          "81c3e008" (* 0x78: retl *)
+          "01000000" (* 0x7c: nop *)
+          "81c3e008" (* 0x80: retl *)
+          "ae03c017" (* 0x84: add %o7, %l7, %l7 *) ]
+    let tables =
+      fns[0x0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+    CollectionAssert.AreEqual([| (0x6cUL, 3) |], tables)

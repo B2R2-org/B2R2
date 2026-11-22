@@ -798,7 +798,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
       else
         Error ErrorCase.ItemNotFound
     | BinOp(BinOpType.ADD, _, baseExpr, Load(_, t, tblExpr))
-    | BinOp(BinOpType.ADD, _, Load(_, t, tblExpr), baseExpr) ->
+    | BinOp(BinOpType.ADD, _, Load(_, t, tblExpr), baseExpr)
+    | BinOp(BinOpType.ADD, _, baseExpr, Cast(_, _, Load(_, t, tblExpr)))
+    | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, tblExpr)), baseExpr) ->
       if isJmpTable expandPhi findConst findDef t tblExpr then
         extractTblInfo findConst findDef iAddr baseExpr tblExpr t false
       elif isSingleEntryJmpTable tblExpr then
