@@ -27,13 +27,22 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 open B2R2
+open B2R2.BinIR
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
+
+/// Represents a value that the code of a recovered function computes, with
+/// whether it moves with the binary as the loader places it, as a value that
+/// the code computes from the PC does.
+[<Struct>]
+type private ComputedValue = { Value: uint64; IsPlaced: bool }
 
 /// Represents the function identification for SPARC. It takes what the binary
 /// tells, as FunctionIdentification does, and then finds the functions that
@@ -43,7 +52,12 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 /// table of callbacks. A word of data may name code that starts no function,
 /// so it starts one only where the code shows a function starting, as
 /// SPARCCode tells, which the code alone tells, so that the recovery knows
-/// every such function before it starts.
+/// every such function before it starts. The same goes for an address that
+/// recovered code computes and hands on: passes to a function, calls or
+/// jumps to through a register, or stores, as _start passes main to
+/// __libc_start_main and code passes callbacks. A binary that the loader may
+/// place anywhere computes such an address from the PC, as PIC code finds its
+/// GOT, so a number that the code computes otherwise names no address there.
 /// Where code resumes past a recovered function, past the nops and the jump
 /// tables that GCC lays before the function that uses them, a function starts
 /// where the code shows one starting, as nothing else leads to a function that
@@ -179,6 +193,184 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     else
       storedEntries () |> Array.distinct
 
+  /// The registers in which a function receives its arguments.
+  let argRegisters =
+    [ SPARC.Register.O0
+      SPARC.Register.O1
+      SPARC.Register.O2
+      SPARC.Register.O3
+      SPARC.Register.O4
+      SPARC.Register.O5 ]
+    |> List.map SPARC.Register.toRegID
+
+  /// Masks the value to the given width.
+  let mask rt (v: uint64) =
+    let width = RegType.toBitWidth rt
+    if width >= 64 then v else v &&& ((1UL <<< width) - 1UL)
+
+  let fold op (x: uint64) (y: uint64) =
+    match op with
+    | BinOpType.ADD -> Some(x + y)
+    | BinOpType.SUB -> Some(x - y)
+    | BinOpType.SHL when y < 64UL -> Some(x <<< int y)
+    | BinOpType.SHR when y < 64UL -> Some(x >>> int y)
+    | BinOpType.AND -> Some(x &&& y)
+    | BinOpType.OR -> Some(x ||| y)
+    | BinOpType.XOR -> Some(x ^^^ y)
+    | _ -> None
+
+  /// Tells whether what the operation yields moves with the binary, given
+  /// whether its operands do: an address plus an offset does, while the
+  /// distance between two addresses does not.
+  let isPlacedBy op isLeftPlaced isRightPlaced =
+    match op with
+    | BinOpType.SUB -> isLeftPlaced && not isRightPlaced
+    | _ -> isLeftPlaced || isRightPlaced
+
+  /// Evaluates the expression to the constant that it is on every path, if
+  /// any, given what the registers and the temporaries hold.
+  let rec eval (regs: Map<RegisterID, ComputedValue>) temps pc e =
+    match e with
+    | Num(Value = bv) when bv.Length <= 64<rt> ->
+      Some { Value = bv.ToUInt64(); IsPlaced = false }
+    | PCVar _ ->
+      Some { Value = pc; IsPlaced = true }
+    | Var(RegisterID = r) ->
+      Map.tryFind r regs
+    | TempVar(Index = i) ->
+      Map.tryFind i temps
+    | BinOp(Op = op; Type = rt; Left = l; Right = r) ->
+      match eval regs temps pc l, eval regs temps pc r with
+      | Some x, Some y ->
+        fold op x.Value y.Value
+        |> Option.map (fun v ->
+          { Value = mask rt v
+            IsPlaced = isPlacedBy op x.IsPlaced y.IsPlaced })
+      | _ ->
+        None
+    | Cast(Kind = CastKind.ZeroExt; Operand = x) ->
+      eval regs temps pc x
+    | Extract(Operand = x; Type = rt; StartPos = pos) ->
+      eval regs temps pc x
+      |> Option.map (fun k -> { k with Value = mask rt (k.Value >>> pos) })
+    | _ ->
+      None
+
+  let update key value map =
+    match value with
+    | Some v -> Map.add key v map
+    | None -> Map.remove key map
+
+  /// Tells whether the instruction leaves for code of another function, with
+  /// what the arguments hold: it calls, returns, jumps through a register, or
+  /// calls as its tail by handing on the return address of its caller.
+  let leavesFunction (ins: IInstruction) =
+    ins.IsCall
+    || ins.IsRET
+    || ins.IsIndirectBranch
+    || (ins :?> SPARC.Instruction).PassesReturnAddress
+
+  /// Notes the values that the statement of the given instruction hands on:
+  /// those of the arguments as the code leaves for another function, the
+  /// address that it jumps to through a register, and the value that it
+  /// stores.
+  let noteHandedOn (found: HashSet<_>) (ins: IInstruction) regs temps stmt =
+    let add k = found.Add k |> ignore
+    let pc = ins.Address
+    match stmt with
+    | InterJmp(Target = target) when leavesFunction ins ->
+      for r in argRegisters do Map.tryFind r regs |> Option.iter add
+      if ins.IsIndirectBranch then eval regs temps pc target |> Option.iter add
+      else ()
+    | Store(Value = v) ->
+      eval regs temps pc v |> Option.iter add
+    | _ ->
+      ()
+
+  /// Applies the statements to what the registers hold, noting the values
+  /// that they hand on if they are those of the given instruction. A
+  /// temporary lives within one instruction, so a new instruction forgets
+  /// them.
+  let applyStmts found (ins: IInstruction option) regs (stmts: Stmt[]) =
+    let pc = ins |> Option.map _.Address |> Option.defaultValue 0UL
+    let mutable regs = regs
+    let mutable temps = Map.empty
+    for stmt in stmts do
+      match stmt with
+      | ISMark _ ->
+        temps <- Map.empty
+      | Put(Dst = Var(RegisterID = r); Src = src) ->
+        regs <- update r (eval regs temps pc src) regs
+      | Put(Dst = TempVar(Index = i); Src = src) ->
+        temps <- update i (eval regs temps pc src) temps
+      | stmt ->
+        ins |> Option.iter (fun ins -> noteHandedOn found ins regs temps stmt)
+    regs
+
+  /// Applies the block to what the registers hold: each instruction, or what
+  /// the callee does, as its summary tells.
+  let transfer found regs (blk: ILowUIRBasicBlock) =
+    if blk.IsAbstract then
+      applyStmts found None regs blk.AbstractContent.Rundown
+    else
+      blk.LiftedInstructions
+      |> Array.fold (fun regs lifted ->
+        applyStmts found (Some lifted.Original) regs lifted.Stmts) regs
+
+  /// Meets what two ways into a block know: what both know alike.
+  let meet (a: Map<RegisterID, ComputedValue>) b =
+    a |> Map.filter (fun r k -> Map.tryFind r b = Some k)
+
+  /// Returns the values that the code of the function hands on, as the
+  /// registers hold them on every way there.
+  let readHandedOn (fn: Function) =
+    let cfg = fn.CFG
+    let found = HashSet<ComputedValue>()
+    let incoming = Dictionary<IVertex<LowUIRBasicBlock>, Map<_, _>>()
+    let work = Queue<IVertex<LowUIRBasicBlock>>()
+    for root in cfg.Roots do
+      incoming[root] <- Map.empty
+      work.Enqueue root
+    while work.Count > 0 do
+      let v = work.Dequeue()
+      let out = transfer found incoming[v] v.VData.Internals
+      for succ in cfg.GetSuccs v do
+        match incoming.TryGetValue succ with
+        | true, prev ->
+          let next = meet prev out
+          if next.Count <> prev.Count then
+            incoming[succ] <- next
+            work.Enqueue succ
+          else
+            ()
+        | false, _ ->
+          incoming[succ] <- out
+          work.Enqueue succ
+    found
+    |> Seq.filter (fun k -> k.IsPlaced || not file.IsBaseRelative)
+    |> Seq.toArray
+
+  /// The values that the code of each recovered function hands on, by its
+  /// CFG, with the counts of its vertices and edges, as reading them takes
+  /// walking the whole function, while most functions stay the same from
+  /// round to round of identification.
+  let handedOnByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns the values that the code of the function hands on, reading them
+  /// anew only once the function has changed.
+  let valuesHandedOnBy fn = readOnce handedOnByCFG readHandedOn fn
+
+  /// Tells whether the value that recovered code hands on surely starts a
+  /// function: it names code that shows a function starting, and the code
+  /// computes the value from the PC, or the code there turns the window
+  /// first. Code of a binary that stays where it is linked builds a number in
+  /// the same way as an address, so a number may name code by chance, such
+  /// as a block that a function jumps to.
+  let surelyStartsFunction (k: ComputedValue) =
+    isCodePointer k.Value
+    && showsEntry k.Value
+    && (k.IsPlaced || SPARCCode.turnsWindowAt lu k.Value)
+
   /// Returns what the blocks that the recovery has built for the function
   /// cover, along with the delay slots of their last instructions, which run
   /// with them.
@@ -301,6 +493,64 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     |> List.map (fun (_, _, _, start) -> start)
     |> List.toArray
 
+  /// Returns where the direct jumps of the function go, rather than its calls.
+  let readJumpTargets (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.choose (fun v ->
+      let blk = v.VData.Internals
+      if blk.IsAbstract || blk.LastInstruction.IsCall then
+        None
+      else
+        match blk.LastInstruction.DirectBranchTarget() with
+        | true, target -> Some target
+        | false, _ -> None)
+
+  /// Where the direct jumps of each recovered function go, by its CFG, with
+  /// the counts of its vertices and edges.
+  let jumpTargetsByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns the addresses that the code that the recovery has built for the
+  /// given functions jumps to.
+  let findJumpTargets internals =
+    internals
+    |> Array.collect (readOnce jumpTargetsByCFG readJumpTargets)
+    |> HashSet
+
+  /// Tells whether the value that recovered code hands on starts a function
+  /// once the recovery has built every function that anything else leads to:
+  /// it names code that shows a function starting, which no code that the
+  /// recovery has built jumps to, as the given set tells.
+  let startsFunctionAtLast (jumpTargets: HashSet<Addr>) (k: ComputedValue) =
+    isCodePointer k.Value
+    && showsEntry k.Value
+    && not (jumpTargets.Contains k.Value)
+
+  /// Returns where more functions start in the given recovered functions:
+  /// where the values that they hand on surely start one, and where code
+  /// resumes past them. Once these find no more, where the values that they
+  /// hand on start one at last, as the recovery has then built every function
+  /// that anything else leads to, which tells the blocks that they jump to.
+  let findMore (internals: Function[]) =
+    let known = internals |> Array.map _.EntryPoint |> HashSet
+    let isNew addr = not (known.Contains addr)
+    let handedOn =
+      internals |> Array.collect valuesHandedOnBy |> Array.distinct
+    let found =
+      handedOn
+      |> Array.filter surelyStartsFunction
+      |> Array.map _.Value
+      |> Array.append (findNextStarts internals)
+      |> Array.distinct
+      |> Array.filter isNew
+    if Array.isEmpty found then
+      let jumpTargets = findJumpTargets internals
+      handedOn
+      |> Array.filter (startsFunctionAtLast jumpTargets)
+      |> Array.map _.Value
+      |> Array.filter isNew
+    else
+      found
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
@@ -309,4 +559,4 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     member _.IdentifyMore recovered =
       recovered
       |> Array.filter (fun fn -> not fn.IsExternal)
-      |> findNextStarts
+      |> findMore

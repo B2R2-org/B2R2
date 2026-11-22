@@ -322,3 +322,56 @@ type SPARCBinaryBrewTests() =
           "10bffffe" (* 0x1c: b 0x14 *)
           "90102003" (* 0x20: mov 3, %o0 *) ]
     CollectionAssert.AreEqual([| 0x0UL |], entriesOf fns)
+
+  (* main passes the address of f to g, which is all that leads to f, and f
+     turns the window, as a function does. The word right above f decodes as
+     nothing, so no code runs into f, nor does f lie past what code fills. *)
+  [<TestMethod>]
+  member _.``A function starts where code passes its address``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "11000000" (* 0x04: sethi %hi(0x24), %o0 *)
+          "40000004" (* 0x08: call 0x18 *)
+          "90122024" (* 0x0c: or %o0, 0x24, %o0 *)
+          "81c7e008" (* 0x10: ret *)
+          "81e80000" (* 0x14: restore *)
+          "81c3e008" (* 0x18: retl *)
+          "01000000" (* 0x1c: nop *)
+          "ffffffff" (* 0x20: no instruction *)
+          "9de3bf50" (* 0x24: save %sp, -176, %sp *)
+          "81c7e008" (* 0x28: ret *)
+          "81e80000" (* 0x2c: restore *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x18UL; 0x24UL |], entriesOf fns)
+
+  (* main passes g two addresses of code that reads nothing and returns at
+     once, as a leaf function does: a block that g jumps to, which starts no
+     function, and h, which nothing else leads to. A number may name code by
+     chance in a binary that stays where it is linked, so such an address
+     starts a function only once the recovery has built every function that
+     anything else leads to, and only where none of them jumps. *)
+  [<TestMethod>]
+  member _.``A leaf starts where code passes its address at last``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "11000000" (* 0x04: sethi %hi(0x34), %o0 *)
+          "90122034" (* 0x08: or %o0, 0x34, %o0 *)
+          "13000000" (* 0x0c: sethi %hi(0x48), %o1 *)
+          "40000004" (* 0x10: call 0x20 *)
+          "92126048" (* 0x14: or %o1, 0x48, %o1 *)
+          "81c7e008" (* 0x18: ret *)
+          "81e80000" (* 0x1c: restore *)
+          "80a22000" (* 0x20: cmp %o0, 0 *)
+          "02480004" (* 0x24: be %icc, 0x34 *)
+          "01000000" (* 0x28: nop *)
+          "81c3e008" (* 0x2c: retl *)
+          "01000000" (* 0x30: nop *)
+          "81c3e008" (* 0x34: retl *)
+          "90102001" (* 0x38: mov 1, %o0 *)
+          "ffffffff" (* 0x3c: no instruction *)
+          "81c3e008" (* 0x40: retl *)
+          "01000000" (* 0x44: nop *)
+          "81c3e008" (* 0x48: retl *)
+          "90102002" (* 0x4c: mov 2, %o0 *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x20UL; 0x48UL |], entriesOf fns)

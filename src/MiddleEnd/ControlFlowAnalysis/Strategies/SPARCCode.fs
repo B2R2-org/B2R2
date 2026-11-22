@@ -298,6 +298,13 @@ module internal SPARCCode =
     | _ ->
       false
 
+  /// Tells whether the code at the address turns the window first, as a
+  /// function that calls others starts.
+  let turnsWindowAt (lu: LiftingUnit) (addr: Addr) =
+    match lu.TryParseInstruction addr with
+    | Ok ins -> turnsWindow ins
+    | Error _ -> false
+
   /// Tells whether code that ends with the instruction runs into nothing past
   /// it: it returns or jumps, traps, or pads with a nop.
   let leaves (ins: IInstruction) =
