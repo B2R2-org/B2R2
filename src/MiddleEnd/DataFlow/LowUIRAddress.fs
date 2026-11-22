@@ -44,14 +44,18 @@ let toFrameOffset (offset: BitVector) =
   int (low.ToUInt64())
 
 /// Returns the variable kind of the stack pointer along with the value it
-/// holds on function entry, or None when the architecture has none.
+/// holds on function entry, or None when the architecture has none. The value
+/// is where the stack pointer points relative to the stack on entry: below it
+/// by the bias of the ABI, so that what lies below the stack on entry is the
+/// frame of the function, and what lies above it that of its caller.
 let initialValue (hdl: BinHandle) =
   match hdl.RegisterFactory.StackPointer with
   | None ->
     None
   | Some rid ->
     let rt = hdl.RegisterFactory.GetRegType rid
-    Some(Regular rid, AddressDomain.StackAddr(BitVector.Zero rt))
+    let bias = BitVector(-(int64 hdl.Conventions.Stack.Bias), rt)
+    Some(Regular rid, AddressDomain.StackAddr bias)
 
 /// Gets the kind of the variable that names the memory at the given address,
 /// if the address is a known one: a slot of the stack frame or a global

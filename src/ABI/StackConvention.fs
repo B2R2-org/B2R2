@@ -40,13 +40,26 @@ type StackConvention =
     /// Size in bytes of the shadow (home) space that the caller reserves above
     /// the return address for spilling the register arguments. 0 when the ABI
     /// has no shadow space (only the Microsoft x64 ABI uses 32).
-    ShadowSpaceSize: int }
+    ShadowSpaceSize: int
+    /// How many bytes below the stack the stack pointer points, which code
+    /// adds back to reach the stack. 0 when the ABI has no bias (only the
+    /// SPARC V9 ABI biases its stack and frame pointers, by 2047, which tells
+    /// a 64-bit frame from a 32-bit one).
+    Bias: int }
 
 /// Builds the stack-frame convention for a given OS and ISA.
 [<RequireQualifiedAccess>]
 module StackConvention =
   let private make alignment redZone shadow =
-    { Alignment = alignment; RedZoneSize = redZone; ShadowSpaceSize = shadow }
+    { Alignment = alignment
+      RedZoneSize = redZone
+      ShadowSpaceSize = shadow
+      Bias = 0 }
+
+  /// Returns the bias of the stack pointer of SPARC, which only the 64-bit ABI
+  /// has, so that code tells a 64-bit frame from a 32-bit one.
+  let private biasOf (isa: ISA) =
+    if isa.WordSize = WordSize.Bit64 then 2047 else 0
 
   /// Builds the stack-frame convention for the given OS and ISA. macOS, the
   /// bare machine and any unknown OS share the System V geometry; only Windows
@@ -63,7 +76,7 @@ module StackConvention =
     | _, MIPS -> make 8 0 0
     | _, PPC -> make 16 0 0
     | _, RISCV -> make 16 0 0
-    | _, SPARC -> make 16 0 0
+    | _, SPARC -> { make 16 0 0 with Bias = biasOf isa }
     | _, S390 -> make 8 0 0
     | _, M68K -> make 4 0 0
     | _, SH4 -> make 4 0 0

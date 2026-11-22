@@ -65,3 +65,10 @@ type StackConventionTests() =
     let x86 = ISA(Architecture.Intel, WordSize.Bit32)
     let sc = StackConvention.create OS.Windows x86
     Assert.AreEqual<int>(4, sc.Alignment)
+
+  [<TestMethod>]
+  member _.``SPARC V9 biases its stack by 2047 bytes``() =
+    let v9 = StackConvention.create OS.Linux (ISA "sparc64")
+    let v8 = StackConvention.create OS.Linux (ISA "sparc32")
+    Assert.AreEqual<int>(2047, v9.Bias)
+    Assert.AreEqual<int>(0, v8.Bias)
