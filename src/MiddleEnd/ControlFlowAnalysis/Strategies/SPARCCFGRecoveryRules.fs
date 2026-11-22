@@ -47,13 +47,19 @@ module private SPARCCFGRecoveryRules =
 /// A jump that restores the window in its delay slot, or a call that moves the
 /// return address of its caller into %o7 there, calls the code it goes to as
 /// its tail, whether a function is known to start there yet or not, as the
-/// code there returns where the caller would have.
+/// code there returns where the caller would have. A call forgets the stack
+/// slots that its callee may write, so that a slot of the frame of the
+/// function holds nothing on entry: GCC keeps the base of a table in a slot
+/// that the code writes before a loop, which code that GCC shares reaches
+/// along a way that skips the write, but that never reaches the read.
 type internal SPARCCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
   override _.EndsJumpTableBefore(_, jmptbl, idx) =
     let isPast = Option.exists (fun n -> idx >= n)
     isPast jmptbl.OwnRangeEntries || isPast jmptbl.MaskedEntries
+
+  override _.ForgetsWrittenSlots _ = true
 
   override _.JudgeTailCall(ctx, jmpAddr, target) =
     if target <> ctx.FunctionAddress && passesReturnAddress ctx jmpAddr then

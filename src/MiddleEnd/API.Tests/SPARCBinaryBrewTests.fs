@@ -219,6 +219,48 @@ type SPARCBinaryBrewTests() =
       fns[0x0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
     CollectionAssert.AreEqual([| (0x78UL, 3) |], tables)
 
+  (* GCC writes the base of a table to a slot of the frame before a loop, and
+     code that it shares reaches the loop along a way that skips the write,
+     which never reaches the read of the slot as the code runs. A slot of the
+     frame holds nothing on entry, so the slot holds the base at the read. *)
+  [<TestMethod>]
+  member _.``A table is read off a base that a way skips``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "4000001b" (* 0x04: call 0x70 *)
+          "01000000" (* 0x08: nop *)
+          "02ce4005" (* 0x0c: brz %i1, 0x20 *)
+          "01000000" (* 0x10: nop *)
+          "03000000" (* 0x14: sethi %hi(0), %g1 *)
+          "82106064" (* 0x18: or %g1, 0x64, %g1 *)
+          "c277a7f7" (* 0x1c: stx %g1, [%fp + 2039] *)
+          "80a62002" (* 0x20: cmp %i0, 2 *)
+          "1840000e" (* 0x24: bgu,pn %icc, 0x5c *)
+          "01000000" (* 0x28: nop *)
+          "c25fa7f7" (* 0x2c: ldx [%fp + 2039], %g1 *)
+          "b1362000" (* 0x30: srl %i0, 0, %i0 *)
+          "b12e3002" (* 0x34: sllx %i0, 2, %i0 *)
+          "c2004018" (* 0x38: ld [%g1 + %i0], %g1 *)
+          "81c04000" (* 0x3c: jmp %g1 *)
+          "01000000" (* 0x40: nop *)
+          "81c7e008" (* 0x44: ret *)
+          "91e8200a" (* 0x48: restore %g0, 10, %o0 *)
+          "81c7e008" (* 0x4c: ret *)
+          "91e8200b" (* 0x50: restore %g0, 11, %o0 *)
+          "81c7e008" (* 0x54: ret *)
+          "91e8200c" (* 0x58: restore %g0, 12, %o0 *)
+          "81c7e008" (* 0x5c: ret *)
+          "91e82000" (* 0x60: restore %g0, 0, %o0 *)
+          "00000044" (* 0x64: .word 0x44 *)
+          "0000004c" (* 0x68: .word 0x4c *)
+          "00000054" (* 0x6c: .word 0x54 *)
+          "81c3e008" (* 0x70: retl *)
+          "01000000" (* 0x74: nop *) ]
+    let tables =
+      fns[0x0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+    CollectionAssert.AreEqual([| (0x64UL, 3) |], tables)
+
   (* GCC lays the tables of a translation unit next to each other, so the
      words past a table read as more of its entries, which send its jump into
      the code of the function all the same. The range check right before the
