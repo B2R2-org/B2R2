@@ -39,6 +39,13 @@ type SPARCBinaryBrewTests() =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "sparc64")).Functions
 
+  /// Recovers the functions of elf_sparc64_so with get, at 0x6a8, made the
+  /// given code, which has room for 23 words before .text ends.
+  static let recoverPatchedGet (code: string list) =
+    let bytes = readZippedBinary "elf_sparc64_so"
+    (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x6a8)
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "sparc64")).Functions
+
   /// Returns the addresses of the blocks of the function, in order.
   static let blocksOf (fn: Function) =
     fn.CFG.Vertices
@@ -146,3 +153,31 @@ type SPARCBinaryBrewTests() =
     let tables =
       fns[0x0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
     CollectionAssert.AreEqual([| (0x6cUL, 3) |], tables)
+
+  (* GCC lays the tables of a translation unit next to each other, so the
+     words past a table read as more of its entries, which send its jump into
+     the code of the function all the same. The range check right before the
+     jump says where the table ends. *)
+  [<TestMethod>]
+  member _.``A table ends where its range check says``() =
+    let fns =
+      recoverPatchedGet
+        [ "80a22001" (* 0x6a8: cmp %o0, 1 *)
+          "1840000e" (* 0x6ac: bgu,pn %icc, 0x6e4 *)
+          "01000000" (* 0x6b0: nop *)
+          "03000001" (* 0x6b4: sethi %hi(0x400), %g1 *)
+          "821062cc" (* 0x6b8: or %g1, 0x2cc, %g1 *)
+          "912a3002" (* 0x6bc: sllx %o0, 2, %o0 *)
+          "d0404008" (* 0x6c0: ldsw [%g1 + %o0], %o0 *)
+          "81c04008" (* 0x6c4: jmp %g1 + %o0 *)
+          "01000000" (* 0x6c8: nop *)
+          "00000010" (* 0x6cc: .word 0x6dc - 0x6cc *)
+          "00000018" (* 0x6d0: .word 0x6e4 - 0x6cc *)
+          "00000010" (* 0x6d4: an entry of the next table, 0x6dc here *)
+          "ffff0000" (* 0x6d8: no entry *)
+          "81c3e008" (* 0x6dc: retl *)
+          "90102000" (* 0x6e0: clr %o0 *)
+          "81c3e008" (* 0x6e4: retl *)
+          "90102001" (* 0x6e8: mov 1, %o0 *) ]
+    let entries = fns[0x6a8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
