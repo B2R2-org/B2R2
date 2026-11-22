@@ -475,6 +475,34 @@ type SPARCBinaryBrewTests() =
           "01000000" (* 0x24: nop *) ]
     CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x1cUL |], entriesOf fns)
 
+  (* Nothing leads to h either, whose way past the call to k, which never
+     returns, reads %l0 that only the other way writes, as no code above
+     leaves anything in a local of the window that h turns to. *)
+  [<TestMethod>]
+  member _.``A function starts past another where a dead way reads a local``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "81c3e008" (* 0x14: retl *)
+          "01000000" (* 0x18: nop *)
+          "9de3bf50" (* 0x1c: save %sp, -176, %sp *)
+          "02ce0004" (* 0x20: brz %i0, 0x30 *)
+          "01000000" (* 0x24: nop *)
+          "10800004" (* 0x28: b 0x38 *)
+          "a0100000" (* 0x2c: clr %l0 *)
+          "40000005" (* 0x30: call 0x44 *)
+          "01000000" (* 0x34: nop *)
+          "80a42000" (* 0x38: cmp %l0, 0 *)
+          "81c7e008" (* 0x3c: ret *)
+          "81e80000" (* 0x40: restore *)
+          "91d02005" (* 0x44: ta 5 *) ]
+    let expected = [| 0x0UL; 0x14UL; 0x1cUL; 0x44UL |]
+    CollectionAssert.AreEqual(expected, entriesOf fns)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]

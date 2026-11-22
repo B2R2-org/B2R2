@@ -170,19 +170,31 @@ module internal SPARCCode =
     |> List.concat
     |> HashSet
 
+  /// The local registers, which a window that SAVE turns to has fresh, as
+  /// SAVE hands the new window only its ins.
+  let private locals = idsFrom Register.L0 Register.L7 |> HashSet
+
+  /// Tells whether the register, as the instruction reads it, holds what code
+  /// above left: the function has not received it, the code on the way has
+  /// not written it, and it is no local of a window that the code has turned
+  /// to, which holds nothing of code above. Code reads such a local unwritten
+  /// only along a way that never runs, such as past a call to a function of
+  /// the binary that never returns, which the reading cannot tell.
+  let private isLeftover (written: Set<_>) turned r =
+    not (received.Contains r || written.Contains r)
+    && not (turned && locals.Contains r)
+
   /// The registers of the window of the caller, which a function changes only
   /// in a window of its own.
   let private windowed = idsFrom Register.L0 Register.I7 |> HashSet
 
-  /// Tells whether the instruction reads a register that the function has not
-  /// received and that the code on the way to it has not written, or changes
-  /// one of the window of the caller without having turned the window, or
-  /// gives back room on the stack that the code on the way has not taken, as
-  /// code right past a call to a function that never returns does with what
-  /// its function took for the call.
-  let private isLeftoverUse eff (written: Set<_>) turned took =
-    eff.Reads
-    |> Seq.exists (fun r -> not (received.Contains r || written.Contains r))
+  /// Tells whether the instruction reads a register that code above left, or
+  /// changes one of the window of the caller without having turned the
+  /// window, or gives back room on the stack that the code on the way has not
+  /// taken, as code right past a call to a function that never returns does
+  /// with what its function took for the call.
+  let private isLeftoverUse eff written turned took =
+    Seq.exists (isLeftover written turned) eff.Reads
     || (not turned && Seq.exists windowed.Contains eff.Writes)
     || (eff.Frees && not (turned || took))
 
