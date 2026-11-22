@@ -59,3 +59,43 @@ type SPARCBinaryBrewTests() =
           "81c3e008" (* retl *)
           "01000000" (* nop *) ]
     CollectionAssert.AreEqual([| 0x0UL; 0x8UL |], blocksOf fns[0x0UL])
+
+  (* PIC code finds its GOT with a thunk that adds the address of the call,
+     which the call links into %o7, to what the code puts in %l7 around the
+     call. A table that the code addresses from the GOT is found only once the
+     GOT is: here %l7 is 0x1ff8 + 0x8, and the table lies 0x1fa4 below it. *)
+  [<TestMethod>]
+  member _.``A thunk reads the PC that a table is addressed from``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "2f000007" (* 0x04: sethi %hi(0x1c00), %l7 *)
+          "40000018" (* 0x08: call 0x68 *)
+          "ae15e3f8" (* 0x0c: or %l7, 0x3f8, %l7 *)
+          "80a62002" (* 0x10: cmp %i0, 2 *)
+          "18400010" (* 0x14: bgu,pn %icc, 0x54 *)
+          "01000000" (* 0x18: nop *)
+          "03000007" (* 0x1c: sethi %hi(0x1c00), %g1 *)
+          "821063a4" (* 0x20: or %g1, 0x3a4, %g1 *)
+          "8225c001" (* 0x24: sub %l7, %g1, %g1 *)
+          "b1362000" (* 0x28: srl %i0, 0, %i0 *)
+          "b12e3002" (* 0x2c: sllx %i0, 2, %i0 *)
+          "f0404018" (* 0x30: ldsw [%g1 + %i0], %i0 *)
+          "81c04018" (* 0x34: jmp %g1 + %i0 *)
+          "01000000" (* 0x38: nop *)
+          "81c7e008" (* 0x3c: ret *)
+          "91e8200a" (* 0x40: restore %g0, 10, %o0 *)
+          "81c7e008" (* 0x44: ret *)
+          "91e8200b" (* 0x48: restore %g0, 11, %o0 *)
+          "81c7e008" (* 0x4c: ret *)
+          "91e8200c" (* 0x50: restore %g0, 12, %o0 *)
+          "81c7e008" (* 0x54: ret *)
+          "91e82000" (* 0x58: restore %g0, 0, %o0 *)
+          "ffffffe0" (* 0x5c: .word 0x3c - 0x5c *)
+          "ffffffe8" (* 0x60: .word 0x44 - 0x5c *)
+          "fffffff0" (* 0x64: .word 0x4c - 0x5c *)
+          "81c3e008" (* 0x68: retl *)
+          "ae03c017" (* 0x6c: add %o7, %l7, %l7 *) ]
+    let tables =
+      fns[0x0UL].JumpTables |> Array.map (fun t -> t.TableAddress, t.NumEntries)
+    CollectionAssert.AreEqual([| (0x5cUL, 3) |], tables)
