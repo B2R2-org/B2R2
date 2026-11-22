@@ -431,6 +431,24 @@ type SPARCBinaryBrewTests() =
           "91e82001" (* 0x2c: restore %g0, 1, %o0 *) ]
     CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x24UL |], entriesOf fns)
 
+  (* Nothing leads to h either, which converts a number first, rounding it as
+     the floating-point state register that it receives tells. *)
+  [<TestMethod>]
+  member _.``A function starts past another where it rounds first``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "81c3e008" (* 0x14: retl *)
+          "01000000" (* 0x18: nop *)
+          "81a01100" (* 0x1c: fxtod %f0, %f0 *)
+          "81c3e008" (* 0x20: retl *)
+          "01000000" (* 0x24: nop *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x1cUL |], entriesOf fns)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]

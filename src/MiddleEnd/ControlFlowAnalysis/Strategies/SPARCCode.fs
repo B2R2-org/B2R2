@@ -159,12 +159,14 @@ module internal SPARCCode =
 
   /// The registers that hold what a function receives from its caller: its
   /// arguments, the address to return to, the stack pointer, the thread
-  /// pointer, and %g0, which holds zero.
+  /// pointer, %g0, which holds zero, and the floating-point state register,
+  /// whose rounding mode floating-point arithmetic reads.
   let private received =
     [ idsFrom Register.G0 Register.G0
       idsFrom Register.G7 Register.G7
       idsFrom Register.O0 Register.O7
-      idsFrom Register.F0 Register.F62 ]
+      idsFrom Register.F0 Register.F62
+      idsFrom Register.FSR Register.FSR ]
     |> List.concat
     |> HashSet
 
