@@ -376,8 +376,10 @@ let private translateOpcode (ins: Instruction) bld =
     alignaddr ins bld
   | Opcode.FALIGNDATAd ->
     faligndata ins bld
-  | Opcode.FLUSH | Opcode.ILLTRAP ->
+  | Opcode.FLUSH ->
     nop ins bld
+  | Opcode.ILLTRAP ->
+    illtrap ins bld
   | Opcode.FLUSHW ->
     flushw ins bld
   | Opcode.IMPDEP1 | Opcode.IMPDEP2 ->
