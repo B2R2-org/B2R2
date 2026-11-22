@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.SPARC
 
+open System
 open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -276,13 +277,51 @@ type RegisterFactory(isa: ISA) =
       | Register.CLEANWIN -> cleanwin
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
+    member this.GetRegVar(name: string) =
+      let factory = this :> IRegisterFactory
+      factory.GetRegisterID name |> factory.GetRegVar
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars() = Terminator.futureFeature ()
+    member this.GetAllRegVars() =
+      let factory = this :> IRegisterFactory
+      Enum.GetValues<Register>()
+      |> Array.map (Register.toRegID >> factory.GetRegVar)
 
-    member _.GetGeneralRegVars() = Terminator.futureFeature ()
+    (* The registers of the window that code runs in, %g0 and its zero too. *)
+    member _.GetGeneralRegVars() =
+      [| g0
+         g1
+         g2
+         g3
+         g4
+         g5
+         g6
+         g7
+         o0
+         o1
+         o2
+         o3
+         o4
+         o5
+         o6
+         o7
+         l0
+         l1
+         l2
+         l3
+         l4
+         l5
+         l6
+         l7
+         i0
+         i1
+         i2
+         i3
+         i4
+         i5
+         i6
+         i7 |]
 
     member _.GetRegisterID expr =
       match expr with
@@ -290,15 +329,23 @@ type RegisterFactory(isa: ISA) =
       | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID(_: string): RegisterID = Terminator.futureFeature ()
+    (* Names come with the % that the disassembly writes, or without it. *)
+    member _.GetRegisterID(name: string): RegisterID =
+      Register.ofString (name.TrimStart '%') |> Register.toRegID
 
-    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+    (* Every register here is storage of its own: a double below %f32 is the
+       pair of singles that the lifter reads together. *)
+    member _.GetRegisterIDAliases rid = [| rid |]
 
-    member _.GetRegisterName _ = Terminator.futureFeature ()
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
-    member _.GetAllRegisterNames() = Terminator.futureFeature ()
+    member this.GetAllRegisterNames() =
+      let factory = this :> IRegisterFactory
+      factory.GetAllRegVars()
+      |> Array.map (factory.GetRegisterID >> factory.GetRegisterName)
 
-    member _.GetRegType _ = Terminator.futureFeature ()
+    member this.GetRegType rid =
+      (this :> IRegisterFactory).GetRegVar rid |> Expr.typeOf
 
     member _.IsProgramCounter regid = Register.toRegID PC = regid
 

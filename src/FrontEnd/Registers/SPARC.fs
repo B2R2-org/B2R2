@@ -228,6 +228,7 @@ module Register =
     | "otherwin" -> Register.OTHERWIN
     | "wstate" -> Register.WSTATE
     | "fq" -> Register.FQ
+    | "gsr" -> Register.GSR
     | "cleanwin" -> Register.CLEANWIN
     | "f0" -> Register.F0
     | "f1" -> Register.F1
