@@ -25,9 +25,11 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
@@ -42,6 +44,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.FunctionIdentificationCommon
 /// so it starts one only where the code shows a function starting, as
 /// SPARCCode tells, which the code alone tells, so that the recovery knows
 /// every such function before it starts.
+/// Where code resumes past a recovered function, past the nops and the jump
+/// tables that GCC lays before the function that uses them, a function starts
+/// where the code shows one starting, as nothing else leads to a function that
+/// nothing calls or points to.
 type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -173,7 +179,134 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     else
       storedEntries () |> Array.distinct
 
-  interface IFunctionIdentifiable with
+  /// Returns what the blocks that the recovery has built for the function
+  /// cover, along with the delay slots of their last instructions, which run
+  /// with them.
+  let readBuiltCode (fn: Function) =
+    fn.CFG.Vertices
+    |> Array.filter (fun v -> not v.VData.Internals.IsAbstract)
+    |> Array.map (fun v ->
+      let blk = v.VData.Internals
+      let last = blk.LastInstruction
+      AddrRange.create blk.Range.Min (last.Address + uint64 last.Extent - 1UL))
+    |> AddrRangeUnion.ofArray
+
+  /// What the blocks of each recovered function cover, by its CFG, with the
+  /// counts of its vertices and edges, as telling it takes every block of the
+  /// function.
+  let builtCodeByCFG = ConditionalWeakTable<LowUIRCFG, _>()
+
+  /// Returns what the blocks that the recovery has built for the function
+  /// cover, reading them anew only once the function has changed.
+  let findBuiltCode fn = readOnce builtCodeByCFG readBuiltCode fn
+
+  /// Returns where the given code that the recovery has built ends, past its
+  /// last block, if it has built any.
+  let tryFindCodeEnd (built: AddrRangeUnion) =
+    Array.tryLast built.Ranges |> Option.map (fun range -> range.Max + 1UL)
+
+  /// Tells whether the code at the address, where code resumes past a
+  /// recovered function, shows a function starting there.
+  let showsEntryPastCode addr =
+    SPARCCode.showsEntryPastCode lu neverReturns addr
+
+  /// Tells whether the code of the function at the given entry, of which the
+  /// recovery has built the given code, jumps to the given address where code
+  /// resumes past it. The code that the recovery has yet to build is the
+  /// function's own up to where it shows another function starting.
+  let jumpsAhead entry built start =
+    let startsAnother addr =
+      not (AddrRangeUnion.containsAddr addr built) && showsEntryPastCode addr
+    SPARCCode.jumpsAhead lu entry start startsAnother
+
+  /// Tells whether the given vertex of the CFG calls an external function that
+  /// never returns, which its name tells for sure, such as abort, unlike what
+  /// the recovery finds of a function of the binary, which it may yet find to
+  /// return.
+  let callsNoReturnExternal (cfg: LowUIRCFG) v =
+    cfg.GetSuccs v
+    |> Array.exists (fun w ->
+      let bbl = w.VData.Internals
+      bbl.IsAbstract
+      && bbl.AbstractContent.IsExternal
+      && bbl.AbstractContent.ReturningStatus = NoRet)
+
+  /// Tells whether the code that the recovery has built for the function ends
+  /// the flow where it ends, at the given address, as the last instruction of
+  /// its last block, with its delay slot, returns or jumps, or calls an
+  /// external function that never returns.
+  let endsFlowAt (fn: Function) codeEnd =
+    fn.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && (let last = bbl.LastInstruction
+          last.Address + uint64 last.Extent = codeEnd
+          && (SPARCCode.leaves last || callsNoReturnExternal fn.CFG v)))
+
+  /// Tells whether the code where code resumes past the given function, at the
+  /// given start past the end of its code, shows a function starting there,
+  /// either by the code right above the start, or, past code of the function
+  /// that ends the flow, by the code at the start alone.
+  let showsEntryPast fn codeEnd start =
+    showsEntryPastCode start
+    || (endsFlowAt fn codeEnd
+        && SPARCCode.showsEntryPastFlowEnd lu neverReturns start)
+
+  /// Returns where code resumes past each of the given functions: past the end
+  /// of its code and what fills space past it, before the next entry, where no
+  /// code of a function at or before it reaches, along with the function, what
+  /// the recovery has built of it, and where that ends.
+  let findResumes internals =
+    withNextEntries internals
+    |> Array.fold (fun (reach, starts) (fn: Function, next) ->
+      let built = findBuiltCode fn
+      match tryFindCodeEnd built with
+      | Some codeEnd ->
+        let reach = max reach codeEnd
+        let start = SPARCCode.skipFiller lu codeEnd next
+        if start < next && start >= reach then
+          reach, (fn, built, codeEnd, start) :: starts
+        else
+          reach, starts
+      | None ->
+        reach, starts) (0UL, [])
+    |> snd
+
+  /// Tells whether the code at the given start, past the given function,
+  /// jumps first into what the recovery has built of the function between its
+  /// entry and the start, as code of the function does that the compiler
+  /// leaves past the rest of it, which nothing reaches.
+  let jumpsBackInto (fn: Function) built start =
+    match SPARCCode.tryFindFirstJumpTarget lu start with
+    | Some target ->
+      fn.EntryPoint < target
+      && target < start
+      && AddrRangeUnion.containsAddr target built
+    | None ->
+      false
+
+  /// Returns where code resumes past each of the given functions, as
+  /// findResumes finds, where the code shows a function starting and the code
+  /// of the function does not jump, as it does to a block of its own that the
+  /// recovery has yet to build, nor the code there into the function. Nothing
+  /// else leads to a function that nothing calls or points to.
+  let findNextStarts internals =
+    findResumes internals
+    |> List.filter (fun (fn, built, codeEnd, start) ->
+      isCodePointer start
+      && showsEntryPast fn codeEnd start
+      && not (jumpsAhead fn.EntryPoint built start)
+      && not (jumpsBackInto fn built start))
+    |> List.map (fun (_, _, _, start) -> start)
+    |> List.toArray
+
+  interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
       |> Array.distinct
+
+    member _.IdentifyMore recovered =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> findNextStarts

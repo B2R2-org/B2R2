@@ -313,3 +313,111 @@ module internal SPARCCode =
   let showsEntry lu neverReturns isSectionStart addr =
     let endsFlow ins = leaves ins || (ins: IInstruction).IsCall
     startsCleanly lu neverReturns isSectionStart endsFlow addr
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// as showsEntry does, where code resumes past what the recovery has built
+  /// for a function. A call right above runs into it then, as the recovery
+  /// builds code only so far as it takes the callees to return, which it may
+  /// yet find that one does that it took for one that never returns.
+  let showsEntryPastCode lu neverReturns addr =
+    startsCleanly lu neverReturns false leaves addr
+
+  /// Tells whether the code at the address shows a function starting there,
+  /// as showsEntry does, where code resumes past what the recovery has built
+  /// for a function, which ends the flow where it ends, as nothing past that
+  /// code then runs into the address, whatever lies between.
+  let showsEntryPastFlowEnd lu neverReturns addr =
+    startsCleanly lu neverReturns true leaves addr
+
+  /// Tells whether the instruction fills space between functions rather than
+  /// runs: a nop that pads them apart, or ILLTRAP, which a word of a jump
+  /// table that GCC lays in .text before its function reads as, as does the
+  /// word that follows a call to a function that never returns.
+  let private isFiller (ins: IInstruction) =
+    ins.IsNop || (ins :?> Instruction).Opcode = Opcode.ILLTRAP
+
+  /// Tells whether the words from the address up to the given end are nops.
+  let rec private isNopsUpTo (lu: LiftingUnit) (addr: Addr) endAddr =
+    addr >= endAddr
+    || (match lu.TryParseInstruction addr with
+        | Ok ins when ins.IsNop -> isNopsUpTo lu (addr + 4UL) endAddr
+        | _ -> false)
+
+  /// Tells whether the instruction branches ahead whatever happens, without
+  /// running the word past it, as BA,a does.
+  let private skipsAhead (ins: IInstruction) target =
+    ins.IsBranch
+    && not (ins.IsCondBranch || ins.IsCall)
+    && ins.Extent = 4u
+    && target > ins.Address
+
+  /// Returns where the instruction skips the nops past it to, if it does: GNU
+  /// as pads a long way to an alignment with BA,a over the nops that fill it.
+  let private tryFindPaddingEnd lu (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, target when skipsAhead ins target ->
+      if isNopsUpTo lu (ins.Address + 4UL) target then Some target else None
+    | _ ->
+      None
+
+  /// Returns where code resumes from the address, before the given end, past
+  /// what fills space between functions.
+  let skipFiller (lu: LiftingUnit) (addr: Addr) endAddr =
+    let rec skip (addr: Addr) =
+      if addr >= endAddr then
+        addr
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins when isFiller ins ->
+          skip (addr + 4UL)
+        | Ok ins ->
+          match tryFindPaddingEnd lu ins with
+          | Some next -> skip next
+          | None -> addr
+        | Error _ ->
+          addr
+    skip addr
+
+  /// Tells whether the instruction jumps to the given address, rather than
+  /// calls code there.
+  let private jumpsTo target (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, t -> t = target && not ins.IsCall
+    | false, _ -> false
+
+  /// Tells whether code from the address up to the given target, read one
+  /// instruction after another, jumps to the target, as a function does to a
+  /// block of its own that it lays past the rest of its code, such as one that
+  /// calls a function that never returns. The reading stops where the given
+  /// test tells that the code of another function starts, as such a function
+  /// may jump to the target as its tail. Code that does not decode tells
+  /// nothing, and the reading resumes at the next word.
+  let jumpsAhead (lu: LiftingUnit) (addr: Addr) target startsAnother =
+    let rec scan (addr: Addr) =
+      if addr >= target || startsAnother addr then
+        false
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins -> jumpsTo target ins || scan (addr + 4UL)
+        | Error _ -> scan (addr + 4UL)
+    scan addr
+
+  /// Returns where the first transfer from the address goes, if it is a jump
+  /// rather than a call and goes to a fixed address.
+  let tryFindFirstJumpTarget (lu: LiftingUnit) (addr: Addr) =
+    let rec scan count (addr: Addr) =
+      if count = 0 then
+        None
+      else
+        match lu.TryParseInstruction addr with
+        | Ok ins when ins.IsBranch && not ins.IsCall ->
+          match ins.DirectBranchTarget() with
+          | true, target -> Some target
+          | false, _ -> None
+        | Ok ins when ins.IsTerminator null ->
+          None
+        | Ok _ ->
+          scan (count - 1) (addr + 4UL)
+        | Error _ ->
+          None
+    scan MaxLeadLength addr

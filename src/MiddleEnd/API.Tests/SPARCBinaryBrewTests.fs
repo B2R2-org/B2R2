@@ -264,3 +264,61 @@ type SPARCBinaryBrewTests() =
           "81c3e008" (* 0x6b4: retl *)
           "01000000" (* 0x6b8: nop *) ] 0x6b0UL
     CollectionAssert.DoesNotContain(entriesOf fns, 0x6b0UL)
+
+  (* Nothing leads to h, which lies past g, past two words of a jump table
+     that GCC lays before the function that uses it, which read as ILLTRAP. *)
+  [<TestMethod>]
+  member _.``A function starts past another and what fills space``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "81c3e008" (* 0x14: retl *)
+          "01000000" (* 0x18: nop *)
+          "0000002c" (* 0x1c: .word 0x2c *)
+          "00000034" (* 0x20: .word 0x34 *)
+          "9de3bf50" (* 0x24: save %sp, -176, %sp *)
+          "81c7e008" (* 0x28: ret *)
+          "91e82001" (* 0x2c: restore %g0, 1, %o0 *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x24UL |], entriesOf fns)
+
+  (* GNU as pads a long way to an alignment with BA,a over the nops that fill
+     it, which starts no function. *)
+  [<TestMethod>]
+  member _.``A branch over padding starts no function``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "81c3e008" (* 0x14: retl *)
+          "01000000" (* 0x18: nop *)
+          "30800003" (* 0x1c: b,a 0x28 *)
+          "01000000" (* 0x20: nop *)
+          "01000000" (* 0x24: nop *)
+          "9de3bf50" (* 0x28: save %sp, -176, %sp *)
+          "81c7e008" (* 0x2c: ret *)
+          "91e82001" (* 0x30: restore %g0, 1, %o0 *) ]
+    CollectionAssert.AreEqual([| 0x0UL; 0x14UL; 0x28UL |], entriesOf fns)
+
+  (* Code that a compiler leaves past the rest of a function, which nothing
+     reaches, jumps back into the function, rather than starts another. *)
+  [<TestMethod>]
+  member _.``Code that jumps back into a function starts none``() =
+    let fns =
+      recoverCode
+        [ "80a22000" (* 0x00: cmp %o0, 0 *)
+          "02480004" (* 0x04: be %icc, 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c3e008" (* 0x0c: retl *)
+          "90102001" (* 0x10: mov 1, %o0 *)
+          "81c3e008" (* 0x14: retl *)
+          "90102002" (* 0x18: mov 2, %o0 *)
+          "10bffffe" (* 0x1c: b 0x14 *)
+          "90102003" (* 0x20: mov 3, %o0 *) ]
+    CollectionAssert.AreEqual([| 0x0UL |], entriesOf fns)
