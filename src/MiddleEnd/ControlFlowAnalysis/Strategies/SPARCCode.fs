@@ -423,18 +423,16 @@ module internal SPARCCode =
         | Error _ -> scan (addr + 4UL)
     scan addr
 
-  /// Returns where the first transfer from the address goes, if it is a jump
-  /// rather than a call and goes to a fixed address.
-  let tryFindFirstJumpTarget (lu: LiftingUnit) (addr: Addr) =
+  /// Returns the first transfer from the address, if it is a jump rather than
+  /// a call.
+  let tryFindFirstJump (lu: LiftingUnit) (addr: Addr) =
     let rec scan count (addr: Addr) =
       if count = 0 then
         None
       else
         match lu.TryParseInstruction addr with
         | Ok ins when ins.IsBranch && not ins.IsCall ->
-          match ins.DirectBranchTarget() with
-          | true, target -> Some target
-          | false, _ -> None
+          Some ins
         | Ok ins when ins.IsTerminator null ->
           None
         | Ok _ ->

@@ -59,13 +59,15 @@ type private ComputedValue = { Value: uint64; IsPlaced: bool }
 /// place anywhere computes such an address from the PC, as PIC code finds its
 /// GOT, so a number that the code computes otherwise names no address there.
 /// Where code resumes past a recovered function, past the nops and the jump
-/// tables that GCC lays before the function that uses them, a function starts
-/// where the code shows one starting, as nothing else leads to a function that
-/// nothing calls or points to. Past a call that the recovery takes never to
-/// return, such as one of xalloc_die, one starts on a guess, where the code
-/// there shows one starting on its own, which the recovery gives up once it
-/// finds the callee to return: clang lays functions that nothing calls right
-/// past such calls.
+/// tables that GCC lays before the function that uses them, and past blocks of
+/// the function that nothing reaches, which jump back into it or return right
+/// away as GCC leaves them past the rest of it, a function starts where the
+/// code shows one starting, as nothing else leads to a function that nothing
+/// calls or points to. Past a call that the recovery takes never to return,
+/// such as one of xalloc_die, one starts on a guess, where the code there
+/// shows one starting on its own, which the recovery gives up once it finds
+/// the callee to return: clang lays functions that nothing calls right past
+/// such calls.
 type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -452,7 +454,7 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// Returns where code resumes past each of the given functions: past the end
   /// of its code and what fills space past it, before the next entry, where no
   /// code of a function at or before it reaches, along with the function, what
-  /// the recovery has built of it, and where that ends.
+  /// the recovery has built of it, where that ends, and the next entry.
   let findResumes internals =
     withNextEntries internals
     |> Array.fold (fun (reach, starts) (fn: Function, next) ->
@@ -462,39 +464,83 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
         let reach = max reach codeEnd
         let start = SPARCCode.skipFiller lu codeEnd next
         if start < next && start >= reach then
-          reach, (fn, built, codeEnd, start) :: starts
+          reach, (fn, built, codeEnd, start, next) :: starts
         else
           reach, starts
       | None ->
         reach, starts) (0UL, [])
     |> snd
 
+  /// Tells whether the jump goes into what the recovery has built of the
+  /// given function between its entry and the given start.
+  let goesBackInto (fn: Function) built start (jmp: IInstruction) =
+    match jmp.DirectBranchTarget() with
+    | true, target ->
+      fn.EntryPoint < target
+      && target < start
+      && AddrRangeUnion.containsAddr target built
+    | false, _ ->
+      false
+
   /// Tells whether the code at the given start, past the given function,
   /// jumps first into what the recovery has built of the function between its
   /// entry and the start, as code of the function does that the compiler
   /// leaves past the rest of it, which nothing reaches.
-  let jumpsBackInto (fn: Function) built start =
-    match SPARCCode.tryFindFirstJumpTarget lu start with
-    | Some target ->
-      fn.EntryPoint < target
-      && target < start
-      && AddrRangeUnion.containsAddr target built
-    | None ->
-      false
+  let jumpsBackInto fn built start =
+    SPARCCode.tryFindFirstJump lu start
+    |> Option.exists (goesBackInto fn built start)
+
+  /// Tells whether the code at the given start, where code resumes past the
+  /// given function, shows a function starting there, and the code of the
+  /// function does not jump there, as it does to a block of its own that the
+  /// recovery has yet to build, nor the code there into the function.
+  let startsPast (fn: Function) built codeEnd start =
+    isCodePointer start
+    && showsEntryPast fn codeEnd start
+    && not (jumpsAhead fn.EntryPoint built start)
+    && not (jumpsBackInto fn built start)
+
+  /// Tells whether the given jump, the first of the code at the given start
+  /// past the given function, ends code of the function that nothing reaches:
+  /// it goes back into the function whatever happens, or returns right at the
+  /// start, as GCC leaves a block or a return of a function past the rest of
+  /// it.
+  let endsDeadCode fn built start (jmp: IInstruction) =
+    not jmp.IsCondBranch
+    && ((jmp.IsRET && jmp.Address = start) || goesBackInto fn built start jmp)
+
+  /// Returns where code resumes past the code at the given start, past the
+  /// given function and before the given next entry, if it is code of the
+  /// function that nothing reaches.
+  let tryFindPastDeadCode fn built start next =
+    match SPARCCode.tryFindFirstJump lu start with
+    | Some jmp when endsDeadCode fn built start jmp ->
+      Some(SPARCCode.skipFiller lu (jmp.Address + uint64 jmp.Extent) next)
+    | _ ->
+      None
+
+  /// Returns where a function starts past the given function, from the given
+  /// start on, before the given next entry: at the start, or past code there
+  /// that nothing reaches, if it starts anywhere.
+  let rec tryFindStartPast fn built codeEnd next start =
+    if start >= next then
+      None
+    elif startsPast fn built codeEnd start then
+      Some start
+    else
+      tryFindPastDeadCode fn built start next
+      |> Option.bind (tryFindStartPast fn built codeEnd next)
 
   /// Returns where code resumes past each of the given functions, as
-  /// findResumes finds, where the code shows a function starting and the code
-  /// of the function does not jump, as it does to a block of its own that the
+  /// findResumes finds, or past code of the function there that nothing
+  /// reaches, where the code shows a function starting and the code of the
+  /// function does not jump, as it does to a block of its own that the
   /// recovery has yet to build, nor the code there into the function. Nothing
   /// else leads to a function that nothing calls or points to.
   let findNextStarts internals =
     findResumes internals
-    |> List.filter (fun (fn, built, codeEnd, start) ->
-      isCodePointer start
-      && showsEntryPast fn codeEnd start
-      && not (jumpsAhead fn.EntryPoint built start)
-      && not (jumpsBackInto fn built start))
-    |> List.map (fun (_, _, _, start) -> start)
+    |> List.choose (fun (fn, built, codeEnd, start, next) ->
+      tryFindStartPast fn built codeEnd next start)
     |> List.toArray
 
   /// Returns where the direct jumps of the function go, rather than its calls.
@@ -577,14 +623,14 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// recovery takes it, though it may yet find the callee to return.
   let guessNextStarts internals =
     findResumes internals
-    |> List.filter (fun (fn, built, codeEnd, start) ->
+    |> List.filter (fun (fn, built, codeEnd, start, _) ->
       isCodePointer start
       && not (showsEntryPast fn codeEnd start)
       && endsInCallAt fn codeEnd
       && SPARCCode.showsEntryPastFlowEnd lu neverReturns start
       && not (jumpsAhead fn.EntryPoint built start)
       && not (jumpsBackInto fn built start))
-    |> List.map (fun (_, _, _, start) -> start)
+    |> List.map (fun (_, _, _, start, _) -> start)
     |> List.toArray
 
   interface IIncrementalFunctionIdentifiable with

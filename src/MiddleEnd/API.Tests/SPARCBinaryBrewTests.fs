@@ -524,6 +524,34 @@ type SPARCBinaryBrewTests() =
     let expected = [| 0x0UL; 0x14UL; 0x20UL; 0x28UL |]
     CollectionAssert.AreEqual(expected, entriesOf fns)
 
+  (* Nothing leads to g and h either, which lie past code of f and g that
+     nothing reaches, as GCC leaves a block that jumps back into a function,
+     or a return, past the rest of it. *)
+  [<TestMethod>]
+  member _.``A function starts past dead code of another``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "9de3bf50" (* 0x14: save %sp, -176, %sp *)
+          "81c7e008" (* 0x18: ret *)
+          "91e82001" (* 0x1c: restore %g0, 1, %o0 *)
+          "10bffffe" (* 0x20: b 0x18 *)
+          "b0102002" (* 0x24: mov 2, %i0 *)
+          "9de3bf50" (* 0x28: save %sp, -176, %sp *)
+          "81c7e008" (* 0x2c: ret *)
+          "81e80000" (* 0x30: restore *)
+          "81cfe008" (* 0x34: return %i7 + 8 *)
+          "01000000" (* 0x38: nop *)
+          "9de3bf50" (* 0x3c: save %sp, -176, %sp *)
+          "81c7e008" (* 0x40: ret *)
+          "81e80000" (* 0x44: restore *) ]
+    let expected = [| 0x0UL; 0x14UL; 0x28UL; 0x3cUL |]
+    CollectionAssert.AreEqual(expected, entriesOf fns)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]
