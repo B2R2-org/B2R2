@@ -61,7 +61,11 @@ type private ComputedValue = { Value: uint64; IsPlaced: bool }
 /// Where code resumes past a recovered function, past the nops and the jump
 /// tables that GCC lays before the function that uses them, a function starts
 /// where the code shows one starting, as nothing else leads to a function that
-/// nothing calls or points to.
+/// nothing calls or points to. Past a call that the recovery takes never to
+/// return, such as one of xalloc_die, one starts on a guess, where the code
+/// there shows one starting on its own, which the recovery gives up once it
+/// finds the callee to return: clang lays functions that nothing calls right
+/// past such calls.
 type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -551,6 +555,38 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
     else
       found
 
+  /// Tells whether the code that the recovery has built for the function ends
+  /// at the given address with a call, with its delay slot, that returns
+  /// nowhere in it, as the recovery takes the callee never to return there.
+  let endsInCallAt (fn: Function) codeEnd =
+    fn.CFG.Vertices
+    |> Array.exists (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract
+      && (let last = bbl.LastInstruction
+          last.Address + uint64 last.Extent = codeEnd
+          && last.IsCall
+          && fn.CFG.GetSuccs v
+             |> Array.forall (fun w ->
+               w.VData.Internals.IsAbstract
+               && Array.isEmpty (fn.CFG.GetSuccs w))))
+
+  /// Returns where code resumes past each of the given functions, as
+  /// findResumes finds, where the code would show a function starting, were
+  /// the call that ends the code of the function never to return, as the
+  /// recovery takes it, though it may yet find the callee to return.
+  let guessNextStarts internals =
+    findResumes internals
+    |> List.filter (fun (fn, built, codeEnd, start) ->
+      isCodePointer start
+      && not (showsEntryPast fn codeEnd start)
+      && endsInCallAt fn codeEnd
+      && SPARCCode.showsEntryPastFlowEnd lu neverReturns start
+      && not (jumpsAhead fn.EntryPoint built start)
+      && not (jumpsBackInto fn built start))
+    |> List.map (fun (_, _, _, start) -> start)
+    |> List.toArray
+
   interface IIncrementalFunctionIdentifiable with
     member _.Identify() =
       Array.append (metadata.Identify()) (findLikelyEntries ())
@@ -560,3 +596,9 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
       recovered
       |> Array.filter (fun fn -> not fn.IsExternal)
       |> findMore
+
+  interface IGuessingFunctionIdentifiable with
+    member _.GuessMore recovered =
+      recovered
+      |> Array.filter (fun fn -> not fn.IsExternal)
+      |> guessNextStarts

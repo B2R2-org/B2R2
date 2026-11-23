@@ -503,6 +503,27 @@ type SPARCBinaryBrewTests() =
     let expected = [| 0x0UL; 0x14UL; 0x1cUL; 0x44UL |]
     CollectionAssert.AreEqual(expected, entriesOf fns)
 
+  (* Nothing leads to g either, which lies right past the call of f to k, a
+     function of the binary that never returns, as clang lays a function that
+     nothing calls past one that ends calling xalloc_die. *)
+  [<TestMethod>]
+  member _.``A function starts past a call that never returns``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "9de3bf50" (* 0x14: save %sp, -176, %sp *)
+          "40000004" (* 0x18: call 0x28 *)
+          "01000000" (* 0x1c: nop *)
+          "81c3e008" (* 0x20: retl *)
+          "90102001" (* 0x24: mov 1, %o0 *)
+          "91d02005" (* 0x28: ta 5 *) ]
+    let expected = [| 0x0UL; 0x14UL; 0x20UL; 0x28UL |]
+    CollectionAssert.AreEqual(expected, entriesOf fns)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]
