@@ -39,6 +39,25 @@ type Instruction
            oprSize,
            wordSize,
            lifter: ILiftable) =
+  let mutable delaySlot: Instruction option = None
+
+  let isTransfer () =
+    match op with
+    | Opcode.B | Opcode.BLR | Opcode.BV | Opcode.BE | Opcode.BVE
+    | Opcode.ADDB | Opcode.ADDIB | Opcode.BB | Opcode.CMPB | Opcode.CMPIB
+    | Opcode.MOVB | Opcode.MOVIB -> true
+    | _ -> false
+
+  let isUnconditional () =
+    match op with
+    | Opcode.B | Opcode.BLR | Opcode.BV | Opcode.BE | Opcode.BVE -> true
+    | _ -> false
+
+  /// An unconditional transfer that nullifies never runs the instruction
+  /// after it, so that instruction is none of its business: a jump table or
+  /// a literal pool sits there as often as not.
+  let hasDelaySlot () =
+    isTransfer () && not (isUnconditional () && cond = Some Completer.N)
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -67,13 +86,37 @@ type Instruction
   /// Word size.
   member _.WordSize with get(): WordSize = wordSize
 
+  /// Whether this instruction transfers control, which every one does after
+  /// the instruction that follows it, its delay slot.
+  member _.IsTransfer with get(): bool = isTransfer ()
+
+  /// Whether this instruction is a transfer whose delay slot may run, and so
+  /// must be lifted with it.
+  member _.HasDelaySlot with get(): bool = hasDelaySlot ()
+
+  /// The instruction in this transfer's delay slot, which the transfer lifts
+  /// itself, or None where the instruction is no such transfer or the bytes
+  /// ended before its slot (see MissingDelaySlotException). Only the parser
+  /// sets it.
+  member _.DelaySlot
+    with get(): Instruction option = delaySlot
+     and internal set v = delaySlot <- v
+
+  /// Lifts this instruction into the given builder, as a transfer does the
+  /// instruction in its delay slot.
+  member internal this.LiftInto(builder: LowUIRBuilder) =
+    lifter.Lift(this, builder) |> ignore
+
   interface IInstruction with
 
     member this.Address with get() = this.Address
 
     member this.Length with get() = this.Length
 
-    member this.Extent with get() = this.Length
+    member _.Extent with get() =
+      match delaySlot with
+      | Some slot -> numBytes + slot.Length
+      | None -> numBytes
 
     member _.IsBranch =
       match op with
@@ -105,7 +148,7 @@ type Instruction
 
     member _.IsInlinedAssembly = false
 
-    member _.IsTerminator _ = Terminator.futureFeature ()
+    member _.IsTerminator _ = isTransfer ()
 
     member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()

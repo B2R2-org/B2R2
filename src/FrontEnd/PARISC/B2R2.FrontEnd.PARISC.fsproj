@@ -6,12 +6,12 @@
 
   <ItemGroup>
     <Compile Include="RegisterFactory.fs" />
+    <Compile Include="LowUIRBuilder.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
     <Compile Include="Completer.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Disasm.fs" />
-    <Compile Include="LowUIRBuilder.fs" />
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="FloatLifter.fs" />
     <Compile Include="Lifter.fs" />

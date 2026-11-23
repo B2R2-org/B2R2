@@ -48,10 +48,9 @@ type LowUIRBuilderTests() =
     | :? SH4.LowUIRBuilder as bld ->
       bld.InDelaySlot <- true
     | :? PARISC.LowUIRBuilder as bld ->
-      bld.ArmGateway PARISC.Gateway.SystemCall
-      bld.Promote()
-      bld.ArmGateway PARISC.Gateway.SetThreadPointer
-      bld.DelaySlotAddr <- ValueSome 0UL
+      let gr1 = PARISC.Register.toRegID PARISC.Register.GR1
+      bld.InDelaySlot <- true
+      bld.Defer(gr1, AST.tmpvar 32<rt> 1)
       bld.PrevEnd <- ValueSome 0UL
       bld.PrevMayNullify <- false
     | _ ->
