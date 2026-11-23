@@ -229,11 +229,17 @@ module internal SPARCCode =
     else
       ins.GetNextInstrAddrs() |> Array.map (fun a -> a, written) |> Array.toList
 
+  /// Tells whether the instruction lifts, which a transfer whose delay slot
+  /// holds no instruction does not.
+  let private lifts (ins: IInstruction) =
+    let ins = ins :?> Instruction
+    not ins.HasDelaySlot || ins.DelaySlot.IsSome
+
   /// Tells whether the code from the given start, along any way that it goes
   /// within MaxLeadLength instructions, reads a register that code above left,
   /// changes one of the window of the caller without having turned the window,
   /// or gives back room on the stack that it has not taken. Code that does not
-  /// decode may do anything. Code past a call to a
+  /// decode or lift may do anything. Code past a call to a
   /// function that never returns, as the given test tells of the callee, runs
   /// only from a branch to it, if at all.
   let private readsLeftover (lu: LiftingUnit) neverReturns (start: Addr) =
@@ -245,7 +251,7 @@ module internal SPARCCode =
       let addr, written, turned, took = work.Pop()
       if visited.Add addr then
         match lu.TryParseInstruction addr with
-        | Ok ins ->
+        | Ok ins when lifts ins ->
           let eff = effectOf lu ins
           let turned = turned || eff.TurnsWindow
           if isLeftoverUse eff written turned took then
@@ -255,7 +261,7 @@ module internal SPARCCode =
             let took = took || eff.Allocates
             for next, written in successorsOf ins neverReturns written do
               work.Push(next, written, turned, took)
-        | Error _ ->
+        | _ ->
           found <- true
       else
         ()

@@ -552,6 +552,21 @@ type SPARCBinaryBrewTests() =
     let expected = [| 0x0UL; 0x14UL; 0x28UL; 0x3cUL |]
     CollectionAssert.AreEqual(expected, entriesOf fns)
 
+  (* Past the call of f to k, which never returns, lies a branch whose delay
+     slot holds no instruction, which does not lift and so starts nothing. *)
+  [<TestMethod>]
+  member _.``A branch without its delay slot starts no function``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "10800000" (* 0x0c: b 0x0c *)
+          "f974d9da" (* 0x10: (undecodable) *)
+          "91d02005" (* 0x14: ta 5 *) ]
+    let expected = [| 0x0UL; 0x14UL |]
+    CollectionAssert.AreEqual(expected, entriesOf fns)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]
