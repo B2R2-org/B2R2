@@ -927,6 +927,27 @@ type DataFlowTests() =
       |> UntouchedValueDomain.Untouched
     Assert.AreEqual<UntouchedValueDomain.Lattice>(a0, state.GetAbsValue vp)
 
+  /// SPARC V9 widens an int by shifting it by zero, as clang does to the
+  /// status that verror passes on to error_tail, which leaves the value
+  /// untouched.
+  [<TestMethod>]
+  member _.``Untouched Value Analysis passes a value through a shift by 0``() =
+    (* sra %o0, 0, %o1 ; retl ; nop *)
+    let brew = Binaries.loadSPARCAt 0x10000UL "933a200081c3e00801000000"
+    let cfg = brew.Functions[0x10000UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    let regOf r = Regular(FrontEnd.SPARC.Register.toRegID r)
+    let o1 = regOf FrontEnd.SPARC.Register.O1
+    let vp = { ProgramPoint = ProgramPoint(0x10000UL, 1); VarKind = o1 }
+    let o0 =
+      regOf FrontEnd.SPARC.Register.O0
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(o0, state.GetAbsValue vp)
+
   /// A callee that writes through the address of a slot at an index may write
   /// the slots from there up to the ones in which its caller saves registers,
   /// but not those, so ra comes back as the caller saved it.
