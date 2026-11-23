@@ -77,6 +77,14 @@ type FunctionSummaryTests() =
     CollectionAssert.Contains(names, "ZMM0B")
 
   [<TestMethod>]
+  member _.``Caller-saved XMM registers are defined chunk by chunk``() =
+    let names = namesOf summaryDefs
+    CollectionAssert.Contains(names, "ZMM1A")
+    CollectionAssert.Contains(names, "ZMM1B")
+    CollectionAssert.Contains(names, "ZMM15A")
+    CollectionAssert.Contains(names, "ZMM15B")
+
+  [<TestMethod>]
   member _.``A call on ARM leaves the stack pointer where it was``() =
     (* BL leaves the return address in LR rather than on the stack, so the
        callee returns with the stack it was called with. *)
@@ -92,3 +100,38 @@ type FunctionSummaryTests() =
     let names = summaryDefsOf hdl |> namesOf
     CollectionAssert.Contains(names, "R0")
     CollectionAssert.DoesNotContain(names, "SP")
+
+  [<TestMethod>]
+  member _.``A call clobbers the XMM register its callee writes``() =
+    (* The callee writes XMM1 through the chunks ZMM1A and ZMM1B, which tell
+       that it modifies XMM1, and leaves XMM2 as it was. *)
+    let code =
+      [ "e801000000" (* call 6 *)
+        "c3" (* ret *)
+        "0f57c9" (* xorps xmm1, xmm1 *)
+        "c3" (* ret *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let hdl = BinHandle.LoadRawImage(code, ISA "x64")
+    let names = summaryDefsOf hdl |> namesOf
+    CollectionAssert.Contains(names, "ZMM1A")
+    CollectionAssert.Contains(names, "ZMM1B")
+    CollectionAssert.DoesNotContain(names, "ZMM2A")
+
+  [<TestMethod>]
+  member _.``A call on ARM clobbers the D register its callee writes``() =
+    (* The lifter keeps D1 in the variable Q0B, which tells that the callee
+       modifies D1, and the callee leaves D2, kept in Q1A, as it was. *)
+    let code =
+      [ "10402de9" (* push {r4, lr} *)
+        "010000eb" (* bl 0x10 *)
+        "1080bde8" (* pop {r4, pc} *)
+        "00f020e3" (* nop *)
+        "001bb7ee" (* vmov.f64 d1, #1.0 *)
+        "1eff2fe1" (* bx lr *) ]
+      |> String.concat ""
+      |> ByteArray.ofHexString
+    let hdl = BinHandle.LoadRawImage(code, ISA "armv7")
+    let names = summaryDefsOf hdl |> namesOf
+    CollectionAssert.Contains(names, "Q0B")
+    CollectionAssert.DoesNotContain(names, "Q1A")

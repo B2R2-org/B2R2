@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System.Collections.Generic
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
@@ -86,11 +87,26 @@ module private CalleeClobberHelper =
           collectWrittenRegs written li.Stmts
     written
 
-  /// Checks if a register is modified, i.e., if it or one of its aliases is
-  /// written.
+  /// Collects the registers of the variables that make up the given register
+  /// variable, which are what a statement writes. ARM32 keeps D1 in Q0B, and
+  /// Intel keeps XMM1 in ZMM1B and ZMM1A.
+  let rec collectChunks acc e =
+    match e with
+    | Var(RegisterID = rid) ->
+      rid :: acc
+    | BinOp(Op = BinOpType.CONCAT; Left = hi; Right = lo) ->
+      collectChunks (collectChunks acc hi) lo
+    | _ ->
+      acc
+
+  /// Checks if a register is modified, i.e., if it, one of its aliases, or one
+  /// of the variables it is kept in is written.
   let isModified (hdl: BinHandle) (written: HashSet<_>) rid =
     let aliases = hdl.RegisterFactory.GetRegisterIDAliases rid
-    written.Contains rid || Array.exists written.Contains aliases
+    let chunks = hdl.RegisterFactory.GetRegVar rid |> collectChunks []
+    written.Contains rid
+    || Array.exists written.Contains aliases
+    || List.exists written.Contains chunks
 
   /// Returns the caller-saved registers that the function may modify. When the
   /// function does not return, or when it ends in a way that we cannot follow,
