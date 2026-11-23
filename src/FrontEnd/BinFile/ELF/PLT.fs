@@ -720,23 +720,100 @@ type ARMv7Parser(shdrs, relocInfo, symbs) =
       else
         NoOverlapIntervalMap.empty
 
-/// AARCH64 PLT parser.
+/// AARCH64 PLT parser. Both GNU ld and lld lay out a 32-byte header followed
+/// by a stub per import, which is 16 bytes in its plain form and 24 once a
+/// BTI landing pad or a PAC authentication joins it. The size is read off the
+/// first stub rather than off DT_AARCH64_BTI_PLT: GNU ld gives a shared
+/// library that tag yet plain stubs, while lld pads every stub to 24 bytes.
 type AARCH64Parser(shdrs, relocInfo, symbs) =
   let baseAddrOpt = tryFindFirstEntryAddrWithRelocation relocInfo
 
+  let headerSize = 32
+
+  /// Matches the given instruction word, which AArch64 stores little-endian.
+  let word (w: uint32) = Array.init 4 (fun i -> OneByte(byte (w >>> (i * 8))))
+
+  let stpX16X30 = word 0xa9bf7bf0u (* stp x16, x30, [sp, #-16]! *)
+
+  (* The page offset of an adrp fills a part of every byte, so adrp x16 has no
+     byte to pin down. The ldr and the add below keep their registers in the
+     low byte and their opcodes in the high one, with the offset in between. *)
+  let adrpX16 = Array.create 4 AnyByte
+
+  let ldrX17 = [| OneByte 0x11uy; AnyByte; AnyByte; OneByte 0xf9uy |]
+
+  let addX16 = [| OneByte 0x10uy; AnyByte; AnyByte; OneByte 0x91uy |]
+
+  let loadSlot = Array.concat [ adrpX16; ldrX17; addX16 ]
+
+  let brX17 = word 0xd61f0220u
+
+  let nop = word 0xd503201fu
+
+  let btiC = word 0xd503245fu
+
+  let autia1716 = word 0xd503219fu
+
+  (* elfNN_aarch64_small_plt0_entry, which lld writes as well. *)
+  let header = Array.concat [ stpX16X30; loadSlot; brX17; nop; nop; nop ]
+
+  (* elfNN_aarch64_small_plt0_bti_entry. *)
+  let btiHeader = Array.concat [ btiC; stpX16X30; loadSlot; brX17; nop; nop ]
+
+  (* elfNN_aarch64_small_plt_bti_pac_entry. *)
+  let btiPacStub = Array.concat [ btiC; loadSlot; autia1716; brX17 ]
+
+  (* elfNN_aarch64_small_plt_bti_entry. *)
+  let btiStub = Array.concat [ btiC; loadSlot; brX17; nop ]
+
+  (* elfNN_aarch64_small_plt_pac_entry, which GNU ld also gives a shared
+     library under BTI and PAC, as nothing takes the address of its stubs. *)
+  let pacStub = Array.concat [ loadSlot; autia1716; brX17; nop ]
+
+  (* lld pads a stub to 24 bytes under BTI even where it leaves the landing pad
+     out, which makes the plain stub a prefix of this one. *)
+  let paddedStub = Array.concat [ loadSlot; brX17; nop; nop ]
+
+  (* elfNN_aarch64_small_plt_entry, which GNU ld also gives a shared library
+     under BTI alone. *)
+  let plainStub = Array.concat [ loadSlot; brX17 ]
+
+  let isHeader (plt: ByteSpan) =
+    BytePattern.isMatchSpan header plt || BytePattern.isMatchSpan btiHeader plt
+
+  (* The plain stub is a prefix of the padded one, so it is tried last. *)
+  let tryFindStubSize (first: ByteSpan) =
+    if BytePattern.isMatchSpan btiPacStub first then Some 24UL
+    elif BytePattern.isMatchSpan btiStub first then Some 24UL
+    elif BytePattern.isMatchSpan pacStub first then Some 24UL
+    elif BytePattern.isMatchSpan paddedStub first then Some 24UL
+    elif BytePattern.isMatchSpan plainStub first then Some 16UL
+    else None
+
+  let findAArch64PLTType (plt: ByteSpan) sec =
+    if isHeader plt then
+      let startAddr = sec.SecAddr + uint64 headerSize
+      match tryFindStubSize (plt.Slice headerSize) with
+      | Some size -> newPLT DontCare AnyBinding false size 0UL startAddr
+      | None -> UnknownPLT
+    else
+      UnknownPLT
+
   interface IPLTParsable with
-    member _.ParseEntry(addr, idx, _sec, _desc, _rdr, _span) =
+    member _.ParseEntry(addr, idx, _sec, desc, _rdr, _span) =
       let baseAddr = Option.get baseAddrOpt
       { EntryRelocAddr = baseAddr + uint64 (idx * 8)
-        NextEntryAddr = addr + 16UL }
+        NextEntryAddr = addr + desc.EntrySize }
 
     member this.ParseSection(toolBox, sec, map) =
-      let startAddr = sec.SecAddr + 32UL
-      let desc = newDesc DontCare AnyBinding false 16UL 0UL startAddr
-      let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
       let bytes, r = toolBox.Bytes, toolBox.Reader
       let span = ReadOnlySpan(bytes, int sec.SecOffset, int sec.SecSize)
-      parseEntries this sec span r desc symbs relocInfo map eAddr sAddr
+      match findAArch64PLTType span sec with
+      | PLT desc ->
+        let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
+        parseEntries this sec span r desc symbs relocInfo map eAddr sAddr
+      | UnknownPLT ->
+        map
 
     member this.Parse toolBox =
       let pltSections = findPLTSections shdrs

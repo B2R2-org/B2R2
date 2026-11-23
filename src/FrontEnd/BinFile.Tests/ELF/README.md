@@ -2495,3 +2495,25 @@ int main(void)
   return v[0];
 }
 ```
+
+## The AArch64 BTI and PAC PLT fixture
+
+With BTI or PAC on, an AArch64 PLT stub grows from 16 bytes to 24, so its
+size cannot be assumed. GNU ld adds the BTI landing pad to the stubs of an
+executable alone, since nothing else takes their addresses, and leaves the PAC
+authentication to make the stubs of a shared library 24 bytes on its own. The
+header keeps its BTI landing pad all the same.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_aarch64_btipac_so` | `.plt` at 0x360 holds a BTI header and three 24-byte stubs, `adrp`, `ldr`, `add`, `autia1716`, `br x17`, `nop`, for `baz`, `foo` and `bar` |
+
+```
+aarch64-linux-gnu-gcc -O2 -fPIC -shared -nostdlib -mbranch-protection=standard \
+    -Wl,-z,force-bti,-z,pac-plt t.c -o elf_aarch64_btipac_so
+```
+
+```c
+extern void foo(void); extern void bar(void); extern void baz(void);
+void f(void) { foo(); bar(); baz(); }
+```

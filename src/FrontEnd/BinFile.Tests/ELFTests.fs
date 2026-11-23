@@ -240,6 +240,11 @@ type ELFTests() =
   /// EM_AARCH64 machine type and the R_AARCH64_* relocation decoding.
   static let aarch64File = parseFile "elf_aarch64"
 
+  /// An AArch64 shared library linked with BTI and PAC PLTs forced on. Being a
+  /// shared library, its PLT entries carry no BTI landing pad, only the
+  /// autia1716 that makes each of them 24 bytes rather than 16.
+  static let aarch64BtiPacSoFile = parseFile "elf_aarch64_btipac_so"
+
   /// A 32-bit big-endian MIPS executable, exercising big-endian ELF32 decoding
   /// and the MIPS machine type.
   static let mips32File = parseFile "elf_mips32"
@@ -1772,6 +1777,33 @@ type ELFTests() =
         "__gmon_start__", Some 0x3c0UL ]
     let entries =
       getLinkageTableEntries m68kSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] aarch64 imports test``() =
+    (* .plt is 0x60 from 0x4004f0, a 32-byte header and four 16-byte stubs. *)
+    let expected =
+      [ "__libc_start_main", Some 0x400510UL
+        "__gmon_start__", Some 0x400520UL
+        "write", Some 0x400530UL
+        "abort", Some 0x400540UL ]
+    let entries =
+      getLinkageTableEntries aarch64File
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] aarch64 PAC PLT imports test``() =
+    (* .plt is 0x68 from 0x360, a 32-byte header and three 24-byte stubs. *)
+    let expected =
+      [ "baz", Some 0x380UL
+        "foo", Some 0x398UL
+        "bar", Some 0x3b0UL ]
+    let entries =
+      getLinkageTableEntries aarch64BtiPacSoFile
       |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
       |> Seq.toList
     Assert.AreEqual<(string * Addr option) list>(expected, entries)
