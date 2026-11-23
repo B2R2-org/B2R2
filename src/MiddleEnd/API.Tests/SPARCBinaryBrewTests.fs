@@ -567,6 +567,30 @@ type SPARCBinaryBrewTests() =
     let expected = [| 0x0UL; 0x14UL |]
     CollectionAssert.AreEqual(expected, entriesOf fns)
 
+  (* Nothing leads to g either, which lies past the call of f to k, a function
+     of the binary that never returns, and past the instruction that gives
+     back the stack that the call took for its arguments, as clang leaves one
+     right past such a call. *)
+  [<TestMethod>]
+  member _.``A function starts past stack given back after a call``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000004" (* 0x04: call 0x14 *)
+          "01000000" (* 0x08: nop *)
+          "81c7e008" (* 0x0c: ret *)
+          "81e80000" (* 0x10: restore *)
+          "9de3bf50" (* 0x14: save %sp, -176, %sp *)
+          "9c03bfd0" (* 0x18: add %sp, -48, %sp *)
+          "40000005" (* 0x1c: call 0x30 *)
+          "90102001" (* 0x20: mov 1, %o0 *)
+          "9c03a030" (* 0x24: add %sp, 48, %sp *)
+          "81c3e008" (* 0x28: retl *)
+          "90102001" (* 0x2c: mov 1, %o0 *)
+          "91d02005" (* 0x30: ta 5 *) ]
+    let expected = [| 0x0UL; 0x14UL; 0x28UL; 0x30UL |]
+    CollectionAssert.AreEqual(expected, entriesOf fns)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]

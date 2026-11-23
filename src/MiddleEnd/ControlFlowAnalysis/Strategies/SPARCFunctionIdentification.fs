@@ -67,7 +67,8 @@ type private ComputedValue = { Value: uint64; IsPlaced: bool }
 /// such as one of xalloc_die, one starts on a guess, where the code there
 /// shows one starting on its own, which the recovery gives up once it finds
 /// the callee to return: clang lays functions that nothing calls right past
-/// such calls.
+/// such calls, apart from an instruction that gives back the stack that the
+/// call took for its arguments, which nothing reaches.
 type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   let metadata = FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 
@@ -617,14 +618,25 @@ type SPARCFunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
                w.VData.Internals.IsAbstract
                && Array.isEmpty (fn.CFG.GetSuccs w))))
 
+  /// Returns where code resumes past the given start, right past a call that
+  /// the recovery takes never to return, past an instruction there that gives
+  /// back stack, as clang leaves one past a call that passes arguments on the
+  /// stack, which nothing reaches where the call never returns.
+  let skipStackGiveBack start =
+    if SPARCCode.givesStackBackAt lu start then start + 4UL else start
+
   /// Returns where code resumes past each of the given functions, as
-  /// findResumes finds, where the code would show a function starting, were
-  /// the call that ends the code of the function never to return, as the
-  /// recovery takes it, though it may yet find the callee to return.
+  /// findResumes finds, or past what gives back stack there, where the code
+  /// would show a function starting, were the call that ends the code of the
+  /// function never to return, as the recovery takes it, though it may yet
+  /// find the callee to return.
   let guessNextStarts internals =
     findResumes internals
-    |> List.filter (fun (fn, built, codeEnd, start, _) ->
-      isCodePointer start
+    |> List.map (fun (fn, built, codeEnd, start, next) ->
+      fn, built, codeEnd, skipStackGiveBack start, next)
+    |> List.filter (fun (fn, built, codeEnd, start, next) ->
+      start < next
+      && isCodePointer start
       && not (showsEntryPast fn codeEnd start)
       && endsInCallAt fn codeEnd
       && SPARCCode.showsEntryPastFlowEnd lu neverReturns start

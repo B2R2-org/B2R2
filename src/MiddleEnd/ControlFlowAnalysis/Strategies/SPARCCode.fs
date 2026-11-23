@@ -325,6 +325,13 @@ module internal SPARCCode =
     | Ok ins -> turnsWindow ins
     | Error _ -> false
 
+  /// Tells whether the instruction at the address gives back stack, as clang
+  /// does right past a call that passes arguments on the stack.
+  let givesStackBackAt (lu: LiftingUnit) (addr: Addr) =
+    match lu.TryParseInstruction addr with
+    | Ok ins when lifts ins -> (effectOf lu ins).Frees
+    | _ -> false
+
   /// Tells whether code that ends with the instruction runs into nothing past
   /// it: it returns or jumps, traps, or pads with a nop.
   let leaves (ins: IInstruction) =
