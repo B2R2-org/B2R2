@@ -131,8 +131,8 @@ let private load case binPath arch =
     if hdl.ISA.Arch = expected && hdl.ISA.WordSize = wordSize then
       Some hdl
     else
-      eprintfn "skipping %s: ground truth says %s, binary is %A" case arch
-        hdl.ISA
+      eprintfn "skipping %s: ground truth says %s, binary is %A"
+        case arch hdl.ISA
       None
 
 /// Recovers CFGs and reports every jump table B2R2 found, once for each
@@ -202,9 +202,10 @@ let private errorsOf (score: Score) =
 
 let private report (score: Score) =
   let verdict = if errorsOf score = 0 then "ok" else "FAIL"
-  printfn "%-4s %-34s tables %d/%d/%d  targets %d/%d/%d  skipped %d"
-    verdict score.Case score.TableTP score.TableFP score.TableFN
-    score.TargetTP score.TargetFP score.TargetFN score.Skipped
+  let tables = sprintf "%d/%d/%d" score.TableTP score.TableFP score.TableFN
+  let targets = sprintf "%d/%d/%d" score.TargetTP score.TargetFP score.TargetFN
+  printfn "%-4s %-34s tables %s  targets %s  skipped %d"
+    verdict score.Case tables targets score.Skipped
 
 let private hexes (addrs: Set<Addr>) =
   addrs |> Seq.map (sprintf "0x%x") |> String.concat " "

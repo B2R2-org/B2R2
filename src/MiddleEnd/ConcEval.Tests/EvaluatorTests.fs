@@ -92,6 +92,19 @@ type EvaluatorTests() =
     else
       Evaluator.evalInstr st stmts
 
+  /// Evaluates one AArch64 instruction over the given registers, FPCR and
+  /// FPSR clear, and reads a register back.
+  let evalAArch64 safe hex (inputs: (string * uint64) list) =
+    let bytes = ByteArray.ofHexString hex
+    let hdl = BinHandle.LoadRawImage(bytes, ISA "aarch64", OS.Linux)
+    let stmts = hdl.NewLiftingUnit().LiftInstruction(0UL)
+    let rf = hdl.RegisterFactory
+    let st = ConcState()
+    for name, v in ("FPCR", 0UL) :: ("FPSR", 0UL) :: inputs do
+      st.SetReg(rf.GetRegisterID name, BitVector(v, 64<rt>))
+    evalInstrWith safe st stmts
+    fun (name: string) -> st.GetReg(rf.GetRegisterID name).ToUInt64()
+
   [<TestMethod>]
   member _.``Integral rounding preserves floating point values``() =
     for t in [ 32<rt>; 64<rt> ] do
@@ -137,16 +150,58 @@ type EvaluatorTests() =
   [<DataRow(false, "0000639e", "X0", 4UL, "V0A", 0x4010000000000000UL)>]
   [<DataRow(true, "0000639e", "X0", 4UL, "V0A", 0x4010000000000000UL)>]
   member _.``AArch64 conversions``(safe, hex, src, value, dst, expected) =
-    let bytes = ByteArray.ofHexString hex
-    let hdl = BinHandle.LoadRawImage(bytes, ISA "aarch64", OS.Linux)
-    let stmts = hdl.NewLiftingUnit().LiftInstruction(0UL)
-    let rf = hdl.RegisterFactory
-    let st = ConcState()
-    for name, v in [ "FPCR", 0UL; "FPSR", 0UL; "V0B", 0UL; src, value ] do
-      st.SetReg(rf.GetRegisterID name, BitVector((v: uint64), 64<rt>))
-    evalInstrWith safe st stmts
-    let actual = st.GetReg(rf.GetRegisterID(dst: string))
-    Assert.AreEqual<BitVector>(BitVector((expected: uint64), 64<rt>), actual)
+    let read = evalAArch64 safe hex [ "V0B", 0UL; src, value ]
+    Assert.AreEqual<uint64>(expected, read dst)
+
+#if !EMULATION
+  (* The static lifting of AArch64's floating-point arithmetic is IR every
+     evaluator knows: a fused multiply-add is worked out on the integer
+     significands, and what an operation raised by rounding it again in
+     directions of its own. The emulator's build reaches the host through
+     named calls instead, which are not expressions to evaluate. *)
+
+  /// fmsub d1, d5, d1, d8: 10 - 2 * 3 is 4, exactly.
+  [<DataTestMethod>]
+  [<DataRow(false)>]
+  [<DataRow(true)>]
+  member _.``AArch64 FMSUB evaluates``(safe) =
+    let inputs =
+      [ "V1A", 0x4008000000000000UL
+        "V1B", 0UL
+        "V5A", 0x4000000000000000UL
+        "V8A", 0x4024000000000000UL ]
+    let read = evalAArch64 safe "a1a0411f" inputs
+    Assert.AreEqual<uint64>(0x4010000000000000UL, read "V1A")
+    Assert.AreEqual<uint64>(0UL, read "FPSR")
+
+  /// fmadd d0, d1, d2, d3: (1 + 2^-27)^2 - (1 + 2^-26) is 2^-54, which a
+  /// product rounded first loses.
+  [<DataTestMethod>]
+  [<DataRow(false)>]
+  [<DataRow(true)>]
+  member _.``AArch64 FMADD rounds once``(safe) =
+    let inputs =
+      [ "V0B", 0UL
+        "V1A", 0x3ff0000002000000UL
+        "V2A", 0x3ff0000002000000UL
+        "V3A", 0xbff0000004000000UL ]
+    let read = evalAArch64 safe "200c421f" inputs
+    Assert.AreEqual<uint64>(0x3c90000000000000UL, read "V0A")
+    Assert.AreEqual<uint64>(0UL, read "FPSR")
+
+  /// fadd d0, d1, d2: 1 + 2^-60 rounds to 1, raising Inexact.
+  [<DataTestMethod>]
+  [<DataRow(false)>]
+  [<DataRow(true)>]
+  member _.``AArch64 FADD raises Inexact``(safe) =
+    let inputs =
+      [ "V0B", 0UL
+        "V1A", 0x3ff0000000000000UL
+        "V2A", 0x3c30000000000000UL ]
+    let read = evalAArch64 safe "2028621e" inputs
+    Assert.AreEqual<uint64>(0x3ff0000000000000UL, read "V0A")
+    Assert.AreEqual<uint64>(0x10UL, read "FPSR")
+#endif
 
   [<TestMethod>]
   member _.``Safe side effect terminates the instruction by default``() =
