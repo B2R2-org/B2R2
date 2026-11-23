@@ -121,6 +121,24 @@ type LifterTests() =
     let read = IRRunner.run (lifted hex) inputs
     (read !@(Q0, 1)).ToUInt64(), (read !.FPSR).ToUInt64()
 
+  /// The same for a multiply-add written d0, d1, d2, d3 (or s0, s1, s2, s3),
+  /// run with the low halves of V1, V2 and V3 set to its three operands.
+  let fmaAfter hex fpcr v1 v2 v3 =
+    let inputs =
+      [ !.FPCR, bv64 fpcr
+        !@(Q1, 1), bv64 v1
+        !@(Q2, 1), bv64 v2
+        !@(Q3, 1), bv64 v3 ]
+    let read = IRRunner.run (lifted hex) inputs
+    (read !@(Q0, 1)).ToUInt64(), (read !.FPSR).ToUInt64()
+
+  (* FPCR.RMode, as FPCR holds it: toward plus, minus and zero *)
+  let rp = 1UL <<< 22
+
+  let rm = 2UL <<< 22
+
+  let rz = 3UL <<< 22
+
   /// Checks a word over each input set against the places given as the
   /// ones it changes: what the oracle found for a value test, what the
   /// manual says for a structural one.
@@ -888,6 +906,67 @@ type LifterTests() =
     let read = IRRunner.run (lifted "9ec30020") inputs
     Assert.AreEqual<uint64>(0x3801UL, (read !@(Q0, 1)).ToUInt64())
     Assert.AreEqual<uint64>(0x10UL, (read !.FPSR).ToUInt64())
+
+  /// FPMulAdd rounds the exact sum once: (1 + 2^-27)^2 - (1 + 2^-26) is
+  /// 2^-54, which a product rounded first loses, leaving zero.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD rounds the exact sum once``() =
+    let x = 0x3ff0000002000000UL
+    let found = fmaAfter "1f420c20" 0UL x x 0xbff0000004000000UL
+    Assert.AreEqual<uint64 * uint64>((0x3c90000000000000UL, 0UL), found)
+
+  /// A single rounds once too, and not through a double: 2^-24 + 2^-60
+  /// added to 1 is past the middle of two singles and rounds up, where a
+  /// double of it lands on the middle and goes to even.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD of singles rounds once``() =
+    let x, y = 0x39800800UL, 0x397ff001UL
+    let found = fmaAfter "1f020c20" 0UL x y 0x3f800000UL
+    Assert.AreEqual<uint64 * uint64>((0x3f800001UL, 0x10UL), found)
+
+  /// A product past the largest double does not overflow on its own: the
+  /// largest double times 2 less itself is itself, exactly.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD does not overflow on its product``() =
+    let largest = 0x7fefffffffffffffUL
+    let two, negLargest = 0x4000000000000000UL, 0xffefffffffffffffUL
+    let found = fmaAfter "1f420c20" 0UL largest two negLargest
+    Assert.AreEqual<uint64 * uint64>((largest, 0UL), found)
+
+  /// (2^-1022 + 2^-1074) / 2 is halfway between two subnormals and rounds
+  /// to the even one, raising Underflow with Inexact.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD rounds a subnormal tie to even``() =
+    let x, half = 0x10000000000001UL, 0x3fe0000000000000UL
+    let found = fmaAfter "1f420c20" 0UL x half 0UL
+    Assert.AreEqual<uint64 * uint64>((0x8000000000000UL, 0x18UL), found)
+
+#if !EMULATION
+  (* The runner answers the emulator's exception query rounding to nearest
+     only, so the directions FPCR.RMode names otherwise are tested where the
+     IR works the rounding out itself. *)
+
+  /// The same tie rounds up toward plus infinity.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD rounds a subnormal tie up toward plus``() =
+    let x, half = 0x10000000000001UL, 0x3fe0000000000000UL
+    let found = fmaAfter "1f420c20" rp x half 0UL
+    Assert.AreEqual<uint64 * uint64>((0x8000000000001UL, 0x18UL), found)
+
+  /// Toward zero, an overflow gives the largest finite double.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD overflows to the largest toward zero``() =
+    let largest, two = 0x7fefffffffffffffUL, 0x4000000000000000UL
+    let found = fmaAfter "1f420c20" rz largest two 0UL
+    Assert.AreEqual<uint64 * uint64>((largest, 0x14UL), found)
+
+  /// An exact zero sum is minus zero toward minus infinity: 1.5 * 2 - 3.
+  [<TestMethod>]
+  member _.``[AArch64] FMADD sums to minus zero toward minus``() =
+    let x, two = 0x3ff8000000000000UL, 0x4000000000000000UL
+    let found = fmaAfter "1f420c20" rm x two 0xc008000000000000UL
+    Assert.AreEqual<uint64 * uint64>((0x8000000000000000UL, 0UL), found)
+#endif
 
   /// FZ16 is a half's FZ: FRECPE of 2^14 is under the smallest normal half
   /// and gives a zero, raising Underflow alone.

@@ -1459,8 +1459,9 @@ let private recipStep bld eSize flushes isSqrt a b =
     else struct (a, b, two, AST.b0)
   let fused = tmpVar bld eSize
   let degenerate = tmpVar bld 1<rt>
+  let struct (answer, fusedRaised) = fpFusedMulAdd bld eSize true x y addend
   append bld {
-    direct fused := fma eSize true false x y addend
+    direct fused := answer
     direct degenerate :=
       (isInfinity eSize a .& isZero eSize b)
       .| (isZero eSize a .& isInfinity eSize b)
@@ -1475,9 +1476,7 @@ let private recipStep bld eSize flushes isSqrt a b =
   append bld { direct res := AST.ite anyNaN nan finite }
   (* what the one rounding raised: the degenerate product raises nothing,
      where the fused operation it would have been is invalid *)
-  let raised =
-    let fused = fpFusedRaised bld eSize true x y addend
-    AST.ite degenerate (AST.num0 64<rt>) fused
+  let raised = AST.ite degenerate (AST.num0 64<rt>) fusedRaised
   fpRecord bld (if flushes then fpFlushOut bld eSize res raised else raised)
   res
 
