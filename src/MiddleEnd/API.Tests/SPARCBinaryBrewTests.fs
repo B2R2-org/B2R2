@@ -29,6 +29,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Tests the recovery of SPARC binaries.
 [<TestClass>]
@@ -590,6 +591,51 @@ type SPARCBinaryBrewTests() =
           "91d02005" (* 0x30: ta 5 *) ]
     let expected = [| 0x0UL; 0x14UL; 0x28UL; 0x30UL |]
     CollectionAssert.AreEqual(expected, entriesOf fns)
+
+  (* The function passes g a status that it reads, and a function that turns
+     the window lies right past the call, which tells that the call never
+     returns there, as the code that a call returns to has turned its window
+     already. *)
+  [<TestMethod>]
+  member _.``A call right before code that turns the window never returns``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "d0064000" (* 0x04: ld [%i1], %o0 *)
+          "40000005" (* 0x08: call 0x1c *)
+          "01000000" (* 0x0c: nop *)
+          "9de3bf50" (* 0x10: save %sp, -176, %sp *)
+          "81c7e008" (* 0x14: ret *)
+          "81e80000" (* 0x18: restore *)
+          "9de3bf50" (* 0x1c: save %sp, -176, %sp *)
+          "80a62000" (* 0x20: cmp %i0, 0 *)
+          "12480004" (* 0x24: bne %icc, 0x34 *)
+          "01000000" (* 0x28: nop *)
+          "81c7e008" (* 0x2c: ret *)
+          "81e80000" (* 0x30: restore *)
+          "40000002" (* 0x34: call 0x3c *)
+          "90100018" (* 0x38: mov %i0, %o0 *)
+          "91d02005" (* 0x3c: ta 5 *) ]
+    Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x0UL].NoRet)
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x10UL)
+
+  (* The function calls through a pointer that it reads, and a function that
+     turns the window lies right past the call and the nop past it, as GCC
+     lays one past a call to a function that never returns. *)
+  [<TestMethod>]
+  member _.``An indirect call right before a SAVE never returns``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "c25e0000" (* 0x04: ldx [%i0], %g1 *)
+          "9fc04000" (* 0x08: call %g1 *)
+          "01000000" (* 0x0c: nop *)
+          "01000000" (* 0x10: nop *)
+          "9de3bf50" (* 0x14: save %sp, -176, %sp *)
+          "81c7e008" (* 0x18: ret *)
+          "81e80000" (* 0x1c: restore *) ]
+    Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x0UL].NoRet)
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x14UL)
 
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)

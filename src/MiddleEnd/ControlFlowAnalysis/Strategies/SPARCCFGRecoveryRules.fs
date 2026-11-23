@@ -27,6 +27,8 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<AutoOpen>]
@@ -61,6 +63,20 @@ module private SPARCCFGRecoveryRules =
     | _ ->
       false
 
+  /// Checks if the call that ends the given vertex returns onto code that
+  /// turns the window, past what fills space between functions, as a
+  /// function starts there. Code that a call returns to runs in the window
+  /// that its function has turned to already, if it turns one at all.
+  let callsBeforeSave (ctx: CFGBuildingContext<_, _>) v =
+    let ins = (v: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
+    if ins.IsCall then
+      let lu = ctx.ScanningUnit
+      let past = ins.Address + uint64 ins.Extent
+      SPARCCode.skipFiller lu past System.UInt64.MaxValue
+      |> SPARCCode.turnsWindowAt lu
+    else
+      false
+
 /// Represents the rules of the CFG recovery for SPARC: the rules of every
 /// architecture, except that a jump table ends where the range check right
 /// before its indirect branch says, or where a mask on its index does. GCC
@@ -77,7 +93,11 @@ module private SPARCCFGRecoveryRules =
 /// slot of the frame of the function holds nothing on entry: GCC keeps the
 /// base of a table in a slot that the code writes before a loop, which code
 /// that GCC shares reaches along a way that skips the write, but that never
-/// reaches the read.
+/// reaches the read. A call right before code that turns the window never
+/// returns there, whatever its callee does, as clang lays a function right
+/// past a call to error with a status that it knows is not zero, where the
+/// recovery may not tell, and GCC one past a call through a pointer to a
+/// function that never returns.
 type internal SPARCCFGRecoveryRules<'FnCtx, 'GlCtx>() =
   inherit CFGRecoveryRules<'FnCtx, 'GlCtx>()
 
@@ -92,3 +112,9 @@ type internal SPARCCFGRecoveryRules<'FnCtx, 'GlCtx>() =
       TailCall
     else
       base.JudgeTailCall(ctx, jmpAddr, target)
+
+  override _.TryJudgeIndirectReturn(ctx, caller) =
+    if callsBeforeSave ctx caller then Some(NoRet, 0)
+    else base.TryJudgeIndirectReturn(ctx, caller)
+
+  override _.RefutesReturn(ctx, v) = callsBeforeSave ctx v
