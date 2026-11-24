@@ -70,6 +70,18 @@ module RegisterInitialValueProvider =
         else
           (registers :> IRegisterInitialValueProvider).TryGetInitialValue rid
 
+  /// Gives t12 the address of the function on entry, which is where the Alpha
+  /// calling standard has a caller put it, and where the function finds gp
+  /// from.
+  type private AlphaFunctionInitialValueProvider(hdl: BinHandle, entry: Addr) =
+    let t12 = Alpha.Register.toRegID Alpha.Register.R27
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = t12 then
+          Some(BitVector(entry, hdl.RegisterFactory.GetRegType rid))
+        else
+          None
+
   /// Gives the RISCV zero register zero, which it always holds: the lifter
   /// keeps it from being written, so it holds its initial value throughout.
   type private RISCVRegisterInitialValueProvider(hdl: BinHandle) =
@@ -117,6 +129,7 @@ module RegisterInitialValueProvider =
   let createForFunction (hdl: BinHandle) entry: IRegisterInitialValueProvider =
     match hdl.RegisterFactory.ISA.Arch with
     | Architecture.MIPS -> MIPSFunctionInitialValueProvider(hdl, entry)
+    | Architecture.Alpha -> AlphaFunctionInitialValueProvider(hdl, entry)
     | _ -> create hdl
 
   /// Returns the initial value of a regular register variable.

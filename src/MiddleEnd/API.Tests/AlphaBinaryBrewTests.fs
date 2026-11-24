@@ -65,3 +65,32 @@ type AlphaBinaryBrewTests() =
     let fns = recoverCode code
     let entries = fns[0UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* The caller of a function puts its address in t12, from which the function
+     computes gp, which the code reads its tables through. The function at 0x8
+     makes gp the address of its table, at 0x2c. *)
+  [<TestMethod>]
+  member _.``A function finds gp from t12``() =
+    let code =
+      [ "010040d3" (* 0x00: bsr ra,0x8 *)
+        "0080fa6b" (* ret *)
+        "0000bb27" (* 0x08: ldah gp,0(t12) *)
+        "2400bd23" (* lda gp,0x24(gp) *)
+        "0d0040d3" (* bsr ra,0x48 *)
+        "a1370042" (* cmpule a0,1,t0 *)
+        "0a0020e4" (* beq t0,0x44 *)
+        "50041d42" (* s4addq a0,gp,a0 *)
+        "000030a0" (* ldl t0,0(a0) *)
+        "0104a143" (* addq gp,t0,t0 *)
+        "0000e16b" (* jmp (t0) *)
+        "08000000" (* 0x2c: .long 0x34 - 0x2c *)
+        "10000000" (* .long 0x3c - 0x2c *)
+        "00001f20" (* 0x34: lda v0,0 *)
+        "0080fa6b" (* ret *)
+        "01001f20" (* 0x3c: lda v0,1 *)
+        "0080fa6b" (* ret *)
+        "0080fa6b" (* 0x44: ret *)
+        "0080fa6b" (* 0x48: ret *) ]
+    let fns = recoverCode code
+    let entries = fns[0x8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
