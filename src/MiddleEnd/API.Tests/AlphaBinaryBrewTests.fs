@@ -28,6 +28,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Tests the recovery of Alpha binaries.
 [<TestClass>]
@@ -37,6 +38,10 @@ type AlphaBinaryBrewTests() =
   static let recoverCode (code: string list) =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "alpha")).Functions
+
+  /// Returns the entries of the given functions, in order.
+  static let entriesOf (fns: FunctionCollection) =
+    fns.Sequence |> Seq.map _.EntryPoint |> Seq.sort |> Seq.toArray
 
   (* A jump clears the low two bits of its target, which the address of code
      has clear anyway, so a table is read through the jump as if it did not.
@@ -93,4 +98,33 @@ type AlphaBinaryBrewTests() =
         "0080fa6b" (* 0x48: ret *) ]
     let fns = recoverCode code
     let entries = fns[0x8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* A caller that shares gp with its callee calls it past the two words that
+     compute gp from t12, where the callee starts all the same. *)
+  [<TestMethod>]
+  member _.``A call past the gp prologue enters its function``() =
+    let code =
+      [ "030040d3" (* 0x00: bsr ra,0x10 *)
+        "0080fa6b" (* ret *)
+        "0000bb27" (* 0x08: ldah gp,0(t12) *)
+        "2400bd23" (* lda gp,0x24(gp) *)
+        "0d0040d3" (* 0x10: bsr ra,0x48 *)
+        "a1370042" (* cmpule a0,1,t0 *)
+        "0a0020e4" (* beq t0,0x44 *)
+        "50041d42" (* s4addq a0,gp,a0 *)
+        "000030a0" (* ldl t0,0(a0) *)
+        "0104a143" (* addq gp,t0,t0 *)
+        "0000e16b" (* jmp (t0) *)
+        "08000000" (* 0x2c: .long 0x34 - 0x2c *)
+        "10000000" (* .long 0x3c - 0x2c *)
+        "00001f20" (* 0x34: lda v0,0 *)
+        "0080fa6b" (* ret *)
+        "01001f20" (* 0x3c: lda v0,1 *)
+        "0080fa6b" (* ret *)
+        "0080fa6b" (* 0x44: ret *)
+        "0080fa6b" (* 0x48: ret *) ]
+    let fns = recoverCode code
+    let entries = fns[0x8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 0x0UL; 0x8UL; 0x48UL |], entriesOf fns)
     CollectionAssert.AreEqual([| 2 |], entries)
