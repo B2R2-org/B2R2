@@ -189,6 +189,14 @@ module AddressDomain =
     | _ ->
       combine BitVector.Or c1 c2
 
+  /// Computes the bitwise XOR of the two lattice elements, as SPARC builds a
+  /// negative constant, such as the offset of a slot deep in a large frame,
+  /// by xoring its low bits into the inverted high ones that SETHI sets.
+  let xor c1 c2 =
+    match c1, c2 with
+    | Undef, _ | _, Undef -> Undef
+    | _ -> combine BitVector.Xor c1 c2
+
   /// Evaluates the given binary operator in this domain.
   let internal evalBinOp op c1 c2 =
     match op with
@@ -196,4 +204,5 @@ module AddressDomain =
     | BinOpType.SUB -> sub c1 c2
     | BinOpType.AND -> ``and`` c1 c2
     | BinOpType.OR -> ``or`` c1 c2
+    | BinOpType.XOR -> xor c1 c2
     | _ -> NotAConst

@@ -798,6 +798,26 @@ type DataFlowTests() =
     let seven = mkConst 7u 64<rt>
     Assert.AreEqual<ConstantDomain.Lattice>(seven, state.GetAbsValue vp)
 
+  /// SPARC V9 biases its stack and frame pointers by 2047 bytes below the
+  /// stack, so a slot that the code reaches 2039 bytes past the frame pointer
+  /// lies 8 bytes below the stack on entry, in the frame of the function.
+  [<TestMethod>]
+  member _.``Constant Propagation finds a SPARC slot past the bias``() =
+    let brew =
+      [ "9de3bf50" (* save %sp, -176, %sp *)
+        "82102007" (* mov 7, %g1 *)
+        "c277a7f7" (* 0x10008: stx %g1, [%fp + 2039] *)
+        "81c7e008" (* ret *)
+        "81e80000" (* restore *) ]
+      |> String.concat ""
+      |> Binaries.loadSPARCAt 0x10000UL
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let vp = irStk 0x10008UL 1 -8
+    let seven = mkConst 7u 64<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(seven, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2
@@ -906,6 +926,27 @@ type DataFlowTests() =
       |> UntouchedValueDomain.RegisterTag
       |> UntouchedValueDomain.Untouched
     Assert.AreEqual<UntouchedValueDomain.Lattice>(a0, state.GetAbsValue vp)
+
+  /// SPARC V9 widens an int by shifting it by zero, as clang does to the
+  /// status that verror passes on to error_tail, which leaves the value
+  /// untouched.
+  [<TestMethod>]
+  member _.``Untouched Value Analysis passes a value through a shift by 0``() =
+    (* sra %o0, 0, %o1 ; retl ; nop *)
+    let brew = Binaries.loadSPARCAt 0x10000UL "933a200081c3e00801000000"
+    let cfg = brew.Functions[0x10000UL].CFG
+    let uva = UntouchedValueAnalysis(brew.BinHandle, cfg.Roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
+    let state = dfa.Compute cfg
+    let regOf r = Regular(FrontEnd.SPARC.Register.toRegID r)
+    let o1 = regOf FrontEnd.SPARC.Register.O1
+    let vp = { ProgramPoint = ProgramPoint(0x10000UL, 1); VarKind = o1 }
+    let o0 =
+      regOf FrontEnd.SPARC.Register.O0
+      |> UntouchedValueDomain.RegisterTag
+      |> UntouchedValueDomain.Untouched
+    Assert.AreEqual<UntouchedValueDomain.Lattice>(o0, state.GetAbsValue vp)
 
   /// A callee that writes through the address of a slot at an index may write
   /// the slots from there up to the ones in which its caller saves registers,

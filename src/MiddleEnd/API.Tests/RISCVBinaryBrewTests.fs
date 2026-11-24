@@ -29,6 +29,8 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ConcEval
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Tests the recovery of RISCV binaries.
 [<TestClass>]
@@ -425,3 +427,20 @@ type RISCVBinaryBrewTests() =
     let entries = fns[0x734UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
     CollectionAssert.DoesNotContain(Seq.toArray fns.Addresses, 0x660UL)
+
+  (* _start loads the address of main from a slot of the GOT, which holds
+     zero until the loader relocates it, so the block learns nothing of what
+     it loads: zero would have it read the ELF header as if it were a variable
+     that the address points to. *)
+  [<TestMethod>]
+  member _.``A slot that the loader relocates reads as unknown``() =
+    let bytes = readZippedBinary "elf_riscv64_ifunc"
+    let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
+    let hdl = BinHandle.LoadFileBytes(bytes, isa)
+    let cfg = BinaryBrew(hdl).Functions[0x590UL].CFG
+    let blk =
+      cfg.Vertices
+      |> Array.find (fun v -> v.VData.Internals.PPoint.Address = 0x594UL)
+    let st = CFGEvaluator.evalBlockFromScratch hdl blk
+    let a0 = RISCV.Register.toRegID RISCV.Register.X10
+    Assert.AreEqual<ConcEvalValue>(Undef, st.TryGetReg a0)

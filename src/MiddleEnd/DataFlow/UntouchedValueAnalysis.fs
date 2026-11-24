@@ -73,12 +73,16 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | Cast(Kind = CastKind.SignExt; Operand = e) ->
       evaluateExpr state pp e
     (* An operation with zero that leaves the other operand as it is passes
-       the value on, as MIPS copies a register by oring it with zero. *)
+       the value on, as MIPS copies a register by oring it with zero, and
+       SPARC widens an int by shifting it by zero. *)
     | BinOp(Op = (BinOpType.ADD | BinOpType.OR | BinOpType.XOR)
             Left = z
             Right = e) when isZero state pp z ->
       evaluateExpr state pp e
     | BinOp(Op = (BinOpType.ADD | BinOpType.OR | BinOpType.XOR | BinOpType.SUB)
+            Left = e
+            Right = z)
+    | BinOp(Op = (BinOpType.SHL | BinOpType.SHR | BinOpType.SAR)
             Left = e
             Right = z) when isZero state pp z ->
       evaluateExpr state pp e

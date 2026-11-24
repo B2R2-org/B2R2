@@ -121,12 +121,35 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     let sp = hdl.RegisterFactory.GetRegVar spId
     AST.load Endian.Little rt sp (* [rsp] *)
 
+  /// Finds the register that a SPARC thunk reading the PC adds %o7 to:
+  /// retl; add %o7, %rd, %rd, which gives rd the address of the call, as the
+  /// call links it into %o7.
+  let tryFindSPARCGetPCThunkReg (hdl: BinHandle) (addr: Addr) =
+    if hdl.ReadUInt(addr, 4) = 0x81c3e008UL then
+      let add = hdl.ReadUInt(addr + 4UL, 4)
+      let rd = (add >>> 25) &&& 0x1fUL
+      if add &&& 0xc1ffffe0UL = 0x8003c000UL && add &&& 0x1fUL = rd then
+        enum<SPARC.Register> (int rd) |> SPARC.Register.toRegID |> Some
+      else
+        None
+    else
+      None
+
   let initializeLiveVarMap hdl funcAddr =
     match (hdl: BinHandle).ISA with
     | X86 ->
       match tryFindLiveRegFromGetPCThunk hdl funcAddr with
       | Some var ->
         let e = genFreshStackVarExpr hdl
+        [| (var, e) |]
+      | None ->
+        [||]
+    | SPARC ->
+      match tryFindSPARCGetPCThunkReg hdl funcAddr with
+      | Some rid ->
+        let var = hdl.RegisterFactory.GetRegVar rid
+        let link = SPARC.Register.toRegID SPARC.Register.O7
+        let e = AST.binop BinOpType.ADD var (hdl.RegisterFactory.GetRegVar link)
         [| (var, e) |]
       | None ->
         [||]

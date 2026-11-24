@@ -108,6 +108,17 @@ type DomainTests() =
     Assert.AreEqual<AddressDomain.Lattice>(addrConst 8u, distance)
 
   [<TestMethod>]
+  member _.``Address domain xors constants``() =
+    (* SPARC builds a negative offset by xoring its low bits into the inverted
+       high ones that SETHI sets, whereas a stack address xored is no longer
+       one. *)
+    let offset = AddressDomain.xor (addrConst 0x7f800u) (addrConst 0xffffffb7u)
+    let xored = AddressDomain.xor (stackAddr 0u) (addrConst 0xffffffb7u)
+    let top = AddressDomain.NotAConst
+    Assert.AreEqual<AddressDomain.Lattice>(addrConst 0xfff807b7u, offset)
+    Assert.AreEqual<AddressDomain.Lattice>(top, xored)
+
+  [<TestMethod>]
   member _.``Untouched value domain lattice laws``() =
     [ UntouchedValueDomain.Undef
       untouched Register.EAX

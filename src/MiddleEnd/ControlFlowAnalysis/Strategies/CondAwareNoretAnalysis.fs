@@ -63,15 +63,24 @@ module private CondAwareNoretAnalysisHelper =
     | None ->
       false
 
-  /// Locally analyzes the given basic blocks, through which the control runs
-  /// in turn, and checks if the argument at the given location, which the call
-  /// ending the last block passes, is non-zero.
-  let hasNonZero hdl blks loc =
-    let st = CFGEvaluator.evalBlocksFromScratch hdl blks
+  /// Checks if the argument at the given location is non-zero in the state.
+  let hasNonZeroAt hdl st loc =
     match loc with
     | ArgLocation.Reg rid -> hasNonZeroInRegister st rid
     | ArgLocation.Stack layout -> hasNonZeroOnStack hdl st layout
     | ArgLocation.RegPair _ -> false
+
+  /// Locally analyzes the given basic blocks, through which the control runs
+  /// in turn, and checks if the argument at the given location, which the call
+  /// ending the last block passes, is non-zero, whether the frame pointer holds
+  /// zero or points to the stack. A frame pointer of zero alone would read what
+  /// the binary holds near zero where the code reads a frame that it has not
+  /// written, as SPARC does above the frame pointer, while what the blocks
+  /// write to the frame and read back stays the same either way.
+  let hasNonZero hdl blks loc =
+    [ CFGEvaluator.evalBlocksFromScratch
+      CFGEvaluator.evalBlocksWithFrameOnStack ]
+    |> List.forall (fun eval -> hasNonZeroAt hdl (eval hdl blks) loc)
 
   /// Checks if every predecessor of the given caller, none of which may be a
   /// call it returns from, sets the argument at the given location to a
@@ -636,6 +645,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | LowUIR.UnOp(Op = UnOpType.NOT; Operand = e)
       when LowUIR.Expr.typeOf e = 1<rt> ->
       find e |> negate
+    (* SPARC branches where a flag is one by comparing the flag with one, which
+       tells what the flag itself does. *)
+    | LowUIR.RelOp(Op = RelOpType.EQ; Left = e; Right = LowUIR.Num(Value = n))
+      when LowUIR.Expr.typeOf e = 1<rt> && n.IsOne ->
+      find e
     (* Thumb tells CBNZ from CBZ by xoring the test of the register with one
        rather than zero. *)
     | LowUIR.BinOp(Op = BinOpType.XOR; Left = LowUIR.Num(Value = n); Right = e)
@@ -731,13 +745,27 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | None ->
       None
 
+  /// Finds the argument that the guards on the edges into the given vertex
+  /// all find zero, as where a compiler joins the ways that each find a status
+  /// zero into one return.
+  let tryFindZeroOnEveryEdge hdl tryGetCondition state g v =
+    let locs =
+      Guard.collect tryGetCondition g v
+      |> List.map (snd >> Option.bind (tryGetZeroOnGuard hdl state))
+    match locs with
+    | Some loc :: rest when List.forall ((=) (Some loc)) rest -> Some loc
+    | _ -> None
+
   /// Finds the argument that a guard on every path to the given vertex finds
   /// zero, reading the statements that the given analysis lifts and the data
   /// flow that it computes into the given state.
   let tryFindZeroArgument ctx (uva: UntouchedValueAnalysis) state dom v =
     let g = (ctx: CFGBuildingContext<_, _>).CFG
-    Guard.collectDominating (tryGetCondition uva.State) g dom v
+    let tryGetCond = tryGetCondition uva.State
+    Guard.collectDominating tryGetCond g dom v
     |> List.tryPick (tryGetZeroOnGuard ctx.BinHandle state)
+    |> Option.orElseWith (fun () ->
+      tryFindZeroOnEveryEdge ctx.BinHandle tryGetCond state g v)
 
   /// Judges whether the function returns through the given exit, which no
   /// call to a conditionally non-returning function dominates: if the exit is

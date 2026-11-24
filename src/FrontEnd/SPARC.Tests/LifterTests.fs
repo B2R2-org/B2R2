@@ -84,8 +84,8 @@ type LifterTests() =
   /// What BNE on icc reads: icc.Z clear.
   let iccNotZero () = (!.CCZI == AST.num0 32<rt>) == AST.b0
 
-  /// The target of a branch 8 bytes past the branch.
-  let branchTarget () = !.PC .+ AST.zext 64<rt> (num 8L)
+  /// The target of a branch 8 bytes past the branch, which sits at zero.
+  let branchTarget () = num 8L
 
   /// ADD %o2, %o5, %o7.
   let addO7 = "0d80029e"
@@ -108,7 +108,7 @@ type LifterTests() =
          [ [| taken := iccNotZero () |]
            [| t64 2 := !.O2 .+ !.O5
               !.O7 := t64 2 |]
-           [| AST.intercjmp taken (branchTarget ()) (!.PC .+ num 8L) |] ]
+           [| AST.intercjmp taken (branchTarget ()) (num 8L) |] ]
 
   /// An annulling branch runs its delay slot only when it is taken: the
   /// taken path runs the slot and goes to the target, the other goes past
@@ -126,14 +126,32 @@ type LifterTests() =
            slotOf addO7
            [| AST.interjmp (branchTarget ()) InterJmpKind.Base
               AST.lmark lblNotTaken
-              AST.interjmp (!.PC .+ num 8L) InterJmpKind.Base |] ]
+              AST.interjmp (num 8L) InterJmpKind.Base |] ]
+
+  /// A transfer names its target by its offset from itself, and goes on past
+  /// its delay slot, 8 past itself; both are numbers in the statements, as
+  /// the CFG follows a jump only to a number.
+  [<TestMethod>]
+  member _.``[SPARC] Transfers jump to the addresses they name``() =
+    let lastAt addr hex =
+      let parser = Parser(reader) :> IInstructionParsable
+      let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+      parser.Parse(ByteArray.ofHexString hex, addr).Translate builder
+      |> Array.last
+    let taken = AST.tmpvar 1<rt> 1
+    (* bne %icc, 0x6d3c; sethi %hi(0x800), %l2 *)
+    Assert.AreEqual<Stmt>(AST.intercjmp taken (num 0x6d3cL) (num 0x6d00L),
+                          lastAt 0x6cf8UL "1100481202000025")
+    (* call 0x6f00; or %l7, 0x30, %l7 *)
+    Assert.AreEqual<Stmt>(AST.interjmp (num 0x6f00L) InterJmpKind.IsCall,
+                          lastAt 0x6bd0UL "cc00004030e015ae")
 
   /// BA,a and BN,a annul their delay slot whatever happens, so they never
   /// read it: they lift alone, on bytes that end with them.
   [<TestMethod>]
   member _.``[SPARC] BA,a and BN,a lift without their delay slot``() =
     let baA = [| AST.interjmp (branchTarget ()) InterJmpKind.Base |]
-    let bnA = [| AST.interjmp (!.PC .+ num 8L) InterJmpKind.Base |]
+    let bnA = [| AST.interjmp (num 8L) InterJmpKind.Base |]
     CollectionAssert.AreEqual(baA, Array.tail (lifted "02008030"))
     CollectionAssert.AreEqual(bnA, Array.tail (lifted "02008020"))
 
@@ -151,7 +169,7 @@ type LifterTests() =
           t64 2 := link .+ num 8L
           !.O0 := t64 2
           !.O7 := link
-          AST.interjmp (!.PC .+ num 8L) InterJmpKind.IsCall |]
+          AST.interjmp (num 8L) InterJmpKind.IsCall |]
 
   /// A slot that writes %o7 writes the copy CALL committed, so its value is
   /// the one %o7 is left with.
@@ -164,10 +182,12 @@ type LifterTests() =
           t64 2 := !.O2 .+ !.O5
           link := t64 2
           !.O7 := link
-          AST.interjmp (!.PC .+ num 8L) InterJmpKind.IsCall |]
+          AST.interjmp (num 8L) InterJmpKind.IsCall |]
 
   /// A slot that turns the register window, as RESTORE does in a tail call,
-  /// moves %o7 out from under any copy, so CALL links before it.
+  /// moves %o7 out from under any copy, so CALL links before it. The window
+  /// it turns back to holds the return address of the caller in %o7, which
+  /// the callee then returns through, so the CALL is a jump.
   [<TestMethod>]
   member _.``[SPARC] CALL links before a slot that turns the window``() =
     (* call .+8 ; restore *)
@@ -184,7 +204,20 @@ type LifterTests() =
           !.O7 := !.I7
           AST.sideEffect RestoreWindow
           !.G0 := !.G0
-          AST.interjmp (!.PC .+ num 8L) InterJmpKind.IsCall |]
+          AST.interjmp (num 8L) InterJmpKind.Base |]
+
+  /// A leaf moves the return address it kept in %g1 back into %o7 in the
+  /// slot, so the callee returns where the leaf would have: a jump.
+  [<TestMethod>]
+  member _.``[SPARC] CALL whose slot moves the link back is a jump``() =
+    let link = t64 1
+    (* call .+8 ; mov %g1, %o7 *)
+    testDelaySlot "02000040" "0100109e"
+    <| [| link := !.PC
+          t64 2 := !.G1
+          link := t64 2
+          !.O7 := link
+          AST.interjmp (num 8L) InterJmpKind.Base |]
 
   /// <summary>
   /// JMPL whose rd is its rs1 reads its target before the link and its slot,
@@ -203,13 +236,37 @@ type LifterTests() =
           !.G1 := link
           AST.interjmp target InterJmpKind.Base |]
 
-  /// JMPL into %g0, which is what RET is, links nowhere.
+  /// JMPL into %g0, which is what RET is, links nowhere, and RET returns.
   [<TestMethod>]
   member _.``[SPARC] JMPL to %g0 discards the link (ret) lift Test``() =
     (* ret ; nop *)
     testDelaySlot "08e0c781" "00000001"
     <| [| t64 1 := !.I7 .+ num 8L
+          AST.interjmp (t64 1) InterJmpKind.IsRet |]
+
+  /// JMPL into %g0 through any other register is a plain jump, and JMPL
+  /// into %o7 is a call.
+  [<TestMethod>]
+  member _.``[SPARC] JMPL jumps or calls by the register it links``() =
+    (* jmp %g1 ; nop *)
+    testDelaySlot "0040c081" "00000001"
+    <| [| t64 1 := !.G1
           AST.interjmp (t64 1) InterJmpKind.Base |]
+    (* call %g1 ; nop *)
+    testDelaySlot "0040c09f" "00000001"
+    <| [| t64 1 := !.G1
+          t64 2 := !.PC
+          !.O7 := t64 2
+          AST.interjmp (t64 1) InterJmpKind.IsCall |]
+
+  /// ILLTRAP traps whatever its operand says, and so does ta 5, which GCC
+  /// plants where __builtin_trap is.
+  [<TestMethod>]
+  member _.``[SPARC] ILLTRAP and ta 5 never go on Test``() =
+    let illtrap = [| AST.sideEffect UndefinedInstruction |]
+    CollectionAssert.AreEqual(illtrap, slotOf "00000000")
+    let trap = [| AST.sideEffect (Interrupt 5) |]
+    CollectionAssert.AreEqual(trap, slotOf "0520d091")
 
   /// <summary>
   /// RETURN runs its delay slot in the window it restores, before restoring
@@ -265,7 +322,7 @@ type LifterTests() =
     testDelaySlot bne "02008010"
     <| [| taken := iccNotZero ()
           AST.sideEffect UndefinedInstruction
-          AST.intercjmp taken (branchTarget ()) (!.PC .+ num 8L) |]
+          AST.intercjmp taken (branchTarget ()) (num 8L) |]
 
   /// A branch whose bytes end before its delay slot still parses, but is not
   /// lifted: alone it would transfer without running the slot.
@@ -299,7 +356,7 @@ type LifterTests() =
     testDelaySlot bne "00404191"
     <| [| taken := iccNotZero ()
           !.O0 := num 4L
-          AST.intercjmp taken (branchTarget ()) (!.PC .+ num 8L) |]
+          AST.intercjmp taken (branchTarget ()) (num 8L) |]
 
   /// An instruction and the delay slot it carries depend on the bytes of
   /// both; one that annuls its slot whatever happens, and one that has none,
@@ -428,7 +485,7 @@ type LifterTests() =
 
   [<TestMethod>]
   member _.``[SPARC] TA to another trap number is a no-op lift Test``() =
-    "0520d091"
+    "0320d091"
     ++ [||]
     |> test
 

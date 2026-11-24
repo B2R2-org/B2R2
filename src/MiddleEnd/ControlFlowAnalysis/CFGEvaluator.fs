@@ -36,16 +36,15 @@ open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.Constants
 
-/// Checks if only the loader writes to the given address, so that the code
-/// reads there what the binary holds. A variable in .data, for instance, may
-/// hold anything by the time the code reads it.
-let private isLoaderOnly (file: IBinFile) addr =
-  match file with
-  | :? ELFBinFile as elf -> elf.IsReadOnlyAfterLoading addr
-  | _ -> file.IsExecutableAddr addr
-
+/// Checks if the code reads at the given address what the binary holds, as it
+/// does where only the loader writes, unless the loader relocates the address.
+/// A variable in .data, for instance, may hold anything by the time the code
+/// reads it, and a slot of the GOT holds zero until the loader relocates it.
 let private isReadable (file: IBinFile) addr =
-  addr < UInt64.MaxValue && file.IsValidAddr addr && isLoaderOnly file addr
+  addr < UInt64.MaxValue
+  && file.IsValidAddr addr
+  && LoaderOnlyMemory.contains file addr
+  && not (BinFileOps.isRelocationAddr file addr)
 
 let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let len = RegType.toByteWidth typ
@@ -65,9 +64,9 @@ let private obtainStackDef (hdl: BinHandle) =
   | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> stackAddr |]
   | None -> [||]
 
-let private obtainFramePointerDef (hdl: BinHandle) =
+let private obtainFramePointerDef (hdl: BinHandle) toValue =
   match hdl.RegisterFactory.FramePointer with
-  | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
+  | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> toValue |]
   | None -> [||]
 
 /// Gets the expressions that the given statement reads.
@@ -138,12 +137,21 @@ let private evalBlocks (st: ConcState) (blks: IVertex<LowUIRBasicBlock>[]) =
 /// Concretely evaluates the given basic blocks in turn, as the control runs
 /// through them, from an arbitrarily generated state.
 let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
-  let regs = Array.append (obtainStackDef hdl) (obtainFramePointerDef hdl)
-  let st = initState hdl blks regs
+  let fp = obtainFramePointerDef hdl BitVector.Zero
+  let st = initState hdl blks (Array.append (obtainStackDef hdl) fp)
   evalBlocks st blks
 
 /// Concretely evaluates a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl blk = evalBlocksFromScratch hdl [| blk |]
+
+/// Concretely evaluates the given basic blocks in turn, as the control runs
+/// through them, from a state as from scratch but for the frame pointer, which
+/// points where the stack pointer does rather than to zero, so that the blocks
+/// read nothing that the binary holds off a frame that they have not written.
+let evalBlocksWithFrameOnStack hdl (blks: IVertex<LowUIRBasicBlock>[]) =
+  let fp = obtainFramePointerDef hdl stackAddr
+  let st = initState hdl blks (Array.append (obtainStackDef hdl) fp)
+  evalBlocks st blks
 
 /// Concretely evaluates a basic block from a state that knows nothing but the
 /// stack pointer, the given registers, and those that the binary fixes, not

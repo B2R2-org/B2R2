@@ -22,6 +22,7 @@
     <Compile Include="PPCBinaryBrewTests.fs" />
     <Compile Include="M68KBinaryBrewTests.fs" />
     <Compile Include="S390BinaryBrewTests.fs" />
+    <Compile Include="SPARCBinaryBrewTests.fs" />
     <Compile Include="EVMBinaryBrewTests.fs" />
   </ItemGroup>
 

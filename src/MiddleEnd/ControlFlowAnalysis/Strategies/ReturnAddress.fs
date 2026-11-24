@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 
 /// Provides the address that a call returns to.
@@ -32,8 +31,5 @@ open B2R2.FrontEnd.BinLifter
 module ReturnAddress =
   /// Returns the address control comes back to after the given call: right
   /// after it, or past its delay slot, which ran before the callee did, where
-  /// it has one.
-  let ofCall (callIns: IInstruction) =
-    match callIns with
-    | :? MIPS.Instruction as ins -> ins.FallThroughAddress
-    | _ -> callIns.Address + uint64 callIns.Length
+  /// it has one, as the call then spans its slot.
+  let ofCall (callIns: IInstruction) = callIns.Address + uint64 callIns.Extent

@@ -59,6 +59,13 @@ let loadRISCVAt baseAddr (hex: string) =
   let hdl = BinHandle.LoadRawImage(code, isa, baseAddr, OS.Linux)
   BinaryBrew hdl
 
+/// Loads the given SPARC V9 code at the given address, written as the hex of
+/// its words.
+let loadSPARCAt baseAddr (hex: string) =
+  let code = ByteArray.ofHexString hex
+  let hdl = BinHandle.LoadRawImage(code, ISA "sparc64", baseAddr, OS.Linux)
+  BinaryBrew hdl
+
 /// The directory of the ELF fixtures, which live next to the BinFile tests.
 let private elfDir =
   AppDomain.CurrentDomain.BaseDirectory

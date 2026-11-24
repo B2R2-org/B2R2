@@ -1099,8 +1099,16 @@ let private runDelaySlotOn ins (bld: ILowUIRBuilder) leaf =
   rewriteFrom bld.Stream start leaf
 
 /// Where a branch goes on when it does not take its target: past its delay
-/// slot, which ran all the same unless the branch annulled it.
-let private pastSlot bld = regVar bld Register.PC .+ numI32PC 8
+/// slot, which ran all the same unless the branch annulled it. The address is
+/// a number, as is every address a transfer names, which is how the CFG
+/// follows a jump.
+let private pastSlot (ins: Instruction) = numU64 (ins.Address + 8UL) 64<rt>
+
+/// The address that a branch or CALL names by its offset from itself.
+let private targetOf (ins: Instruction) offset =
+  match offset with
+  | Num(Value = bv) -> numU64 (ins.Address + bv.ToUInt64()) 64<rt>
+  | _ -> Terminator.impossible ()
 
 /// A transfer that always goes where it goes, once its delay slot has run.
 let private jumpAfterSlot ins bld target =
@@ -1114,7 +1122,7 @@ let private branchIf ins bld cond target =
   let taken = tmpVar bld 1<rt>
   append bld { taken := cond }
   runDelaySlot ins bld
-  append bld { AST.intercjmp taken target (pastSlot bld) }
+  append bld { AST.intercjmp taken target (pastSlot ins) }
 
 /// An annulling branch on a condition, which runs its delay slot only when
 /// it takes its target: the taken path runs the slot and goes to the target,
@@ -1130,7 +1138,7 @@ let private branchAnnulIf ins bld cond target =
   append bld {
     AST.interjmp target InterJmpKind.Base
     AST.lmark lblNotTaken
-    AST.interjmp (pastSlot bld) InterJmpKind.Base
+    AST.interjmp (pastSlot ins) InterJmpKind.Base
   }
 
 /// <summary>
@@ -1143,12 +1151,12 @@ let private branchAnnulIf ins bld cond target =
 let branchTo (ins: Instruction) bld an cond taken =
   let annul = (AST.extract an 1<rt> 0 = AST.b1)
   if not ins.HasDelaySlot then
-    let target = if cond = AST.b1 then taken else pastSlot bld
+    let target = if cond = AST.b1 then taken else pastSlot ins
     append bld { AST.interjmp target InterJmpKind.Base }
   elif cond = AST.b1 then
     jumpAfterSlot ins bld taken
   elif cond = AST.b0 then
-    jumpAfterSlot ins bld (pastSlot bld)
+    jumpAfterSlot ins bld (pastSlot ins)
   elif annul then
     branchAnnulIf ins bld cond taken
   else
@@ -1186,7 +1194,6 @@ let branchpr ins bld =
   liftTransfer bld ins {
     let oprSize = 64<rt>
     let struct (src, label, an, _) = transFourOprs ins bld
-    let pc = regVar bld Register.PC
     let branchCond =
       match ins.Opcode with
       | Opcode.BRZ -> (src == AST.num0 oprSize)
@@ -1196,7 +1203,7 @@ let branchpr ins bld =
       | Opcode.BRGZ -> (src ?> AST.num0 oprSize)
       | Opcode.BRGEZ -> (src ?>= AST.num0 oprSize)
       | _ -> raise InvalidOpcodeException
-    let jumpTarget = pc .+ AST.zext 64<rt> label
+    let jumpTarget = targetOf ins label
     branchTo ins bld an branchCond jumpTarget
   }
 
@@ -1245,9 +1252,8 @@ let branchicc ins bld =
   liftTransfer bld ins {
     let oprSize = 64<rt>
     let struct (an, label) = transTwoOprs ins bld
-    let pc = regVar bld Register.PC
     let branchCond = branchiccCond ins bld
-    let jumpTarget = pc .+ AST.zext 64<rt> label
+    let jumpTarget = targetOf ins label
     branchTo ins bld an branchCond jumpTarget
   }
 
@@ -1340,18 +1346,29 @@ let branchpcc ins bld =
   liftTransfer bld ins {
     let oprSize = 64<rt>
     let struct (cc, label, an, _) = transFourOprs ins bld
-    let pc = regVar bld Register.PC
     let branchCond = branchpccCond ins cc bld
-    let jumpTarget = pc .+ AST.zext 64<rt> label
+    let jumpTarget = targetOf ins label
     branchTo ins bld an branchCond jumpTarget
   }
+
+/// <summary>
+/// The kind of jump that CALL or JMPL makes, as the instruction tells it: a
+/// call, which comes back past its delay slot, a return, or a plain jump. A
+/// call whose slot passes on the return address of its caller is a jump, to
+/// a callee that returns where the caller would have.
+/// </summary>
+let private transferKind (ins: Instruction) =
+  let ins = ins :> IInstruction
+  if ins.IsCall then InterJmpKind.IsCall
+  elif ins.IsRET then InterJmpKind.IsRet
+  else InterJmpKind.Base
 
 let call ins bld =
   liftTransfer bld ins {
     let dst = transOneOpr ins bld
     let pc = regVar bld Register.PC
     linkAround ins bld (regVar bld Register.O7) pc
-    AST.interjmp (pc .+ dst) InterJmpKind.IsCall
+    AST.interjmp (targetOf ins dst) (transferKind ins)
   }
 
 let casa ins bld =
@@ -1577,7 +1594,6 @@ let faddq ins bld =
 let fbranchfcc ins bld =
   liftTransfer bld ins {
     let struct (an, label) = transTwoOprs ins bld
-    let pc = regVar bld Register.PC
     let fsr = regVar bld Register.FSR
     let u = ((AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>))
     let g = ((AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>))
@@ -1602,14 +1618,13 @@ let fbranchfcc ins bld =
       | Opcode.FBULE -> (u .| l .| e)
       | Opcode.FBO -> (l .| e .| g)
       | _ -> raise InvalidOpcodeException
-    let jumpTarget = pc .+ AST.zext 64<rt> label
+    let jumpTarget = targetOf ins label
     branchTo ins bld an branchCond jumpTarget
   }
 
 let fbranchpfcc ins bld =
   liftTransfer bld ins {
     let struct (cc, label, an, _) = transFourOprs ins bld
-    let pc = regVar bld Register.PC
     let fsr = regVar bld Register.FSR
     let fcc0 = getCCVar bld ConditionCode.Fcc0
     let fcc1 = getCCVar bld ConditionCode.Fcc1
@@ -1644,7 +1659,7 @@ let fbranchpfcc ins bld =
       | Opcode.FBPULE -> (u .| l .| e)
       | Opcode.FBPO -> (l .| e .| g)
       | _ -> raise InvalidOpcodeException
-    let jumpTarget = pc .+ AST.zext 64<rt> label
+    let jumpTarget = targetOf ins label
     branchTo ins bld an branchCond jumpTarget
   }
 
@@ -2833,7 +2848,7 @@ let jmpl ins bld =
     let target = tmpVar bld 64<rt>
     target := addr
     linkAround ins bld dst (regVar bld Register.PC)
-    AST.interjmp target InterJmpKind.Base
+    AST.interjmp target (transferKind ins)
   }
 
 let ldf ins bld =
@@ -3234,6 +3249,12 @@ let unsupported (ins: Instruction) bld =
     AST.sideEffect UnsupportedInstruction
   }
 
+/// ILLTRAP raises an illegal instruction trap, whatever its operand says.
+let illtrap (ins: Instruction) bld =
+  lift bld ins {
+    AST.sideEffect UndefinedInstruction
+  }
+
 let ``or`` ins bld =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
@@ -3506,6 +3527,10 @@ let tcc (ins: Instruction) bld =
       match ins.Operands with
       | TwoOperands(_, OprImm n) when n = 0x6d || n = 0x10 ->
         AST.sideEffect SysCall
+      (* GCC plants ta 5 where __builtin_trap is, a trap that Linux reserves
+         and answers with a signal, so the program does not go on. *)
+      | TwoOperands(_, OprImm 5) ->
+        AST.sideEffect (Interrupt 5)
       | _ ->
         ()
     }

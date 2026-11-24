@@ -150,6 +150,8 @@ type BinaryBrew =
       M68KFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | S390 ->
       S390FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
+    | SPARC ->
+      SPARCFunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
     | _ ->
       FunctionIdentification(hdl, exnInfo) :> IFunctionIdentifiable
 

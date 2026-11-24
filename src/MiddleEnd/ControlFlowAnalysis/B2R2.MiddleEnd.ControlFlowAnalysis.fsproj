@@ -70,6 +70,8 @@
     <Compile Include="Strategies\M68KFunctionIdentification.fs" />
     <Compile Include="Strategies\S390Code.fs" />
     <Compile Include="Strategies\S390FunctionIdentification.fs" />
+    <Compile Include="Strategies\SPARCCode.fs" />
+    <Compile Include="Strategies\SPARCFunctionIdentification.fs" />
     <Compile Include="Strategies\PythonFunctionIdentification.fs" />
     <Compile Include="Strategies\ICFGRecovery.fs" />
     <Compile Include="Strategies\ICFGRecoveryRules.fs" />
@@ -82,6 +84,7 @@
     <Compile Include="Strategies\PPCCFGRecoveryRules.fs" />
     <Compile Include="Strategies\M68KCFGRecoveryRules.fs" />
     <Compile Include="Strategies\S390CFGRecoveryRules.fs" />
+    <Compile Include="Strategies\SPARCCFGRecoveryRules.fs" />
     <Compile Include="Strategies\CFGRecoveryOptions.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <Compile Include="Strategies\EVMCFGHelper.fs" />
