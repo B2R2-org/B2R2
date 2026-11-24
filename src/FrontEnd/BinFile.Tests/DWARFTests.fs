@@ -49,6 +49,9 @@ type private M68KReg = B2R2.FrontEnd.M68K.Register
 /// Represents the S390 registers under a shorter name.
 type private S390Reg = B2R2.FrontEnd.S390.Register
 
+/// Represents the Alpha registers under a shorter name.
+type private AlphaReg = B2R2.FrontEnd.Alpha.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -378,3 +381,23 @@ type DWARFTests() =
       let isa = ISA(Architecture.S390, Endian.Big, wordSize)
       for n, reg in numbers do
         Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")
+
+  [<TestMethod>]
+  member _.``[DWARF] Alpha registers are numbered as GCC numbers them``() =
+    (* The CIE of GCC for Alpha defines the CFA as r30 (sp) and keeps the
+       return address in column 26 (ra), or in 15 (fp) for _start. A
+       function that saves f2 notes it as 34. *)
+    let rid reg = B2R2.FrontEnd.Alpha.Register.toRegID reg
+    let numbers =
+      [ 0uy, AlphaReg.R0
+        15uy, AlphaReg.R15
+        26uy, AlphaReg.R26
+        30uy, AlphaReg.R30
+        31uy, AlphaReg.R31
+        32uy, AlphaReg.F0
+        34uy, AlphaReg.F2
+        63uy, AlphaReg.F31
+        64uy, AlphaReg.PC ]
+    let isa = ISA Architecture.Alpha
+    for n, reg in numbers do
+      Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")
