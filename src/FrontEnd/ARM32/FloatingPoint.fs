@@ -249,6 +249,7 @@ type FPArith =
   | FPDiv
   | FPSqrt
 
+#if EMULATION
 /// What the exception query is asked beyond the operation: tininess decided
 /// BEFORE rounding (0x40), as FPRound decides it, and the flags in FPSCR's
 /// order (0x80), Invalid lowest.
@@ -289,6 +290,28 @@ let fpFusedRaised bld ctl sz x y z =
   let args = [ numU64 8UL 8<rt>; x; y; z; numU64 fpExcArm 8<rt>; sofar ]
   inForce ctl (AST.app (fpExcName sz) args 32<rt>)
 
+#else
+let private armFlags flags =
+  let bit i = AST.extract flags 1<rt> i
+  [ bit 0; bit 1; bit 2; bit 3; bit 4 ]
+  |> List.reduce AST.concat
+  |> AST.zext 32<rt>
+
+let private fpMode bld ctl = roundingMode bld ctl |> fpRounding
+
+let private fpRaised bld ctl op a b =
+  let kind =
+    match op with
+    | FPAdd -> FloatingPointIR.Arithmetic.Add
+    | FPSub -> FloatingPointIR.Arithmetic.Sub
+    | FPMul -> FloatingPointIR.Arithmetic.Mul
+    | FPDiv -> FloatingPointIR.Arithmetic.Div
+    | FPSqrt -> FloatingPointIR.Arithmetic.Sqrt
+  let mode = fpMode bld ctl
+  let flags = FloatingPointIR.arithmeticExceptions bld mode kind (a, b)
+  armFlags flags.BeforeRounding
+#endif
+
 let private arithOf op a b =
   match op with
   | FPAdd -> AST.fadd a b
@@ -313,10 +336,18 @@ let fpArithRaised bld ctl sz flushes op operands =
   let a, b = List.head operands, List.last operands
   let res = tmpVar bld sz
   append bld {
+#if EMULATION
     res := inForce ctl (arithOf op a b)
+#else
+    res := AST.roundCtrl (fpMode bld ctl) (arithOf op a b)
+#endif
     res := AST.ite (isNaN sz res) (fpNaNResult bld ctl sz operands) res
   }
+#if EMULATION
   let raised = fpRaised bld ctl sz op a b
+#else
+  let raised = fpRaised bld ctl op a b
+#endif
   struct (res, if flushes then fpFlushOut bld ctl sz res raised else raised)
 
 /// FPAdd, FPSub, FPMul, FPDiv and FPSqrt, with what they raised recorded.
@@ -342,11 +373,19 @@ let fpMulAddRaised bld ctl sz flushes addend a b =
     (isInfinity sz a .& isZero sz b) .| (isZero sz a .& isInfinity sz b)
   let processed = fpNaNResult bld ctl sz [ addend; a; b ]
   let nan = AST.ite (isQNaN sz addend .& badProduct) (fpDefaultNaN sz) processed
+#if EMULATION
+  let value = inForce ctl (fma sz false false a b addend)
+  let raised = fpFusedRaised bld ctl sz a b addend
+#else
+  let mode = fpMode bld ctl
+  let fused = FloatingPointIR.fused bld mode (false, false) (a, b, addend)
+  let value = fused.Value
+  let raised = armFlags fused.Raised.BeforeRounding
+#endif
   append bld {
-    res := inForce ctl (fma sz false false a b addend)
+    res := value
     res := AST.ite (isNaN sz res) nan res
   }
-  let raised = fpFusedRaised bld ctl sz a b addend
   struct (res, if flushes then fpFlushOut bld ctl sz res raised else raised)
 
 /// FPMulAdd, with what it raised recorded.

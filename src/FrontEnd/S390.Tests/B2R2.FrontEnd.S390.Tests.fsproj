@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\S390\B2R2.FrontEnd.S390.fsproj" />
+    <ProjectReference
+      Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
   </ItemGroup>
 
 </Project>

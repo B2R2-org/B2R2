@@ -710,7 +710,13 @@ let vfpFusedMulAcc (ins: Instruction) bld negN negD =
     let neg esize flag e = if flag then fpNegBits esize e else e
     let fused sz x y z =
       let esize = RegType.toBitWidth sz
-      fma sz false false (neg esize negN x) y (neg esize negD z)
+      let a, c = neg esize negN x, neg esize negD z
+#if EMULATION
+      fma sz false false a y c
+#else
+      let mode = fpRounding (AST.extract (regVar bld R.FPSCR) 2<rt> 22)
+      (FloatingPointIR.fused bld mode (false, false) (a, y, c)).Value
+#endif
     match (getParsingInfo ins).ESize with
     | 16 ->
       let half e = AST.xtlo 16<rt> e

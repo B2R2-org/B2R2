@@ -4360,6 +4360,24 @@ type LifterTests() =
     let wanted = [ V1A, 0x3f666666c039999aUL; V1B, 0x400000003f666666UL ]
     oracleNearest everyTarget "1022184a" given wanted
 
+#if !EMULATION
+  [<TestMethod>]
+  member _.``[PPC] XSMADDASP rounds the fused sum to single precision``() =
+    let given =
+      [ F1, 0xbff0000004000000UL
+        F2, 0x3ff0000002000000UL
+        F3, 0x3ff0000002000000UL
+        FPSCR, 0UL ]
+    let wanted = [ F1, 0x3c90000000000000UL ]
+    oracle only64 "f0221808" given wanted
+
+  [<TestMethod>]
+  member _.``[PPC] XSMADDASP rounds the addend when the product is zero``() =
+    let given = [ F1, 0x7fefffffffffffffUL; F2, 0UL; F3, 0UL; FPSCR, 1UL ]
+    let wanted = [ F1, 0x47efffffe0000000UL ]
+    oracle only64 "f0221808" given wanted
+#endif
+
   /// <summary>
   /// vmaddfp vD, vA, vC, vB writes vA times vC plus vB for each single,
   /// rounded once to nearest; the NaN taken is vA's, then vB's, then vC's.
@@ -27268,13 +27286,15 @@ type FloatLifterTests() =
   /// every guest word size, byte order and rounding direction.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] FADD skips truncation when the result is exact``() =
+  member _.``[PPC] FADD clears FR when the result is exact``() =
     for isa in [ ppc32; ppc64; ppc64le ] do
       for rn in 0UL .. 3UL do
         let inputs = inputsOf isa [ F2, one; F3, one; FPSCR, fr ||| rn ]
         let after = IRRunner.exec (lifted isa "fc22182a") inputs []
         let read reg = (after.Read(var isa reg)).ToUInt64()
+#if EMULATION
         Assert.AreEqual<bool>(true, List.isEmpty after.Roundings, nameOf isa)
+#endif
         expect 0x4000000000000000UL (read F1) (nameOf isa)
         expect (0x4000UL ||| rn) (read FPSCR) (nameOf isa)
 
@@ -27285,11 +27305,15 @@ type FloatLifterTests() =
       for rn, result, status in
         [ 0UL, 0x3ff0000000000001UL, 0x82064000UL
           1UL, one, 0x82024001UL ] do
-        let inputs =
-          inputsOf isa [ F2, one; F3, 0x3ca8000000000000UL; FPSCR, rn ]
-        let after = IRRunner.exec (lifted isa "fc22182a") inputs []
+        let stmts = lifted isa "fc22182a"
+        let run b =
+          let inputs = inputsOf isa [ F2, one; F3, b; FPSCR, rn ]
+          IRRunner.exec stmts inputs []
+        let exact = run one
+        let after = run 0x3ca8000000000000UL
         let read reg = (after.Read(var isa reg)).ToUInt64()
-        Assert.AreEqual([ RoundingMode.TowardZero ], after.Roundings)
+        let expected = exact.Roundings @ [ RoundingMode.TowardZero ]
+        Assert.AreEqual(expected, after.Roundings)
         expect result (read F1) (nameOf isa)
         expect status (read FPSCR) (nameOf isa)
 

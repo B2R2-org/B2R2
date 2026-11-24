@@ -656,17 +656,23 @@ type LifterTests() =
   /// <summary>
   /// What FS asks of is the exact value, and what goes with a flush is
   /// everything the operation raised. (2 - 2^-23) 2^-126 times a half is
-  /// 2^-126 (1 - 2^-24), which rounds to nearest up to the smallest normal,
-  /// and the evaluator, asked before rounding and after, answers Underflow
-  /// and Inexact for it. Under FS the answer is +0 and Cause is clear.
+  /// 2^-126 (1 - 2^-24), which rounds up to the smallest normal and raises
+  /// Inexact. FS uses tininess before rounding, so it flushes the result
+  /// to +0 and clears Cause.
   /// </summary>
   [<TestMethod>]
   member _.``[MIPS32] FS flushes on the exact value and drops the flags``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
     let fprs = [ F2, 0x00ffffffUL; F4, 0x3f000000UL ]
+#if EMULATION
     let mul fcsr = fpRunAnswering 0x3u isa "46041002" fcsr fprs
+    let raised = 0x300cu
+#else
+    let mul fcsr = fpRun isa "46041002" fcsr fprs
+    let raised = 0x1004u
+#endif
     Assert.AreEqual<uint64 * uint32>((0UL, fs), mul fs)
-    Assert.AreEqual<uint64 * uint32>((0x00800000UL, 0x300cu), mul 0u)
+    Assert.AreEqual<uint64 * uint32>((0x00800000UL, raised), mul 0u)
 
   /// FS flushes what an operation answers and not what it is given: the
   /// reference reads a subnormal operand as it is, so 2^-127 times 2^23 is

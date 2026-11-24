@@ -2045,16 +2045,18 @@ type LifterTests() =
     for isThumb, hex, lo, hi in cases do
       Assert.AreEqual<uint64 * uint64>((lo, hi), qRun isThumb hex, hex)
 
-  /// <summary>
-  /// A VFP operation rounds in the direction FPSCR.RMode names, which is what
-  /// an expression no RoundCtrl encloses rounds by; an Advanced SIMD one
-  /// rounds to nearest whatever FPSCR says (DDI0406C A2.7), so a RoundCtrl
-  /// naming nearest encloses it.
-  /// </summary>
+  /// VFP uses FPSCR.RMode for the arithmetic result and its flags.
   [<TestMethod>]
   member _.``[ARMv7] VADD.F32 on S registers rounds as FPSCR says``() =
+#if EMULATION
     let text = liftedBy false "ee320a04" |> Array.map string |> String.concat ""
     Assert.AreEqual<bool>(false, text.Contains "rnd(", text)
+#else
+    let inputs = [ 2, 0x3f800000UL; 4, 0x33800000UL ]
+    let value, _, fpscr = fpRun "ee320a04" 0x00400000u inputs
+    Assert.AreEqual<uint64>(0x3f800001UL, value)
+    Assert.AreEqual<uint32>(0x00400010u, fpscr)
+#endif
 
   [<TestMethod>]
   member _.``[ARMv7] VADD.F32 on D registers rounds to nearest``() =

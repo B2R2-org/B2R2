@@ -876,18 +876,23 @@ let vsxScalarUnary ins bld fnOp setsFPRF =
     if setsFPRF then setFPRF bld dh else ()
   }
 
-/// The VSX scalar multiply-adds, which are fused: the product is formed
-/// exactly and only the sum is rounded, so they go out as the FMA call rather
-/// than as a multiply inside an add.
-///
-/// The two shapes differ in which register the addend comes from. The "a"
-/// forms multiply xA by xB and add xT; the "m" forms multiply xA by xT and add
-/// xB. Either way the target is read before it is written, which is why the
-/// old value is taken into a temporary first.
-///
-/// Bit 1 of the FMA flag negates the addend, which is the subtracting forms;
-/// the negating forms flip the sign of the rounded result, a NaN excepted, as
-/// the floating-point-register forms in GeneralLifter do.
+/// The static lift rounds the exact sum of double operands to single.
+let private vsxFusedSingle bld subtract (x, y, z) =
+#if EMULATION
+  let single v = AST.cast CastKind.FloatCast 32<rt> v
+  let res = fpFusedValue bld None subtract (single x, single y, single z)
+#else
+  let mode = fpMode bld
+  let signs = false, subtract
+  let fused = FloatingPointIR.fusedTo bld mode 32<rt> signs (x, y, z)
+  let res = fused.Value
+#endif
+  AST.cast CastKind.FloatCast 64<rt> res
+
+/// The VSX scalar multiply-adds compute an exact product and round the sum.
+/// The "a" forms multiply xA by xB and add xT. The "m" forms multiply xA by
+/// xT and add xB. Both take the old target value before writing it. Subtract
+/// forms negate the addend and negated forms flip the rounded non-NaN result.
 let private vsxScalarMulAdd ins bld isDouble targetIsFactor subtract negate =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
@@ -896,17 +901,10 @@ let private vsxScalarMulAdd ins bld isDouble targetIsFactor subtract negate =
     let struct (bh, _) = vecHalves bld o3
     let old = tmpVar bld 64<rt>
     let res = tmpVar bld 64<rt>
-    let f = numU64 (if subtract then 2UL else 0UL) 8<rt>
     old := dh
     let x, y, z = if targetIsFactor then ah, old, bh else ah, bh, old
-    if isDouble then
-      res := AST.app "FMA64" [ x; y; z; f ] 64<rt>
-    else
-      let xS = AST.cast CastKind.FloatCast 32<rt> x
-      let yS = AST.cast CastKind.FloatCast 32<rt> y
-      let zS = AST.cast CastKind.FloatCast 32<rt> z
-      let resS = AST.app "FMA32" [ xS; yS; zS; f ] 32<rt>
-      res := AST.cast CastKind.FloatCast 64<rt> resS
+    if isDouble then res := fpFusedValue bld None subtract (x, y, z)
+    else res := vsxFusedSingle bld subtract (x, y, z)
     (* Which NaN comes back follows a order of its own -- xA first, then
        whichever register the addend came from, then the remaining
        multiplicand -- so the choice is made here rather than left to the
@@ -2711,10 +2709,10 @@ let vecFloatMultiplyAdd ins bld negate =
     let a = singlesOf bld nj o2
     let c = singlesOf bld nj o3
     let b = singlesOf bld nj o4
-    let flags = numI32 (if negate then 2 else 0) 8<rt>
     let signBit = numU32 0x80000000u 32<rt>
     Array.init 4 (fun i ->
-      let fused = nearest (AST.app "FMA32" [ a[i]; c[i]; b[i]; flags ] 32<rt>)
+      let mode = Some(AST.roundingMode RoundingMode.ToNearestEven)
+      let fused = fpFusedValue bld mode negate (a[i], c[i], b[i])
       let r = settleNaN [ a[i]; b[i]; c[i] ] fused
       let negated = AST.ite (IEEE754Single.isNaN r) r (r <+> signBit)
       flush nj (if negate then negated else r))

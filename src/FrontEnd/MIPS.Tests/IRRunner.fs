@@ -29,6 +29,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd.ARM32.Tests
 open B2R2.FrontEnd.MIPS
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.FrontEnd.BinLifter
@@ -63,9 +64,8 @@ module internal FCSRHalves =
 /// for a test whose claim is the value an instruction computes. It knows the
 /// integer operations at any width, loads and stores over the bytes a test
 /// gives it at the endianness each one names, and the straight-line LowUIR of
-/// the floating-point arithmetic, rounded to nearest unless a RoundCtrl names
-/// a direction for a rounding to an integer, and fails on anything else
-/// rather than guess what it means -- a byte nobody gave included.
+/// the floating-point arithmetic with explicit rounding controls. Unhandled
+/// expressions and reads from missing memory fail.
 ///
 /// <para>The exception query answers what a test names, nothing unless it
 /// names something: the query works out what an operation raised, which this
@@ -235,8 +235,8 @@ module internal IRRunner =
     | CastKind.RoundToIntegral -> roundIn (fcsrMode ctx) t x
     | k -> failwith $"IRRunner: no {k}"
 
-  let rec private eval ctx e =
-    let eval = eval ctx
+  let rec private evalWith ctx direction e =
+    let eval = evalWith ctx direction
     match e with
     | Num(Value = v) ->
       v
@@ -251,7 +251,14 @@ module internal IRRunner =
       | ExprList(Elements = args) -> app ctx.Answer n (List.map eval args)
       | _ -> failwith $"IRRunner: no {e}"
     | BinOp(Op = op; Left = l; Right = r) ->
-      binOp op (eval l) (eval r)
+      let a, b = eval l, eval r
+      match direction with
+      | Some mode when BinOpType.isRoundingDependent op ->
+        match ExactFloat.arith mode op a b with
+        | Some v -> v
+        | None -> binOp op a b
+      | _ ->
+        binOp op a b
     | RelOp(Op = op; Left = l; Right = r) ->
       relOp op (eval l) (eval r)
     | UnOp(Op = UnOpType.NOT; Operand = x) ->
@@ -259,26 +266,29 @@ module internal IRRunner =
     | UnOp(Op = UnOpType.NEG; Operand = x) ->
       BitVector.Neg(eval x)
     | UnOp(Op = UnOpType.FSQRT; Operand = x) ->
-      BitVector.FSqrt(eval x)
+      let v = eval x
+      match Option.bind (fun mode -> ExactFloat.sqrt mode v) direction with
+      | Some result -> result
+      | None -> BitVector.FSqrt v
     | Load(Endian = endian; Type = t; Addr = a) ->
       load ctx endian t (eval a)
     | Cast(Kind = k; Type = t; Operand = x) ->
-      cast ctx k t (eval x)
-    | RoundCtrl(Mode = m; Body = Cast(Kind = k; Type = t; Operand = x)) ->
+      let v = eval x
+      match k, direction with
+      | CastKind.RoundToIntegral, Some mode -> roundIn mode t v
+      | CastKind.FloatToSInt, Some mode -> toInt mode t v
+      | _ -> cast ctx k t v
+    | RoundCtrl(Mode = m; Body = body) ->
       let mode = enum<RoundingMode> (int ((eval m).ToUInt64()))
-      match k with
-      | CastKind.RoundToIntegral ->
-        roundIn mode t (eval x)
-      | CastKind.FloatToSInt ->
-        toInt mode t (eval x)
-      | _ ->
-        failwith $"IRRunner: no {e}"
+      evalWith ctx (Some mode) body
     | Extract(Operand = x; Type = t; StartPos = p) ->
       BitVector.Extract(eval x, t, p)
     | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
       if (eval c).IsTrue then eval a else eval b
     | _ ->
       failwith $"IRRunner: no {e}"
+
+  let private eval ctx e = evalWith ctx None e
 
   /// One statement that neither jumps nor raises anything. A register given
   /// a value the manual leaves UNPREDICTABLE is recorded as such, since no
