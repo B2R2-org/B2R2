@@ -46,13 +46,18 @@ let private isReadable (file: IBinFile) addr =
   && LoaderOnlyMemory.contains file addr
   && not (BinFileOps.isRelocationAddr file addr)
 
+/// Makes the value that the given bytes hold in the given byte order, as
+/// BitVector takes the first byte for the least significant one.
+let private toBitVector endian (bytes: byte[]) =
+  if endian = Endian.Big then BitVector(Array.rev bytes) else BitVector bytes
+
 let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let len = RegType.toByteWidth typ
   let file = hdl.File
   if isReadable file addr then
     let ptr = hdl.File.GetBoundedPointer addr
     match hdl.TryReadBytes(ptr, len) with
-    | Ok v -> Ok(BitVector v)
+    | Ok v -> Ok(toBitVector hdl.ISA.Endian v)
     | Error e -> Error e
   else
     Error ErrorCase.InvalidMemoryRead

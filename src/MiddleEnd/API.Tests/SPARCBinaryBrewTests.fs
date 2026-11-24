@@ -29,6 +29,7 @@ open B2R2
 open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -836,3 +837,22 @@ type SPARCBinaryBrewTests() =
           "81c3e008" (* 0x48: retl *)
           "90102002" (* 0x4c: mov 2, %o0 *) ]
     CollectionAssert.AreEqual([| 0x0UL; 0x20UL; 0x48UL |], entriesOf fns)
+
+  (* The block loads the word of retl at 0x4, which SPARC, a big-endian
+     machine, reads from its most significant byte. *)
+  [<TestMethod>]
+  member _.``A word that the binary holds reads in its byte order``() =
+    let code =
+      [ "d0002004" (* 0x00: ld [%g0 + 4], %o0 *)
+        "81c3e008" (* 0x04: retl *)
+        "01000000" (* 0x08: nop *) ]
+    let bytes = code |> String.concat "" |> ByteArray.ofHexString
+    let hdl = BinHandle.LoadRawImage(bytes, ISA "sparc64")
+    let cfg = BinaryBrew(hdl).Functions[0x0UL].CFG
+    let blk =
+      cfg.Vertices
+      |> Array.find (fun v -> v.VData.Internals.PPoint.Address = 0x0UL)
+    let st = CFGEvaluator.evalBlockFromScratch hdl blk
+    let o0 = SPARC.Register.toRegID SPARC.Register.O0
+    let expected = Def(BitVector(0x81c3e008UL, 64<rt>))
+    Assert.AreEqual<ConcEvalValue>(expected, st.TryGetReg o0)
