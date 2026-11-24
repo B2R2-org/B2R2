@@ -128,3 +128,42 @@ type AlphaBinaryBrewTests() =
     let entries = fns[0x8UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 0x0UL; 0x8UL; 0x48UL |], entriesOf fns)
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* A callee returns through ra, so ra holds the address past the call once
+     the call returns, from which the code computes gp again, whatever else of
+     ra the callee writes on its way. The function at 0x8 makes gp the address
+     of its table, at 0x34, past a call to one that calls in turn. *)
+  [<TestMethod>]
+  member _.``A call leaves the return address in ra``() =
+    let code =
+      [ "010040d3" (* 0x00: bsr ra,0x8 *)
+        "0080fa6b" (* ret *)
+        "f0ffde23" (* 0x08: lda sp,-16(sp) *)
+        "00005eb7" (* stq ra,0(sp) *)
+        "100040d3" (* bsr ra,0x54 *)
+        "0000ba27" (* 0x14: ldah gp,0(ra) *)
+        "2000bd23" (* lda gp,0x20(gp) *)
+        "a1372041" (* cmpule s0,1,t0 *)
+        "090020e4" (* beq t0,0x48 *)
+        "49043d41" (* s4addq s0,gp,s0 *)
+        "000029a0" (* ldl t0,0(s0) *)
+        "0104a143" (* addq gp,t0,t0 *)
+        "0000e16b" (* jmp (t0) *)
+        "08000000" (* 0x34: .long 0x3c - 0x34 *)
+        "10000000" (* .long 0x44 - 0x34 *)
+        "00001f20" (* 0x3c: lda v0,0 *)
+        "0100e0c3" (* br 0x48 *)
+        "01001f20" (* 0x44: lda v0,1 *)
+        "00005ea7" (* 0x48: ldq ra,0(sp) *)
+        "1000de23" (* lda sp,16(sp) *)
+        "0080fa6b" (* ret *)
+        "f0ffde23" (* 0x54: lda sp,-16(sp) *)
+        "00005eb7" (* stq ra,0(sp) *)
+        "030040d3" (* bsr ra,0x6c *)
+        "00005ea7" (* ldq ra,0(sp) *)
+        "1000de23" (* lda sp,16(sp) *)
+        "0080fa6b" (* ret *)
+        "0080fa6b" (* 0x6c: ret *) ]
+    let fns = recoverCode code
+    let entries = fns[0x8UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
