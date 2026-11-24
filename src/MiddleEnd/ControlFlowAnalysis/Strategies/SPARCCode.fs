@@ -91,8 +91,9 @@ module internal SPARCCode =
   /// does.
   let private tryMoveOfStack temps e =
     match resolve temps e with
-    | BinOp(Op = BinOpType.ADD; Left = Var(RegisterID = rid); Right = Num n)
-      when rid = sp ->
+    | BinOp(Op = BinOpType.ADD
+            Left = Var(RegisterID = rid)
+            Right = Num(Value = n)) when rid = sp ->
       Some(n.ToInt64())
     | _ ->
       None
