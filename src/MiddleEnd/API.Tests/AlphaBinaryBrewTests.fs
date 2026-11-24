@@ -167,3 +167,13 @@ type AlphaBinaryBrewTests() =
     let fns = recoverCode code
     let entries = fns[0x8UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* get, at 0x600 in elf_alpha_so, calls ext through its slot of the GOT,
+     0x20010, which it reads through gp, as the slot holds the PLT entry of
+     ext, 0x4b4, until the loader binds it. *)
+  [<TestMethod>]
+  member _.``A call through the GOT reaches the PLT entry of its import``() =
+    let bytes = readZippedBinary "elf_alpha_so"
+    let fns = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "alpha")).Functions
+    let callee = fns[0x600UL].Callees[LeafCallSite 0x640UL]
+    Assert.AreEqual<CalleeKind>(RegularCallee 0x4b4UL, callee)
