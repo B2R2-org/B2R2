@@ -637,6 +637,63 @@ type SPARCBinaryBrewTests() =
     Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x0UL].NoRet)
     CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x14UL)
 
+  (* The function passes et a status of one that it writes to its frame and
+     reads back, as GCC does at -O0, so the call to et never returns, wherever
+     the frame lies. *)
+  [<TestMethod>]
+  member _.``A status written to the frame stays non-zero``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000009" (* 0x04: call 0x28 *)
+          "01000000" (* 0x08: nop *)
+          "82102001" (* 0x0c: mov 1, %g1 *)
+          "c227a004" (* 0x10: st %g1, [%fp + 4] *)
+          "d047a004" (* 0x14: ldsw [%fp + 4], %o0 *)
+          "40000006" (* 0x18: call 0x30 *)
+          "01000000" (* 0x1c: nop *)
+          "81c7e008" (* 0x20: ret *)
+          "81e80000" (* 0x24: restore *)
+          "81c3e008" (* 0x28: retl *)
+          "01000000" (* 0x2c: nop *)
+          "9de3bf50" (* 0x30: save %sp, -176, %sp *)
+          "0ace0004" (* 0x34: brnz %i0, 0x44 *)
+          "01000000" (* 0x38: nop *)
+          "81c7e008" (* 0x3c: ret *)
+          "81e80000" (* 0x40: restore *)
+          "40000002" (* 0x44: call 0x4c *)
+          "90100018" (* 0x48: mov %i0, %o0 *)
+          "91d02005" (* 0x4c: ta 5 *) ]
+    Assert.AreEqual<NonReturningStatus>(NoRet, fns[0x0UL].NoRet)
+
+  (* The function passes et a status that it reads from its frame, which it
+     knows nothing of past the call to h, so the call to et may return. Code
+     lies where %fp + 4 would point if %fp were zero, which tells nothing of
+     what the frame holds. *)
+  [<TestMethod>]
+  member _.``A status read from the frame may be zero``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "40000007" (* 0x04: call 0x20 *)
+          "01000000" (* 0x08: nop *)
+          "d047a004" (* 0x0c: ldsw [%fp + 4], %o0 *)
+          "40000006" (* 0x10: call 0x28 *)
+          "01000000" (* 0x14: nop *)
+          "81c7e008" (* 0x18: ret *)
+          "81e80000" (* 0x1c: restore *)
+          "81c3e008" (* 0x20: retl *)
+          "01000000" (* 0x24: nop *)
+          "9de3bf50" (* 0x28: save %sp, -176, %sp *)
+          "0ace0004" (* 0x2c: brnz %i0, 0x3c *)
+          "01000000" (* 0x30: nop *)
+          "81c7e008" (* 0x34: ret *)
+          "81e80000" (* 0x38: restore *)
+          "40000002" (* 0x3c: call 0x44 *)
+          "90100018" (* 0x40: mov %i0, %o0 *)
+          "91d02005" (* 0x44: ta 5 *) ]
+    Assert.AreEqual<NonReturningStatus>(NotNoRet, fns[0x0UL].NoRet)
+
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)
   [<TestMethod>]

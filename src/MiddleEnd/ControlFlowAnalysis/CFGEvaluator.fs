@@ -64,9 +64,9 @@ let private obtainStackDef (hdl: BinHandle) =
   | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> stackAddr |]
   | None -> [||]
 
-let private obtainFramePointerDef (hdl: BinHandle) =
+let private obtainFramePointerDef (hdl: BinHandle) toValue =
   match hdl.RegisterFactory.FramePointer with
-  | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
+  | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> toValue |]
   | None -> [||]
 
 /// Gets the expressions that the given statement reads.
@@ -137,12 +137,21 @@ let private evalBlocks (st: ConcState) (blks: IVertex<LowUIRBasicBlock>[]) =
 /// Concretely evaluates the given basic blocks in turn, as the control runs
 /// through them, from an arbitrarily generated state.
 let evalBlocksFromScratch hdl (blks: IVertex<LowUIRBasicBlock>[]) =
-  let regs = Array.append (obtainStackDef hdl) (obtainFramePointerDef hdl)
-  let st = initState hdl blks regs
+  let fp = obtainFramePointerDef hdl BitVector.Zero
+  let st = initState hdl blks (Array.append (obtainStackDef hdl) fp)
   evalBlocks st blks
 
 /// Concretely evaluates a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl blk = evalBlocksFromScratch hdl [| blk |]
+
+/// Concretely evaluates the given basic blocks in turn, as the control runs
+/// through them, from a state as from scratch but for the frame pointer, which
+/// points where the stack pointer does rather than to zero, so that the blocks
+/// read nothing that the binary holds off a frame that they have not written.
+let evalBlocksWithFrameOnStack hdl (blks: IVertex<LowUIRBasicBlock>[]) =
+  let fp = obtainFramePointerDef hdl stackAddr
+  let st = initState hdl blks (Array.append (obtainStackDef hdl) fp)
+  evalBlocks st blks
 
 /// Concretely evaluates a basic block from a state that knows nothing but the
 /// stack pointer, the given registers, and those that the binary fixes, not

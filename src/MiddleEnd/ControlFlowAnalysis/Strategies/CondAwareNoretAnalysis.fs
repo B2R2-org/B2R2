@@ -63,15 +63,24 @@ module private CondAwareNoretAnalysisHelper =
     | None ->
       false
 
-  /// Locally analyzes the given basic blocks, through which the control runs
-  /// in turn, and checks if the argument at the given location, which the call
-  /// ending the last block passes, is non-zero.
-  let hasNonZero hdl blks loc =
-    let st = CFGEvaluator.evalBlocksFromScratch hdl blks
+  /// Checks if the argument at the given location is non-zero in the state.
+  let hasNonZeroAt hdl st loc =
     match loc with
     | ArgLocation.Reg rid -> hasNonZeroInRegister st rid
     | ArgLocation.Stack layout -> hasNonZeroOnStack hdl st layout
     | ArgLocation.RegPair _ -> false
+
+  /// Locally analyzes the given basic blocks, through which the control runs
+  /// in turn, and checks if the argument at the given location, which the call
+  /// ending the last block passes, is non-zero, whether the frame pointer holds
+  /// zero or points to the stack. A frame pointer of zero alone would read what
+  /// the binary holds near zero where the code reads a frame that it has not
+  /// written, as SPARC does above the frame pointer, while what the blocks
+  /// write to the frame and read back stays the same either way.
+  let hasNonZero hdl blks loc =
+    [ CFGEvaluator.evalBlocksFromScratch
+      CFGEvaluator.evalBlocksWithFrameOnStack ]
+    |> List.forall (fun eval -> hasNonZeroAt hdl (eval hdl blks) loc)
 
   /// Checks if every predecessor of the given caller, none of which may be a
   /// call it returns from, sets the argument at the given location to a
