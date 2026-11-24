@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -693,6 +694,26 @@ type SPARCBinaryBrewTests() =
           "90100018" (* 0x40: mov %i0, %o0 *)
           "91d02005" (* 0x44: ta 5 *) ]
     Assert.AreEqual<NonReturningStatus>(NotNoRet, fns[0x0UL].NoRet)
+
+  (* The function returns only where its status is zero, as BE tells, which
+     compares the flag of a zero result with one, and exits otherwise, as
+     error_tail does. *)
+  [<TestMethod>]
+  member _.``A branch where the status is zero returns conditionally``() =
+    let fns =
+      recoverCode
+        [ "9de3bf50" (* 0x00: save %sp, -176, %sp *)
+          "80a62000" (* 0x04: cmp %i0, 0 *)
+          "02480004" (* 0x08: be %icc, 0x18 *)
+          "01000000" (* 0x0c: nop *)
+          "40000004" (* 0x10: call 0x20 *)
+          "90100018" (* 0x14: mov %i0, %o0 *)
+          "81c7e008" (* 0x18: ret *)
+          "81e80000" (* 0x1c: restore *)
+          "91d02005" (* 0x20: ta 5 *) ]
+    let o0 = SPARC.Register.toRegID SPARC.Register.O0
+    let expected = ConditionalNoRet(ArgLocation.Reg o0)
+    Assert.AreEqual<NonReturningStatus>(expected, fns[0x0UL].NoRet)
 
   (* GNU as pads a long way to an alignment with BA,a over the nops that fill
      it, which starts no function. *)

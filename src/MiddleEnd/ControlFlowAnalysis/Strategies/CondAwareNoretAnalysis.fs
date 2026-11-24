@@ -645,6 +645,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | LowUIR.UnOp(Op = UnOpType.NOT; Operand = e)
       when LowUIR.Expr.typeOf e = 1<rt> ->
       find e |> negate
+    (* SPARC branches where a flag is one by comparing the flag with one, which
+       tells what the flag itself does. *)
+    | LowUIR.RelOp(Op = RelOpType.EQ; Left = e; Right = LowUIR.Num(Value = n))
+      when LowUIR.Expr.typeOf e = 1<rt> && n.IsOne ->
+      find e
     (* Thumb tells CBNZ from CBZ by xoring the test of the register with one
        rather than zero. *)
     | LowUIR.BinOp(Op = BinOpType.XOR; Left = LowUIR.Num(Value = n); Right = e)
