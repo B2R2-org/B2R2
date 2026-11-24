@@ -745,13 +745,27 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | None ->
       None
 
+  /// Finds the argument that the guards on the edges into the given vertex
+  /// all find zero, as where a compiler joins the ways that each find a status
+  /// zero into one return.
+  let tryFindZeroOnEveryEdge hdl tryGetCondition state g v =
+    let locs =
+      Guard.collect tryGetCondition g v
+      |> List.map (snd >> Option.bind (tryGetZeroOnGuard hdl state))
+    match locs with
+    | Some loc :: rest when List.forall ((=) (Some loc)) rest -> Some loc
+    | _ -> None
+
   /// Finds the argument that a guard on every path to the given vertex finds
   /// zero, reading the statements that the given analysis lifts and the data
   /// flow that it computes into the given state.
   let tryFindZeroArgument ctx (uva: UntouchedValueAnalysis) state dom v =
     let g = (ctx: CFGBuildingContext<_, _>).CFG
-    Guard.collectDominating (tryGetCondition uva.State) g dom v
+    let tryGetCond = tryGetCondition uva.State
+    Guard.collectDominating tryGetCond g dom v
     |> List.tryPick (tryGetZeroOnGuard ctx.BinHandle state)
+    |> Option.orElseWith (fun () ->
+      tryFindZeroOnEveryEdge ctx.BinHandle tryGetCond state g v)
 
   /// Judges whether the function returns through the given exit, which no
   /// call to a conditionally non-returning function dominates: if the exit is
