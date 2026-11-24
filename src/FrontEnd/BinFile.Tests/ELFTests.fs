@@ -1782,6 +1782,17 @@ type ELFTests() =
     Assert.AreEqual<(string * Addr option) list>(expected, entries)
 
   [<TestMethod>]
+  member _.``[ELF] Alpha imports test``() =
+    (* .plt is 0x28 from 0x490, a 36-byte header and one 4-byte stub, a br to
+       the last word of the header, which the JMP_SLOT slot holds. *)
+    let expected = [ "ext", Some 0x4b4UL ]
+    let entries =
+      getLinkageTableEntries alphaSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
   member _.``[ELF] aarch64 imports test``() =
     (* .plt is 0x60 from 0x4004f0, a 32-byte header and four 16-byte stubs. *)
     let expected =
