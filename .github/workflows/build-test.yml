@@ -4,7 +4,9 @@ name: build-test
 # configuration. Debug and Release are a matrix rather than two workflows,
 # because the three steps are the same but for the configuration they are
 # handed, and each configuration is one chain: what is packed and tested is
-# what the build of that same configuration produced.
+# what the build of that same configuration produced. Each is built both with
+# and without hash consing of LowUIR nodes, which is compiled in only where
+# HASHCONS is defined, so the code under it is checked by nothing else.
 
 on:
   push:
@@ -24,13 +26,16 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      # Both configurations are reported, because which one broke is what
+      # Every configuration is reported, because which one broke is what
       # keeping them apart is for.
       fail-fast: false
       matrix:
         configuration:
         - Debug
         - Release
+        hashcons:
+        - false
+        - true
 
     steps:
     - uses: actions/checkout@v5
@@ -51,18 +56,22 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build -c ${{ matrix.configuration }} --no-restore
+      run: >
+        dotnet build -c ${{ matrix.configuration }} --no-restore
+        -p:HashCons=${{ matrix.hashcons }}
     # Packing is what the publish workflow does with a tagged commit, and it
     # reads files no build or test step touches, so it is checked here rather
-    # than first going wrong on a release.
+    # than first going wrong on a release. The publish workflow never packs a
+    # build with hash consing, so neither does this.
     - name: Pack
+      if: ${{ !matrix.hashcons }}
       run: >
         dotnet pack -c ${{ matrix.configuration }} --no-build
         --output ./nupkgs
     - name: Test
       run: >
         dotnet test -c ${{ matrix.configuration }} --no-build
-        --verbosity normal
+        -p:HashCons=${{ matrix.hashcons }} --verbosity normal
 
   notify-failure:
 

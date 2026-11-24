@@ -373,6 +373,9 @@ ready to build from the source root.
 
 - To build B2R2 in debug mode, run `dotnet build`.
 
+- To build B2R2 with hash-consed LowUIR expressions and statements, add
+  `-p:HashCons=true` to either command above.
+
 For more information about setting up an F# development environment, visit the
 official F# website: http://fsharp.org/.
 

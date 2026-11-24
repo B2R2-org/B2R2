@@ -78,7 +78,7 @@ type private VarKey(t: RegType, r: RegisterID, name: string) =
   interface IInternKey<Expr> with
     member _.Matches x =
       match x with
-      | Var(t', r', _, _) -> t' = t && r' = r
+      | Var(t', r', name', _) -> t' = t && r' = r && name' = name
       | _ -> false
 
     member _.Create hash = Var(t, r, name, exprInfo hash)
@@ -88,7 +88,7 @@ type private PCVarKey(t: RegType, name: string) =
   interface IInternKey<Expr> with
     member _.Matches x =
       match x with
-      | PCVar(t', _, _) -> t' = t
+      | PCVar(t', name', _) -> t' = t && name' = name
       | _ -> false
 
     member _.Create hash = PCVar(t, name, exprInfo hash)

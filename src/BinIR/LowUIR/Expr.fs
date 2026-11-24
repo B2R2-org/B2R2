@@ -306,10 +306,12 @@ with
       match this, rhs with
       | Num(n1, _), Num(n2, _) ->
         n1 = n2
-      | Var(t1, r1, _, _), Var(t2, r2, _, _) ->
-        t1 = t2 && r1 = r2
-      | PCVar(t1, _, _), PCVar(t2, _, _) ->
-        t1 = t2
+      (* A register ID is numbered per architecture, so the name is what
+         tells apart two registers that share one. *)
+      | Var(t1, r1, n1, _), Var(t2, r2, n2, _) ->
+        t1 = t2 && r1 = r2 && n1 = n2
+      | PCVar(t1, n1, _), PCVar(t2, n2, _) ->
+        t1 = t2 && n1 = n2
       | TempVar(t1, n1, _), TempVar(t2, n2, _) ->
         t1 = t2 && n1 = n2
       | ExprList(lhs, _), ExprList(rhs, _) ->

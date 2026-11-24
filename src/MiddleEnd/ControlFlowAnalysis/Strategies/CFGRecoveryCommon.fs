@@ -418,7 +418,9 @@ module internal CFGRecoveryCommon =
     let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     let ppoint = srcBBL.PPoint
     match e with
-    | Load(Addr = BinOp(Op = BinOpType.ADD; Left = PCVar _; Right = Num bv)) ->
+    | Load(Addr = BinOp(Op = BinOpType.ADD
+                        Left = PCVar _
+                        Right = Num(Value = bv))) ->
       (* Only a real block loads through the PC; an abstract vertex, which
          summarizes a callee, has no instruction to take the address of. *)
       let callsiteAddr = srcBBL.LastInstruction.Address

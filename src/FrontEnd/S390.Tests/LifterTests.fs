@@ -183,7 +183,9 @@ type LifterTests() =
     let addrs =
       liftAs WordSize.Bit32 0x1000UL "58101008" (* l %r1,8(%r1) *)
       |> Array.choose (function
-        | Put(Src = Load(Addr = BinOp(BinOpType.ADD, _, Var _, Num n))) ->
+        | Put(Src = Load(Addr = BinOp(Op = BinOpType.ADD
+                                      Left = Var _
+                                      Right = Num(Value = n)))) ->
           Some(n.ToUInt64())
         | _ ->
           None)

@@ -111,7 +111,9 @@ module internal S390Code =
   /// taking room on the stack.
   let private allocates temps e =
     match resolve temps e with
-    | BinOp(Op = BinOpType.ADD; Left = Var(RegisterID = rid); Right = Num n) ->
+    | BinOp(Op = BinOpType.ADD
+            Left = Var(RegisterID = rid)
+            Right = Num(Value = n)) ->
       rid = sp && n.ToUInt64() >>> 63 = 1UL
     | _ ->
       false

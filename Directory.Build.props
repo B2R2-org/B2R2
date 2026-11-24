@@ -29,4 +29,13 @@
   </PropertyGroup>
 
   <Import Project="$(CustomPropTarget)" Condition="Exists('$(CustomPropTarget)')" />
+
+  <!-- Hash consing of LowUIR nodes is compiled in with the HASHCONS symbol;
+       build with -p:HashCons=true to get it. The symbol is appended rather
+       than handed over as -p:DefineConstants, which would replace DEBUG and
+       TRACE instead of joining them, and it is appended after the import
+       above, so that a Directory.Build.props further up cannot drop it. -->
+  <PropertyGroup Condition="'$(HashCons)' == 'true'">
+    <DefineConstants>$(DefineConstants);HASHCONS</DefineConstants>
+  </PropertyGroup>
 </Project>

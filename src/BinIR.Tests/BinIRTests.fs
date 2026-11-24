@@ -112,6 +112,23 @@ type BinIRTests() =
       "RoundCtrl", AST.Raw.roundCtrl mode n1 ]
     |> List.iter (fun (kind, e) -> Assert.AreEqual<string>(kind, kindOf e))
 
+  [<TestMethod>]
+  member _.``Variable Keeps Its Name Test``() =
+    (* A register ID is numbered per architecture, so one ID names different
+       registers on different ones: x86-64 CR4 and ARM32 Q0B are both 0xAC,
+       both 64 bits wide. A variable is the one it was made with, name and
+       all, even when another architecture made its ID first. *)
+    let rid = RegisterID.create 0xAC
+    let cr4 = AST.var 64<rt> rid "CR4"
+    let q0b = AST.var 64<rt> rid "Q0B"
+    let rip = AST.pcvar 64<rt> "RIP"
+    let pc = AST.pcvar 64<rt> "PC"
+    Assert.AreNotEqual<Expr>(cr4, q0b)
+    Assert.AreNotEqual<Expr>(rip, pc)
+    [ "CR4", cr4; "Q0B", q0b; "RIP", rip; "PC", pc ]
+    |> List.iter (fun (name, e) ->
+      Assert.AreEqual<string>(name, Expr.toString e))
+
 #if HASHCONS
   [<TestMethod>]
   member _.``Raw Constructor Sharing Test``() =
