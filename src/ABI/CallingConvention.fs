@@ -116,6 +116,11 @@ module CallingConvention =
 
   let inline private alpha r = Alpha.Register.toRegID r
 
+  /// Returns the registers from XMM(first) to XMM(last).
+  let private xmms first last =
+    [ for i in first .. last ->
+        intel (enum<Intel.Register>(int Intel.Register.XMM0 + i)) ]
+
   let private linuxX86 () = (* cdecl: int args on stack, floats via x87 *)
     { IntArgs = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |]
       FloatArgs = [||]
@@ -130,7 +135,8 @@ module CallingConvention =
       CallerSavedRegisters =
         set [ intel Intel.Register.EAX
               intel Intel.Register.ECX
-              intel Intel.Register.EDX ]
+              intel Intel.Register.EDX
+              yield! xmms 0 7 ]
       ReturnAddressLocation = OnStack }
 
   let private linuxX64 () = (* System V AMD64 ABI *)
@@ -166,10 +172,13 @@ module CallingConvention =
         set [ intel Intel.Register.RAX
               intel Intel.Register.RCX
               intel Intel.Register.RDX
+              intel Intel.Register.RSI
+              intel Intel.Register.RDI
               intel Intel.Register.R8
               intel Intel.Register.R9
               intel Intel.Register.R10
-              intel Intel.Register.R11 ]
+              intel Intel.Register.R11
+              yield! xmms 0 15 ]
       ReturnAddressLocation = OnStack }
 
   /// Returns the VFP doublewords from D(first) to D(last). AAPCS sorts them the
@@ -806,7 +815,8 @@ module CallingConvention =
               intel Intel.Register.R12
               intel Intel.Register.R13
               intel Intel.Register.R14
-              intel Intel.Register.R15 ]
+              intel Intel.Register.R15
+              yield! xmms 6 15 ]
       CallerSavedRegisters =
         set [ intel Intel.Register.RAX
               intel Intel.Register.RCX
@@ -814,7 +824,8 @@ module CallingConvention =
               intel Intel.Register.R8
               intel Intel.Register.R9
               intel Intel.Register.R10
-              intel Intel.Register.R11 ]
+              intel Intel.Register.R11
+              yield! xmms 0 5 ]
       ReturnAddressLocation = OnStack }
 
   /// Builds the function-call calling convention for the given OS and ISA.

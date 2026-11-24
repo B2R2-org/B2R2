@@ -236,6 +236,32 @@ type CallingConventionTests() =
     Assert.AreEqual<RegisterID>(xmm0, cc.FloatReturnRegister)
     Assert.AreEqual<ArgClassification>(Independent, cc.ArgClassification)
 
+  (* The AMD64 psABI has a callee keep no argument register, RDI and RSI
+     included, and no XMM register. *)
+  [<TestMethod>]
+  member _.``x64 System V clobbers RDI, RSI and every XMM``() =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let cc = CallingConvention.create OS.Linux isa
+    let intel r = Intel.Register.toRegID r
+    let clobbered =
+      [ Intel.Register.RDI
+        Intel.Register.RSI
+        Intel.Register.XMM0
+        Intel.Register.XMM1
+        Intel.Register.XMM8
+        Intel.Register.XMM15 ]
+    for r in clobbered do
+      Assert.AreEqual<bool>(true, cc.IsCallerSaved(intel r), string r)
+
+  (* The i386 psABI has a callee keep no XMM register either. *)
+  [<TestMethod>]
+  member _.``x86 System V clobbers every XMM``() =
+    let isa = ISA(Architecture.Intel, WordSize.Bit32)
+    let cc = CallingConvention.create OS.Linux isa
+    let intel r = Intel.Register.toRegID r
+    for r in [ Intel.Register.XMM0; Intel.Register.XMM7 ] do
+      Assert.AreEqual<bool>(true, cc.IsCallerSaved(intel r), string r)
+
   [<TestMethod>]
   member _.``Windows x64 classifies arguments positionally``() =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
@@ -243,6 +269,25 @@ type CallingConventionTests() =
     let xmm0 = Intel.Register.toRegID Intel.Register.XMM0
     Assert.AreEqual<ArgClassification>(Positional, cc.ArgClassification)
     Assert.AreEqual<RegisterID>(xmm0, cc.FloatArgRegister(0))
+
+  (* The Microsoft x64 convention has a callee keep XMM6 to XMM15, as well as
+     RDI and RSI, and lets it write XMM0 to XMM5. *)
+  [<TestMethod>]
+  member _.``Windows x64 clobbers XMM0 to XMM5 and keeps XMM6 to XMM15``() =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let cc = CallingConvention.create OS.Windows isa
+    let intel r = Intel.Register.toRegID r
+    let clobbered = [ Intel.Register.XMM0; Intel.Register.XMM5 ]
+    let kept =
+      [ Intel.Register.RDI
+        Intel.Register.RSI
+        Intel.Register.XMM6
+        Intel.Register.XMM15 ]
+    for r in clobbered do
+      Assert.AreEqual<bool>(true, cc.IsCallerSaved(intel r), string r)
+    for r in kept do
+      Assert.AreEqual<bool>(true, cc.IsCalleeSaved(intel r), string r)
+      Assert.AreEqual<bool>(false, cc.IsCallerSaved(intel r), string r)
 
   (* The System V m68k psABI passes every argument on the stack, so there is no
      register argument to resolve and the return value alone comes back in one.

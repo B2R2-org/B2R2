@@ -50,32 +50,32 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     let e = AST.undef rt "ret"
     [| (retReg, e) |]
 
-  /// Collects the definitions that cover the given return value register. A
-  /// concatenated register variable, such as ST0 or XMM0, cannot be a
-  /// definition target, so we define each of the chunks it concatenates.
-  let rec returnValueDefs acc e =
+  /// Collects the definitions that leave the given register variable undefined
+  /// under the given name. A concatenated register variable, such as ST0 or
+  /// XMM0, cannot be a definition target, so we define each of the chunks it
+  /// concatenates.
+  let rec undefinedDefs name acc e =
     match e with
     | BinOp(Op = BinOpType.CONCAT; Left = hi; Right = lo) ->
-      returnValueDefs (returnValueDefs acc hi) lo
+      undefinedDefs name (undefinedDefs name acc hi) lo
     | _ ->
-      (e, AST.undef (Expr.typeOf e) "ret") :: acc
+      (e, AST.undef (Expr.typeOf e) name) :: acc
 
   /// Collects the definitions of the registers that hold a floating-point
   /// return value, both halves of a double that takes two registers.
   let floatReturnValueDef (hdl: BinHandle) =
     ArgLocation.toRegisters hdl.Conventions.Calling.FloatReturnLocation
     |> List.map hdl.RegisterFactory.GetRegVar
-    |> List.fold returnValueDefs []
+    |> List.fold (undefinedDefs "ret") []
     |> List.toArray
 
   /// Makes the definitions that invalidate the given registers, which are the
   /// caller-saved registers that a callee may modify.
   let callerSavedValueDefs (hdl: BinHandle) (clobbered: Set<RegisterID>) =
-    let regFactory = hdl.RegisterFactory
-    [| for rid in clobbered do
-        let regVar = regFactory.GetRegVar rid
-        let rt = regFactory.GetRegType rid
-        regVar, AST.undef rt "caller-saved" |]
+    clobbered
+    |> Seq.map hdl.RegisterFactory.GetRegVar
+    |> Seq.fold (undefinedDefs "caller-saved") []
+    |> List.toArray
 
   /// Returns how many bytes of the stack the return address of a call takes,
   /// which the return pops. A link register takes none.
