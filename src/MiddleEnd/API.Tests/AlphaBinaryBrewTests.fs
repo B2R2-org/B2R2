@@ -39,6 +39,14 @@ type AlphaBinaryBrewTests() =
     let bytes = code |> String.concat "" |> ByteArray.ofHexString
     BinaryBrew(BinHandle.LoadRawImage(bytes, ISA "alpha")).Functions
 
+  /// Recovers the functions of elf_alpha_so with get, at 0x600, made the given
+  /// code from 0x608 on, past the two words that compute gp, which has room
+  /// for 27 words before .text ends.
+  static let recoverPatchedGet (code: string list) =
+    let bytes = readZippedBinary "elf_alpha_so"
+    (ByteArray.ofHexString(String.concat "" code)).CopyTo(bytes, 0x608)
+    BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "alpha")).Functions
+
   /// Returns the entries of the given functions, in order.
   static let entriesOf (fns: FunctionCollection) =
     fns.Sequence |> Seq.map _.EntryPoint |> Seq.sort |> Seq.toArray
@@ -177,3 +185,33 @@ type AlphaBinaryBrewTests() =
     let fns = BinaryBrew(BinHandle.LoadFileBytes(bytes, ISA "alpha")).Functions
     let callee = fns[0x600UL].Callees[LeafCallSite 0x640UL]
     Assert.AreEqual<CalleeKind>(RegularCallee 0x4b4UL, callee)
+
+  (* The FDE of get says that the frame goes 32 bytes deep past its first
+     instruction past gp, so the stack pointer lies 32 bytes below where it
+     lies on entry, although the code computes it from t8, which the data flow
+     cannot tell, as GCC does past a loop that probes a big frame page by page.
+     The code keeps the address of its table in the frame and reads it back. *)
+  [<TestMethod>]
+  member _.``A frame slot is read where the FDE tells the stack pointer``() =
+    let code =
+      [ "e0ffd623" (* 0x608: lda sp,-32(t8) *)
+        "feff3d24" (* ldah t0,-2(gp) *)
+        "24862120" (* lda t0,-31196(t0) *)
+        "10003eb4" (* stq t0,16(sp) *)
+        "a2370042" (* cmpule a0,1,t1 *)
+        "0a0040e4" (* beq t1,0x648 *)
+        "10003ea4" (* ldq t0,16(sp) *)
+        "41040142" (* s4addq a0,t0,t0 *)
+        "000021a0" (* ldl t0,0(t0) *)
+        "0104a143" (* addq gp,t0,t0 *)
+        "0000e16b" (* jmp (t0) *)
+        "2c86fdff" (* 0x634: .long 0x63c - gp *)
+        "3486fdff" (* .long 0x644 - gp *)
+        "00001f20" (* 0x63c: lda v0,0 *)
+        "0100e0c3" (* br 0x648 *)
+        "01001f20" (* 0x644: lda v0,1 *)
+        "2000de23" (* 0x648: lda sp,32(sp) *)
+        "0080fa6b" (* ret *) ]
+    let fns = recoverPatchedGet code
+    let entries = fns[0x600UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
