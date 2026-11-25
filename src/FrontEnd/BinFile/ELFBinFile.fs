@@ -232,7 +232,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         [| for s in symbs.Value.DynamicSymbols do
               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
               else () |]
-      let extraFuncs = findExtraFnAddrs toolBox shdrs.Value relocs.Value
+      let extraFuncs =
+        findExtraFnAddrs toolBox shdrs.Value phdrs.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
       |> Array.map toCodeAddr
       |> Array.distinct
