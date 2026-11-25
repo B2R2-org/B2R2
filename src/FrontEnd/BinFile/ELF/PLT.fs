@@ -1303,6 +1303,12 @@ let private initIPLTParsable hdr shdrs relocInfo symbs =
   | MachineType.EM_68K ->
     let rKind = RelocationKind.Create RelocationM68K.R_68K_JMP_SLOT
     GeneralParser(shdrs, relocInfo, symbs, 20UL, rKind) :> IPLTParsable
+  (* The PLT of Alpha that GNU ld lays out in read-only memory (DT_ALPHA_PLTRO)
+     is a 36-byte header and then a br to the header for each entry. *)
+  | MachineType.EM_ALPHA
+  | MachineType.EM_OLD_ALPHA ->
+    let rKind = RelocationKind.Create RelocationAlpha.R_ALPHA_JMP_SLOT
+    GeneralParser(shdrs, relocInfo, symbs, 36UL, rKind) :> IPLTParsable
   | _ ->
     NullParser() :> IPLTParsable
 

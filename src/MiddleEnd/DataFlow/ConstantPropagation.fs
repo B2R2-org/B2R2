@@ -30,7 +30,7 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Performs sparse constant propagation over the LowUIR representation.
-type ConstantPropagation(hdl, vs, ?initialValueProvider) =
+type ConstantPropagation(hdl, vs, ?initialValueProvider, ?entryPoint) =
   let initialValueProvider =
     defaultArg initialValueProvider (RegisterInitialValueProvider.create hdl)
 
@@ -155,7 +155,11 @@ type ConstantPropagation(hdl, vs, ?initialValueProvider) =
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    LowUIRSparseDataFlow.State(hdl, lattice, scheme, initialValueProvider)
+    LowUIRSparseDataFlow.State(hdl,
+                               lattice,
+                               scheme,
+                               initialValueProvider,
+                               ?entryPoint = entryPoint)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state

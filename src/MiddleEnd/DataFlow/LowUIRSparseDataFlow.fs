@@ -40,7 +40,8 @@ type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
          lattice: ILattice<'Lattice>,
          scheme: IScheme<'Lattice>,
-         ?initialValueProvider) =
+         ?initialValueProvider,
+         ?entryPoint: Addr) =
 
   /// Holds the initial stack pointer value in the address domain.
   let spInitial = LowUIRAddress.initialValue hdl
@@ -157,6 +158,72 @@ type State<'Lattice when 'Lattice: equality>
   let spEvaluateExpr pp e = LowUIRAddress.evalExpr spEvaluateVar pp e
 
   let getStatements v = stmtCache.GetStmtInfos v
+
+  /// Finds how far the canonical frame address lies above the stack pointer at
+  /// the given address, as the FDE that starts at the given entry tells, if
+  /// the FDE counts it from the stack pointer there.
+  let tryFindFrameDepth (elf: BinFile.ELFBinFile) entry addr =
+    match elf.TryFindFDERange addr with
+    | Some range when range.Min = entry ->
+      match elf.TryFindCFARegOffset addr with
+      | Some(rid, off) when hdl.RegisterFactory.IsStackPointer rid -> Some off
+      | _ -> None
+    | _ ->
+      None
+
+  /// Checks if the given statement puts a value in the stack pointer.
+  let putsStackPointer stmt =
+    match stmt with
+    | Put(Dst = dst) ->
+      match VarKind.ofIRExpr dst with
+      | Regular rid -> hdl.RegisterFactory.IsStackPointer rid
+      | _ -> false
+    | _ ->
+      false
+
+  /// Finds the address past the instruction of the statement at the given
+  /// program point, if no other statement of the instruction puts a value in
+  /// the stack pointer, so that the stack pointer holds past the instruction
+  /// what the statement puts there.
+  let tryFindAddrPastSolePut (pp: ProgramPoint) =
+    match stmtCache.StmtOfBBLs.TryGetValue pp with
+    | true, (_, v) when not v.VData.Internals.IsAbstract ->
+      let puts =
+        getStatements v
+        |> Array.filter (fun (stmt, p: ProgramPoint) ->
+          p.Address = pp.Address && putsStackPointer stmt)
+      v.VData.Internals.Instructions
+      |> Array.tryFind (fun ins -> ins.Address = pp.Address)
+      |> Option.filter (fun _ -> puts.Length = 1)
+      |> Option.map (fun ins -> ins.Address + uint64 ins.Length)
+    | _ ->
+      None
+
+  /// Finds how much deeper the frame of the function goes past the statement
+  /// at the given program point than on entry, as the FDE that starts at the
+  /// given entry tells.
+  let tryFindFrameGrowth elf entry pp =
+    let depthAt = tryFindFrameDepth elf entry
+    match depthAt entry, tryFindAddrPastSolePut pp |> Option.bind depthAt with
+    | Some depth0, Some depth -> Some(depth - depth0)
+    | _ -> None
+
+  /// Finds where the stack pointer points past the statement at the given
+  /// program point from the call frame information of the function, which
+  /// starts at the entry of the function: the canonical frame address stays
+  /// put, so the stack pointer lies as much below where it lies on entry as
+  /// the frame has grown deeper.
+  let tryFindStackPointerByFrame pp =
+    match hdl.File, entryPoint with
+    | (:? BinFile.ELFBinFile as elf), Some entry ->
+      match spInitial, tryFindFrameGrowth elf entry pp with
+      | Some(_, AddressDomain.StackAddr init), Some growth ->
+        let delta = BitVector(-(int64 growth), init.Length)
+        Some(AddressDomain.StackAddr(BitVector.Add(init, delta)))
+      | _ ->
+        None
+    | _ ->
+      None
 
   /// Returns a fresh identifier for the given variable kind and increments the
   /// identifier.
@@ -552,6 +619,14 @@ type State<'Lattice when 'Lattice: equality>
   /// Evaluates the given expression at the given program point in the address
   /// domain, telling an address on the stack from a constant.
   member _.EvaluateAddressExpr(pp, e: Expr) = spEvaluateExpr pp e
+
+  /// Finds where the stack pointer points past the statement at the given
+  /// program point, which puts there a value that the data flow cannot tell,
+  /// from the call frame information of the function, if the state knows the
+  /// entry of the function. GCC computes the stack pointer that way past a
+  /// loop that probes a big frame page by page.
+  member _.TryFindStackPointerByFrame(pp: ProgramPoint) =
+    tryFindStackPointerByFrame pp
 
   /// Marks the given vertex as pending, which means that the vertex needs to be
   /// processed.
@@ -1270,6 +1345,37 @@ module internal AnalysisCore = begin
     | _ ->
       state.RegisterSaves.Remove pp |> ignore
 
+  /// Takes where the call frame information says that the stack pointer
+  /// points past the statement at pp, if the data flow loses it there.
+  let recoverStackPointer (state: State<_>) rid pp value =
+    match value with
+    | AddressDomain.NotAConst
+      when state.BinHandle.RegisterFactory.IsStackPointer rid ->
+      state.TryFindStackPointerByFrame pp |> Option.defaultValue value
+    | _ ->
+      value
+
+  /// Checks if the given expression adds to a register a constant whose low
+  /// sixteen bits are clear, as LDAH of Alpha does.
+  let addsHighHalf (hdl: BinHandle) src =
+    match src with
+    | BinOp(Op = BinOpType.ADD; Right = Num(Value = c)) ->
+      hdl.ISA.IsAlpha && not c.IsZero && c.ToUInt64() &&& 0xffffUL = 0UL
+    | _ ->
+      false
+
+  /// Turns the given value, which the code puts in a register other than
+  /// those that follow the stack, into what the register holds. An address
+  /// on the stack that Alpha code reaches with LDAH stays there, far: no
+  /// displacement reaches a slot of a big frame from the stack pointer, so the
+  /// code forms the high half of its address anew for each access.
+  let holdInRegister (state: State<_>) src value =
+    match value with
+    | AddressDomain.StackAddr off when addsHighHalf state.BinHandle src ->
+      AddressDomain.FarStackAddr off
+    | _ ->
+      AddressDomain.hold value
+
   let spTransfer (state: State<_>) (stmt, pp) =
     match stmt with
     | Put(Dst = dst; Src = src) ->
@@ -1284,11 +1390,12 @@ module internal AnalysisCore = begin
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
           state.EvaluateAddressExpr(pp, src)
           |> AddressDomain.holdInStackPointer
+          |> recoverStackPointer state rid pp
           |> Some
         | Regular _ ->
           let value = state.EvaluateAddressExpr(pp, src)
           noteStackAddrEscape state pp value
-          AddressDomain.hold value |> Some
+          holdInRegister state src value |> Some
         | Temporary _ ->
           state.EvaluateAddressExpr(pp, src) |> Some
         | _ ->

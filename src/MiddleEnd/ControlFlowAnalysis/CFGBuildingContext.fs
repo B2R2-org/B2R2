@@ -44,7 +44,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let cp =
     let provider = RegisterInitialValueProvider.createForFunction hdl entryPoint
-    ConstantPropagation((hdl: BinHandle), cfg.Vertices, provider)
+    ConstantPropagation((hdl: BinHandle), cfg.Vertices, provider, entryPoint)
 
   let uva = UntouchedValueAnalysis(hdl, cfg.Vertices)
 

@@ -179,6 +179,18 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     | _ ->
       [||]
 
+  /// Makes the definition that leaves the return address in ra past a call of
+  /// Alpha code, as the callee returns through ra, which is where GCC finds gp
+  /// again from right past the call.
+  let returnLinkDefs (hdl: BinHandle) (returnAddress: Addr) =
+    match hdl.ISA with
+    | Alpha ->
+      let rid = Alpha.Register.toRegID Alpha.Register.R26
+      let ra = hdl.RegisterFactory.GetRegVar rid
+      [| AST.put ra (AST.num (BitVector(returnAddress, 64<rt>))) |]
+    | _ ->
+      [||]
+
   let computeLiveDefs hdl callee calleeInfo =
     let unwindingAmount, clobbered = calleeInfo.Unwinding, calleeInfo.Clobbered
     if calleeInfo.IsExternal then
@@ -244,6 +256,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx>() =
     let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
     [| yield! stmts
        yield! tocSaveDefs ctx.BinHandle
+       yield! returnLinkDefs ctx.BinHandle returnAddress
        jmpToFallThrough |]
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with

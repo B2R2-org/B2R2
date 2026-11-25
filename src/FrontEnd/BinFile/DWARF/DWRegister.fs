@@ -213,6 +213,13 @@ let private toS390Register (n: byte) =
   | n when n >= 68 && n <= 83 -> s390RegisterPast S390.Register.VR16 (n - 68)
   | _ -> Terminator.futureFeature ()
 
+/// Maps the numbers that GCC gives Alpha registers in .eh_frame: $0 to $31
+/// and then $f0 to $f31, as the enumeration lays them out, and the PC at 64.
+let private toAlphaRegister (n: byte) =
+  match int n with
+  | n when n <= 64 -> Alpha.Register.toRegID (EnumOfValue n)
+  | _ -> Terminator.futureFeature ()
+
 let toRegID isa regnum =
   match isa with
   | X86 -> toIntelx86Register regnum
@@ -224,6 +231,7 @@ let toRegID isa regnum =
   | SH4 -> toSH4Register regnum
   | M68K -> toM68KRegister regnum
   | S390 -> toS390Register regnum
+  | Alpha -> toAlphaRegister regnum
   | _ -> Terminator.futureFeature ()
 
 let toRegisterExpr isa (regFactory: IRegisterFactory) regnum =
