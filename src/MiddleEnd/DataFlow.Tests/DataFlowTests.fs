@@ -818,6 +818,21 @@ type DataFlowTests() =
     let seven = mkConst 7u 64<rt>
     Assert.AreEqual<ConstantDomain.Lattice>(seven, state.GetAbsValue vp)
 
+  /// PA-RISC reads zero from GR0, whose initial value no instruction
+  /// replaces: LDI is LDO off GR0.
+  [<TestMethod>]
+  member _.``Constant Propagation reads the PA-RISC zero register as zero``() =
+    (* ldi 6, r26 ; bv r0(rp) ; nop *)
+    let brew = Binaries.loadPARISCAt 0x10000UL "341a000ce840c00008000240"
+    let cfg = brew.Functions[0x10000UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
+    let r26 = FrontEnd.PARISC.Register.GR26
+    let r26 = Regular(FrontEnd.PARISC.Register.toRegID r26)
+    let vp = { ProgramPoint = ProgramPoint(0x10000UL, 2); VarKind = r26 }
+    let six = mkConst 6u 32<rt>
+    Assert.AreEqual<ConstantDomain.Lattice>(six, state.GetAbsValue vp)
+
   [<TestMethod>]
   member _.``SSA Var Abstract Value Lookup Test``() =
     let brew = Binaries.loadOne Binaries.sample2

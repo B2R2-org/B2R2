@@ -66,6 +66,14 @@ let loadSPARCAt baseAddr (hex: string) =
   let hdl = BinHandle.LoadRawImage(code, ISA "sparc64", baseAddr, OS.Linux)
   BinaryBrew hdl
 
+/// Loads the given big-endian 32-bit PA-RISC code at the given address,
+/// written as the hex of its bytes.
+let loadPARISCAt baseAddr (hex: string) =
+  let code = ByteArray.ofHexString hex
+  let isa = ISA(Architecture.PARISC, Endian.Big, WordSize.Bit32)
+  let hdl = BinHandle.LoadRawImage(code, isa, baseAddr, OS.Linux)
+  BinaryBrew hdl
+
 /// The directory of the ELF fixtures, which live next to the BinFile tests.
 let private elfDir =
   AppDomain.CurrentDomain.BaseDirectory

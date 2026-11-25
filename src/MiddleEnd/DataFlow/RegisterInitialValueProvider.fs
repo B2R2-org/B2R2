@@ -93,6 +93,18 @@ module RegisterInitialValueProvider =
         else
           None
 
+  /// Gives the PA-RISC zero register, GR0, zero, which it always holds: the
+  /// lifter puts it onto itself where an instruction writes it, so it holds
+  /// its initial value throughout.
+  type private PARISCRegisterInitialValueProvider(hdl: BinHandle) =
+    let zero = PARISC.Register.toRegID PARISC.Register.GR0
+    interface IRegisterInitialValueProvider with
+      member _.TryGetInitialValue rid =
+        if rid = zero then
+          Some(BitVector.Zero(hdl.RegisterFactory.GetRegType rid))
+        else
+          None
+
   /// Gives r2 the TOC pointer of 64-bit PowerPC code, which every function of
   /// the binary finds there on entry, as its callers keep it there.
   type private PPC64RegisterInitialValueProvider(toc: Addr) =
@@ -121,6 +133,7 @@ module RegisterInitialValueProvider =
     | Architecture.MIPS -> MIPSRegisterInitialValueProvider(hdl)
     | Architecture.RISCV -> RISCVRegisterInitialValueProvider(hdl)
     | Architecture.PPC -> createForPPC hdl
+    | Architecture.PARISC -> PARISCRegisterInitialValueProvider(hdl)
     | _ -> DefaultRegisterInitialValueProvider()
 
   /// Creates the architecture-specific provider of initial values for the
