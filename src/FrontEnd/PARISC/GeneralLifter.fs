@@ -1256,20 +1256,23 @@ let private destReg opr =
 
 /// An IA-relative branch, optionally leaving its return address in a register.
 /// A branch that links GR0 keeps no return address, so it is a plain jump; one
-/// that links any other register is a call.
+/// that links any other register is a call, unless it goes right past its
+/// delay slot, where a callee would return to: it then reads the address it
+/// runs at, as PIC code does to find a jump table.
 let b (ins: Instruction) bld =
   liftDelayed ins bld (fun () ->
     let struct (target, linkReg) = getTwoOprs ins
+    let imm = branchImm target
     let kind =
       match linkReg with
       | OpReg Register.GR0 ->
         InterJmpKind.Base
       | OpReg r ->
         link bld ins.Address r
-        InterJmpKind.IsCall
+        if imm = 8UL then InterJmpKind.Base else InterJmpKind.IsCall
       | _ ->
         raise InvalidOperandException
-    Jump(branchTarget bld ins (branchImm target), kind))
+    Jump(branchTarget bld ins imm, kind))
 
 /// Branch and link register: the target is the address past the delay slot
 /// advanced by eight times the index register, which is how a jump table of

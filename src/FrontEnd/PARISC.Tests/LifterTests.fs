@@ -185,6 +185,16 @@ type LifterTests() =
     Assert.AreEqual<Stmt>((tmp 3 := tmp 2 .+ num 0u), stmts[2])
     Assert.IsGreaterThan(writeOf GR1 stmts, writeOf GR2 stmts)
 
+  /// A branch that links and goes right past its slot reads where it runs,
+  /// as PIC code does to find a jump table, rather than calls.
+  [<TestMethod>]
+  member _.``[PARISC] BL past its delay slot reads the PC``() =
+    (* b,l .+8, r20 ; depwi 0, 31, 2, r20 *)
+    let stmts = lifted ("ea800000" + "d6801c1e")
+    Assert.AreEqual<Stmt>((!.GR20 := tmp 1), stmts[stmts.Length - 2])
+    let last = AST.interjmp (num 8u) InterJmpKind.Base
+    Assert.AreEqual<Stmt>(last, Array.last stmts)
+
   /// A branch that links GR0 keeps no link, so there is nothing to hold.
   [<TestMethod>]
   member _.``[PARISC] B without a link writes nothing``() =
