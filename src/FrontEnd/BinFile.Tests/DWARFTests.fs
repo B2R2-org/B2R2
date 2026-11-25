@@ -52,6 +52,9 @@ type private S390Reg = B2R2.FrontEnd.S390.Register
 /// Represents the Alpha registers under a shorter name.
 type private AlphaReg = B2R2.FrontEnd.Alpha.Register
 
+/// Represents the PA-RISC registers under a shorter name.
+type private PARISCReg = B2R2.FrontEnd.PARISC.Register
+
 /// Tests for reading DWARF data in place from section bytes: DW_FORM_exprloc
 /// values, and the call frame instructions of an FDE.
 [<TestClass>]
@@ -399,5 +402,25 @@ type DWARFTests() =
         63uy, AlphaReg.F31
         64uy, AlphaReg.PC ]
     let isa = ISA Architecture.Alpha
+    for n, reg in numbers do
+      Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")
+
+  [<TestMethod>]
+  member _.``[DWARF] PA-RISC registers are numbered as GCC numbers them``() =
+    (* The CIEs of GCC for PA-RISC define the CFA as r30 (sp) and keep the
+       return address in column 2 (rp), or in 31 for millicode. A function
+       that saves fr12 notes it as 88. *)
+    let rid reg = B2R2.FrontEnd.PARISC.Register.toRegID reg
+    let numbers =
+      [ 0uy, PARISCReg.GR0
+        2uy, PARISCReg.GR2
+        30uy, PARISCReg.GR30
+        31uy, PARISCReg.GR31
+        32uy, PARISCReg.CR11
+        72uy, PARISCReg.FPR4L
+        73uy, PARISCReg.FPR4R
+        88uy, PARISCReg.FPR12L
+        127uy, PARISCReg.FPR31R ]
+    let isa = ISA(Architecture.PARISC, Endian.Big, WordSize.Bit32)
     for n, reg in numbers do
       Assert.AreEqual<RegisterID>(rid reg, DWRegister.toRegID isa n, $"{n}")
