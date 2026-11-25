@@ -1339,14 +1339,15 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx>
 
   /// Checks if the mask clears the low bits that an indirect jump clears off
   /// its target: every JALR of RISCV clears the lowest one, a branch of
-  /// PowerPC to a register the lowest two, or the lowest one in VLE, and every
-  /// jump of Alpha the lowest two.
+  /// PowerPC to a register the lowest two, or the lowest one in VLE, every
+  /// jump of Alpha the lowest two, and every transfer of PA-RISC through a
+  /// register the lowest two, which hold the privilege level there.
   let isJumpMask (hdl: BinHandle) (mask: BitVector) =
     let cleared = (BitVector.Not mask).ToUInt64()
     match hdl.ISA with
     | RISCV -> cleared = 1UL
     | PPC -> cleared = 1UL || cleared = 3UL
-    | Alpha -> cleared = 3UL
+    | Alpha | PARISC -> cleared = 3UL
     | _ -> false
 
   /// Finds the target that an indirect jump computes before it clears the low
