@@ -67,10 +67,12 @@ type InstructionTests() =
     Assert.AreEqual<bool>(true, ins.IsDirectBranch)
     CollectionAssert.AreEqual([| 0x5588UL |], nexts ins)
 
+  (* A return and a jump through a table both go by way of RP, which only
+     what RP holds tells apart. *)
   [<TestMethod>]
-  member _.``[PARISC] A Procedure Returns Through RP Test``() =
+  member _.``[PARISC] A Jump Through RP Is No Return By Itself Test``() =
     let ins = parse 0x5004UL "e840c00037de3781" (* bv r0(rp); ldo -440(sp) *)
-    Assert.AreEqual<bool>(true, ins.IsRET)
+    Assert.AreEqual<bool>(false, ins.IsRET)
     Assert.AreEqual<bool>(true, ins.IsIndirectBranch)
     Assert.AreEqual<bool>(false, ins.IsCall)
     Assert.AreEqual<int>(0, (nexts ins).Length)

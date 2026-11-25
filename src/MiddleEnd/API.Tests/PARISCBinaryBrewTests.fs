@@ -67,3 +67,39 @@ type PARISCBinaryBrewTests() =
     let fns = recoverCode code
     let entries = fns[0UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* GCC jumps through a table by way of RP once a function has saved RP,
+     which only what RP holds tells from a return, as both are BV through RP:
+     the function here returns through RP once it has loaded it back, so the
+     code past the call of it goes on to call a function there. The code
+     calls the function past the table first, which bounds the table. *)
+  [<TestMethod>]
+  member _.``A table is read through RP once RP is saved``() =
+    let code =
+      [ "e8400098" (* 0x00: b,l 0x54,rp *)
+        "08000240" (* nop *)
+        "e8400018" (* b,l 0x1c,rp *)
+        "08000240" (* nop *)
+        "e8400080" (* b,l 0x58,rp *)
+        "08000240" (* nop *)
+        "e840c002" (* bv,n r0(rp) *)
+        "6bc23fd9" (* 0x1c: stw rp,-14(sp) *)
+        "93408002" (* cmpiclr,<< 1,r26,r0 *)
+        "e8000002" (* b,n 0x2c *)
+        "e800003a" (* b,n 0x4c *)
+        "34130070" (* 0x2c: ldi 0x38,r19 *)
+        "0e7a2082" (* ldw,s r26(r19),rp *)
+        "e840c002" (* bv,n r0(rp) *)
+        "00000040" (* 0x38: .word 0x40 *)
+        "00000048" (* .word 0x48 *)
+        "e8000008" (* 0x40: b 0x4c *)
+        "341c0000" (* ldi 0,ret0 *)
+        "341c0002" (* 0x48: ldi 1,ret0 *)
+        "4bc23fd9" (* 0x4c: ldw -14(sp),rp *)
+        "e840c002" (* bv,n r0(rp) *)
+        "e840c002" (* 0x54: bv,n r0(rp) *)
+        "e840c002" (* 0x58: bv,n r0(rp) *) ]
+    let fns = recoverCode code
+    let entries = fns[0x1cUL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x58UL)

@@ -148,14 +148,6 @@ type Instruction
   let isCall () =
     linkRegister () <> Register.GR0 && not (isService () || readsPC ())
 
-  (* A procedure returns through GR2, where a call leaves the address to
-     return to. *)
-  let isRet () =
-    match op, opr with
-    | Opcode.BV, OneOperand(OpMem(Register.GR2, _, _, _)) -> true
-    | Opcode.BVE, OneOperand(OpMem(Register.GR2, _, _, _)) -> not (isCall ())
-    | _ -> false
-
   (* The privileged instructions that user code reaches only to raise the
      illegal-instruction trap, which GCC plants for __builtin_trap. *)
   let isExit () =
@@ -300,7 +292,10 @@ type Instruction
 
     member _.IsCall = isCall ()
 
-    member _.IsRET = isRet ()
+    (* PA-RISC has no return instruction: a procedure returns by BV through
+       GR2, where a call leaves the address to return to, but GCC jumps
+       through a table by way of GR2 as well, so only what GR2 holds tells. *)
+    member _.IsRET = false
 
     member _.IsPush = false
 

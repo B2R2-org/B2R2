@@ -1298,34 +1298,30 @@ let blr (ins: Instruction) bld =
     Jump(target, kind))
 
 /// Branch vectored: the transfer through a register that both a computed jump
-/// and a procedure return are made of. A return goes through GR2, the register
-/// a call leaves its return address in, so that is what marks one. An index of
-/// GR0 adds nothing, so the target is then the base alone.
+/// and a procedure return are made of. Nothing in the instruction tells the
+/// two apart: a return goes through GR2, the register a call leaves its
+/// return address in, but GCC jumps through a table by way of GR2 as well,
+/// once the function has saved it, so a client tells by what GR2 holds.
 let bv (ins: Instruction) bld =
   liftDelayed ins bld (fun () ->
     let opr = getOneOpr ins
     let rt = bld.RegType
     let target = tmpVar bld rt
-    let struct (bse, kind) =
+    let bse =
       match opr with
-      | OpMem(b, _, off, _) ->
-        let scaled =
-          match off with
-          | Some(Reg x) when x <> Register.GR0 ->
-            regVar bld b .+ (regVar bld x << numI32 3 rt)
-          | _ ->
-            regVar bld b
-        let kind =
-          if b = Register.GR2 then InterJmpKind.IsRet else InterJmpKind.Base
-        struct (scaled, kind)
+      | OpMem(b, _, Some(Reg x), _) when x <> Register.GR0 ->
+        regVar bld b .+ (regVar bld x << numI32 3 rt)
+      | OpMem(b, _, _, _) ->
+        regVar bld b
       | _ ->
         raise InvalidOperandException
     append bld { target := stripPriv bld bse }
-    Jump(target, kind))
+    Jump(target, InterJmpKind.Base))
 
 /// Branch vectored to an external address: the same transfer through a
 /// register, reaching another space. Its linking form leaves the return
-/// address in GR2.
+/// address in GR2, and the other one, as BV, tells no return from a computed
+/// jump.
 let bve (ins: Instruction) bld =
   liftDelayed ins bld (fun () ->
     let rt = (bld: ILowUIRBuilder).RegType
@@ -1344,8 +1340,6 @@ let bve (ins: Instruction) bld =
       if links then
         link bld ins.Address Register.GR2
         InterJmpKind.IsCall
-      elif bse = Register.GR2 then
-        InterJmpKind.IsRet
       else
         InterJmpKind.Base
     Jump(target, kind))

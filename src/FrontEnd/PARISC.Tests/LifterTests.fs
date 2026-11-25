@@ -126,7 +126,7 @@ type LifterTests() =
     let target = !.GR2 .& num 0xfffffffcu
     Assert.AreEqual<Stmt>((tmp 1 := target), stmts[0])
     Assert.IsLessThan(stmts.Length - 1, writeOf GR2 stmts)
-    let last = AST.interjmp (tmp 1) InterJmpKind.IsRet
+    let last = AST.interjmp (tmp 1) InterJmpKind.Base
     Assert.AreEqual<Stmt>(last, Array.last stmts)
 
   /// BV goes eight bytes further for each step of its index, as through a
@@ -231,7 +231,7 @@ type LifterTests() =
   member _.``[PARISC] a nullifying jump goes without a slot``() =
     let ins = parse "e840c002"
     Assert.AreEqual<uint32>(4u, ins.Extent)
-    let last = AST.interjmp (tmp 1) InterJmpKind.IsRet
+    let last = AST.interjmp (tmp 1) InterJmpKind.Base
     Assert.AreEqual<Stmt>(last, Array.last (lifted "e840c002"))
 
   /// An instruction that nullifies the next one branches past it where its
