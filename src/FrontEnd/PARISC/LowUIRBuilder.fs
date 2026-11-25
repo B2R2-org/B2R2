@@ -32,31 +32,29 @@ open B2R2.FrontEnd.BinLifter
 
 /// The LowUIR builder for PARISC. Beyond the plain register/stream builder it
 /// carries what a transfer of control and the delay slot it lifts with it
-/// share, and what the nullify guard needs.
+/// share, and what an instruction nullifies.
 ///
 /// A transfer lifts the instruction in its delay slot itself, so the two end
 /// as one instruction. What the transfer writes -- a link, the sum of an add
-/// and branch, the copy of a move and branch, the nullify bit -- the slot must
-/// read, yet the transfer only writes it once the slot has run: a slot that
-/// faults then leaves the registers as they were, and running the transfer
-/// again does not count its add twice. So while the slot is lifted, each such
-/// register is read and written through a temporary instead (see Defer).
+/// and branch, the copy of a move and branch -- the slot must read, yet the
+/// transfer only writes it once the slot has run: a slot that faults then
+/// leaves the registers as they were, and running the transfer again does not
+/// count its add twice. So while the slot is lifted, each such register is
+/// read and written through a temporary instead (see Defer).
 ///
-/// Nullification travels in a register (%psw_n), because an instruction that
-/// nullifies and the instruction it nullifies can fall on either side of a
-/// lifted block's boundary -- which for PA-RISC is the common case, not a
-/// corner one, since most arithmetic can nullify. What is kept here is only
-/// the knowledge that lets the guard be *omitted*: an instruction lifted right
-/// after one that cannot nullify needs no guard at all.
+/// An instruction that nullifies the next one branches past it, as nothing
+/// but the instruction before tells whether one is nullified: a block that
+/// starts at one does not know its way in, and a guard there would leave each
+/// such block two ways through it. The condition waits here until the
+/// instruction ends (see Skip), or until its transfer leaves, where it sits
+/// in a delay slot and nullifies the instruction the transfer goes on to.
 type LowUIRBuilder(isa: ISA,
                    regFactory: IRegisterFactory,
                    stream: LowUIRStream) =
   let regType = WordSize.toRegType isa.WordSize
   let deferred = List<struct (RegisterID * Expr)>()
   let mutable inDelaySlot = false
-  let mutable nullifySkip: Label voption = ValueNone
-  let mutable prevEnd: Addr voption = ValueNone
-  let mutable prevMayNullify = true
+  let mutable skip: Expr voption = ValueNone
 
   let shadowOf rid =
     let mutable found = ValueNone
@@ -68,17 +66,9 @@ type LowUIRBuilder(isa: ISA,
   /// transfer that lifts it, which writes the marks for both.
   member _.InDelaySlot with get() = inDelaySlot and set v = inDelaySlot <- v
 
-  /// The label a nullified instruction's body jumps past, shared from that
-  /// instruction's MarkStart to its MarkEnd.
-  member _.NullifySkip with get() = nullifySkip and set v = nullifySkip <- v
-
-  /// The address one past the instruction lifted most recently, so the next
-  /// one can tell whether it really follows it.
-  member _.PrevEnd with get() = prevEnd and set v = prevEnd <- v
-
-  /// Whether the instruction lifted most recently can set the nullify bit.
-  member _.PrevMayNullify
-    with get() = prevMayNullify and set v = prevMayNullify <- v
+  /// The condition on which the instruction now being lifted nullifies the
+  /// next one, from where its condition is read up to where it ends.
+  member _.Skip with get() = skip and set v = skip <- v
 
   member _.RegType with get() = regType
 
@@ -130,6 +120,4 @@ type LowUIRBuilder(isa: ISA,
       stream.Clear()
       deferred.Clear()
       inDelaySlot <- false
-      nullifySkip <- ValueNone
-      prevEnd <- ValueNone
-      prevMayNullify <- true
+      skip <- ValueNone

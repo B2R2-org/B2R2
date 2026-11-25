@@ -178,8 +178,8 @@ type Register =
   | FPR31R = 0x8C
   /// The PSW nullify bit (PSW{N}): set when the instruction the front of the
   /// instruction-address queue names is nullified, so it retires without any
-  /// effect. Modelled on its own rather than as a field of PSW because it is
-  /// the one PSW bit every instruction reads and writes.
+  /// effect. The lifter writes no such bit: an instruction that nullifies the
+  /// next one branches past it instead.
   | PSW_N = 0x8D
   /// The PSW divide-step/overflow bit (PSW{V}), which DS reads to decide
   /// whether its step adds or subtracts and which the trapping arithmetic

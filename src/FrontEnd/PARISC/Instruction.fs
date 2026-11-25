@@ -59,6 +59,33 @@ type Instruction
   let hasDelaySlot () =
     isTransfer () && not (isUnconditional () && cond = Some Completer.N)
 
+  let isNever c = c = Completer.NEVER || c = Completer.DNEVER
+
+  (* The condition on which an instruction nullifies the one after it, the way
+     the lifter has it do: CMPICLR keeps it with its completers, the others in
+     the condition slot. *)
+  let tryGetNullifyingCond () =
+    match op with
+    | Opcode.CMPICLR ->
+      match (completer: Completer array option) with
+      | Some cs when cs.Length > 0 && not (isNever cs[0]) -> ValueSome cs[0]
+      | _ -> ValueNone
+    | Opcode.ADD | Opcode.ADDI | Opcode.SHLADD | Opcode.SUB | Opcode.SUBI
+    | Opcode.CMPCLR | Opcode.DS | Opcode.AND | Opcode.ANDCM | Opcode.OR
+    | Opcode.XOR | Opcode.UXOR | Opcode.UADDCM | Opcode.SHRPW | Opcode.SHRPD
+    | Opcode.EXTRW | Opcode.EXTRD | Opcode.DEPW | Opcode.DEPWI | Opcode.DEPD
+    | Opcode.DEPDI ->
+      match cond with
+      | Some c when not (isNever c) -> ValueSome c
+      | _ -> ValueNone
+    | _ ->
+      ValueNone
+
+  (* FTEST nullifies the next instruction where the last comparison set the
+     compare bit. *)
+  let nullifiesNext () =
+    op = Opcode.FTEST || ValueOption.isSome (tryGetNullifyingCond ())
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -148,7 +175,9 @@ type Instruction
 
     member _.IsInlinedAssembly = false
 
-    member _.IsTerminator _ = isTransfer ()
+    (* A transfer carries its delay slot, so it ends the block itself, and an
+       instruction that nullifies the next one branches past it. *)
+    member _.IsTerminator _ = isTransfer () || nullifiesNext ()
 
     member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()

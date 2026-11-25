@@ -59,13 +59,7 @@ type LifterTests() =
     let parser = Parser(isa, reader) :> IInstructionParsable
     parser.Parse(ByteArray.ofHexString hex, 0UL)
 
-  /// A builder that knows the instruction before address zero could not
-  /// nullify, so the one lifted there needs no nullify guard.
-  let newBuilder () =
-    let bld = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    bld.PrevEnd <- ValueSome 0UL
-    bld.PrevMayNullify <- false
-    bld
+  let newBuilder () = LowUIRBuilder(isa, regFactory, LowUIRStream())
 
   /// The statements the instruction at the start of the given bytes lifts
   /// to, past its opening mark: a transfer writes no closing one.
@@ -221,27 +215,38 @@ type LifterTests() =
     let last = AST.interjmp (tmp 1) InterJmpKind.IsRet
     Assert.AreEqual<Stmt>(last, Array.last (lifted "e840c002"))
 
-  /// Such a jump the instruction before it nullified falls through, as any
-  /// nullified instruction does, so its block goes on past it: it leaves only
-  /// by its own jump, and ends with its closing mark.
+  /// An instruction that nullifies the next one branches past it where its
+  /// condition holds, which it reads before it writes its target: COMCLR
+  /// clears the very register it compares here.
   [<TestMethod>]
-  member _.``[PARISC] a nullified jump without a slot falls through``() =
-    let bld = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let stmts = (parse "e840c002").Translate bld
-    CollectionAssert.AreEqual([| tmp 2 |], exits stmts)
-    Assert.AreEqual<Stmt>(AST.iemark 4u, Array.last stmts)
+  member _.``[PARISC] a nullifying compare branches past the next``() =
+    (* cmpclr,= r4, r3, r3 *)
+    let stmts = lifted "08642883"
+    let skip = bit 2
+    Assert.AreEqual<Stmt>((skip := (!.GR4 == !.GR3)), stmts[1])
+    Assert.IsGreaterThan(1, writeOf GR3 stmts)
+    let last = AST.intercjmp skip (num 8u) (num 4u)
+    Assert.AreEqual<Stmt>(last, Array.last stmts)
+    Assert.AreEqual<int>(0, writesOf PSW_N stmts)
 
-  /// The instruction after such a jump is reached from elsewhere, so it keeps
-  /// its nullify guard.
+  /// The condition that always holds leaves no way on to the next one.
   [<TestMethod>]
-  member _.``[PARISC] what follows a nullifying jump keeps its guard``() =
+  member _.``[PARISC] an always nullifying instruction jumps past the next``() =
+    (* addi,tr 0, r0, r0 *)
+    let last = AST.interjmp (num 8u) InterJmpKind.Base
+    Assert.AreEqual<Stmt>(last, Array.last (lifted "b4001000"))
+
+  /// Whatever instruction is lifted next, the builder knows nothing of what
+  /// came before: the one lifted after a nullifying one is lifted as alone.
+  [<TestMethod>]
+  member _.``[PARISC] what follows a nullifying instruction lifts alone``() =
     let builder = newBuilder ()
     let parser = Parser(isa, reader) :> IInstructionParsable
-    let bytes = ByteArray.ofHexString ("e840c002" + ldoR1)
+    let bytes = ByteArray.ofHexString ("08642883" + ldoR1)
     parser.Parse(bytes, 0UL).Translate builder |> ignore
     let next = parser.Parse(System.ReadOnlySpan(bytes, 4, 4), 4UL)
-    let stmts = next.Translate builder
-    Assert.AreEqual<Stmt>((tmp 2 := !.PSW_N), stmts[1])
+    let expected = next.Translate(newBuilder ())
+    Assert.AreEqual<int>(expected.Length, (next.Translate builder).Length)
 
   /// With the "n" completer a taken forward branch nullifies its slot: the
   /// branch jumps over the slot where it is taken, and writes no nullify bit.
@@ -264,22 +269,35 @@ type LifterTests() =
     let last = AST.intercjmp (bit 3) (num 0xfffffffcu) (num 8u)
     Assert.AreEqual<Stmt>(last, Array.last stmts)
 
-  /// A transfer the instruction before it nullified does nothing, and goes
-  /// on to its slot, which then runs as any other instruction.
+  /// A slot that nullifies the next instruction nullifies the one the
+  /// transfer goes on to, so the transfer goes past it where the slot says,
+  /// as the millicode for division does to negate only a negative result.
   [<TestMethod>]
-  member _.``[PARISC] a nullified transfer goes on to its slot``() =
-    let bld = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let stmts = (parse (bvRp + ldoR1)).Translate bld
-    Assert.AreEqual<Stmt>((tmp 1 := !.PSW_N), stmts[1])
-    CollectionAssert.AreEqual([| num 4u; tmp 2 |], exits stmts)
-
-  /// A slot that nullifies the next instruction leaves the nullify bit set
-  /// for the target, where that instruction is.
-  [<TestMethod>]
-  member _.``[PARISC] a slot that nullifies passes it to the target``() =
-    (* b,l .+0x18, rp ; addi,= 0, r3, r3 *)
+  member _.``[PARISC] a slot that nullifies passes over the target``() =
+    (* b .+0x18 ; addi,= 0, r3, r3 *)
+    let stmts = lifted ("e8000020" + "b4632000")
+    CollectionAssert.AreEqual([| num 0x1cu; num 0x18u |], exits stmts)
+    (* b,l .+0x18, rp ; addi,= 0, r3, r3: the call returns where it would. *)
     let stmts = lifted (blRp + "b4632000")
-    Assert.IsLessThan(writeOf GR2 stmts, writeOf PSW_N stmts)
+    Assert.IsLessThan(writeOf GR2 stmts, writeOf GR3 stmts)
+    let last = AST.interjmp (num 0x18u) InterJmpKind.IsCall
+    Assert.AreEqual<Stmt>(last, Array.last stmts)
+
+  /// A slot that runs on one side of a branch only nullifies on that side.
+  [<TestMethod>]
+  member _.``[PARISC] a slot that runs on one side passes over there``() =
+    (* cmpb,=,n r4, r5, .+0x10 ; addi,= 0, r3, r3 *)
+    let stmts = lifted ("80a42012" + "b4632000")
+    let isJump stmt =
+      match stmt with
+      | InterCJmp _ -> true
+      | _ -> false
+    let jumps = stmts |> Array.filter isJump
+    let expected =
+      [| AST.intercjmp (bit 2) (num 0x14u) (num 0xcu)
+         AST.intercjmp (bit 2) (num 0x10u) (num 8u)
+         AST.intercjmp (bit 2) (num 0x10u) (num 8u) |]
+    CollectionAssert.AreEqual(expected, jumps)
 
   /// A branch into the gateway page asks for the kernel's service once its
   /// slot has placed the argument, and returns past the slot.
@@ -355,7 +373,8 @@ type LifterTests() =
     let slot = parser.Parse(System.ReadOnlySpan(bytes, 4, 4), 4UL)
     Assert.AreEqual<int>(0, (exits (slot.Translate builder)).Length)
 
-  /// Every transfer of control ends a block, and nothing else does.
+  /// Every transfer of control ends a block, as does an instruction that
+  /// nullifies the next one, and nothing else does.
   [<TestMethod>]
   member _.``[PARISC] transfers are terminators``() =
     let nop = parse "08000240"
@@ -365,7 +384,8 @@ type LifterTests() =
          "e840c002"
          blRp + ldoR1
          "a0a42010" + ldoR1
-         "e4008200" + ldoR1 |]
+         "e4008200" + ldoR1
+         "08642883" |]
     let others = [| "08000240"; ldoR1; ldwRp |]
     CollectionAssert.AreEqual(Array.map (fun _ -> true) transfers,
                               Array.map ends transfers)
