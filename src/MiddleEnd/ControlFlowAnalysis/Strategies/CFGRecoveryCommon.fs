@@ -1043,6 +1043,14 @@ module internal CFGRecoveryCommon =
     | NoRet -> Ok()
     | _ -> connectRet ctx cfgRec (absV, retAddr)
 
+  /// Returns the address that the given indirect call returns to: the one
+  /// that the code left in the link register itself, for a jump that calls a
+  /// function, or the one past the call.
+  let returnAddressOf (ctx: CFGBuildingContext<_, _>) (callIns: IInstruction) =
+    match ctx.JumpReturns.TryGetValue callIns.Address with
+    | true, retAddr -> retAddr
+    | false, _ -> ReturnAddress.ofCall callIns
+
   /// Connects every vertex that ends with the indirect call at the call site to
   /// the one callee of the call, whichever instruction set the call goes to.
   let connectIndirectCallEdge ctx sretAnalysis cfgRec rules callsiteAddr =
@@ -1056,7 +1064,7 @@ module internal CFGRecoveryCommon =
     let absV = getAbsVertex ctx cfgRec callSite None abs
     for caller in ctx.CallerVertices[callsiteAddr] do
       connectEdge ctx cfgRec caller absV CallEdge
-    connectIndirectRet ctx cfgRec absV (ReturnAddress.ofCall callIns)
+    connectIndirectRet ctx cfgRec absV (returnAddressOf ctx callIns)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec callIns.Address)
     |> toCFGResult
 
@@ -1221,13 +1229,22 @@ module internal CFGRecoveryCommon =
       pushAction ctx <| RetryIndEdges(insAddr, ctx.CFG.EdgeCount)
       MoveOn (* We ignore this indirect branch for now. *)
 
+  /// Calls the function that the indirect jump at insAddr goes to, as a call
+  /// that returns to retAddr, where the code left the link itself.
+  let callThroughJump (ctx: CFGBuildingContext<_, _>) insAddr retAddr =
+    ctx.JumpReturns[insAddr] <- retAddr
+    pushAction ctx <| MakeIndCall(LeafCallSite insAddr)
+    MoveOn
+
   /// Recovers the indirect branch at the given address, unless it returns to
   /// the caller through the link that the caller left, which leads nowhere
   /// within the function, or it lies past where the next function starts for
-  /// the first time. The function took in the code of the branch before that
-  /// function was known, so it builds again without the code, and leaves the
-  /// table of the branch to the function that the branch lies in: a rollback
-  /// of its first entry here would mark it as a phantom for every function.
+  /// the first time, or it calls a function, returning where the code left
+  /// the link itself. The function took in the code of a branch past where
+  /// the next function starts before that function was known, so it builds
+  /// again without the code, and leaves the table of the branch to the
+  /// function that the branch lies in: a rollback of its first entry here
+  /// would mark it as a phantom for every function.
   let recoverIndirectBranches ctx rules jmptblAnalysis queue insAddr =
     let rules: ICFGRecoveryRules<_, _> = rules
     match tryGetCallerVertex ctx (LeafCallSite insAddr) with
@@ -1237,7 +1254,11 @@ module internal CFGRecoveryCommon =
     | _ when not (isWithinFunction ctx ctx.FunctionAddress insAddr)
              && ctx.BranchesPastBoundary.Add insAddr ->
       StopAndReload
-    | _ ->
+    | Some v ->
+      match rules.TryFindReturnOfJump(ctx, v) with
+      | Some retAddr -> callThroughJump ctx insAddr retAddr
+      | None -> recoverJumpTable ctx rules jmptblAnalysis queue insAddr
+    | None ->
       recoverJumpTable ctx rules jmptblAnalysis queue insAddr
 
   /// Recovers the indirect branch at the given address again if the CFG has

@@ -208,6 +208,13 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
     * IVertex<LowUIRBasicBlock>
     -> bool
 
+  /// Finds the address that the indirect jump that ends the given vertex
+  /// returns to, if the jump calls a function.
+  abstract TryFindReturnOfJump:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> Addr option
+
   /// Checks if the code past the direct call that ends the given vertex
   /// refutes that the call returns there.
   abstract RefutesReturn:
@@ -287,6 +294,9 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
   /// Takes no indirect jump for a return, as a return instruction tells one.
   default _.ReturnsThroughLink(_, _) = false
 
+  /// Takes no indirect jump for a call, as a call instruction tells one.
+  default _.TryFindReturnOfJump(_, _) = None
+
   /// Leaves the return of a direct call to what the recovery finds of its
   /// callee.
   default _.RefutesReturn(_, _) = false
@@ -343,6 +353,8 @@ type internal CFGRecoveryRules<'FnCtx, 'GlCtx>() =
       this.TryJudgeIndirectReturn(ctx, caller)
 
     member this.ReturnsThroughLink(ctx, v) = this.ReturnsThroughLink(ctx, v)
+
+    member this.TryFindReturnOfJump(ctx, v) = this.TryFindReturnOfJump(ctx, v)
 
     member this.RefutesReturn(ctx, v) = this.RefutesReturn(ctx, v)
 

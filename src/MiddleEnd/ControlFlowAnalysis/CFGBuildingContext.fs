@@ -64,6 +64,8 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
 
   let linkReturns = HashSet<Addr>()
 
+  let jumpReturns = Dictionary<Addr, Addr>()
+
   let blocksPastBoundary = List<AddrRange>()
 
   let branchesPastBoundary = HashSet<Addr>()
@@ -198,6 +200,11 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
   /// back to the address that the caller left in its link register, which no
   /// instruction tells by itself on an architecture such as S390.
   member internal _.LinkReturns with get() = linkReturns
+
+  /// Maps each indirect jump that calls a function to the address that the
+  /// call returns to, which the code leaves in the link register itself
+  /// before it jumps, rather than the jump that its instruction would leave.
+  member internal _.JumpReturns with get() = jumpReturns
 
   /// Ranges of the blocks that the function reaches but leaves out, as they
   /// run past where the next function starts.
@@ -363,6 +370,7 @@ type CFGBuildingContext<'FnCtx, 'GlCtx>
     this.CallerVertices.Clear()
     this.GuessedTailCallees.Clear()
     this.LinkReturns.Clear()
+    this.JumpReturns.Clear()
     this.BlocksPastBoundary.Clear()
     this.UnwindingBytes <- 0
 

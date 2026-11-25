@@ -129,3 +129,81 @@ type PARISCBinaryBrewTests() =
     let fns = recoverCode code
     CollectionAssert.AreEqual([| 0x0UL; 0x18UL; 0x34UL |],
                               Seq.toArray fns.Addresses |> Array.sort)
+
+  (* GCC calls through a function pointer without $$dyncall where $$dyncall
+     may lie out of reach, linking RP by hand to the code past the call: the
+     jumps through the pointer call it, which returns there, so the code goes
+     on to call a function there. *)
+  [<TestMethod>]
+  member _.``A jump calls where code links RP by hand``() =
+    let code =
+      [ "e8400000" (* 0x00: b,l 0x08,rp *)
+        "34420028" (* ldo 0x14(rp),rp *)
+        "d2c0bbdf" (* 0x08: extrw,u,<> r22,30,1,r0 *)
+        "eac0c002" (* bv,n r0(r22) *)
+        "0edd1095" (* ldw -2(r22),r21 *)
+        "eaa0c000" (* bv r0(r21) *)
+        "0ec41093" (* ldw 2(r22),r19 *)
+        "e8400008" (* 0x1c: b,l 0x28,rp *)
+        "08000240" (* nop *)
+        "e840c002" (* bv,n r0(rp) *)
+        "e840c002" (* 0x28: bv,n r0(rp) *) ]
+    let fns = recoverCode code
+    let cfg = fns[0UL].CFG
+    let returnsOf callsite =
+      cfg.Vertices
+      |> Array.filter (fun v ->
+        v.VData.Internals.IsAbstract
+        && v.VData.Internals.PPoint.CallSite
+           |> Option.exists (fun cs -> cs.CallSiteAddress = callsite))
+      |> Array.collect (fun v -> cfg.GetSuccs v)
+      |> Array.map _.VData.Internals.PPoint.Address
+    CollectionAssert.AreEqual([| 0x1cUL |], returnsOf 0xcUL)
+    CollectionAssert.AreEqual([| 0x1cUL |], returnsOf 0x14UL)
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x28UL)
+
+  (* GCC calls millicode out of the reach of a branch the same way, linking
+     GR31, where millicode returns through. *)
+  [<TestMethod>]
+  member _.``A jump calls where code links GR31 by hand``() =
+    let code =
+      [ "ebe00000" (* 0x00: b,l 0x08,r31 *)
+        "37e10030" (* ldo 0x18(r31),r1 *)
+        "37ff0018" (* 0x08: ldo 0xc(r31),r31 *)
+        "e820c000" (* bv r0(r1) *)
+        "08000240" (* nop *)
+        "e8400010" (* 0x14: b,l 0x24,rp *)
+        "08000240" (* nop *)
+        "e840c002" (* bv,n r0(rp) *)
+        "ebe0c002" (* 0x20: bv,n r0(r31) *)
+        "e840c002" (* 0x24: bv,n r0(rp) *) ]
+    let fns = recoverCode code
+    CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x24UL)
+
+  (* GCC finds a table from the PC by way of a link as well, which then holds
+     an address of the code past the jump, but clears the privilege level that
+     a return address carries, so the jump through the table calls nothing. *)
+  [<TestMethod>]
+  member _.``A table found by way of a link is no call``() =
+    let code =
+      [ "e8400078" (* 0x00: b,l 0x44,rp *)
+        "08000240" (* nop *)
+        "93408002" (* cmpiclr,<< 1,r26,r0 *)
+        "e8000002" (* b,n 0x14 *)
+        "e840c002" (* bv,n r0(rp) *)
+        "ebe00000" (* 0x14: b,l 0x1c,r31 *)
+        "d7e01c1e" (* depwi 0,31,2,r31 *)
+        "37ff0020" (* 0x1c: ldo 0x10(r31),r31 *)
+        "0ffa209d" (* ldw,s r26(r31),ret1 *)
+        "0bbf0a1d" (* add,l r31,ret1,ret1 *)
+        "eba0c002" (* bv,n r0(ret1) *)
+        "00000008" (* 0x2c: .word 0x34 - 0x2c *)
+        "00000010" (* .word 0x3c - 0x2c *)
+        "e840c000" (* 0x34: bv r0(rp) *)
+        "341c0000" (* ldi 0,ret0 *)
+        "e840c000" (* 0x3c: bv r0(rp) *)
+        "341c0002" (* ldi 1,ret0 *)
+        "e840c002" (* 0x44: bv,n r0(rp) *) ]
+    let fns = recoverCode code
+    let entries = fns[0UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
