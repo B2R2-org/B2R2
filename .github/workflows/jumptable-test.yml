@@ -19,7 +19,7 @@ env:
   # One tag pins all three pieces -- the binaries, the ground truth and the
   # checksums -- so upgrading the dataset is a reviewable commit here instead
   # of a silent shift in what the check measures.
-  DATASET_TAG: v0.12
+  DATASET_TAG: v0.13
 
 jobs:
   score:
@@ -65,6 +65,7 @@ jobs:
         - s390x-clang
         - sparcv9-gcc
         - alpha-gcc
+        - hppa-gcc
 
     steps:
     - uses: actions/checkout@v5
