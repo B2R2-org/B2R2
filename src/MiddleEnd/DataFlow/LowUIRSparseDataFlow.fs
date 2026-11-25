@@ -1355,6 +1355,27 @@ module internal AnalysisCore = begin
     | _ ->
       value
 
+  /// Checks if the given expression adds to a register a constant whose low
+  /// sixteen bits are clear, as LDAH of Alpha does.
+  let addsHighHalf (hdl: BinHandle) src =
+    match src with
+    | BinOp(Op = BinOpType.ADD; Right = Num(Value = c)) ->
+      hdl.ISA.IsAlpha && not c.IsZero && c.ToUInt64() &&& 0xffffUL = 0UL
+    | _ ->
+      false
+
+  /// Turns the given value, which the code puts in a register other than
+  /// those that follow the stack, into what the register holds. An address
+  /// on the stack that Alpha code reaches with LDAH stays there, far: no
+  /// displacement reaches a slot of a big frame from the stack pointer, so the
+  /// code forms the high half of its address anew for each access.
+  let holdInRegister (state: State<_>) src value =
+    match value with
+    | AddressDomain.StackAddr off when addsHighHalf state.BinHandle src ->
+      AddressDomain.FarStackAddr off
+    | _ ->
+      AddressDomain.hold value
+
   let spTransfer (state: State<_>) (stmt, pp) =
     match stmt with
     | Put(Dst = dst; Src = src) ->
@@ -1374,7 +1395,7 @@ module internal AnalysisCore = begin
         | Regular _ ->
           let value = state.EvaluateAddressExpr(pp, src)
           noteStackAddrEscape state pp value
-          AddressDomain.hold value |> Some
+          holdInRegister state src value |> Some
         | Temporary _ ->
           state.EvaluateAddressExpr(pp, src) |> Some
         | _ ->

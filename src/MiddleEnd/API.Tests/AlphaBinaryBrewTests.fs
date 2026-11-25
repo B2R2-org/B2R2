@@ -215,3 +215,33 @@ type AlphaBinaryBrewTests() =
     let fns = recoverPatchedGet code
     let entries = fns[0x600UL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
+
+  (* A slot of a big frame lies past what a displacement reaches from the stack
+     pointer, so the code adds the high half of its offset with LDAH first, as
+     wc does to keep the address of its table in the frame. *)
+  [<TestMethod>]
+  member _.``A slot is read past the high half of its offset``() =
+    let code =
+      [ "120040d3" (* 0x00: bsr ra,0x4c *)
+        "30003f20" (* lda t0,0x30 *)
+        "01005e24" (* ldah t1,1(sp) *)
+        "100022b4" (* stq t0,16(t1) *)
+        "a3370042" (* cmpule a0,1,t2 *)
+        "0c0060e4" (* beq t2,0x48 *)
+        "01005e24" (* ldah t1,1(sp) *)
+        "100022a4" (* ldq t0,16(t1) *)
+        "50040142" (* s4addq a0,t0,a0 *)
+        "000070a0" (* ldl t2,0(a0) *)
+        "03042340" (* addq t0,t2,t2 *)
+        "0000e36b" (* jmp (t2) *)
+        "08000000" (* 0x30: .long 0x38 - 0x30 *)
+        "10000000" (* .long 0x40 - 0x30 *)
+        "00001f20" (* 0x38: lda v0,0 *)
+        "0080fa6b" (* ret *)
+        "01001f20" (* 0x40: lda v0,1 *)
+        "0080fa6b" (* ret *)
+        "0080fa6b" (* 0x48: ret *)
+        "0080fa6b" (* 0x4c: ret *) ]
+    let fns = recoverCode code
+    let entries = fns[0UL].JumpTables |> Array.map _.NumEntries
+    CollectionAssert.AreEqual([| 2 |], entries)
