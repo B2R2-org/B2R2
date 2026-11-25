@@ -103,3 +103,29 @@ type PARISCBinaryBrewTests() =
     let entries = fns[0x1cUL].JumpTables |> Array.map _.NumEntries
     CollectionAssert.AreEqual([| 2 |], entries)
     CollectionAssert.Contains(Seq.toArray fns.Addresses, 0x58UL)
+
+  (* A function that returns through RP returns only where it gets there, as
+     its return is a BV through RP: the one here does so only where its
+     argument is zero, so the call that passes it one never returns, and the
+     function that the code past the call would call is none. *)
+  [<TestMethod>]
+  member _.``A function returns through RP only where it gets there``() =
+    let code =
+      [ "341a0002" (* 0x00: ldi 1,r26 *)
+        "e8400018" (* b,l 0x18,rp *)
+        "08000240" (* nop *)
+        "e8400048" (* b,l 0x38,rp *)
+        "08000240" (* nop *)
+        "e840c002" (* bv,n r0(rp) *)
+        "6bc23fd9" (* 0x18: stw rp,-14(sp) *)
+        "87402010" (* cmpib,= 0,r26,0x2c *)
+        "08000240" (* nop *)
+        "e8400010" (* b,l 0x34,rp *)
+        "08000240" (* nop *)
+        "4bc23fd9" (* 0x2c: ldw -14(sp),rp *)
+        "e840c002" (* bv,n r0(rp) *)
+        "04000000" (* 0x34: iitlbp r0,(sr0,r0) *)
+        "e840c002" (* 0x38: bv,n r0(rp) *) ]
+    let fns = recoverCode code
+    CollectionAssert.AreEqual([| 0x0UL; 0x18UL; 0x34UL |],
+                              Seq.toArray fns.Addresses |> Array.sort)

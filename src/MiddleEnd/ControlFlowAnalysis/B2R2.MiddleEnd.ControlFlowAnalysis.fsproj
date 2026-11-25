@@ -86,6 +86,7 @@
     <Compile Include="Strategies\S390CFGRecoveryRules.fs" />
     <Compile Include="Strategies\SPARCCFGRecoveryRules.fs" />
     <Compile Include="Strategies\AlphaCFGRecoveryRules.fs" />
+    <Compile Include="Strategies\PARISCCFGRecoveryRules.fs" />
     <Compile Include="Strategies\CFGRecoveryOptions.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <Compile Include="Strategies\EVMCFGHelper.fs" />

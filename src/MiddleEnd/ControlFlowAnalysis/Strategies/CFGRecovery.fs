@@ -193,6 +193,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
 
   let alphaRules = AlphaCFGRecoveryRules<'FnCtx, 'GlCtx>()
 
+  let pariscRules = PARISCCFGRecoveryRules<'FnCtx, 'GlCtx>()
+
   /// Returns the rules for the architecture of the binary that the given
   /// context builds a function of. The binary tells, rather than the ISA that
   /// the strategy may be made with, as a strategy made without one serves a
@@ -208,6 +210,7 @@ type CFGRecovery<'FnCtx, 'GlCtx
     | S390 -> s390Rules :> ICFGRecoveryRules<_, _>
     | SPARC -> sparcRules :> ICFGRecoveryRules<_, _>
     | Alpha -> alphaRules :> ICFGRecoveryRules<_, _>
+    | PARISC -> pariscRules :> ICFGRecoveryRules<_, _>
     | _ -> defaultRules :> ICFGRecoveryRules<_, _>
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
