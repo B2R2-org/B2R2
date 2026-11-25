@@ -123,11 +123,20 @@ type LifterTests() =
     Assert.AreEqual<uint32>(4u, ins.Length)
     Assert.AreEqual<uint32>(8u, ins.Extent)
     let stmts = lifted (bvRp + ldwRp)
-    let target = (!.GR2 .+ (!.GR0 << num 3u)) .& num 0xfffffffcu
+    let target = !.GR2 .& num 0xfffffffcu
     Assert.AreEqual<Stmt>((tmp 1 := target), stmts[0])
     Assert.IsLessThan(stmts.Length - 1, writeOf GR2 stmts)
     let last = AST.interjmp (tmp 1) InterJmpKind.IsRet
     Assert.AreEqual<Stmt>(last, Array.last stmts)
+
+  /// BV goes eight bytes further for each step of its index, as through a
+  /// table of two-instruction entries, and an index of GR0 adds nothing.
+  [<TestMethod>]
+  member _.``[PARISC] BV scales its index by eight``() =
+    (* bv r3(rp) ; nop *)
+    let stmts = lifted ("e843c000" + "08000240")
+    let target = (!.GR2 .+ (!.GR3 << num 3u)) .& num 0xfffffffcu
+    Assert.AreEqual<Stmt>((tmp 1 := target), stmts[0])
 
   /// The slot reads the link the branch leaves, but RP takes it only after
   /// the slot has run.

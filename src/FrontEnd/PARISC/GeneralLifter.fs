@@ -1299,7 +1299,8 @@ let blr (ins: Instruction) bld =
 
 /// Branch vectored: the transfer through a register that both a computed jump
 /// and a procedure return are made of. A return goes through GR2, the register
-/// a call leaves its return address in, so that is what marks one.
+/// a call leaves its return address in, so that is what marks one. An index of
+/// GR0 adds nothing, so the target is then the base alone.
 let bv (ins: Instruction) bld =
   liftDelayed ins bld (fun () ->
     let opr = getOneOpr ins
@@ -1310,8 +1311,10 @@ let bv (ins: Instruction) bld =
       | OpMem(b, _, off, _) ->
         let scaled =
           match off with
-          | Some(Reg x) -> regVar bld b .+ (regVar bld x << numI32 3 rt)
-          | _ -> regVar bld b
+          | Some(Reg x) when x <> Register.GR0 ->
+            regVar bld b .+ (regVar bld x << numI32 3 rt)
+          | _ ->
+            regVar bld b
         let kind =
           if b = Register.GR2 then InterJmpKind.IsRet else InterJmpKind.Base
         struct (scaled, kind)
