@@ -625,19 +625,22 @@ let isSubnormal rt e =
   | _ ->
     raise InvalidRegTypeException
 
-/// <summary>
-/// The direction the instruction's own rm field names, as the mode expression
-/// a <c>RoundCtrl</c> takes, or None where the field says dynamic.
-///
-/// Dynamic -- the encoding 111, which is what a compiler emits for very nearly
-/// every floating-point instruction in a real program -- names no direction of
-/// its own: what is in force outside every RoundCtrl is frm, which is exactly
-/// what dynamic asks for, so there is nothing to wrap.
-/// </summary>
-let staticRounding rm =
+/// An explicit instruction mode, or the current frm for a dynamic mode.
+/// In emulation a dynamic operation inherits the evaluator's rounding mode.
+let staticRounding bld rm =
   match rm with
   | OpRoundMode RoundMode.DYN ->
+#if EMULATION
     None
+#else
+    let frm = AST.extract (regVar bld Register.FRM) 3<rt> 0
+    FloatingPointIR.rounding frm
+      [ 1, RoundingMode.TowardZero
+        2, RoundingMode.TowardNegative
+        3, RoundingMode.TowardPositive
+        4, RoundingMode.ToNearestAway ]
+    |> Some
+#endif
   | OpRoundMode RoundMode.RNE ->
     Some(AST.roundingMode RoundingMode.ToNearestEven)
   | OpRoundMode RoundMode.RTZ ->
@@ -722,6 +725,7 @@ module FpExc =
   let [<Literal>] ToUInt = 7UL
   let [<Literal>] Fma = 8UL
 
+#if EMULATION
 /// <summary>
 /// The accrued exception bits an operation raises, as a named call.
 ///
@@ -759,7 +763,7 @@ let fpFmaExceptions sz negProduct negAddend x y z =
       numU64 (prodBit ||| addBit) 8<rt> ]
   AST.app (if sz = 32<rt> then "FEXC32" else "FEXC64") args 32<rt>
 
-let accrueFmaFlags bld mode sz negProduct negAddend x y z =
+let private accrueFmaFlags bld mode sz negProduct negAddend x y z =
   let fflags = regVar bld Register.FFLAGS
   let exc = fpFmaExceptions sz negProduct negAddend x y z
   append bld { fflags := fflags .| underRounding mode exc }
@@ -790,11 +794,59 @@ let accrueFlags bld mode sz op a b =
 /// The direction is the caller's to put on, with underRounding: the call has
 /// no operand for one, and takes what is in force where it is evaluated.
 /// </summary>
-let fpFused sz negProduct negAddend x y z =
+let private fpFusedCall sz negProduct negAddend x y z =
   let prodBit = if negProduct then 1UL else 0UL
   let addBit = if negAddend then 2UL else 0UL
   let args = [ x; y; z; numU64 (prodBit ||| addBit) 8<rt> ]
   AST.app (if sz = 32<rt> then "FMA32" else "FMA64") args sz
+#else
+let private fpExceptions bld mode op a b =
+  match op with
+  | FpExc.MinMax ->
+    let sz = Expr.typeOf a
+    let signal = FloatingPointIR.isSignalling sz
+    AST.zext 32<rt> (signal a .| signal b) << numI32 4 32<rt>
+  | FpExc.ToSInt | FpExc.ToUInt ->
+    match b with
+    | Num(Value = width) ->
+      let width = int (width.ToUInt64())
+      FloatingPointIR.integerExceptions mode (op = FpExc.ToUInt) width a
+    | _ ->
+      raise InvalidOperandException
+  | _ ->
+    let kind =
+      match op with
+      | FpExc.Add -> FloatingPointIR.Arithmetic.Add
+      | FpExc.Sub -> FloatingPointIR.Arithmetic.Sub
+      | FpExc.Mul -> FloatingPointIR.Arithmetic.Mul
+      | FpExc.Div -> FloatingPointIR.Arithmetic.Div
+      | FpExc.Sqrt -> FloatingPointIR.Arithmetic.Sqrt
+      | _ -> raise InvalidOperandException
+    (FloatingPointIR.arithmeticExceptions bld mode kind (a, b)).AfterRounding
+
+let private fpMode mode =
+  defaultArg mode (AST.roundingMode RoundingMode.ToNearestEven)
+
+/// Accrues the flags of an operation in fflags.
+let accrueFlags bld mode _ op a b =
+  let fflags = regVar bld Register.FFLAGS
+  let raised = fpExceptions bld (fpMode mode) op a b
+  append bld { fflags := fflags .| raised }
+#endif
+
+/// Computes one fused result and accumulates the exceptions it raised.
+let fpFused bld mode sz (negProduct, negAddend) (x, y, z) =
+#if EMULATION
+  let res = underRounding mode (fpFusedCall sz negProduct negAddend x y z)
+  accrueFmaFlags bld mode sz negProduct negAddend x y z
+  res
+#else
+  let fflags = regVar bld Register.FFLAGS
+  let mode = fpMode mode
+  let fused = FloatingPointIR.fused bld mode (negProduct, negAddend) (x, y, z)
+  append bld { fflags := fflags .| fused.Raised.AfterRounding }
+  fused.Value
+#endif
 
 /// The ten-bit mask FCLASS writes, for a value of <c>oprSz</c> bits placed in
 /// a destination of <c>rt</c> bits.

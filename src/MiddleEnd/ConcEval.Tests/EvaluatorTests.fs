@@ -105,6 +105,22 @@ type EvaluatorTests() =
     evalInstrWith safe st stmts
     fun (name: string) -> st.GetReg(rf.GetRegisterID name).ToUInt64()
 
+#if !EMULATION
+  let evalFP safe (arch: string) hex inputs =
+    let bytes = ByteArray.ofHexString hex
+    let hdl = BinHandle.LoadRawImage(bytes, ISA arch, OS.Linux)
+    let stmts = hdl.NewLiftingUnit().LiftInstruction(0UL)
+    let rf = hdl.RegisterFactory
+    let st = ConcState()
+    for name, value in inputs do
+      let id = rf.GetRegisterID(name: string)
+      let reg =
+        if arch = "riscv64" then rf.GetRegVar id else rf.GetRegVar name
+      st.SetReg(id, BitVector(u64 = value, bitLen = Expr.typeOf reg))
+    evalInstrWith safe st stmts
+    fun (name: string) -> st.GetReg(rf.GetRegisterID name).ToUInt64()
+#endif
+
   [<TestMethod>]
   member _.``Integral rounding preserves floating point values``() =
     for t in [ 32<rt>; 64<rt> ] do
@@ -154,6 +170,83 @@ type EvaluatorTests() =
     Assert.AreEqual<uint64>(expected, read dst)
 
 #if !EMULATION
+  [<DataTestMethod>]
+  [<DataRow("armv7", "810aa0ee")>]
+  [<DataRow("mips64r6be", "46041018")>]
+  [<DataRow("riscv64", "4380201a")>]
+  [<DataRow("ppc64", "fc22193a")>]
+  [<DataRow("amd64", "c4625198e3")>]
+  [<DataRow("s390x", "b30e1023")>]
+  member _.``Fused multiply-add rounds once``(arch, hex) =
+    let x, z = 0x3f800800UL, 0xbf801000UL
+    let xd, zd = 0x3ff0000002000000UL, 0xbff0000004000000UL
+    let s, d = 0x33800000UL, 0x3c90000000000000UL
+    let inputs, dest, value =
+      match arch with
+      | "armv7" ->
+        let regs =
+          [ "Q0A", (x <<< 32) ||| z; "Q0B", x; "FPSCR", 0UL; "FPSR", 0UL ]
+        regs, "Q0A", (x <<< 32) ||| s
+      | "mips64r6be" ->
+        [ "F0", z; "F2", x; "F4", x; "FCSR", 0UL; "FSR", 0UL ], "F0", s
+      | "riscv64" ->
+        [ "F1", xd; "F2", xd; "F3", zd; "FFLAGS", 0UL ], "F0", d
+      | "ppc64" ->
+        [ "F2", xd; "F4", xd; "F3", zd; "F1", 0UL; "FPSCR", 0UL ], "F1", d
+      | "amd64" ->
+        let regs =
+          [ "ZMM12A", x
+            "ZMM12B", 0UL
+            "ZMM5A", z
+            "ZMM5B", 0UL
+            "ZMM3A", x
+            "ZMM3B", 0UL
+            "MXCSR", 0UL ]
+        regs, "ZMM12A", s
+      | "s390x" ->
+        let regs =
+          [ "FPR1", z <<< 32; "FPR2", x <<< 32; "FPR3", x <<< 32; "FPC", 0UL ]
+        regs, "FPR1", s <<< 32
+      | _ ->
+        failwith $"Unknown test architecture: {arch}"
+    for safe in [ false; true ] do
+      let read = evalFP safe arch hex inputs
+      Assert.AreEqual<uint64>(value, read dest)
+
+  [<TestMethod>]
+  member _.``RISC-V FMSUB rounds a subnormal tie away``() =
+    let inputs =
+      [ "F1", 0x3fefffffffffffffUL
+        "F2", 0x8010000000000000UL
+        "F3", 0x800fffffffffffffUL
+        "FRM", 4UL
+        "FFLAGS", 0UL ]
+    let read = evalFP true "riscv64" "47f0201a" inputs
+    Assert.AreEqual<uint64>(0x8000000000000001UL, read "F0")
+    Assert.AreEqual<uint64>(3UL, read "FFLAGS")
+
+  [<TestMethod>]
+  member _.``RISC-V floating exceptions accrue in fflags``() =
+    let inputs =
+      [ "F1", 0x3ff0000000000000UL
+        "F2", 0x3ca0000000000000UL
+        "FRM", 3UL
+        "FFLAGS", 8UL ]
+    let read = evalFP true "riscv64" "53f02002" inputs
+    Assert.AreEqual<uint64>(0x3ff0000000000001UL, read "F0")
+    Assert.AreEqual<uint64>(9UL, read "FFLAGS")
+
+  [<TestMethod>]
+  member _.``MIPS FP rounding agrees with FCSR exception flags``() =
+    let inputs =
+      [ "F2", 0x3ff0000000000000UL
+        "F4", 0x3ca0000000000000UL
+        "FCSR", 2UL
+        "FSR", 0UL ]
+    let read = evalFP true "mips64r6be" "46241000" inputs
+    Assert.AreEqual<uint64>(0x3ff0000000000001UL, read "F0")
+    Assert.AreEqual<uint64>(0x1004UL, read "FSR")
+
   (* The static lifting of AArch64's floating-point arithmetic is IR every
      evaluator knows: a fused multiply-add is worked out on the integer
      significands, and what an operation raised by rounding it again in

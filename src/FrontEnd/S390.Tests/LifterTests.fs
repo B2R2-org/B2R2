@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.S390
+open B2R2.MiddleEnd.ConcEval
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 /// Pins the lifting the CFG recovery leans on: it reads the jump that ends a
@@ -52,6 +53,24 @@ type LifterTests() =
     |> Array.choose (function
       | InterJmp(Kind = k) -> Some k
       | _ -> None)
+
+#if !EMULATION
+  [<TestMethod>]
+  member _.``[S390] MADBR prepares the fused result for shorter precision``() =
+    let st = ConcState()
+    let set reg (value: uint64) size =
+      st.SetReg(Register.toRegID reg, BitVector(value, size))
+    set Register.FPC 7UL 32<rt>
+    set Register.FPR1 0x3ff0000000000000UL 64<rt>
+    set Register.FPR2 0x3c90000000000000UL 64<rt>
+    set Register.FPR3 0x3ff0000000000000UL 64<rt>
+    match SafeEvaluator.evalInstr st (lift 0UL "b31e1023") with
+    | Error err ->
+      Assert.Fail $"MADBR evaluation failed: {err}"
+    | Ok() ->
+      let result = st.GetReg(Register.toRegID Register.FPR1).ToUInt64()
+      Assert.AreEqual<uint64>(0x3ff0000000000001UL, result)
+#endif
 
   [<TestMethod>]
   member _.``[S390] A Jump Is The Last Statement Of Its Instruction Test``() =

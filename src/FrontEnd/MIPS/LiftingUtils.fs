@@ -664,6 +664,7 @@ let sideEffects (ins: Instruction) bld name =
 /// the emulator to report rather than silently mis-executed.
 let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
 
+#if EMULATION
 /// <summary>
 /// A fused multiply-add: <c>x * y + z</c> with a SINGLE rounding.
 ///
@@ -692,6 +693,18 @@ let fma sz negProduct negAddend x y z =
     | 64<rt> -> "FMA64"
     | _ -> raise InvalidRegTypeException
   AST.app name args sz
+#else
+let private fpMode bld =
+  FloatingPointIR.ieeeRounding (AST.extract (regVar bld R.FCSR) 2<rt> 0)
+#endif
+
+/// Uses the current FCSR rounding field for floating-point arithmetic.
+let fpInForce bld value =
+#if EMULATION
+  value
+#else
+  AST.roundCtrl (fpMode bld) value
+#endif
 
 /// <summary>
 /// The arithmetic an IEEE exception can be raised by.
@@ -813,6 +826,7 @@ let fpSettleConvertedNaN bld oprSz result =
     result := AST.ite replaced (fpLegacyNaN oprSz) result
   }
 
+#if EMULATION
 /// The operation codes of the exception query, which are the evaluator's
 /// contract.
 let private fpExcCode = function
@@ -839,6 +853,7 @@ let private fpExcName oprSz = if oprSz = 32<rt> then "FEXC32" else "FEXC64"
 /// Asks the evaluator what an operation raised.
 let private fpQuery oprSz code args =
   AST.app (fpExcName oprSz) (numU64 code 8<rt> :: args) 32<rt>
+#endif
 
 /// The five exceptions as the bits FCSR keeps them in -- Invalid highest and
 /// Inexact lowest -- from one-bit conditions.
@@ -915,15 +930,27 @@ let private fpFlushOut bld oprSz tinyQuery result raised =
 /// </summary>
 let fpRaised bld oprSz op src1 src2 result =
   let raised = tmpVar bld 32<rt>
-  let code = fpExcCode op
   let nanIn = fpIsNaN oprSz src1 .| fpIsNaN oprSz src2
   let invalid = fpEitherSignalling bld oprSz src1 src2 .| AST.not nanIn
   let made = fpBits invalid fpNone fpNone fpNone fpNone
-  append bld {
-    raised :=
-      AST.ite (fpIsNaN oprSz result) made (fpQuery oprSz code [ src1; src2 ])
-  }
+#if EMULATION
+  let code = fpExcCode op
+  let flags = fpQuery oprSz code [ src1; src2 ]
   let tiny = fpQuery oprSz (code ||| fpExcBeforeRounding) [ src1; src2 ]
+#else
+  let kind =
+    match op with
+    | FPAdd -> FloatingPointIR.Arithmetic.Add
+    | FPSub -> FloatingPointIR.Arithmetic.Sub
+    | FPMul -> FloatingPointIR.Arithmetic.Mul
+    | FPDiv -> FloatingPointIR.Arithmetic.Div
+    | FPSqrt -> FloatingPointIR.Arithmetic.Sqrt
+  let mode = fpMode bld
+  let raisedBy = FloatingPointIR.arithmeticExceptions bld mode kind (src1, src2)
+  let flags = raisedBy.AfterRounding
+  let tiny = raisedBy.BeforeRounding
+#endif
+  append bld { raised := AST.ite (fpIsNaN oprSz result) made flags }
   fpFlushOut bld oprSz tiny result raised
 
 /// <summary>
@@ -1066,6 +1093,7 @@ let fpCompareInvalid bld oprSz signalsOnQuiet a b =
 let fpRoundChanged bld oprSz src result =
   AST.not (fpIsNaN oprSz src .| fpIsInfinite oprSz src) .& (result != src)
 
+#if EMULATION
 /// <summary>
 /// What a FUSED multiply-add raised, x times y plus z with the product
 /// negated first where asked, with FCSR.FS applied to its result.
@@ -1085,6 +1113,18 @@ let fpExceptionsFused bld oprSz negProduct x y z result =
     fpQuery oprSz fpExcFused [ x; y; z; numU64 flags 8<rt> ]
   let tiny = ask (flag ||| fpExcBeforeRounding)
   fpRecord bld (fpFlushOut bld oprSz tiny result (ask flag))
+#else
+/// Computes and records MADDF or MSUBF before overwriting its addend.
+let fpFused bld sz negProduct (x, y, z) result =
+  let mode = fpMode bld
+  let fused = FloatingPointIR.fused bld mode (negProduct, false) (x, y, z)
+  append bld { result := fused.Value }
+  fpSettleNaN bld sz [ z; x; y ] result
+  let before = fused.Raised.BeforeRounding
+  let after = fused.Raised.AfterRounding
+  let flags = fpFlushOut bld sz before result after
+  fpRecord bld flags
+#endif
 
 /// What an operation raises where rounding is all it can lose: Invalid for a
 /// signalling operand and Inexact for a result that was rounded. Nothing it

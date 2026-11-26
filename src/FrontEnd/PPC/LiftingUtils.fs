@@ -508,3 +508,27 @@ let jumpIf bld cond target kind =
     AST.interjmp target kind
     AST.lmark lblNotTaken
   }
+
+#if !EMULATION
+/// FPSCR.RN mapped to the rounding operand of LowUIR.
+let fpMode bld =
+  FloatingPointIR.ieeeRounding (AST.extract (regVar bld Register.FPSCR) 2<rt> 0)
+#endif
+
+/// The fused multiply-add used by the scalar and vector VSX operations.
+let fpFusedValue bld mode subtract (x, y, z) =
+#if EMULATION
+  let sz = Expr.typeOf x
+  let name = if sz = 32<rt> then "FMA32" else "FMA64"
+  let flags = numU64 (if subtract then 2UL else 0UL) 8<rt>
+  let value = AST.app name [ x; y; z; flags ] sz
+  match mode with
+  | Some mode -> AST.roundCtrl mode value
+  | None -> value
+#else
+  let mode =
+    match mode with
+    | Some mode -> mode
+    | None -> fpMode bld
+  (FloatingPointIR.fused bld mode (false, subtract) (x, y, z)).Value
+#endif

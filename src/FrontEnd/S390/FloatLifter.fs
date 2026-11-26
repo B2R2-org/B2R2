@@ -323,9 +323,8 @@ let convertFormat ins bld fromRt toRt =
     fpPart toRt d := v
   }
 
-/// MULTIPLY AND ADD/SUBTRACT: the product is exact and the sum is rounded
-/// once, so it goes out as the FMA call rather than a multiply then an add.
-/// Bit 1 of the flag negates the addend, which is the first operand here.
+/// MULTIPLY AND ADD/SUBTRACT: the product is exact and the sum rounds once,
+/// with the first operand negated in the subtract form.
 let mulAdd ins bld rt subtract =
   lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
@@ -334,9 +333,25 @@ let mulAdd ins bld rt subtract =
     let b = tmpVar bld rt
     a := fpSrc bld rt o2
     b := fpPart rt (oprRegVar bld o3)
+#if EMULATION
     let name = if rt = 64<rt> then "FMA64" else "FMA32"
     let flags = numU64 (if subtract then 2UL else 0UL) 8<rt>
     fpPart rt d := AST.app name [ a; b; fpPart rt d; flags ] rt
+#else
+    let field = AST.extract (regVar bld Register.FPC) 3<rt> 0
+    let mode =
+      FloatingPointIR.rounding field
+        [ 1, RoundingMode.TowardZero
+          2, RoundingMode.TowardPositive
+          3, RoundingMode.TowardNegative
+          7, RoundingMode.TowardZero ]
+    let addend = fpPart rt d
+    let value = FloatingPointIR.fused bld mode (false, subtract) (a, b, addend)
+    (* RPSP truncates the magnitude and sets its low bit if inexact. *)
+    let odd = field == numI32 7 3<rt>
+    let inexact = AST.xtlo 1<rt> value.Raised.AfterRounding
+    fpPart rt d := value.Value .| AST.zext rt (odd .& inexact)
+#endif
   }
 
 /// MULTIPLY, short to long: two short values make a long product, so nothing of

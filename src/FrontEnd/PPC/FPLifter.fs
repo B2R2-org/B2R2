@@ -456,13 +456,14 @@ let private fprfOf single r =
   .| positioned zero 1
   .| positioned (nan .| IEEE754Double.isInfinity r) 0
 
+#if EMULATION
 /// The exception query: the IEEE exceptions an operation raised, in the
 /// order the evaluator answers them (Invalid 16, Divide by Zero 8, Overflow
 /// 4, Underflow 2, Inexact 1), tininess decided before rounding (0x40) as
 /// the Power ISA decides it, in the direction FPSCR[RN] names. Operation
 /// codes: add 0, subtract 1, multiply 2, divide 3, square root 4 (whose one
 /// operand goes twice).
-let private query code a b =
+let private query _ code a b =
   let code = numU64 (code ||| 0x40UL) 8<rt>
   AST.app "FEXC64" [ code; a; b ] 32<rt>
 
@@ -472,16 +473,38 @@ let private fusedQuery fra frc frb (flags: uint64) =
   let code = numU64 8UL 8<rt>
   let flags = numU64 (flags ||| 0x40UL) 8<rt>
   AST.app "FEXC64" [ code; fra; frc; frb; flags ] 32<rt>
+#else
+let private query bld code a b =
+  let kind =
+    match code with
+    | 0UL -> FloatingPointIR.Arithmetic.Add
+    | 1UL -> FloatingPointIR.Arithmetic.Sub
+    | 2UL -> FloatingPointIR.Arithmetic.Mul
+    | 3UL -> FloatingPointIR.Arithmetic.Div
+    | 4UL -> FloatingPointIR.Arithmetic.Sqrt
+    | _ -> raise InvalidOperandException
+  (FloatingPointIR.arithmeticExceptions bld (fpMode bld) kind (a, b))
+    .BeforeRounding
+#endif
+
+let private inForce bld value =
+#if EMULATION
+  value
+#else
+  AST.roundCtrl (fpMode bld) value
+#endif
+
+let private withTruncation bld value raised =
+  let toZero = AST.roundingMode RoundingMode.TowardZero
+  struct (inForce bld value, AST.roundCtrl toZero value, raised)
 
 /// What an arithmetic instruction computes, for fpArith.
 type private Arith =
   { /// The instruction's operands, in the order the manual takes a NaN from
     /// them.
     Operands: Expr list
-    /// The operation, rounded in whichever direction encloses it.
-    Compute: Expr
-    /// The exception query of the operation.
-    Query: Expr
+    /// Emits the rounded result, its truncation and raised flags.
+    Compute: unit -> struct (Expr * Expr * Expr)
     /// The invalid-operation causes besides VXSNAN, as (FPSCR bit,
     /// condition) pairs, given whether the query raised Invalid and whether
     /// an operand is a signalling NaN.
@@ -501,13 +524,12 @@ type private Rounding =
 /// A double-precision result in the direction FPSCR[RN] names, with what
 /// the query says its rounding raised; FR asks whether that moved it away
 /// from zero, which is where it differs from the result truncated.
-let private roundDouble bld (a: Arith) raised =
+let private roundDouble bld (value, truncated) raised =
   let struct (r, rz) = tmpVars2 bld 64<rt>
-  let toZero = AST.roundingMode RoundingMode.TowardZero
   let inexact = AST.extract raised 1<rt> 0
   append bld {
-    r := a.Compute
-    rz := AST.ite inexact (AST.roundCtrl toZero a.Compute) r
+    r := value
+    rz := AST.ite inexact truncated r
   }
   { Result = r
     Overflow = AST.extract raised 1<rt> 2
@@ -527,17 +549,16 @@ let private roundDouble bld (a: Arith) raised =
 /// The manual leaves the result undefined for an operand a single cannot
 /// hold; rounding the exact result once is what QEMU and the processors do.
 /// </summary>
-let private roundSingle bld (a: Arith) raised =
+let private roundSingle bld (value, truncated) raised =
   let struct (t, r) = tmpVars2 bld 64<rt>
   let inexact = tmpVar bld 1<rt>
-  let toZero = AST.roundingMode RoundingMode.TowardZero
   let sticky = AST.zext 64<rt> (AST.extract raised 1<rt> 0)
   let finite = AST.ite (IEEE754Double.isNaN t) (AST.num0 64<rt>) t
-  let single = AST.cast CastKind.FloatCast 32<rt> finite
+  let single = inForce bld (AST.cast CastKind.FloatCast 32<rt> finite)
   let atMax = absOf r == FPConst.maxSingle
   append bld {
-    t := AST.roundCtrl toZero a.Compute .| sticky
-    t := AST.ite (absOf t == AST.num0 64<rt>) a.Compute t
+    t := truncated .| sticky
+    t := AST.ite (absOf t == AST.num0 64<rt>) value t
     r := AST.cast CastKind.FloatCast 64<rt> single
     inexact := r != t
   }
@@ -646,9 +667,10 @@ let private fpArith ins updateCond isDouble (a: Arith) bld =
   lift bld ins {
     let frd = destination ins bld
     let raised = tmpVar bld 32<rt>
-    raised := a.Query
-    let rnd =
-      if isDouble then roundDouble bld a raised else roundSingle bld a raised
+    let struct (value, truncated, flags) = a.Compute()
+    raised := flags
+    let round = if isDouble then roundDouble else roundSingle
+    let rnd = round bld (value, truncated) raised
     let o = settle bld (not isDouble) a raised rnd
     frd := AST.ite o.Suppressed frd o.Result
     recordStatus bld o (fprfOf (not isDouble) o.Result)
@@ -674,8 +696,7 @@ let private negativeRoot nv snan = [ 9, nv .& AST.not snan ]
 let private binary ins updateCond isDouble op code causes bld =
   let struct (_, fra, frb) = transThreeOprs ins bld
   { Operands = [ fra; frb ]
-    Compute = op fra frb
-    Query = query code fra frb
+    Compute = fun () -> withTruncation bld (op fra frb) (query bld code fra frb)
     Invalid = causes fra
     Negate = false }
   |> fun a -> fpArith ins updateCond isDouble a bld
@@ -696,8 +717,8 @@ let fdiv ins updateCond isDouble bld =
 let fsqrt ins updateCond isDouble bld =
   let struct (_, frb) = transTwoOprs ins bld
   { Operands = [ frb ]
-    Compute = AST.fsqrt frb
-    Query = query 4UL frb frb
+    Compute = fun () ->
+      withTruncation bld (AST.fsqrt frb) (query bld 4UL frb frb)
     Invalid = negativeRoot
     Negate = false }
   |> fun a -> fpArith ins updateCond isDouble a bld
@@ -712,15 +733,22 @@ let fsqrt ins updateCond isDouble bld =
 /// </summary>
 let private fusedMulAdd ins updateCond isDouble subtract negate bld =
   let struct (_, fra, frc, frb) = transFourOprs ins bld
-  let flags = if subtract then 2UL else 0UL
   let zeroTimesInf =
     (isZero fra .& IEEE754Double.isInfinity frc)
     .| (IEEE754Double.isInfinity fra .& isZero frc)
   let causes nv snan =
     [ 20, zeroTimesInf; 23, nv .& AST.not snan .& AST.not zeroTimesInf ]
   { Operands = [ fra; frb; frc ]
-    Compute = AST.app "FMA64" [ fra; frc; frb; numU64 flags 8<rt> ] 64<rt>
-    Query = fusedQuery fra frc frb flags
+    Compute = fun () ->
+#if EMULATION
+      let flags = if subtract then 2UL else 0UL
+      let value = fpFusedValue bld None subtract (fra, frc, frb)
+      withTruncation bld value (fusedQuery fra frc frb flags)
+#else
+      let fused =
+        FloatingPointIR.fused bld (fpMode bld) (false, subtract) (fra, frc, frb)
+      struct (fused.Value, fused.Truncated, fused.Raised.BeforeRounding)
+#endif
     Invalid = causes
     Negate = negate }
   |> fun a -> fpArith ins updateCond isDouble a bld
@@ -747,8 +775,9 @@ let fnmsub ins updateCond isDouble bld =
 let private reciprocal ins updateCond isDouble bld =
   let struct (_, frb) = transTwoOprs ins bld
   { Operands = [ frb ]
-    Compute = AST.fdiv FPConst.one frb
-    Query = query 3UL FPConst.one frb
+    Compute = fun () ->
+      let flags = query bld 3UL FPConst.one frb
+      withTruncation bld (AST.fdiv FPConst.one frb) flags
     Invalid = fun _ _ -> []
     Negate = false }
   |> fun a -> fpArith ins updateCond isDouble a bld
@@ -765,13 +794,14 @@ let fres ins updateCond bld = reciprocal ins updateCond false bld
 /// </summary>
 let private reciprocalRoot ins updateCond isDouble bld =
   let struct (_, frb) = transTwoOprs ins bld
-  let root = AST.fsqrt frb
-  let invalid = query 4UL frb frb .& numU32 0x10u 32<rt>
-  let divZero = AST.zext 32<rt> (isZero frb) << numI32 3 32<rt>
-  let rounding = query 3UL FPConst.one root .& numU32 0x7u 32<rt>
   { Operands = [ frb ]
-    Compute = AST.fdiv FPConst.one root
-    Query = invalid .| divZero .| rounding
+    Compute = fun () ->
+      let root = inForce bld (AST.fsqrt frb)
+      let invalid = query bld 4UL frb frb .& numU32 0x10u 32<rt>
+      let divZero = AST.zext 32<rt> (isZero frb) << numI32 3 32<rt>
+      let rounding = query bld 3UL FPConst.one root .& numU32 0x7u 32<rt>
+      let flags = invalid .| divZero .| rounding
+      withTruncation bld (AST.fdiv FPConst.one root) flags
     Invalid = negativeRoot
     Negate = false }
   |> fun a -> fpArith ins updateCond isDouble a bld
@@ -785,8 +815,7 @@ let frsqrtes ins updateCond bld = reciprocalRoot ins updateCond false bld
 let frsp ins updateCond bld =
   let struct (_, frb) = transTwoOprs ins bld
   { Operands = [ frb ]
-    Compute = frb
-    Query = AST.num0 32<rt>
+    Compute = fun () -> struct (frb, frb, AST.num0 32<rt>)
     Invalid = fun _ _ -> []
     Negate = false }
   |> fun a -> fpArith ins updateCond false a bld

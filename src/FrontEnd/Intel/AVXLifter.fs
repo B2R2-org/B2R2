@@ -2583,18 +2583,17 @@ type private FmaAddend =
   | SubtractsInEvenLanes
   | AddsInEvenLanes
 
-/// The fused multiply-add is one host operation, not a multiply and an add:
-/// it rounds once, and a lifter that spells it out as the two rounds twice and
-/// lands a bit away often enough to matter. So it goes out as a named call,
-/// the only three-operand one here.
-/// The negations ride along as flags rather than being applied here: a
-/// negation is a flip of a sign bit, and flipping a NaN operand's sign before
-/// the operation would change which NaN the answer carries.
-let private fmaCall sz negProduct negAddend x y z =
+/// A fused multiply-add rounds once, with the signs the opcode names.
+let private fmaValue bld sz negProduct negAddend x y z =
+#if EMULATION
   let prodBit = if negProduct then 1UL else 0UL
   let addBit = if negAddend then 2UL else 0UL
   let args = [ x; y; z; numU64 (prodBit ||| addBit) 8<rt> ]
   AST.app (if sz = 32<rt> then "FMA32" else "FMA64") args sz
+#else
+  let neg = negProduct, negAddend
+  (FloatingPointIR.fused bld (mxcsrRounding bld) neg (x, y, z)).Value
+#endif
 
 let private fmaPick order d s2 s3 =
   match order with
@@ -2603,7 +2602,7 @@ let private fmaPick order d s2 s3 =
   | Fma231 -> s2, s3, d
 
 /// One lane's fused multiply-add, with the signs the variant asks for.
-let private fmaLane sz order negProduct addend lane d s2 s3 =
+let private fmaLane bld sz order negProduct addend lane d s2 s3 =
   let x, y, z = fmaPick order d s2 s3
   let subtracts =
     match addend with
@@ -2611,7 +2610,7 @@ let private fmaLane sz order negProduct addend lane d s2 s3 =
     | Minus -> true
     | SubtractsInEvenLanes -> lane % 2 = 0
     | AddsInEvenLanes -> lane % 2 = 1
-  fmaCall sz negProduct subtracts x y z
+  fmaValue bld sz negProduct subtracts x y z
 
 let private fmaPacked (ins: Instruction) bld sz order negProduct addend =
   lift bld ins {
@@ -2623,21 +2622,34 @@ let private fmaPacked (ins: Instruction) bld sz order negProduct addend =
     let b = transOprToArr ins bld true sz packNum oprSize src3
     let result =
       Array.init d.Length (fun i ->
-        fmaLane sz order negProduct addend i d[i] a[i] b[i])
+        fmaLane bld sz order negProduct addend i d[i] a[i] b[i])
     assignEVEXPacked ins bld sz oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
 
-/// The value a masked scalar form writes: an EVEX encoding's one mask bit
-/// decides whether the low element takes the result, keeps what it held, or is
-/// zeroed. Without a mask every scalar form writes its element.
-let private maskedScalar (ins: Instruction) bld sz old value =
+/// Computes only the active scalar lane, including any load it needs.
+let private maskedFma ins bld sz old compute =
   match opMaskVar bld ins with
   | ValueNone ->
-    value
+    compute ()
   | ValueSome k ->
     let kept = if ins.IsZeroing then AST.num0 sz else old
-    AST.ite (AST.xtlo 1<rt> k) value kept
+    let active = AST.xtlo 1<rt> k
+#if EMULATION
+    AST.ite active (compute ()) kept
+#else
+    let value = tmpVar bld sz
+    let calculate = label bld "FmaActive"
+    let doneLabel = label bld "FmaDone"
+    append bld {
+      direct value := kept
+      AST.cjmp active (AST.jmpDest calculate) (AST.jmpDest doneLabel)
+      AST.lmark calculate
+      direct value := compute ()
+      AST.lmark doneLabel
+    }
+    value
+#endif
 
 /// The scalar forms work on the low lane and leave the rest of the
 /// destination register as it stood.
@@ -2653,8 +2665,8 @@ let private fmaScalar (ins: Instruction) bld sz order negProduct addend =
       else transOpr64 ins bld false src3
     let low = if sz = 32<rt> then AST.xtlo 32<rt> dstA else dstA
     let tmp = tmpVar bld sz
-    let value = fmaLane sz order negProduct addend 0 low s2 s3
-    direct tmp := maskedScalar ins bld sz low value
+    let compute () = fmaLane bld sz order negProduct addend 0 low s2 s3
+    direct tmp := maskedFma ins bld sz low compute
     direct low := tmp
     fillZeroFromVLToMaxVL bld dst 128<rt> 512
   }
@@ -2674,7 +2686,7 @@ let private fmaPackedPH (ins: Instruction) bld order negProduct addend =
       let x = halfToSingle d[i]
       let y = halfToSingle a[i]
       let z = halfToSingle b[i]
-      singleToHalf bld (fmaLane 32<rt> order negProduct addend i x y z)
+      singleToHalf bld (fmaLane bld 32<rt> order negProduct addend i x y z)
     assignEVEXPacked ins bld 16<rt> oprSize dst (Array.init d.Length lane)
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
@@ -2689,10 +2701,10 @@ let private fmaScalarSH (ins: Instruction) bld order negProduct addend =
     let x = halfToSingle low
     let y = halfToSingle s2
     let z = halfToSingle s3
-    let value = fmaLane 32<rt> order negProduct addend 0 x y z
+    let compute () =
+      fmaLane bld 32<rt> order negProduct addend 0 x y z |> singleToHalf bld
     let tmp = tmpVar bld 16<rt>
-    let half = singleToHalf bld value
-    direct tmp := maskedScalar ins bld 16<rt> low half
+    direct tmp := maskedFma ins bld 16<rt> low compute
     direct low := tmp
     fillZeroFromVLToMaxVL bld dst 128<rt> 512
   }
@@ -2996,7 +3008,7 @@ let private v4fmaPacked (ins: Instruction) bld negProduct =
       for i in 0 .. acc.Length - 1 do
         append bld {
           direct acc[i] :=
-            fmaCall 32<rt> negProduct false a[i] scalars[j] acc[i]
+            fmaValue bld 32<rt> negProduct false a[i] scalars[j] acc[i]
         }
     assignEVEXPacked ins bld 32<rt> oprSize dst acc
     fillZeroFromVLToMaxVL bld dst oprSize 512
@@ -3008,17 +3020,19 @@ let private v4fmaScalar (ins: Instruction) bld negProduct =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let regs = regQuadruple src1
-    let scalars = transOprToArr ins bld true 32<rt> 2 128<rt> src2
     let struct (_dstB, dstA) = transOpr128 ins bld false dst
     let low = AST.xtlo 32<rt> dstA
-    let acc = tmpVar bld 32<rt>
-    direct acc := low
-    for j in 0 .. 3 do
-      let a = transOpr32 ins bld false regs[j]
-      append bld {
-        direct acc := fmaCall 32<rt> negProduct false a scalars[j] acc
-      }
-    direct low := maskedScalar ins bld 32<rt> low acc
+    let compute () =
+      let scalars = transOprToArr ins bld true 32<rt> 2 128<rt> src2
+      let acc = tmpVar bld 32<rt>
+      append bld { direct acc := low }
+      for j in 0 .. 3 do
+        let a = transOpr32 ins bld false regs[j]
+        append bld {
+          direct acc := fmaValue bld 32<rt> negProduct false a scalars[j] acc
+        }
+      acc
+    direct low := maskedFma ins bld 32<rt> low compute
     fillZeroFromVLToMaxVL bld dst 128<rt> 512
   }
 

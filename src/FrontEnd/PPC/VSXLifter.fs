@@ -810,13 +810,6 @@ let maxMinJ isMax lane xs =
   let pick = AST.ite zeroes both (AST.ite ordered x y)
   AST.ite (isNaNOf lane x) x (AST.ite (isNaNOf lane y) y pick)
 
-/// The fused multiply-add of one lane, through the call the scalar forms
-/// make: bit 1 of the flags negates the addend.
-let private fused lane x y z subtract =
-  let f = numU64 (if subtract then 2UL else 0UL) 8<rt>
-  let name = if lane.Width = 32<rt> then "FMA32" else "FMA64"
-  AST.app name [ x; y; z; f ] lane.Width
-
 /// <summary>
 /// One lane of a vector multiply-add. The "a" forms multiply xA by xB and
 /// add xT; the "m" forms multiply xA by xT and add xB. Which NaN comes back
@@ -832,7 +825,7 @@ let mulAddLane bld lane targetIsFactor subtract negate a b t =
   let chosen = quietIfNaN a (quietIfNaN addend (quietOf lane other))
   let noNaN = AST.not (isNaNOf lane a .| isNaNOf lane b .| isNaNOf lane t)
   append bld {
-    res := fused lane x y z subtract
+    res := fpFusedValue bld None subtract (x, y, z)
     res := AST.ite (isNaNOf lane res) (defaultNaNOf lane) res
     res := AST.ite noNaN res chosen
   }

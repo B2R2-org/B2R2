@@ -9,6 +9,7 @@
     <Compile Include="MIPS32ParserTests.fs" />
     <Compile Include="MicroMIPSParserTests.fs" />
     <Compile Include="MicroMIPSR6ParserTests.fs" />
+    <Compile Include="..\ARM32.Tests\ExactFloat.fs" Link="ExactFloat.fs" />
     <Compile Include="IRRunner.fs" />
     <Compile Include="LifterTests.fs" />
     <Compile Include="MicroMIPSR6LifterTests.fs" />

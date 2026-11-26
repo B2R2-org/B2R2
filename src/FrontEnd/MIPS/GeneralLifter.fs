@@ -122,8 +122,8 @@ let private pairedArith op arith (dst, src1, src2) bld =
     sLo := AST.xtlo 32<rt> fs
     tHi := AST.xthi 32<rt> ft
     tLo := AST.xtlo 32<rt> ft
-    hi := op sHi tHi
-    lo := op sLo tLo
+    hi := fpInForce bld (op sHi tHi)
+    lo := fpInForce bld (op sLo tLo)
     fpSettleNaN bld 32<rt> [ sHi; tHi ] hi
     fpSettleNaN bld 32<rt> [ sLo; tLo ] lo
     (* One record for the pair, not one each: the two halves are two
@@ -160,7 +160,7 @@ let add (ins: Instruction) bld =
       let fd, fs, ft = transThreeSingleFP bld (dst, src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
-      result := AST.fadd tSrc1 tSrc2
+      result := fpInForce bld (AST.fadd tSrc1 tSrc2)
       fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPAdd tSrc1 tSrc2 result
       fd := result
@@ -171,7 +171,7 @@ let add (ins: Instruction) bld =
       let fs, ft = transFPConcatTwoOprs bld (src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
-      result := AST.fadd tSrc1 tSrc2
+      result := fpInForce bld (AST.fadd tSrc1 tSrc2)
       fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPAdd tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
@@ -1247,7 +1247,7 @@ let div (ins: Instruction) bld =
       let src1, src2 = transFPConcatTwoOprs bld (fs, ft)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
-      result := AST.fdiv tSrc1 tSrc2
+      result := fpInForce bld (AST.fdiv tSrc1 tSrc2)
       fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPDiv tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
@@ -1256,7 +1256,7 @@ let div (ins: Instruction) bld =
       let dst, src1, src2 = transThreeSingleFP bld (fd, fs, ft)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
-      result := AST.fdiv tSrc1 tSrc2
+      result := fpInForce bld (AST.fdiv tSrc1 tSrc2)
       fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPDiv tSrc1 tSrc2 result
       dst := result
@@ -2133,7 +2133,7 @@ let align ins bld wide =
 /// `compute` is handed the width and the two source values and returns the
 /// result; `readDst` says whether the destination is also an input, which it
 /// is for SEL.fmt and nothing else.
-let private fpR6BinaryWith ins bld readDst compute record =
+let private fpR6BinaryResult ins bld readDst compute =
   lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
@@ -2143,10 +2143,9 @@ let private fpR6BinaryWith ins bld readDst compute record =
       a := fs
       b := ft
       let d = if readDst then fd else a
-      result := compute 32<rt> d a b
       (* Before the destination is written, so a record that reads it sees
          what the instruction read. *)
-      record 32<rt> d a b result
+      compute 32<rt> d a b result
       fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld dst
@@ -2156,10 +2155,14 @@ let private fpR6BinaryWith ins bld readDst compute record =
       a := fs
       b := ft
       if readDst then d := transOprToFPPairConcat bld dst else d := a
-      result := compute 64<rt> d a b
-      record 64<rt> d a b result
+      compute 64<rt> d a b result
       writeFPResult fdB fdA result bld
   }
+
+let private fpR6BinaryWith ins bld readDst compute record =
+  fpR6BinaryResult ins bld readDst (fun sz d a b result ->
+    append bld { result := compute sz d a b }
+    record sz d a b result)
 
 let private fpR6Binary ins bld readDst compute =
   fpR6BinaryWith ins bld readDst compute (fun _ _ _ _ _ -> ())
@@ -2347,10 +2350,15 @@ let fpClass ins bld =
 /// destination, fs and ft in that order.
 /// </summary>
 let private fusedMultiplyAdd add ins bld =
+#if EMULATION
   fpR6BinaryWith ins bld true (fun sz d a b -> fma sz (not add) false a b d)
     (fun sz d a b result ->
       fpSettleNaN bld sz [ d; a; b ] result
       fpExceptionsFused bld sz (not add) a b d result)
+#else
+  fpR6BinaryResult ins bld true (fun sz d a b result ->
+    fpFused bld sz (not add) (a, b, d) result)
+#endif
 
 /// MADDF.fmt: the destination plus the product.
 let maddf ins bld = fusedMultiplyAdd true ins bld
@@ -2720,12 +2728,12 @@ let lui ins bld =
 let private unfusedMulAdd bld sz combine arith addendFirst a b c =
   let struct (product, result) = tmpVars2 bld sz
   append bld {
-    product := AST.fmul a b
+    product := fpInForce bld (AST.fmul a b)
   }
   fpSettleNaN bld sz [ a; b ] product
   let rMul = fpRaised bld sz FPMul a b product
   append bld {
-    result := combine product c
+    result := fpInForce bld (combine product c)
   }
   fpSettleNaN bld sz [ product; c ] result
   let rAdd =
@@ -3063,7 +3071,7 @@ let mul ins bld =
       let dst, fs, ft = transThreeSingleFP bld (dst, src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
-      result := AST.fmul tSrc1 tSrc2
+      result := fpInForce bld (AST.fmul tSrc1 tSrc2)
       fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPMul tSrc1 tSrc2 result
       dst := result
@@ -3072,7 +3080,7 @@ let mul ins bld =
       let fs, ft = transFPConcatTwoOprs bld (src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
-      result := AST.fmul tSrc1 tSrc2
+      result := fpInForce bld (AST.fmul tSrc1 tSrc2)
       fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPMul tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
@@ -3696,7 +3704,8 @@ let sqrt ins bld =
       let fd, fs = transTwoSingleFP bld (fd, fs)
       let cond = fs == numU32 0x80000000u 32<rt>
       let result = tmpVar bld 32<rt>
-      result := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs)
+      let root = fpInForce bld (AST.fsqrt fs)
+      result := AST.ite cond (numU32 0x80000000u 32<rt>) root
       fpSettleNaN bld 32<rt> [ fs ] result
       fpExceptions bld 32<rt> FPSqrt fs fs result
       fd := result
@@ -3705,8 +3714,8 @@ let sqrt ins bld =
       let struct (src, result) = tmpVars2 bld 64<rt>
       src := transOprToFPPairConcat bld fs
       let cond = src == numU64 0x8000000000000000UL 64<rt>
-      result :=
-        AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt src)
+      let root = fpInForce bld (AST.fsqrt src)
+      result := AST.ite cond (numU64 0x8000000000000000UL 64<rt>) root
       fpSettleNaN bld 64<rt> [ src ] result
       fpExceptions bld 64<rt> FPSqrt src src result
       writeFPResult fdB fdA result bld
@@ -3860,8 +3869,8 @@ let private pairedSub (dst, src1, src2) bld =
     hiB := AST.xthi 32<rt> ft
     loA := AST.xtlo 32<rt> fs
     loB := AST.xtlo 32<rt> ft
-    hi := AST.fsub hiA hiB
-    lo := AST.fsub loA loB
+    hi := fpInForce bld (AST.fsub hiA hiB)
+    lo := fpInForce bld (AST.fsub loA loB)
     fpSettleNaN bld 32<rt> [ hiA; hiB ] hi
     fpSettleNaN bld 32<rt> [ loA; loB ] lo
     (* One record for the pair: see the note in pairedArith. *)
@@ -3903,7 +3912,7 @@ let sub ins bld =
       let dst, fs, ft = transThreeSingleFP bld (dst, src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
-      result := AST.fsub tSrc1 tSrc2
+      result := fpInForce bld (AST.fsub tSrc1 tSrc2)
       fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPSub tSrc1 tSrc2 result
       dst := result
@@ -3912,7 +3921,7 @@ let sub ins bld =
       let fs, ft = transFPConcatTwoOprs bld (src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
-      result := AST.fsub tSrc1 tSrc2
+      result := fpInForce bld (AST.fsub tSrc1 tSrc2)
       fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPSub tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
@@ -4152,7 +4161,7 @@ let private reciprocalOf bld sz root a =
     else numU64 0x3ff0000000000000UL sz
   let struct (divisor, result) = tmpVars2 bld sz
   append bld {
-    divisor := if root then AST.fsqrt a else a
+    divisor := if root then fpInForce bld (AST.fsqrt a) else a
   }
   let rootRaised =
     if root then
@@ -4161,7 +4170,7 @@ let private reciprocalOf bld sz root a =
     else
       AST.num0 32<rt>
   append bld {
-    result := AST.fdiv one divisor
+    result := fpInForce bld (AST.fdiv one divisor)
   }
   fpSettleNaN bld sz [ one; divisor ] result
   fpRecord bld (rootRaised .| fpRaised bld sz FPDiv one divisor result)

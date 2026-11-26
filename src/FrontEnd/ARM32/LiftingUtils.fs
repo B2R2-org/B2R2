@@ -775,6 +775,7 @@ let writeModeBits bld value isExcptReturn =
     regVar bld R.CPSR := disablePSRBits bld R.CPSR PSR.M .| mValue
   }
 
+#if EMULATION
 /// <summary>
 /// A fused multiply-add: <c>x * y + z</c> with a SINGLE rounding.
 ///
@@ -804,3 +805,11 @@ let fma sz negProduct negAddend x y z =
     | 64<rt> -> "FMA64"
     | _ -> raise InvalidRegTypeException
   AST.app name args sz
+#else
+/// The AArch32 FPSCR rounding field mapped to LowUIR's encoding.
+let fpRounding field =
+  FloatingPointIR.rounding field
+    [ 1, RoundingMode.TowardPositive
+      2, RoundingMode.TowardNegative
+      3, RoundingMode.TowardZero ]
+#endif
