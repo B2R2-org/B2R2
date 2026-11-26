@@ -37,8 +37,8 @@ type LowUIRBuilderTests() =
     let hdl = BinHandle.LoadEmpty(ISA(arch: Architecture))
     ArchSupport.createBuilder hdl.ISA hdl.RegisterFactory
 
-  (* Leave the next instruction looking like a delay slot or an instruction
-     whose nullification guard can be omitted, as a previous region might. *)
+  (* Leave the next instruction looking like a delay slot or one that the
+     instruction before nullifies, as a previous region might. *)
   let leavePendingState (builder: ILowUIRBuilder) =
     match builder with
     | :? MIPS.LowUIRBuilder as bld ->
@@ -51,8 +51,7 @@ type LowUIRBuilderTests() =
       let gr1 = PARISC.Register.toRegID PARISC.Register.GR1
       bld.InDelaySlot <- true
       bld.Defer(gr1, AST.tmpvar 32<rt> 1)
-      bld.PrevEnd <- ValueSome 0UL
-      bld.PrevMayNullify <- false
+      bld.Skip <- ValueSome AST.b1
     | _ ->
       ()
 

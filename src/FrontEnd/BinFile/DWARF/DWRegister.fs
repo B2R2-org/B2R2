@@ -220,6 +220,25 @@ let private toAlphaRegister (n: byte) =
   | n when n <= 64 -> Alpha.Register.toRegID (EnumOfValue n)
   | _ -> Terminator.futureFeature ()
 
+/// Gives the PA-RISC register the given number of places past the given one.
+let private pariscRegisterPast (first: PARISC.Register) places =
+  PARISC.Register.toRegID (EnumOfValue(int first + places))
+
+/// Gives the half of fr4 to fr31 that the given one of the 56 numbers from 72
+/// names, the left half of each before its right one.
+let private pariscFPRAt i =
+  let half = if i % 2 = 0 then PARISC.Register.FPR0L else PARISC.Register.FPR0R
+  pariscRegisterPast half (4 + i / 2)
+
+/// Maps the numbers that GCC gives 32-bit PA-RISC registers in .eh_frame: r0
+/// to r31 as they are, SAR at 32, and from 72 the halves of fr4 to fr31.
+let private toPARISCRegister (n: byte) =
+  match int n with
+  | n when n < 32 -> PARISC.Register.toRegID (EnumOfValue n)
+  | 32 -> PARISC.Register.toRegID PARISC.Register.CR11
+  | n when n >= 72 && n < 128 -> pariscFPRAt (n - 72)
+  | _ -> Terminator.futureFeature ()
+
 let toRegID isa regnum =
   match isa with
   | X86 -> toIntelx86Register regnum
@@ -232,6 +251,7 @@ let toRegID isa regnum =
   | M68K -> toM68KRegister regnum
   | S390 -> toS390Register regnum
   | Alpha -> toAlphaRegister regnum
+  | PARISC -> toPARISCRegister regnum
   | _ -> Terminator.futureFeature ()
 
 let toRegisterExpr isa (regFactory: IRegisterFactory) regnum =

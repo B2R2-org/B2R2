@@ -59,6 +59,154 @@ type Instruction
   let hasDelaySlot () =
     isTransfer () && not (isUnconditional () && cond = Some Completer.N)
 
+  let isCondTransfer () = isTransfer () && not (isUnconditional ())
+
+  let isNever c = c = Completer.NEVER || c = Completer.DNEVER
+
+  (* The condition on which an instruction nullifies the one after it, the way
+     the lifter has it do: CMPICLR keeps it with its completers, the others in
+     the condition slot. *)
+  let tryGetNullifyingCond () =
+    match op with
+    | Opcode.CMPICLR ->
+      match (completer: Completer array option) with
+      | Some cs when cs.Length > 0 && not (isNever cs[0]) -> ValueSome cs[0]
+      | _ -> ValueNone
+    | Opcode.ADD | Opcode.ADDI | Opcode.SHLADD | Opcode.SUB | Opcode.SUBI
+    | Opcode.CMPCLR | Opcode.DS | Opcode.AND | Opcode.ANDCM | Opcode.OR
+    | Opcode.XOR | Opcode.UXOR | Opcode.UADDCM | Opcode.SHRPW | Opcode.SHRPD
+    | Opcode.EXTRW | Opcode.EXTRD | Opcode.DEPW | Opcode.DEPWI | Opcode.DEPD
+    | Opcode.DEPDI ->
+      match cond with
+      | Some c when not (isNever c) -> ValueSome c
+      | _ -> ValueNone
+    | _ ->
+      ValueNone
+
+  (* FTEST nullifies the next instruction where the last comparison set the
+     compare bit. *)
+  let nullifiesNext () =
+    op = Opcode.FTEST || ValueOption.isSome (tryGetNullifyingCond ())
+
+  let alwaysNullifies () =
+    match tryGetNullifyingCond () with
+    | ValueSome c -> c = Completer.TR || c = Completer.DTR
+    | ValueNone -> false
+
+  (* The lifter has an instruction that nullifies the next one branch past
+     that one, which is a branch like any other to a client. *)
+  let isCondBranch () =
+    isCondTransfer () || (nullifiesNext () && not (alwaysNullifies ()))
+
+  (* The decoder has already counted the displacement of a branch from eight
+     past the branch, where PA-RISC counts it from. *)
+  let tryGetDisplacement () =
+    match op, opr with
+    | Opcode.B, TwoOperands(OpImm imm, _) -> ValueSome imm
+    | _, ThreeOperands(_, _, OpImm imm) when isCondTransfer () -> ValueSome imm
+    | _ when nullifiesNext () -> ValueSome 8UL
+    | _ -> ValueNone
+
+  let tryGetTarget () =
+    let mask =
+      if wordSize = WordSize.Bit32 then 0xFFFFFFFFUL else System.UInt64.MaxValue
+    tryGetDisplacement ()
+    |> ValueOption.map (fun imm -> (addr + imm) &&& mask)
+
+  let hasCompleter c =
+    match completer with
+    | Some cs -> Array.contains c cs
+    | None -> false
+
+  (* The register a transfer leaves the address past its delay slot in, which
+     GR0 discards: B and BLR name it, BE,L links GR31 and BVE,L GR2. *)
+  let linkRegister () =
+    match op, opr with
+    | Opcode.B, TwoOperands(_, OpReg r)
+    | Opcode.BLR, TwoOperands(_, OpReg r) -> r
+    | Opcode.BE, _ when hasCompleter Completer.L -> Register.GR31
+    | Opcode.BVE, _ when hasCompleter Completer.L -> Register.GR2
+    | _ -> Register.GR0
+
+  (* BE to one of the three services of the gateway page of Linux, which
+     return past the delay slot, as a system call does. *)
+  let isService () =
+    let isGateway d = d = 0xb0L || d = 0xe0L || d = 0x100L
+    match op, opr with
+    | Opcode.BE, OneOperand(OpMem(Register.GR0, _, Some(Imm d), _)) ->
+      isGateway d
+    | Opcode.BE, ThreeOperands(OpMem(Register.GR0, _, Some(Imm d), _), _, _) ->
+      isGateway d
+    | _ ->
+      false
+
+  (* B that links and goes right past its delay slot, where a callee would
+     return to, reads the address it runs at, as PIC code does to find a jump
+     table, rather than calls. *)
+  let readsPC () = op = Opcode.B && tryGetDisplacement () = ValueSome 8UL
+
+  let isCall () =
+    linkRegister () <> Register.GR0 && not (isService () || readsPC ())
+
+  (* The privileged instructions that user code reaches only to raise the
+     illegal-instruction trap, which GCC plants for __builtin_trap. *)
+  let isExit () =
+    match op with
+    | Opcode.IITLBA | Opcode.IITLBP | Opcode.IDTLBA | Opcode.IDTLBP
+    | Opcode.LCI | Opcode.LPA -> true
+    | _ -> false
+
+  (* Where a conditional branch goes on when it is not taken: past its delay
+     slot, unless the slot holds another transfer, which then runs on its own
+     at its own address, as the lifter has it. An untaken backward branch that
+     nullifies skips such a slot all the same. *)
+  let fallThrough () =
+    match delaySlot with
+    | Some slot when slot.IsTransfer ->
+      let backward =
+        match tryGetDisplacement () with
+        | ValueSome imm -> int64 (imm - 8UL) < 0L
+        | ValueNone -> false
+      if cond = Some Completer.N && backward then addr + 8UL else addr + 4UL
+    | _ ->
+      addr + 8UL
+
+  let withTarget nexts =
+    match tryGetTarget () with
+    | ValueSome target -> Array.append nexts [| target |]
+    | ValueNone -> nexts
+
+  (* A delay slot that nullifies the next instruction passes over the one the
+     transfer goes on to, wherever that is, and a call returns past its slot
+     all the same. *)
+  let skippedBySlot (nexts: Addr[]) =
+    match delaySlot with
+    | Some slot when slot.NullifiesNext ->
+      nexts |> Array.collect (fun next -> [| next; next + 4UL |])
+    | _ ->
+      nexts
+
+  let transferNexts () =
+    if isCall () then
+      Array.append [| addr + 8UL |] (skippedBySlot (withTarget [||]))
+    elif isCondTransfer () then
+      skippedBySlot (withTarget [| fallThrough () |])
+    else
+      skippedBySlot (withTarget [||])
+
+  let isNop () =
+    let r0 = OpReg Register.GR0
+    op = Opcode.OR
+    && opr = ThreeOperands(r0, r0, r0)
+    && (Option.isNone cond || cond = Some Completer.NEVER)
+
+  let tryImmediate () =
+    match opr with
+    | OneOperand(OpImm v)
+    | TwoOperands(OpImm v, _)
+    | ThreeOperands(OpImm v, _, _) -> Some(int64 v)
+    | _ -> None
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -102,6 +250,10 @@ type Instruction
     with get(): Instruction option = delaySlot
      and internal set v = delaySlot <- v
 
+  /// Whether this instruction nullifies the next one where its condition
+  /// holds, which the lifter has it do by a branch past that one.
+  member internal _.NullifiesNext with get(): bool = nullifiesNext ()
+
   /// Lifts this instruction into the given builder, as a transfer does the
   /// instruction in its delay slot.
   member internal this.LiftInto(builder: LowUIRBuilder) =
@@ -118,49 +270,79 @@ type Instruction
       | Some slot -> numBytes + slot.Length
       | None -> numBytes
 
+    (* A service of the gateway page returns past its delay slot, as a system
+       call does, rather than branches, and an instruction that nullifies the
+       next one branches past it. *)
     member _.IsBranch =
-      match op with
-      | _ -> false
+      (isTransfer () && not (isService ())) || nullifiesNext ()
 
     member _.IsModeChanging = false
 
-    member _.IsDirectBranch = Terminator.futureFeature ()
+    member _.IsDirectBranch = tryGetTarget () |> ValueOption.isSome
 
-    member _.IsIndirectBranch = Terminator.futureFeature ()
+    member _.IsIndirectBranch =
+      isTransfer () && not (isService ())
+      && (tryGetTarget () |> ValueOption.isNone)
 
-    member _.IsCondBranch = Terminator.futureFeature ()
+    member _.IsCondBranch = isCondBranch ()
 
-    member _.IsCJmpOnTrue = Terminator.futureFeature ()
+    (* The lifter puts the target of every conditional branch on the side
+       that its condition holds. *)
+    member _.IsCJmpOnTrue = isCondBranch ()
 
-    member _.IsCall = Terminator.futureFeature ()
+    member _.IsCall = isCall ()
 
-    member _.IsRET = Terminator.futureFeature ()
+    (* PA-RISC has no return instruction: a procedure returns by BV through
+       GR2, where a call leaves the address to return to, but GCC jumps
+       through a table by way of GR2 as well, so only what GR2 holds tells. *)
+    member _.IsRET = false
 
-    member _.IsPush = Terminator.futureFeature ()
+    member _.IsPush = false
 
-    member _.IsPop = Terminator.futureFeature ()
+    member _.IsPop = false
 
-    member _.IsInterrupt = Terminator.futureFeature ()
+    member _.IsInterrupt = isService ()
 
-    member _.IsExit = Terminator.futureFeature ()
+    member _.IsExit = isExit ()
 
-    member _.IsNop = Terminator.futureFeature ()
+    member _.IsNop = isNop ()
 
     member _.IsInlinedAssembly = false
 
-    member _.IsTerminator _ = isTransfer ()
+    (* A transfer carries its delay slot, so it ends the block itself, and an
+       instruction that nullifies the next one branches past it. *)
+    member _.IsTerminator _ = isTransfer () || isExit () || nullifiesNext ()
 
-    member _.DirectBranchTarget(_addr: byref<Addr>) =
-      Terminator.futureFeature ()
+    member _.DirectBranchTarget(target: byref<Addr>) =
+      match tryGetTarget () with
+      | ValueSome t ->
+        target <- t
+        true
+      | ValueNone ->
+        false
 
-    member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
-      Terminator.futureFeature ()
+    member _.IndirectTrampolineAddr(_addr: byref<Addr>) = false
 
     member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 
-    member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
+    (* The immediate of an instruction, which no transfer has: a branch holds
+       a displacement, and a return pops nothing off the stack. *)
+    member _.Immediate(v: byref<int64>) =
+      let imm = if isTransfer () then None else tryImmediate ()
+      match imm with
+      | Some c ->
+        v <- c
+        true
+      | None ->
+        false
 
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() =
+      if isExit () then [||]
+      elif isService () then [| addr + 8UL |]
+      elif isTransfer () then transferNexts ()
+      elif alwaysNullifies () then [| addr + 8UL |]
+      elif nullifiesNext () then [| addr + 4UL; addr + 8UL |]
+      else [| addr + 4UL |]
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 

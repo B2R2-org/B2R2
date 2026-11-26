@@ -69,6 +69,10 @@ let [<Literal>] Fini = ".fini"
 /// descriptor records, one for each function: ".pdr".
 let [<Literal>] PDR = ".pdr"
 
+/// Represents the name of the section that contains the PA-RISC unwind table,
+/// one entry for each function, millicode included: ".PARISC.unwind".
+let [<Literal>] PARISCUnwind = ".PARISC.unwind"
+
 /// Represents the name of the section that contains the descriptors of the
 /// functions of 64-bit PowerPC code under ELFv1, which a symbol of a function
 /// names in place of its code: ".opd".

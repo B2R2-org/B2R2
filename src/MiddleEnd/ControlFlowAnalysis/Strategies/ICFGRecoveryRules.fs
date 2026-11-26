@@ -132,6 +132,15 @@ type internal ICFGRecoveryRules<'FnCtx, 'GlCtx> =
     * IVertex<LowUIRBasicBlock>
     -> bool
 
+  /// Finds the address that the indirect jump that ends the given vertex
+  /// returns to, if the jump calls a function, as code does that leaves the
+  /// address to return to in the link register itself before it jumps.
+  /// Returns None when the jump calls no function.
+  abstract TryFindReturnOfJump:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    * IVertex<LowUIRBasicBlock>
+    -> Addr option
+
   /// Checks if the code past the direct call that ends the given vertex
   /// refutes that the call returns there, whatever its callee does, as no code
   /// that a call returns to reads as that code does.

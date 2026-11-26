@@ -1370,6 +1370,19 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, hasEntry "elf_mips64" 0x120000a60UL)
 
   [<TestMethod>]
+  member _.``[ELF] PA-RISC unwind function addresses test``() =
+    (* The unwind table holds an entry for each function, millicode such as
+       $$dyncall included, which counts its start from the segment that the
+       table lies in, 0x10000 in the plain image, and strip keeps it, so main
+       still has its entry once .symtab is gone. *)
+    let hasEntry fileName addr =
+      let file = parseStrippedBigEndian fileName :> IBinFile
+      file.Structure.Value.FunctionAddresses.Contains addr
+    Assert.AreEqual<bool>(true, hasEntry "elf_parisc" 0x105a0UL)
+    Assert.AreEqual<bool>(true, hasEntry "elf_parisc" 0x105f8UL)
+    Assert.AreEqual<bool>(true, hasEntry "elf_parisc_so" 0x644UL)
+
+  [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =
     (* Both the site and the value it resolves to shift with the load base. *)
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value

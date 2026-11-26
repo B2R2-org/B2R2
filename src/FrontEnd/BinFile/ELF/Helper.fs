@@ -190,6 +190,46 @@ let private getAddrsFromPDR toolBox shdrs =
   | _ ->
     [||]
 
+/// Returns the address of the segment that the given section lies in, which
+/// the PA-RISC unwind table counts the addresses of its entries from.
+let private tryFindSegmentBase phdrs (sec: SectionHeader) =
+  phdrs
+  |> Array.tryFind (fun ph ->
+    ph.PHType = ProgramHeaderType.PT_LOAD
+    && ph.PHAddr <= sec.SecAddr
+    && sec.SecAddr + sec.SecSize <= ph.PHAddr + ph.PHMemSize)
+  |> Option.map _.PHAddr
+
+/// Reads the first word of each 16-byte entry of the given unwind table, which
+/// holds the start of a region of code, as an offset from the given base.
+let private readUnwindStarts toolBox (sec: SectionHeader) (segBase: Addr) =
+  let bytes = toolBox.Bytes
+  if sec.SecOffset + sec.SecSize > uint64 bytes.Length then
+    [||]
+  else
+    let start = int sec.SecOffset
+    [| for ofs in start .. 16 .. start + int sec.SecSize - 16 do
+         segBase + uint64 (toolBox.Reader.ReadUInt32(bytes, ofs)) |]
+
+/// Returns the function addresses that the PA-RISC unwind table holds. GCC
+/// emits an entry for each function, as the stack unwinds by the table
+/// rather than by call frame information, and so does the assembler for
+/// millicode, such as $$dyncall, and strip keeps the section, so it tells
+/// where the functions of a stripped binary start.
+let private getAddrsFromPARISCUnwind toolBox shdrs phdrs =
+  let isCode addr =
+    shdrs
+    |> Array.exists (fun s ->
+      s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
+      && s.SecAddr <= addr && addr < s.SecAddr + s.SecSize)
+  match Array.tryFind (fun s -> s.SecName = Section.PARISCUnwind) shdrs with
+  | Some sec when toolBox.Header.MachineType = MachineType.EM_PARISC ->
+    match tryFindSegmentBase phdrs sec with
+    | Some segAt -> readUnwindStarts toolBox sec segAt |> Array.filter isCode
+    | None -> [||]
+  | _ ->
+    [||]
+
 /// Returns the .opd section of the given file, if it calls its functions
 /// through the descriptors there, as 64-bit PowerPC code under ELFv1 does.
 let tryFindOPD (hdr: Header) shdrs =
@@ -228,13 +268,14 @@ let private getAddrsFromOPD toolBox shdrs relocInfo =
   | None ->
     [||]
 
-let findExtraFnAddrs toolBox shdrs relocInfo =
+let findExtraFnAddrs toolBox shdrs phdrs relocInfo =
   let fromArray = getAddrsFromFuncArray toolBox shdrs relocInfo
   [ fromArray Section.PreinitArray
     fromArray Section.InitArray
     fromArray Section.FiniArray
     getAddrsFromSpecialSections shdrs
     getAddrsFromPDR toolBox shdrs
+    getAddrsFromPARISCUnwind toolBox shdrs phdrs
     getAddrsFromOPD toolBox shdrs relocInfo ]
   |> Array.concat
 
