@@ -55,7 +55,8 @@ module private PARISCCFGRecoveryRules =
     stmts
     |> Array.tryPick (fun (stmt, pp) ->
       match stmt with
-      | Put(Dst = dst; Src = BinOp(Op = BinOpType.AND; Left = e; Right = Num m))
+      | Put(Dst = dst
+            Src = BinOp(Op = BinOpType.AND; Left = e; Right = Num(Value = m)))
         when dst = target && m.ToUInt64() &&& 0xffffffffUL = 0xfffffffcUL ->
         Some(e, pp)
       | _ ->
